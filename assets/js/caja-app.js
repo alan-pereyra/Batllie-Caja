@@ -217,14 +217,8 @@
                 },
                 success: function(res) {
                     if (res.success) {
-                        $('#caja-auth-view').hide();
-                        $('#caja-main-view').fadeIn(200);
-                        if (res.data && res.data.user) {
-                            $('#caja-user-display').text(res.data.user.name);
-                        }
-                        self.config.isUserLoggedIn = true;
-                        self.initDashboard();
-                        self.showToast('Bienvenido a la terminal de caja');
+                        $btn.find('.caja-btn-text').text('Acceso concedido...');
+                        window.location.reload();
                     } else {
                         $err.text(res.data && res.data.message ? res.data.message : 'Error al iniciar sesión.').fadeIn(150);
                     }
@@ -253,11 +247,8 @@
                     action: 'emp_caja_logout',
                     security: self.config.nonce
                 },
-                success: function() {
-                    $('#caja-main-view').hide();
-                    $('#caja-auth-view').fadeIn(200);
-                    $('#caja-login-form')[0].reset();
-                    self.config.isUserLoggedIn = false;
+                success: function(res) {
+                    window.location.reload();
                 }
             });
         },

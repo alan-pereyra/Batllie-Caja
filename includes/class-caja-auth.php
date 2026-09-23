@@ -50,6 +50,7 @@ class Batllie_Caja_Auth {
 
         wp_send_json_success(array(
             'message'  => __('Inicio de sesión exitoso.', 'emp-caja'),
+            'nonce'    => wp_create_nonce('batllie_caja_nonce'),
             'user'     => array(
                 'name'  => $user->display_name,
                 'email' => $user->user_email
@@ -64,7 +65,8 @@ class Batllie_Caja_Auth {
         check_ajax_referer('batllie_caja_nonce', 'security');
         wp_logout();
         wp_send_json_success(array(
-            'message' => __('Sesión finalizada.', 'emp-caja')
+            'message' => __('Sesión finalizada.', 'emp-caja'),
+            'nonce'   => wp_create_nonce('batllie_caja_nonce')
         ));
     }
 
