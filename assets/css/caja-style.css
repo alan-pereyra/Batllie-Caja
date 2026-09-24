@@ -520,63 +520,62 @@ body.admin-bar.batllie-caja-active {
 
 .caja-filter-bar {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 15px;
+    flex-direction: column;
+    gap: 12px;
     margin-bottom: 22px;
+    width: 100%;
 }
 
-.caja-status-filters {
+.caja-top-filters-grid {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
+    gap: 12px;
+    width: 100%;
 }
 
-.caja-filter-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background: var(--caja-card-bg);
-    border: 1px solid var(--caja-card-border);
-    color: var(--caja-text-muted);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.88rem;
+.caja-filter-select-col {
+    flex: 1 1 50%;
+    min-width: 0;
+}
+
+.caja-select-filter {
+    width: 100%;
+    height: 46px;
+    background-color: var(--caja-card-bg, #1e293b);
+    color: var(--caja-text, #ffffff);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 8px;
+    padding: 0 36px 0 14px;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
 }
 
-.caja-filter-btn:hover {
-    color: var(--caja-text);
-    border-color: rgba(255, 255, 255, 0.2);
+.caja-select-filter:focus {
+    border-color: var(--caja-primary, #10b981);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    outline: none;
 }
 
-.caja-filter-btn.active {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--caja-text);
-    border-color: var(--caja-primary);
+.caja-select-filter option {
+    background-color: #1e293b;
+    color: #ffffff;
+    padding: 10px;
 }
 
-.caja-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
-
-.dot-pending { background: var(--caja-status-pending); }
-.dot-processing { background: var(--caja-status-processing); }
-.dot-completed { background: var(--caja-status-completed); }
-.dot-cancelled { background: var(--caja-status-cancelled); }
-.dot-shipping-waiting { background: #a855f7; }
-.dot-shipping-sending { background: #06b6d4; }
-
-.caja-filter-right {
+.caja-search-row {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
 }
 
 .caja-search-box {
@@ -658,26 +657,46 @@ body.admin-bar.batllie-caja-active {
 
 .caja-badge-pending {
     background: rgba(245, 158, 11, 0.15);
-    color: var(--caja-status-pending);
-    border: 1px solid var(--caja-status-pending);
+    color: var(--caja-status-pending, #f59e0b);
+    border: 1px solid var(--caja-status-pending, #f59e0b);
 }
 
 .caja-badge-processing {
     background: rgba(59, 130, 246, 0.15);
-    color: var(--caja-status-processing);
-    border: 1px solid var(--caja-status-processing);
+    color: var(--caja-status-processing, #3b82f6);
+    border: 1px solid var(--caja-status-processing, #3b82f6);
+}
+
+.caja-badge-enviando,
+.caja-badge-on-hold {
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--caja-status-enviando, #8b5cf6);
+    border: 1px solid var(--caja-status-enviando, #8b5cf6);
 }
 
 .caja-badge-completed {
     background: rgba(16, 185, 129, 0.15);
-    color: var(--caja-status-completed);
-    border: 1px solid var(--caja-status-completed);
+    color: var(--caja-status-completed, #10b981);
+    border: 1px solid var(--caja-status-completed, #10b981);
+}
+
+.caja-badge-recibido-problema,
+.caja-badge-failed {
+    background: rgba(234, 88, 12, 0.15);
+    color: var(--caja-status-recibido-problema, #ea580c);
+    border: 1px solid var(--caja-status-recibido-problema, #ea580c);
 }
 
 .caja-badge-cancelled {
     background: rgba(239, 68, 68, 0.15);
-    color: var(--caja-status-cancelled);
-    border: 1px solid var(--caja-status-cancelled);
+    color: var(--caja-status-cancelled, #ef4444);
+    border: 1px solid var(--caja-status-cancelled, #ef4444);
+}
+
+.caja-badge-refunded {
+    background: rgba(100, 116, 139, 0.15);
+    color: var(--caja-status-refunded, #64748b);
+    border: 1px solid var(--caja-status-refunded, #64748b);
 }
 
 /* Cliente */
@@ -876,15 +895,88 @@ body.admin-bar.batllie-caja-active {
     border-color: var(--caja-primary);
 }
 
-/* Nota */
-.caja-order-note {
-    background: rgba(245, 158, 11, 0.1);
-    border-left: 3px solid var(--caja-status-pending);
-    padding: 8px 10px;
-    border-radius: 0 6px 6px 0;
+/* Sección de Aclaraciones / Notas */
+.caja-order-note-block {
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid var(--caja-card-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+.caja-note-label-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.caja-note-icon {
+    font-size: 0.95rem;
+}
+
+.caja-note-title {
     font-size: 0.82rem;
-    color: #fde68a;
-    margin-bottom: 14px;
+    font-weight: 700;
+    color: var(--caja-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.caja-note-field-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.caja-order-note-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--caja-card-border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+    color: var(--caja-text);
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+}
+
+.caja-order-note-textarea:focus {
+    border-color: var(--caja-primary);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.caja-note-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.caja-btn-save-note {
+    background: var(--caja-primary);
+    color: var(--caja-btn-text, #ffffff);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.caja-btn-save-note:hover {
+    filter: brightness(1.1);
+}
+
+.caja-note-saved-msg {
+    font-size: 0.8rem;
+    color: var(--caja-primary);
+    font-weight: 600;
 }
 
 /* Footer de tarjeta */
@@ -959,49 +1051,59 @@ body.admin-bar.batllie-caja-active {
 
 /* Colores dinámicos según el estado del pedido */
 .caja-main-status-dropdown.status-bg-pending {
-    background-color: var(--caja-status-pending) !important;
-    color: #000000 !important;
+    background-color: var(--caja-status-pending, #f59e0b) !important;
+    color: #ffffff !important;
 }
 .caja-main-status-dropdown.status-bg-pending + .caja-dropdown-arrow {
-    color: #000000 !important;
+    color: #ffffff !important;
 }
 
 .caja-main-status-dropdown.status-bg-processing {
-    background-color: var(--caja-status-processing) !important;
+    background-color: var(--caja-status-processing, #3b82f6) !important;
     color: #ffffff !important;
 }
 .caja-main-status-dropdown.status-bg-processing + .caja-dropdown-arrow {
     color: #ffffff !important;
 }
 
+.caja-main-status-dropdown.status-bg-enviando,
+.caja-main-status-dropdown.status-bg-on-hold {
+    background-color: var(--caja-status-enviando, #8b5cf6) !important;
+    color: #ffffff !important;
+}
+.caja-main-status-dropdown.status-bg-enviando + .caja-dropdown-arrow,
+.caja-main-status-dropdown.status-bg-on-hold + .caja-dropdown-arrow {
+    color: #ffffff !important;
+}
+
 .caja-main-status-dropdown.status-bg-completed {
-    background-color: var(--caja-status-completed) !important;
+    background-color: var(--caja-status-completed, #10b981) !important;
     color: #ffffff !important;
 }
 .caja-main-status-dropdown.status-bg-completed + .caja-dropdown-arrow {
     color: #ffffff !important;
 }
 
-.caja-main-status-dropdown.status-bg-cancelled,
+.caja-main-status-dropdown.status-bg-recibido-problema,
 .caja-main-status-dropdown.status-bg-failed {
-    background-color: var(--caja-status-cancelled) !important;
+    background-color: var(--caja-status-recibido-problema, #ea580c) !important;
     color: #ffffff !important;
 }
-.caja-main-status-dropdown.status-bg-cancelled + .caja-dropdown-arrow,
+.caja-main-status-dropdown.status-bg-recibido-problema + .caja-dropdown-arrow,
 .caja-main-status-dropdown.status-bg-failed + .caja-dropdown-arrow {
     color: #ffffff !important;
 }
 
-.caja-main-status-dropdown.status-bg-on-hold {
-    background-color: #8b5cf6 !important;
+.caja-main-status-dropdown.status-bg-cancelled {
+    background-color: var(--caja-status-cancelled, #ef4444) !important;
     color: #ffffff !important;
 }
-.caja-main-status-dropdown.status-bg-on-hold + .caja-dropdown-arrow {
+.caja-main-status-dropdown.status-bg-cancelled + .caja-dropdown-arrow {
     color: #ffffff !important;
 }
 
 .caja-main-status-dropdown.status-bg-refunded {
-    background-color: #64748b !important;
+    background-color: var(--caja-status-refunded, #64748b) !important;
     color: #ffffff !important;
 }
 .caja-main-status-dropdown.status-bg-refunded + .caja-dropdown-arrow {

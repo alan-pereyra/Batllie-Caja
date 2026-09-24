@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.0.0');
+define('EMP_CAJA_VERSION', '1.1.0');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -43,6 +43,8 @@ class Batllie_Caja_Plugin {
 
         // Hooks principales
         add_action('plugins_loaded', array($this, 'init'));
+        add_action('init', array('Batllie_Caja_Orders', 'register_custom_order_statuses'));
+        add_filter('wc_order_statuses', array('Batllie_Caja_Orders', 'add_custom_order_statuses'));
         add_action('template_redirect', array($this, 'hide_admin_bar_on_caja'));
         add_action('wp_enqueue_scripts', array($this, 'register_assets'));
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
@@ -98,22 +100,25 @@ class Batllie_Caja_Plugin {
      */
     public static function get_color_settings() {
         $defaults = array(
-            'bg_color'          => '#0f172a', // Fondo general oscuro
-            'header_bg'         => '#1e293b', // Cabecera / barra superior
-            'card_bg'           => '#1e293b', // Fondo de tarjetas de pedidos
-            'card_border'       => '#334155', // Bordes de tarjetas
-            'text_color'        => '#f8fafc', // Color texto principal
-            'text_muted'        => '#94a3b8', // Color texto secundario
-            'primary_color'     => '#10b981', // Color acento / esmeralda
-            'primary_hover'     => '#059669', // Hover botón primario
-            'btn_text'          => '#ffffff', // Texto de botones
-            'status_pending'    => '#f59e0b', // Pendiente (ámbar)
-            'status_processing' => '#3b82f6', // En preparación (azul)
-            'status_completed'  => '#10b981', // Listo/Completado (verde)
-            'status_cancelled'  => '#ef4444', // Cancelado (rojo)
-            'poll_interval'     => 10,        // Segundos de sondeo
-            'sound_enabled'     => 'yes',     // Sonido activo por defecto
-            'force_isolated'    => 'yes'      // Ocultar cabeceras y pie del tema en la vista
+            'bg_color'                  => '#0f172a', // Fondo general oscuro
+            'header_bg'                 => '#1e293b', // Cabecera / barra superior
+            'card_bg'                   => '#1e293b', // Fondo de tarjetas de pedidos
+            'card_border'               => '#334155', // Bordes de tarjetas
+            'text_color'                => '#f8fafc', // Color texto principal
+            'text_muted'                => '#94a3b8', // Color texto secundario
+            'primary_color'             => '#10b981', // Color acento / esmeralda
+            'primary_hover'             => '#059669', // Hover botón primario
+            'btn_text'                  => '#ffffff', // Texto de botones
+            'status_pending'            => '#f59e0b', // 1. Pendiente (ámbar)
+            'status_processing'         => '#3b82f6', // 2. En preparación (azul)
+            'status_enviando'           => '#8b5cf6', // 3. Enviando (violeta)
+            'status_completed'          => '#10b981', // 4. Recibido (verde)
+            'status_recibido_problema'  => '#ea580c', // 5. Recibido con inconvenientes (naranja)
+            'status_cancelled'          => '#ef4444', // 6. Cancelado (rojo)
+            'status_refunded'           => '#64748b', // 7. Reembolzado (gris pizarra)
+            'poll_interval'             => 10,        // Segundos de sondeo
+            'sound_enabled'             => 'yes',     // Sonido activo por defecto
+            'force_isolated'            => 'yes'      // Ocultar cabeceras y pie del tema en la vista
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -177,8 +182,11 @@ class Batllie_Caja_Plugin {
             --caja-btn-text: {$options['btn_text']};
             --caja-status-pending: {$options['status_pending']};
             --caja-status-processing: {$options['status_processing']};
+            --caja-status-enviando: {$options['status_enviando']};
             --caja-status-completed: {$options['status_completed']};
+            --caja-status-recibido-problema: {$options['status_recibido_problema']};
             --caja-status-cancelled: {$options['status_cancelled']};
+            --caja-status-refunded: {$options['status_refunded']};
         }";
 
         // Ocultar barra superior de WordPress (Admin Bar)
@@ -296,7 +304,8 @@ class Batllie_Caja_Plugin {
             'bg_color', 'header_bg', 'card_bg', 'card_border', 
             'text_color', 'text_muted', 'primary_color', 'primary_hover', 
             'btn_text', 'status_pending', 'status_processing', 
-            'status_completed', 'status_cancelled'
+            'status_enviando', 'status_completed', 'status_recibido_problema',
+            'status_cancelled', 'status_refunded'
         );
 
         foreach ($color_keys as $key) {
@@ -378,20 +387,32 @@ class Batllie_Caja_Plugin {
                 <h2><?php _e('🏷️ Colores de Estados de Pedido', 'emp-caja'); ?></h2>
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><?php _e('Estado: Pendiente', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('1. Pendiente', 'emp-caja'); ?></th>
                         <td><input type="text" name="batllie_caja_options[status_pending]" value="<?php echo esc_attr($options['status_pending']); ?>" class="caja-color-field" /></td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php _e('Estado: En Preparación / Procesando', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('2. En preparación', 'emp-caja'); ?></th>
                         <td><input type="text" name="batllie_caja_options[status_processing]" value="<?php echo esc_attr($options['status_processing']); ?>" class="caja-color-field" /></td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php _e('Estado: Listo / Completado', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('3. Enviando', 'emp-caja'); ?></th>
+                        <td><input type="text" name="batllie_caja_options[status_enviando]" value="<?php echo esc_attr($options['status_enviando']); ?>" class="caja-color-field" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('4. Recibido', 'emp-caja'); ?></th>
                         <td><input type="text" name="batllie_caja_options[status_completed]" value="<?php echo esc_attr($options['status_completed']); ?>" class="caja-color-field" /></td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php _e('Estado: Cancelado / Fallido', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('5. Recibido (con inconvenientes)', 'emp-caja'); ?></th>
+                        <td><input type="text" name="batllie_caja_options[status_recibido_problema]" value="<?php echo esc_attr($options['status_recibido_problema']); ?>" class="caja-color-field" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('6. Cancelado', 'emp-caja'); ?></th>
                         <td><input type="text" name="batllie_caja_options[status_cancelled]" value="<?php echo esc_attr($options['status_cancelled']); ?>" class="caja-color-field" /></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('7. Reembolzado', 'emp-caja'); ?></th>
+                        <td><input type="text" name="batllie_caja_options[status_refunded]" value="<?php echo esc_attr($options['status_refunded']); ?>" class="caja-color-field" /></td>
                     </tr>
                 </table>
 

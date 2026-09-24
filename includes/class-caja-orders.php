@@ -10,6 +10,44 @@ if (!defined('ABSPATH')) {
 class Batllie_Caja_Orders {
 
     /**
+     * Registrar estados personalizados en WordPress / WooCommerce
+     */
+    public static function register_custom_order_statuses() {
+        register_post_status('wc-enviando', array(
+            'label'                     => _x('Enviando', 'Order status', 'emp-caja'),
+            'public'                    => true,
+            'exclude_from_search'       => false,
+            'show_in_admin_all_list'    => true,
+            'show_in_admin_status_list' => true,
+            'label_count'               => _n_noop('Enviando (%s)', 'Enviando (%s)', 'emp-caja')
+        ));
+
+        register_post_status('wc-recibido-problema', array(
+            'label'                     => _x('Recibido (con inconvenientes)', 'Order status', 'emp-caja'),
+            'public'                    => true,
+            'exclude_from_search'       => false,
+            'show_in_admin_all_list'    => true,
+            'show_in_admin_status_list' => true,
+            'label_count'               => _n_noop('Recibido (con inconvenientes) (%s)', 'Recibido (con inconvenientes) (%s)', 'emp-caja')
+        ));
+    }
+
+    /**
+     * Reorganizar y nombrar los estados de venta en el orden exacto solicitado
+     */
+    public static function add_custom_order_statuses($order_statuses) {
+        return array(
+            'wc-pending'           => __('Pendiente', 'emp-caja'),
+            'wc-processing'        => __('En preparación', 'emp-caja'),
+            'wc-enviando'          => __('Enviando', 'emp-caja'),
+            'wc-completed'         => __('Recibido', 'emp-caja'),
+            'wc-recibido-problema' => __('Recibido (con inconvenientes)', 'emp-caja'),
+            'wc-cancelled'         => __('Cancelado', 'emp-caja'),
+            'wc-refunded'          => __('Reembolzado', 'emp-caja'),
+        );
+    }
+
+    /**
      * Obtener listado de pedidos WooCommerce
      */
     public static function get_orders($status = 'all', $limit = 50, $search = '') {
@@ -25,10 +63,21 @@ class Batllie_Caja_Orders {
         );
 
         if ($status && $status !== 'all') {
-            $query_args['status'] = array($status);
+            $clean_s = str_replace('wc-', '', sanitize_key($status));
+            if ($clean_s === 'enviando') {
+                $query_args['status'] = array('wc-enviando', 'wc-on-hold', 'enviando', 'on-hold');
+            } elseif ($clean_s === 'recibido-problema') {
+                $query_args['status'] = array('wc-recibido-problema', 'wc-failed', 'recibido-problema', 'failed');
+            } else {
+                $query_args['status'] = array('wc-' . $clean_s, $clean_s);
+            }
         } else {
-            // Excluir borradores o carritos abandonados
-            $query_args['status'] = array('wc-pending', 'wc-processing', 'wc-on-hold', 'wc-completed', 'wc-cancelled');
+            // Incluir todos los estados de venta registrados
+            $all_statuses = function_exists('wc_get_order_statuses') ? array_keys(wc_get_order_statuses()) : array();
+            if (empty($all_statuses)) {
+                $all_statuses = array('wc-pending', 'wc-processing', 'wc-enviando', 'wc-completed', 'wc-recibido-problema', 'wc-cancelled', 'wc-refunded');
+            }
+            $query_args['status'] = $all_statuses;
         }
 
         if (!empty($search)) {
@@ -123,7 +172,19 @@ class Batllie_Caja_Orders {
         }
 
         $status = $order->get_status();
-        $status_name = wc_get_order_status_name($status);
+        
+        $statuses_labels = array(
+            'pending'           => __('Pendiente', 'emp-caja'),
+            'processing'        => __('En preparación', 'emp-caja'),
+            'enviando'          => __('Enviando', 'emp-caja'),
+            'on-hold'           => __('Enviando', 'emp-caja'),
+            'completed'         => __('Recibido', 'emp-caja'),
+            'recibido-problema' => __('Recibido (con inconvenientes)', 'emp-caja'),
+            'failed'            => __('Recibido (con inconvenientes)', 'emp-caja'),
+            'cancelled'         => __('Cancelado', 'emp-caja'),
+            'refunded'          => __('Reembolzado', 'emp-caja'),
+        );
+        $status_name = isset($statuses_labels[$status]) ? $statuses_labels[$status] : wc_get_order_status_name($status);
 
         // Estado de Pago (personalizado para la caja)
         $payment_status = $order->get_meta('_caja_payment_status');
@@ -179,13 +240,18 @@ class Batllie_Caja_Orders {
                 return 'caja-badge-pending';
             case 'processing':
                 return 'caja-badge-processing';
+            case 'enviando':
+            case 'on-hold':
+                return 'caja-badge-enviando';
             case 'completed':
                 return 'caja-badge-completed';
-            case 'cancelled':
+            case 'recibido-problema':
             case 'failed':
+                return 'caja-badge-recibido-problema';
+            case 'cancelled':
                 return 'caja-badge-cancelled';
-            case 'on-hold':
-                return 'caja-badge-on-hold';
+            case 'refunded':
+                return 'caja-badge-refunded';
             default:
                 return 'caja-badge-default';
         }
@@ -208,6 +274,26 @@ class Batllie_Caja_Orders {
         $clean_status = str_replace('wc-', '', sanitize_key($new_status));
 
         $order->update_status($clean_status, __('Estado modificado desde terminal Batllie Caja', 'emp-caja'));
+        return self::format_order($order);
+    }
+
+    /**
+     * Actualizar aclaración / nota de compra del pedido
+     */
+    public static function update_note($order_id, $note) {
+        if (!class_exists('WooCommerce')) {
+            return false;
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return false;
+        }
+
+        $clean_note = sanitize_textarea_field(wp_unslash($note));
+        $order->set_customer_note($clean_note);
+        $order->save();
+
         return self::format_order($order);
     }
 

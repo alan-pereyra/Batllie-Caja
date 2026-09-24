@@ -20,6 +20,7 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_poll_orders', array(__CLASS__, 'ajax_poll_orders'));
         add_action('wp_ajax_emp_caja_update_status', array(__CLASS__, 'ajax_update_status'));
         add_action('wp_ajax_emp_caja_update_custom_status', array(__CLASS__, 'ajax_update_custom_status'));
+        add_action('wp_ajax_emp_caja_save_note', array(__CLASS__, 'ajax_save_note'));
 
         // Productos
         add_action('wp_ajax_emp_caja_get_products', array(__CLASS__, 'ajax_get_products'));
@@ -120,6 +121,31 @@ class Batllie_Caja_Ajax {
 
         wp_send_json_success(array(
             'message' => __('Estado actualizado con éxito.', 'emp-caja'),
+            'order'   => $updated_order
+        ));
+    }
+
+    /**
+     * AJAX: Guardar o actualizar la aclaración / nota de compra del pedido
+     */
+    public static function ajax_save_note() {
+        self::check_auth();
+
+        $order_id = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+        $note     = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
+
+        if (!$order_id) {
+            wp_send_json_error(array('message' => __('ID de pedido inválido.', 'emp-caja')));
+        }
+
+        $updated_order = Batllie_Caja_Orders::update_note($order_id, $note);
+
+        if (!$updated_order) {
+            wp_send_json_error(array('message' => __('No se pudo guardar la aclaración.', 'emp-caja')));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Aclaración guardada correctamente.', 'emp-caja'),
             'order'   => $updated_order
         ));
     }

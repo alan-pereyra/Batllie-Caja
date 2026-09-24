@@ -11,37 +11,35 @@ if (!defined('ABSPATH')) {
 <div class="caja-orders-container">
     <!-- Barra de Filtros y Búsqueda -->
     <div class="caja-filter-bar">
-        <div class="caja-status-filters" id="caja-status-filters">
-            <button type="button" class="caja-filter-btn active" data-status="all">
-                <?php _e('Todos', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-pending" data-status="pending">
-                <span class="caja-status-dot dot-pending"></span>
-                <?php _e('Pendientes', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-processing" data-status="processing">
-                <span class="caja-status-dot dot-processing"></span>
-                <?php _e('En Preparación', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-completed" data-status="completed">
-                <span class="caja-status-dot dot-completed"></span>
-                <?php _e('Completados', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-cancelled" data-status="cancelled">
-                <span class="caja-status-dot dot-cancelled"></span>
-                <?php _e('Cancelados', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-shipping-waiting" data-status="shipping-esperando_repartidor">
-                <span class="caja-status-dot dot-shipping-waiting"></span>
-                <?php _e('Pendiente de envío', 'emp-caja'); ?>
-            </button>
-            <button type="button" class="caja-filter-btn filter-shipping-sending" data-status="shipping-enviando">
-                <span class="caja-status-dot dot-shipping-sending"></span>
-                <?php _e('Enviando', 'emp-caja'); ?>
-            </button>
+        <!-- Desplegables de Filtro (50% y 50%) -->
+        <div class="caja-top-filters-grid">
+            <div class="caja-filter-select-col">
+                <select id="caja-filter-status" class="caja-select-filter">
+                    <option value="all"><?php _e('Todos los estados', 'emp-caja'); ?></option>
+                    <option value="pending"><?php _e('Pendiente', 'emp-caja'); ?></option>
+                    <option value="processing"><?php _e('En preparación', 'emp-caja'); ?></option>
+                    <option value="enviando"><?php _e('Enviando', 'emp-caja'); ?></option>
+                    <option value="completed"><?php _e('Recibido', 'emp-caja'); ?></option>
+                    <option value="recibido-problema"><?php _e('Recibido (con inconvenientes)', 'emp-caja'); ?></option>
+                    <option value="cancelled"><?php _e('Cancelado', 'emp-caja'); ?></option>
+                    <option value="refunded"><?php _e('Reembolzado', 'emp-caja'); ?></option>
+                </select>
+            </div>
+
+            <div class="caja-filter-select-col">
+                <select id="caja-filter-time" class="caja-select-filter">
+                    <option value="nuevos" selected><?php _e('Nuevos', 'emp-caja'); ?></option>
+                    <option value="30_min"><?php _e('30 minutos', 'emp-caja'); ?></option>
+                    <option value="1_hour"><?php _e('1 hora', 'emp-caja'); ?></option>
+                    <option value="2_hours"><?php _e('2 horas', 'emp-caja'); ?></option>
+                    <option value="1_day"><?php _e('1 día', 'emp-caja'); ?></option>
+                    <option value="2_days"><?php _e('2 días', 'emp-caja'); ?></option>
+                    <option value="all"><?php _e('Todos', 'emp-caja'); ?></option>
+                </select>
+            </div>
         </div>
 
-        <div class="caja-filter-right">
+        <div class="caja-search-row">
             <!-- Buscador de pedidos -->
             <div class="caja-search-box">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

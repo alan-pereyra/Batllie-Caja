@@ -12,6 +12,8 @@
         lastSeenOrderId: 0,
         activeTab: 'tab-orders',
         currentStatusFilter: 'all',
+        currentTimeFilter: 'nuevos',
+        searchKeyword: '',
         isProductsLoaded: false,
         categoriesLoaded: false,
         cachedOrders: [],
@@ -51,29 +53,33 @@
                 self.switchTab(tabId);
             });
 
-            // Filtros de estado de pedidos y envío
-            $(document).on('click', '.caja-filter-btn', function() {
-                $('.caja-filter-btn').removeClass('active');
-                $(this).addClass('active');
-                const status = $(this).data('status');
-                self.currentStatusFilter = status;
+            // Filtro Desplegable de Estados
+            $(document).on('change', '#caja-filter-status', function() {
+                self.currentStatusFilter = $(this).val();
+                self.applyFilters();
+            });
 
-                if (status.indexOf('shipping-') === 0) {
-                    const shipStatus = status.replace('shipping-', '');
-                    let filtered = [];
-                    if (shipStatus === 'esperando_repartidor') {
-                        filtered = self.cachedOrders.filter(function(o) {
-                            return o.shipping_status === 'esperando_repartidor' || o.shipping_status === 'no_gestionado';
-                        });
-                    } else if (shipStatus === 'enviando') {
-                        filtered = self.cachedOrders.filter(function(o) {
-                            return o.shipping_status === 'enviando';
-                        });
-                    }
-                    self.renderOrders(filtered);
-                } else {
-                    self.loadOrders(true);
-                }
+            // Filtro Desplegable de Tiempo
+            $(document).on('change', '#caja-filter-time', function() {
+                self.currentTimeFilter = $(this).val();
+                self.applyFilters();
+            });
+
+            // Guardar aclaración / nota de compra del pedido
+            $(document).on('click', '.caja-btn-save-note', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $btn = $(this);
+                const $textarea = $(`.caja-order-note-textarea[data-order-id="${orderId}"]`);
+                const noteText = $textarea.val();
+                self.saveOrderNote(orderId, noteText, $btn);
+            });
+
+            // Botón para ver todos los pedidos desde el estado vacío
+            $(document).on('click', '.caja-btn-show-all', function() {
+                $('#caja-filter-time').val('all');
+                self.currentTimeFilter = 'all';
+                self.applyFilters();
             });
 
             // Cambio de estado de pago personalizado
@@ -92,7 +98,8 @@
 
             // Búsqueda de pedidos
             $('#caja-search-orders').on('input', function() {
-                self.filterOrdersInDom($(this).val().toLowerCase().trim());
+                self.searchKeyword = $(this).val().toLowerCase().trim();
+                self.applyFilters();
             });
 
             // Recarga manual de pedidos
@@ -108,6 +115,8 @@
                 const select = $(this);
                 const orderId = select.data('order-id');
                 const newStatus = select.val();
+                select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed');
+                select.addClass('status-bg-' + newStatus);
                 self.updateOrderStatus(orderId, newStatus, select);
             });
 
@@ -277,13 +286,13 @@
                 data: {
                     action: 'emp_caja_get_orders',
                     security: self.config.nonce,
-                    status: self.currentStatusFilter,
-                    limit: 50
+                    status: 'all',
+                    limit: 100
                 },
                 success: function(res) {
                     if (res.success && res.data) {
                         self.cachedOrders = res.data.orders || [];
-                        self.renderOrders(self.cachedOrders);
+                        self.applyFilters();
 
                         // Actualizar id más alto conocido
                         self.cachedOrders.forEach(o => {
@@ -291,8 +300,6 @@
                                 self.lastSeenOrderId = o.id;
                             }
                         });
-
-                        $('#caja-orders-count').text(res.data.count || 0);
                     }
                 },
                 complete: function() {
@@ -318,7 +325,7 @@
                         action: 'emp_caja_poll_orders',
                         security: self.config.nonce,
                         last_seen_id: self.lastSeenOrderId,
-                        status: self.currentStatusFilter
+                        status: 'all'
                     },
                     success: function(res) {
                         if (res.success && res.data) {
@@ -340,11 +347,10 @@
                                 // Recargar pedidos en pantalla
                                 self.loadOrders(false);
                                 self.showToast(`🔔 ¡Nuevo pedido #${highestId} recibido!`);
-                            } else {
+                            } else if (res.data.orders) {
                                 // Actualizar si hubo cambios de estado
-                                self.cachedOrders = res.data.orders || [];
-                                self.renderOrders(self.cachedOrders);
-                                $('#caja-orders-count').text(self.cachedOrders.length);
+                                self.cachedOrders = res.data.orders;
+                                self.applyFilters();
                             }
                         }
                     }
@@ -358,7 +364,34 @@
 
             if (!orders || orders.length === 0) {
                 $grid.empty();
-                $empty.show();
+                if (self.currentTimeFilter === 'nuevos') {
+                    $empty.html(`
+                        <div class="caja-empty-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <h3>No hay pedidos nuevos (< 30 min)</h3>
+                        <p>Los pedidos anteriores se agrupan en las opciones del filtro de tiempo.</p>
+                        <button type="button" class="caja-btn-show-all" style="margin-top:14px; padding:10px 20px; background:var(--caja-primary, #10b981); color:#fff; border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:0.95rem;">
+                            Ver todos los pedidos anteriores
+                        </button>
+                    `).show();
+                } else {
+                    $empty.html(`
+                        <div class="caja-empty-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <h3>No hay pedidos en esta sección</h3>
+                        <p>Los pedidos que coincidan con los filtros seleccionados aparecerán aquí automáticamente.</p>
+                    `).show();
+                }
                 return;
             }
 
@@ -466,9 +499,22 @@
                                     </select>
                                 </div>
                             </div>
+                        <!-- Aclaración / Nota de compra -->
+                        <div class="caja-order-note-block">
+                            <div class="caja-note-label-row">
+                                <span class="caja-note-icon">📝</span>
+                                <span class="caja-note-title">Aclaración / Nota del Cliente</span>
+                            </div>
+                            <div class="caja-note-field-wrap">
+                                <textarea class="caja-order-note-textarea" data-order-id="${order.id}" placeholder="Escribir una aclaración sobre el pedido..." rows="2">${order.customer_note || ''}</textarea>
+                                <div class="caja-note-actions-row">
+                                    <span class="caja-note-saved-msg" id="caja-note-saved-${order.id}" style="display:none;"></span>
+                                    <button type="button" class="caja-btn-save-note" data-order-id="${order.id}">
+                                        <span class="caja-note-btn-text">Guardar nota</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-
-                        ${noteHtml}
 
                         <div class="caja-card-footer">
                             <div class="caja-order-total-block">
@@ -479,13 +525,13 @@
                             <div class="caja-order-status-select-wrap">
                                 <div class="caja-dropdown-relative">
                                     <select class="caja-main-status-dropdown status-bg-${order.status}" data-order-id="${order.id}">
-                                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>⏳ Estado de Venta: Pendiente</option>
-                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>👨‍🍳 Estado de Venta: En Preparación</option>
-                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>✅ Estado de Venta: Listo / Completado</option>
-                                        <option value="on-hold" ${order.status === 'on-hold' ? 'selected' : ''}>⏸️ Estado de Venta: En Espera</option>
-                                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>❌ Estado de Venta: Cancelado</option>
-                                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>↩️ Estado de Venta: Reembolsado</option>
-                                        <option value="failed" ${order.status === 'failed' ? 'selected' : ''}>⚠️ Estado de Venta: Fallido</option>
+                                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>En preparación</option>
+                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''}>Enviando</option>
+                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Recibido</option>
+                                        <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
+                                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
                                     </select>
                                     <span class="caja-dropdown-arrow">▼</span>
                                 </div>
@@ -498,17 +544,128 @@
             $grid.html(html);
         },
 
-        filterOrdersInDom: function(keyword) {
-            if (!keyword) {
-                this.renderOrders(this.cachedOrders);
-                return;
-            }
-            const filtered = this.cachedOrders.filter(o => {
-                return o.number.toString().includes(keyword) || 
-                       o.customer_name.toLowerCase().includes(keyword) ||
-                       (o.phone && o.phone.includes(keyword));
+        applyFilters: function() {
+            const self = this;
+            const nowSec = Math.floor(Date.now() / 1000);
+
+            const filtered = self.cachedOrders.filter(ord => {
+                // 1. Filtro de Estado
+                if (self.currentStatusFilter && self.currentStatusFilter !== 'all') {
+                    const s = ord.status;
+                    if (self.currentStatusFilter === 'enviando') {
+                        if (s !== 'enviando' && s !== 'on-hold') return false;
+                    } else if (self.currentStatusFilter === 'recibido-problema') {
+                        if (s !== 'recibido-problema' && s !== 'failed') return false;
+                    } else if (s !== self.currentStatusFilter) {
+                        return false;
+                    }
+                }
+
+                // 2. Filtro de Tiempo
+                // "Si selecciona nuevos va desde los nuevos para adelante, si toca 30 minutos los de 30 minutos y más antigüos, 1 día del día anterior y anteriores"
+                const ageSec = Math.max(0, nowSec - ord.timestamp);
+                const ageMin = ageSec / 60;
+                const ageHours = ageSec / 3600;
+                const ageDays = ageSec / 86400;
+
+                switch (self.currentTimeFilter) {
+                    case 'nuevos':
+                        // Desde los nuevos para adelante (< 30 min)
+                        if (ageMin >= 30) return false;
+                        break;
+                    case '30_min':
+                        // 30 minutos y más antiguos
+                        if (ageMin < 30) return false;
+                        break;
+                    case '1_hour':
+                        // 1 hora y más antiguos
+                        if (ageHours < 1) return false;
+                        break;
+                    case '2_hours':
+                        // 2 horas y más antiguos
+                        if (ageHours < 2) return false;
+                        break;
+                    case '1_day':
+                        // 1 día (del día anterior y anteriores)
+                        if (ageDays < 1) return false;
+                        break;
+                    case '2_days':
+                        // 2 días y anteriores
+                        if (ageDays < 2) return false;
+                        break;
+                    case 'all':
+                    default:
+                        break;
+                }
+
+                // 3. Filtro de Búsqueda
+                if (self.searchKeyword) {
+                    const kw = self.searchKeyword;
+                    const matchNum = ord.number && ord.number.toString().includes(kw);
+                    const matchName = ord.customer_name && ord.customer_name.toLowerCase().includes(kw);
+                    const matchPhone = ord.phone && ord.phone.includes(kw);
+                    const matchNote = ord.customer_note && ord.customer_note.toLowerCase().includes(kw);
+                    if (!matchNum && !matchName && !matchPhone && !matchNote) {
+                        return false;
+                    }
+                }
+
+                return true;
             });
-            this.renderOrders(filtered);
+
+            // Ordenar: siempre de los más nuevos a los más antiguos
+            filtered.sort((a, b) => b.timestamp - a.timestamp);
+
+            self.renderOrders(filtered);
+            $('#caja-orders-count').text(filtered.length);
+        },
+
+        saveOrderNote: function(orderId, noteText, $btn) {
+            const self = this;
+            const $card = $(`#caja-order-card-${orderId}`);
+            const $msg = $card.find(`#caja-note-saved-${orderId}`);
+            const originalText = $btn.find('.caja-note-btn-text').text();
+
+            $btn.prop('disabled', true);
+            $btn.find('.caja-note-btn-text').text('Guardando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_save_note',
+                    security: self.config.nonce,
+                    order_id: orderId,
+                    note: noteText
+                },
+                success: function(res) {
+                    if (res.success) {
+                        $btn.find('.caja-note-btn-text').text('✓ Guardado');
+                        $msg.text('✓ Guardado en WooCommerce').fadeIn(150);
+                        setTimeout(() => {
+                            $btn.find('.caja-note-btn-text').text(originalText);
+                            $msg.fadeOut(300);
+                        }, 2500);
+
+                        // Actualizar en caché local
+                        const found = self.cachedOrders.find(o => o.id === orderId);
+                        if (found) {
+                            found.customer_note = noteText;
+                        }
+                        self.showToast('Aclaración de compra guardada con éxito');
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al guardar la nota');
+                        $btn.find('.caja-note-btn-text').text(originalText);
+                    }
+                },
+                error: function() {
+                    alert('Error de comunicación con el servidor al guardar la nota');
+                    $btn.find('.caja-note-btn-text').text(originalText);
+                },
+                complete: function() {
+                    $btn.prop('disabled', false);
+                }
+            });
         },
 
         updateOrderStatus: function(orderId, newStatus, $btn) {
@@ -534,7 +691,7 @@
                         if (idx !== -1) {
                             self.cachedOrders[idx] = updated;
                         }
-                        self.renderOrders(self.cachedOrders);
+                        self.applyFilters();
                         self.showToast(`Pedido #${orderId} actualizado a ${updated.status_name}`);
                     } else {
                         alert(res.data && res.data.message ? res.data.message : 'Error al actualizar pedido');
@@ -571,7 +728,7 @@
                         if (idx !== -1) {
                             self.cachedOrders[idx] = updated;
                         }
-                        self.renderOrders(self.cachedOrders);
+                        self.applyFilters();
                         self.showToast('Estado de cobro/envío actualizado');
                     } else {
                         alert(res.data && res.data.message ? res.data.message : 'Error al actualizar');
