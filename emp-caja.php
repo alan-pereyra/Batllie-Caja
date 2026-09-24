@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.1.1');
+define('EMP_CAJA_VERSION', '1.1.2');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -212,7 +212,7 @@ class Batllie_Caja_Plugin {
                 margin-top: 0 !important;
                 padding-top: 0 !important;
             }
-            body.batllie-caja-active header,
+            body.batllie-caja-active header:not(.caja-topbar):not(.batllie-caja-nav),
             body.batllie-caja-active nav:not(.batllie-caja-nav),
             body.batllie-caja-active footer,
             body.batllie-caja-active .site-header,
@@ -220,8 +220,23 @@ class Batllie_Caja_Plugin {
             body.batllie-caja-active #masthead,
             body.batllie-caja-active #colophon,
             body.batllie-caja-active aside,
-            body.batllie-caja-active .sidebar {
+            body.batllie-caja-active .sidebar,
+            body.batllie-caja-active #top-notice,
+            body.batllie-caja-active #navbar-background,
+            body.batllie-caja-active .FullScreenLanding,
+            body.batllie-caja-active #main-head,
+            body.batllie-caja-active #first-content-page {
                 display: none !important;
+            }
+            body.batllie-caja-active article,
+            body.batllie-caja-active article.color-content,
+            body.batllie-caja-active .container-fluid,
+            body.batllie-caja-active .container {
+                padding: 0 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
             }
             body,
             body.admin-bar,
@@ -231,7 +246,8 @@ class Batllie_Caja_Plugin {
                 margin-top: 0 !important;
                 padding: 0 !important;
                 padding-top: 0 !important;
-                overflow-x: hidden;
+                overflow-x: hidden !important;
+                width: 100% !important;
             }";
         }
 
