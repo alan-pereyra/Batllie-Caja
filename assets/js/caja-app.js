@@ -494,8 +494,8 @@
                                         <option value="esperando_repartidor" ${order.shipping_status === 'esperando_repartidor' ? 'selected' : ''}>⏳ Esperando al repartidor</option>
                                         <option value="enviando" ${order.shipping_status === 'enviando' ? 'selected' : ''}>🚀 Repartidor enviando</option>
                                         <option value="demorado" ${order.shipping_status === 'demorado' ? 'selected' : ''}>⚠️ Repartidor con demora</option>
-                                        <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''}>🏁 Entregado</option>
-                                        <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''}>🛑 Entregado con problemas</option>
+                                        <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''}>🏁 Recibido sin problemas</option>
+                                        <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''}>🛑 Recibido con problemas</option>
                                     </select>
                                 </div>
                             </div>
@@ -673,6 +673,15 @@
             const $card = $(`#caja-order-card-${orderId}`);
 
             $card.addClass('caja-card-updating');
+
+            // Si el estado principal pasa a "Recibido" (completed), actualizar automáticamente el select del envío en el DOM
+            if (newStatus === 'completed') {
+                const $shipSelect = $card.find('.caja-shipping-select');
+                $shipSelect.val('entregado');
+            } else if (newStatus === 'recibido-problema') {
+                const $shipSelect = $card.find('.caja-shipping-select');
+                $shipSelect.val('entregado_problemas');
+            }
 
             $.ajax({
                 url: self.config.ajaxUrl,

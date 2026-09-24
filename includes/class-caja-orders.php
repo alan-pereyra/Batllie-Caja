@@ -60,6 +60,7 @@ class Batllie_Caja_Orders {
             'orderby' => 'date',
             'order'   => 'DESC',
             'return'  => 'objects',
+            'type'    => 'shop_order',
         );
 
         if ($status && $status !== 'all') {
@@ -85,7 +86,8 @@ class Batllie_Caja_Orders {
             if (is_numeric($search)) {
                 $order = wc_get_order(intval($search));
                 if ($order) {
-                    return array(self::format_order($order));
+                    $single = self::format_order($order);
+                    return $single ? array($single) : array();
                 }
             }
         }
@@ -94,7 +96,10 @@ class Batllie_Caja_Orders {
         $formatted = array();
 
         foreach ($orders as $order) {
-            $formatted[] = self::format_order($order);
+            $f = self::format_order($order);
+            if ($f !== null) {
+                $formatted[] = $f;
+            }
         }
 
         return $formatted;
@@ -107,7 +112,7 @@ class Batllie_Caja_Orders {
         if (!is_a($order, 'WC_Order')) {
             $order = wc_get_order($order);
         }
-        if (!$order) {
+        if (!$order || is_a($order, 'WC_Order_Refund') || (method_exists($order, 'get_type') && $order->get_type() === 'shop_order_refund')) {
             return null;
         }
 
@@ -148,14 +153,14 @@ class Batllie_Caja_Orders {
         $time_formatted = $date_created ? $date_created->date_i18n('d/m/Y H:i') : '';
 
         // Datos del cliente
-        $first_name = $order->get_billing_first_name();
-        $last_name  = $order->get_billing_last_name();
+        $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
+        $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
         $customer_name = trim($first_name . ' ' . $last_name);
         if (empty($customer_name)) {
             $customer_name = __('Cliente mostrador / Anónimo', 'emp-caja');
         }
 
-        $phone = $order->get_billing_phone();
+        $phone = method_exists($order, 'get_billing_phone') ? $order->get_billing_phone() : '';
 
         // Formateo limpio de dirección evitando concatenación sin espacios
         $addr_1 = $order->get_shipping_address_1() ? $order->get_shipping_address_1() : $order->get_billing_address_1();
@@ -204,6 +209,13 @@ class Batllie_Caja_Orders {
         $shipping_status = $order->get_meta('_caja_shipping_status');
         if (empty($shipping_status)) {
             $shipping_status = 'no_gestionado';
+        }
+
+        // Si el estado principal es Recibido (completed), sincronizar automáticamente el envío a recibido sin problemas
+        if ($status === 'completed' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado')) {
+            $shipping_status = 'entregado';
+        } elseif ($status === 'recibido-problema' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado')) {
+            $shipping_status = 'entregado_problemas';
         }
 
         return array(
@@ -272,6 +284,13 @@ class Batllie_Caja_Orders {
 
         // Quitar prefijo 'wc-' si viene incluido
         $clean_status = str_replace('wc-', '', sanitize_key($new_status));
+
+        // Si el estado principal pasa a "Recibido" (completed), actualizar automáticamente el estado del envío a "entregado" (Recibido sin problemas)
+        if ($clean_status === 'completed') {
+            $order->update_meta_data('_caja_shipping_status', 'entregado');
+        } elseif ($clean_status === 'recibido-problema') {
+            $order->update_meta_data('_caja_shipping_status', 'entregado_problemas');
+        }
 
         $order->update_status($clean_status, __('Estado modificado desde terminal Batllie Caja', 'emp-caja'));
         return self::format_order($order);
@@ -347,11 +366,13 @@ class Batllie_Caja_Orders {
         $new_orders_count = 0;
 
         foreach ($all_orders as $order) {
-            if ($order['id'] > $last_seen_id) {
-                $new_orders_count++;
-            }
-            if ($order['id'] > $highest_id) {
-                $highest_id = $order['id'];
+            if (!empty($order['id'])) {
+                if ($order['id'] > $last_seen_id) {
+                    $new_orders_count++;
+                }
+                if ($order['id'] > $highest_id) {
+                    $highest_id = $order['id'];
+                }
             }
         }
 

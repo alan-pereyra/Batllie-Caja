@@ -48,16 +48,24 @@ class Batllie_Caja_Ajax {
     public static function ajax_get_orders() {
         self::check_auth();
 
-        $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
-        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
-        $limit  = isset($_POST['limit']) ? intval($_POST['limit']) : 50;
+        try {
+            $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
+            $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+            $limit  = isset($_POST['limit']) ? intval($_POST['limit']) : 50;
 
-        $orders = Batllie_Caja_Orders::get_orders($status, $limit, $search);
+            $orders = Batllie_Caja_Orders::get_orders($status, $limit, $search);
 
-        wp_send_json_success(array(
-            'orders' => $orders,
-            'count'  => count($orders)
-        ));
+            wp_send_json_success(array(
+                'orders' => $orders,
+                'count'  => count($orders)
+            ));
+        } catch (\Throwable $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine()
+            ), 500);
+        }
     }
 
     /**
@@ -66,12 +74,20 @@ class Batllie_Caja_Ajax {
     public static function ajax_poll_orders() {
         self::check_auth();
 
-        $last_seen_id = isset($_POST['last_seen_id']) ? intval($_POST['last_seen_id']) : 0;
-        $status       = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
+        try {
+            $last_seen_id = isset($_POST['last_seen_id']) ? intval($_POST['last_seen_id']) : 0;
+            $status       = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
 
-        $data = Batllie_Caja_Orders::poll_orders($last_seen_id, $status);
+            $data = Batllie_Caja_Orders::poll_orders($last_seen_id, $status);
 
-        wp_send_json_success($data);
+            wp_send_json_success($data);
+        } catch (\Throwable $e) {
+            wp_send_json_error(array(
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine()
+            ), 500);
+        }
     }
 
     /**
