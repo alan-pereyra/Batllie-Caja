@@ -3,13 +3,22 @@
  * Utiliza las mismas variables CSS configuradas para la pantalla de caja
  */
 
+/* Ocultar sección tradicional "Gracias por tu pedido" y resumen general de WooCommerce */
+.woocommerce-order > .woocommerce-thankyou-order-received,
+.woocommerce-order > .woocommerce-order-overview,
+.woocommerce-thankyou-order-received,
+.woocommerce-order-overview.woocommerce-thankyou-order-details,
+.woocommerce-order-overview.order_details {
+    display: none !important;
+}
+
 .batllie-order-tracking-card {
     background: var(--caja-card-bg, #1e293b);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: var(--caja-radius, 16px);
     color: var(--caja-text, #f8fafc);
     padding: 24px 26px;
-    margin: 25px 0 35px 0;
+    margin: 10px 0 35px 0;
     box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.35), 0 8px 12px -6px rgba(0, 0, 0, 0.25);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     box-sizing: border-box;

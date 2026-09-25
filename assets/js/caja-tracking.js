@@ -12,6 +12,15 @@
             return;
         }
 
+        // Posicionar el card de seguimiento arriba al principio de la página
+        var $orderContainer = $('.woocommerce-order, .entry-content .woocommerce');
+        if ($orderContainer.length && !$orderContainer.children().first().is($cards)) {
+            $orderContainer.prepend($cards);
+        }
+
+        // Eliminar sección tradicional de gracias por tu pedido y resumen inicial
+        $('.woocommerce-thankyou-order-received, .woocommerce-order-overview').remove();
+
         var ajaxUrl = (typeof emp_caja_tracking_params !== 'undefined' && emp_caja_tracking_params.ajax_url) 
             ? emp_caja_tracking_params.ajax_url 
             : '/wp-admin/admin-ajax.php';

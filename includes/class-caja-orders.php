@@ -545,6 +545,7 @@ class Batllie_Caja_Orders {
         return array(
             'id'              => $order_id,
             'number'          => $order->get_order_number(),
+            'order_key'       => $order->get_order_key(),
             'status'          => $status,
             'status_name'     => $status_name,
             'status_badge'    => self::get_status_badge_class($status),

@@ -10,14 +10,27 @@ if (!defined('ABSPATH')) {
 class Batllie_Caja_Tracking {
 
     /**
+     * Registro para evitar renderizado duplicado en una misma petición
+     */
+    private static $rendered_orders = array();
+
+    /**
      * Inicializar hooks y endpoints
      */
     public static function init() {
-        // Mostrar en la pantalla de compra realizada (Thank You / Order Received)
-        add_action('woocommerce_thankyou', array(__CLASS__, 'render_tracking_widget'), 5, 1);
+        // Reemplazar la plantilla de Thank You / Order Received de WooCommerce
+        add_filter('woocommerce_locate_template', array(__CLASS__, 'override_thankyou_template'), 20, 3);
+        add_filter('wc_get_template', array(__CLASS__, 'override_wc_get_template'), 20, 5);
+
+        // Ocultar texto por defecto de "Gracias. Tu pedido ha sido recibido."
+        add_filter('woocommerce_thankyou_order_received_text', '__return_empty_string', 999);
+
+        // Mostrar arriba al principio en la pantalla de compra realizada (Thank You / Order Received)
+        add_action('woocommerce_before_thankyou', array(__CLASS__, 'render_tracking_widget'), 1, 1);
+        add_action('woocommerce_thankyou', array(__CLASS__, 'render_tracking_widget'), 1, 1);
 
         // Mostrar en la pantalla de "Mi Cuenta > Ver Pedido"
-        add_action('woocommerce_view_order', array(__CLASS__, 'render_tracking_widget'), 5, 1);
+        add_action('woocommerce_view_order', array(__CLASS__, 'render_tracking_widget'), 1, 1);
 
         // Registrar Shortcode por si se desea incrustar en cualquier página personalizada
         add_shortcode('batllie_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
@@ -28,6 +41,32 @@ class Batllie_Caja_Tracking {
         // Endpoint AJAX en tiempo real (público y privado)
         add_action('wp_ajax_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
         add_action('wp_ajax_nopriv_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
+    }
+
+    /**
+     * Filtro para sobreescribir la plantilla checkout/thankyou.php
+     */
+    public static function override_thankyou_template($template, $template_name, $template_path) {
+        if ($template_name === 'checkout/thankyou.php') {
+            $custom = EMP_CAJA_PATH . 'templates/woocommerce/checkout/thankyou.php';
+            if (file_exists($custom)) {
+                return $custom;
+            }
+        }
+        return $template;
+    }
+
+    /**
+     * Filtro alternativo wc_get_template para sobreescribir la plantilla checkout/thankyou.php
+     */
+    public static function override_wc_get_template($located, $template_name, $args, $template_path, $default_path) {
+        if ($template_name === 'checkout/thankyou.php') {
+            $custom = EMP_CAJA_PATH . 'templates/woocommerce/checkout/thankyou.php';
+            if (file_exists($custom)) {
+                return $custom;
+            }
+        }
+        return $located;
     }
 
     /**
@@ -49,8 +88,8 @@ class Batllie_Caja_Tracking {
             true
         );
 
-        // Cargar condicionalmente si estamos en la página de orden recibida o ver pedido
-        if (function_exists('is_wc_endpoint_url') && (is_wc_endpoint_url('order-received') || is_wc_endpoint_url('view-order'))) {
+        // Cargar en checkout, orden recibida o ver pedido
+        if (is_checkout() || (function_exists('is_order_received_page') && is_order_received_page()) || (function_exists('is_wc_endpoint_url') && (is_wc_endpoint_url('order-received') || is_wc_endpoint_url('view-order')))) {
             self::enqueue_tracking_assets();
         }
     }
@@ -123,6 +162,11 @@ class Batllie_Caja_Tracking {
         if (!$order_id) {
             return;
         }
+
+        if (isset(self::$rendered_orders[$order_id])) {
+            return;
+        }
+        self::$rendered_orders[$order_id] = true;
 
         $order = wc_get_order($order_id);
         if (!$order) {
