@@ -369,6 +369,80 @@
         gap: 6px;
         padding: 10px 14px;
     }
+
+    .batllie-receipt-title {
+        font-size: 1.35rem;
+    }
+
+    .batllie-receipt-wa-btn {
+        width: 100%;
+        max-width: 320px;
+        padding: 12px 20px;
+        font-size: 1rem;
+    }
+}
+
+/* ==========================================================================
+   Sección de Comprobante Pendiente (Transferencias)
+   ========================================================================== */
+.batllie-tracking-receipt-pending {
+    margin: 22px 0 16px 0;
+    padding: 24px 22px;
+    background: rgba(245, 158, 11, 0.07);
+    border: 1.5px dashed rgba(245, 158, 11, 0.45);
+    border-radius: 14px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: all 0.35s ease;
+}
+
+.batllie-receipt-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+
+.batllie-receipt-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--caja-text, #f8fafc);
+    letter-spacing: -0.01em;
+    margin: 0;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.batllie-receipt-wa-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #25D366;
+    color: #ffffff !important;
+    font-size: 1.08rem;
+    font-weight: 700;
+    padding: 13px 32px;
+    border-radius: 9999px;
+    text-decoration: none !important;
+    box-shadow: 0 4px 16px rgba(37, 211, 102, 0.35);
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.batllie-receipt-wa-btn:hover {
+    background: #20bd5a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(37, 211, 102, 0.5);
+    color: #ffffff !important;
+}
+
+.batllie-receipt-wa-icon {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+    flex-shrink: 0;
 }
 
 /* ==========================================================================

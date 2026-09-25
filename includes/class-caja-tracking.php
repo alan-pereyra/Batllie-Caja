@@ -143,15 +143,46 @@ class Batllie_Caja_Tracking {
             $step_label = __('Batllie está preparando tu pedido', 'emp-caja');
         }
 
+        // Detección de pago por transferencia y estado de comprobante
+        $payment_method = $order->get_payment_method();
+        $payment_method_title = $order->get_payment_method_title();
+        $is_bacs = ($payment_method === 'bacs') || (stripos($payment_method_title, 'transferencia') !== false);
+
+        $caja_pay_status = $order->get_meta('_caja_payment_status');
+        if (empty($caja_pay_status)) {
+            if (in_array($status, array('processing', 'completed'))) {
+                $caja_pay_status = 'pagado';
+            } elseif ($payment_method === 'cod') {
+                $caja_pay_status = 'efectivo_entrega';
+            } elseif ($status === 'refunded') {
+                $caja_pay_status = 'devolucion';
+            } else {
+                $caja_pay_status = 'pendiente';
+            }
+        }
+        $is_paid = ($caja_pay_status === 'pagado') || in_array($status, array('processing', 'completed'));
+        $show_receipt_pending = $is_bacs && !$is_paid;
+
+        // WhatsApp para envío de comprobante
+        $wa_number = apply_filters('batllie_caja_whatsapp_number', '5491149472377', $order);
+        $clean_wa = preg_replace('/[^0-9]/', '', $wa_number);
+        $wa_text = sprintf(__('Hola! Te adjunto el comprobante de transferencia para el Pedido #%s.', 'emp-caja'), $order->get_order_number());
+        $whatsapp_url = 'https://api.whatsapp.com/send?phone=' . $clean_wa . '&text=' . rawurlencode($wa_text);
+
         return array(
-            'order_id'        => $order->get_id(),
-            'order_number'    => $order->get_order_number(),
-            'order_key'       => $order->get_order_key(),
-            'step'            => $step,
-            'step_label'      => $step_label,
-            'status'          => $status,
-            'shipping_status' => $shipping_status,
-            'is_cancelled'    => in_array($status, array('cancelled', 'refunded', 'failed')),
+            'order_id'             => $order->get_id(),
+            'order_number'         => $order->get_order_number(),
+            'order_key'            => $order->get_order_key(),
+            'step'                 => $step,
+            'step_label'           => $step_label,
+            'status'               => $status,
+            'shipping_status'      => $shipping_status,
+            'payment_status'       => $caja_pay_status,
+            'is_bacs'              => $is_bacs,
+            'is_paid'              => $is_paid,
+            'show_receipt_pending' => $show_receipt_pending,
+            'whatsapp_url'         => $whatsapp_url,
+            'is_cancelled'         => in_array($status, array('cancelled', 'refunded', 'failed')),
         );
     }
 
@@ -229,11 +260,14 @@ class Batllie_Caja_Tracking {
         $tracking = self::get_order_tracking_data($order);
 
         wp_send_json_success(array(
-            'order_id'        => $tracking['order_id'],
-            'step'            => $tracking['step'],
-            'step_label'      => $tracking['step_label'],
-            'status'          => $tracking['status'],
-            'shipping_status' => $tracking['shipping_status'],
+            'order_id'             => $tracking['order_id'],
+            'step'                 => $tracking['step'],
+            'step_label'           => $tracking['step_label'],
+            'status'               => $tracking['status'],
+            'shipping_status'      => $tracking['shipping_status'],
+            'payment_status'       => $tracking['payment_status'],
+            'is_paid'              => $tracking['is_paid'],
+            'show_receipt_pending' => $tracking['show_receipt_pending'],
         ));
     }
 }

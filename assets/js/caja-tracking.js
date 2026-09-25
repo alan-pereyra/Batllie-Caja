@@ -88,12 +88,6 @@
 
             // Intervalo de sondeo en vivo
             var timer = setInterval(function() {
-                // Si el pedido ya llegó al paso 4 (recibido/entregado), detenemos el sondeo
-                if (currentStep >= 4) {
-                    clearInterval(timer);
-                    return;
-                }
-
                 $.ajax({
                     url: ajaxUrl,
                     type: 'GET',
@@ -109,6 +103,22 @@
                             var newLabel = response.data.step_label;
                             if (newStep !== currentStep) {
                                 updateUI(newStep, newLabel);
+                            }
+
+                            // Si el pedido ya pasó a "pagado" desde la caja, ocultar y remover la sección de comprobante
+                            if (response.data.show_receipt_pending === false || response.data.is_paid === true) {
+                                var $receiptSection = $card.find('.batllie-tracking-receipt-pending');
+                                if ($receiptSection.length && $receiptSection.is(':visible')) {
+                                    $receiptSection.slideUp(400, function() {
+                                        $(this).remove();
+                                    });
+                                }
+                            }
+
+                            // Si el pedido ya llegó al paso 4 (recibido) Y no tiene comprobante pendiente, detener sondeo
+                            var stillPendingReceipt = (response.data.show_receipt_pending === true);
+                            if (currentStep >= 4 && !stillPendingReceipt) {
+                                clearInterval(timer);
                             }
                         }
                     },

@@ -187,6 +187,26 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
     </div>
 
+    <!-- Sección Comprobante Pendiente (Transferencia sin pagar aún) -->
+    <?php if (!empty($tracking['show_receipt_pending'])) : ?>
+    <div class="batllie-tracking-receipt-pending" id="batllie-receipt-pending-<?php echo esc_attr($order_id); ?>">
+        <div class="batllie-receipt-content">
+            <h4 class="batllie-receipt-title">
+                <?php _e('Comprobante pendiente', 'emp-caja'); ?>
+            </h4>
+            <a href="<?php echo esc_url($tracking['whatsapp_url']); ?>" 
+               target="_blank" 
+               rel="noopener noreferrer" 
+               class="batllie-receipt-wa-btn">
+                <svg class="batllie-receipt-wa-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.41a8.17 8.17 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-3.52 4.75c-.19 0-.5.07-.76.35-.26.29-1 1-1 2.42 0 1.43 1.04 2.8 1.18 3 .15.19 2.05 3.19 5.01 4.35 2.46.96 2.96.77 3.49.72.53-.05 1.71-.7 1.95-1.37.24-.68.24-1.26.17-1.38-.07-.11-.26-.18-.55-.33-.29-.15-1.71-.84-1.98-.94-.26-.09-.45-.15-.65.15-.19.29-.75.94-.92 1.13-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.33-1.44-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.59.13-.13.29-.34.43-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.08-.15-.65-1.57-.89-2.15-.24-.57-.48-.49-.66-.5-.17-.01-.36-.01-.55-.01z"/>
+                </svg>
+                <span><?php _e('Enviar comprobante', 'emp-caja'); ?></span>
+            </a>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Barra inferior informativa -->
     <div class="batllie-tracking-footer-bar">
         <div class="batllie-tracking-current-status">
