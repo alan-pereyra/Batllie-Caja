@@ -35,6 +35,9 @@ class Batllie_Caja_Tracking {
         // Mostrar en la pantalla de "Mi Cuenta > Ver Pedido"
         add_action('woocommerce_view_order', array(__CLASS__, 'render_tracking_widget'), 1, 1);
 
+        // Ocultar acciones de pedido (Pagar / Cancelar) en la confirmación de compra y vista de pedido
+        add_filter('woocommerce_my_account_my_orders_actions', array(__CLASS__, 'hide_order_actions'), 999, 2);
+
         // Registrar Shortcode por si se desea incrustar en cualquier página personalizada
         add_shortcode('batllie_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
 
@@ -44,6 +47,13 @@ class Batllie_Caja_Tracking {
         // Endpoint AJAX en tiempo real (público y privado)
         add_action('wp_ajax_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
         add_action('wp_ajax_nopriv_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
+    }
+
+    /**
+     * Ocultar botones de acciones (Pagar / Cancelar) en la tabla de detalles del pedido
+     */
+    public static function hide_order_actions($actions, $order) {
+        return array();
     }
 
     /**

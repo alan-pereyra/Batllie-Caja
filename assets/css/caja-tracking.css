@@ -638,3 +638,40 @@ section.woocommerce-bacs-bank-details li.bank_name strong,
     font-weight: 700 !important;
 }
 
+/* ==========================================================================
+   Ocultar fila de acciones (Acciones: Pagar / Cancelar) en detalles del pedido
+   ========================================================================== */
+.woocommerce-table--order-details tfoot tr:has(.order-actions--heading),
+.woocommerce-table--order-details tfoot tr:has(.order-actions-button),
+.woocommerce-table--order-details tfoot tr:has(a.pay),
+.woocommerce-table--order-details tfoot tr:has(a.cancel),
+.woocommerce-order-details tfoot tr:has(.order-actions--heading),
+.woocommerce-order-details tfoot tr:has(.order-actions-button),
+.woocommerce-order-details tfoot tr:has(a.pay),
+.woocommerce-order-details tfoot tr:has(a.cancel),
+.woocommerce-order tfoot tr:has(.order-actions--heading),
+.woocommerce-order tfoot tr:has(.order-actions-button),
+.woocommerce-order tfoot tr:has(a.pay),
+.woocommerce-order tfoot tr:has(a.cancel),
+table.order_details tfoot tr:has(.order-actions--heading),
+table.order_details tfoot tr:has(.order-actions-button),
+table.order_details tfoot tr:has(a.pay),
+table.order_details tfoot tr:has(a.cancel),
+tr:has(.order-actions--heading),
+tr:has(.order-actions-button),
+tr:has(a.pay),
+tr:has(a.cancel) {
+    display: none !important;
+}
+
+/* Fallback para elementos y celdas individuales */
+.order-actions--heading,
+.order-actions-button,
+a.button.pay.order-actions-button,
+a.button.cancel.order-actions-button,
+th.order-actions--heading,
+td:has(.order-actions-button) {
+    display: none !important;
+}
+
+
