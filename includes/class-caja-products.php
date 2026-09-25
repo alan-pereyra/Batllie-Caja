@@ -68,22 +68,46 @@ class Batllie_Caja_Products {
         $image_id = $product->get_image_id();
         $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'medium') : wc_placeholder_img_src('medium');
 
+        $manage_stock = $product->get_manage_stock();
+        $stock_qty = $product->get_stock_quantity();
+        $is_low_stock = false;
+
+        if ($manage_stock) {
+            if ($stock_qty !== null && $stock_qty <= 0) {
+                $stock_badge = 'caja-badge-outofstock';
+                $stock_label = __('Agotado', 'emp-caja');
+            } elseif ($stock_qty !== null && $stock_qty <= 5) {
+                $stock_badge = 'caja-badge-lowstock';
+                $stock_label = __('Stock bajo', 'emp-caja');
+                $is_low_stock = true;
+            } else {
+                $stock_badge = 'caja-badge-instock';
+                $stock_label = __('En stock', 'emp-caja');
+            }
+        } else {
+            $stock_badge = $product->is_in_stock() ? 'caja-badge-instock' : 'caja-badge-outofstock';
+            $stock_label = $product->is_in_stock() ? __('Ilimitado', 'emp-caja') : __('Sin stock', 'emp-caja');
+        }
+
         return array(
-            'id'             => $product->get_id(),
-            'name'           => $product->get_name(),
-            'sku'            => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
-            'price'          => wc_price($product->get_price()),
-            'price_raw'      => (float) $product->get_price(),
-            'regular_price'  => $product->get_regular_price(),
-            'sale_price'     => $product->get_sale_price(),
-            'is_on_sale'     => $product->is_on_sale(),
-            'categories'     => implode(', ', $category_names),
-            'stock_status'   => $product->get_stock_status(),
-            'stock_quantity' => $product->get_stock_quantity() !== null ? $product->get_stock_quantity() : __('Ilimitado', 'emp-caja'),
-            'stock_badge'    => $product->is_in_stock() ? 'caja-badge-instock' : 'caja-badge-outofstock',
-            'stock_label'    => $product->is_in_stock() ? __('En stock', 'emp-caja') : __('Sin stock', 'emp-caja'),
-            'image_url'      => $image_url,
-            'description'    => wp_trim_words(strip_tags($product->get_short_description()), 15)
+            'id'                 => $product->get_id(),
+            'name'               => $product->get_name(),
+            'sku'                => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
+            'price'              => wc_price($product->get_price()),
+            'price_raw'          => (float) $product->get_price(),
+            'regular_price'      => $product->get_regular_price(),
+            'sale_price'         => $product->get_sale_price(),
+            'is_on_sale'         => $product->is_on_sale(),
+            'categories'         => implode(', ', $category_names),
+            'stock_status'       => $product->get_stock_status(),
+            'manage_stock'       => $manage_stock,
+            'stock_quantity_raw' => $stock_qty !== null ? intval($stock_qty) : null,
+            'stock_quantity'     => $stock_qty !== null ? intval($stock_qty) : __('Ilimitado', 'emp-caja'),
+            'is_low_stock'       => $is_low_stock,
+            'stock_badge'        => $stock_badge,
+            'stock_label'        => $stock_label,
+            'image_url'          => $image_url,
+            'description'        => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
     }
 
@@ -183,5 +207,70 @@ class Batllie_Caja_Products {
         }
 
         return $cats;
+    }
+
+    /**
+     * Actualizar inventario / stock y datos de un producto WooCommerce
+     */
+    public static function update_stock($product_id, $data) {
+        if (!class_exists('WooCommerce')) {
+            return new WP_Error('wc_missing', __('WooCommerce no está activo.', 'emp-caja'));
+        }
+
+        $product = wc_get_product($product_id);
+        if (!$product) {
+            return new WP_Error('not_found', __('Producto no encontrado.', 'emp-caja'));
+        }
+
+        $mode = isset($data['mode']) ? sanitize_key($data['mode']) : 'add';
+        $quantity = isset($data['quantity']) ? intval($data['quantity']) : 0;
+        $manage_stock = isset($data['manage_stock']) ? ($data['manage_stock'] === 'yes' || $data['manage_stock'] === true || $data['manage_stock'] === '1') : true;
+
+        $current_stock = $product->get_stock_quantity();
+        if ($current_stock === null) {
+            $current_stock = 0;
+        }
+
+        // Si el modo es 'add' (ingreso de mercadería), se suma la cantidad que ingresó al stock existente.
+        // Ejemplo: 15 actuales + 30 ingresadas = 45 total.
+        if ($mode === 'add') {
+            $new_stock = max(0, $current_stock + $quantity);
+        } else {
+            // Si el modo es 'set' (recuento / fijar total directo), se establece la cantidad indicada.
+            $new_stock = max(0, $quantity);
+        }
+
+        $product->set_manage_stock($manage_stock);
+
+        if ($manage_stock) {
+            $product->set_stock_quantity($new_stock);
+            $product->set_stock_status($new_stock > 0 ? 'instock' : 'outofstock');
+        } else {
+            if (!empty($data['stock_status'])) {
+                $product->set_stock_status(sanitize_key($data['stock_status']));
+            }
+        }
+
+        // Precios opcionales
+        if (isset($data['regular_price']) && $data['regular_price'] !== '') {
+            $product->set_regular_price(wc_format_decimal($data['regular_price']));
+        }
+        if (isset($data['sale_price'])) {
+            $sale = wc_format_decimal($data['sale_price']);
+            $product->set_sale_price($sale);
+            if ($sale !== '' && (float)$sale > 0) {
+                $product->set_price($sale);
+            } else {
+                $product->set_price($product->get_regular_price());
+            }
+        }
+
+        $product->save();
+
+        if (function_exists('wc_update_product_stock')) {
+            wc_update_product_stock($product, $new_stock, 'set');
+        }
+
+        return self::format_product($product);
     }
 }

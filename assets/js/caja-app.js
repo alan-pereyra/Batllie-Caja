@@ -145,12 +145,38 @@
                 self.toggleFullScreen();
             });
 
+            // Desplegar / ocultar información detallada e historial del pedido
+            $(document).on('click', '.caja-btn-details-toggle', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $panel = $(`#caja-details-${orderId}`);
+                const $arrow = $(this).find('.caja-toggle-arrow');
+                const $text = $(this).find('.caja-toggle-text');
+                const $btn = $(this);
+
+                $panel.slideToggle(200, function() {
+                    if ($panel.is(':visible')) {
+                        $btn.addClass('active');
+                        $text.text('Ocultar información detallada');
+                        $arrow.text('▲');
+                    } else {
+                        $btn.removeClass('active');
+                        $text.text('Ver información detallada');
+                        $arrow.text('▼');
+                    }
+                });
+            });
+
             // Búsqueda y Filtro de Productos
             $('#caja-search-products').on('input', function() {
                 self.filterProductsInDom();
             });
 
             $('#caja-filter-product-cat').on('change', function() {
+                self.filterProductsInDom();
+            });
+
+            $('#caja-filter-product-stock').on('change', function() {
                 self.filterProductsInDom();
             });
 
@@ -178,6 +204,51 @@
             $('#caja-new-product-form').on('submit', function(e) {
                 e.preventDefault();
                 self.handleCreateProduct($(this));
+            });
+
+            // Modal de Control y Renovación de Stock
+            $(document).on('click', '.caja-btn-open-stock-modal', function(e) {
+                e.preventDefault();
+                const productId = parseInt($(this).data('product-id'));
+                self.openStockModal(productId);
+            });
+
+            $('#caja-stock-modal-close-btn, #caja-stock-modal-cancel-btn').on('click', function() {
+                $('#caja-modal-edit-stock').fadeOut(150);
+            });
+
+            // Selector de modo de stock: Sumar ingreso vs Fijar directo
+            $(document).on('click', '.caja-stock-mode-btn', function() {
+                const mode = $(this).data('mode');
+                $('.caja-stock-mode-btn').removeClass('active');
+                $(this).addClass('active');
+                $('#stock-modal-mode').val(mode);
+
+                if (mode === 'add') {
+                    $('#caja-panel-mode-add').show();
+                    $('#caja-panel-mode-set').hide();
+                    $('#stock-incoming-qty').focus();
+                } else {
+                    $('#caja-panel-mode-add').hide();
+                    $('#caja-panel-mode-set').show();
+                    $('#stock-direct-qty').focus();
+                }
+            });
+
+            // Cálculo reactivo en vivo al tipear unidades que ingresan
+            $('#stock-incoming-qty').on('input', function() {
+                const incoming = parseInt($(this).val()) || 0;
+                const current = parseInt($('#calc-current-num').text()) || 0;
+                const total = Math.max(0, current + incoming);
+
+                $('#calc-incoming-num').text(incoming > 0 ? `+${incoming}` : '+0');
+                $('#calc-result-num').text(total);
+            });
+
+            // Envío formulario de actualización de stock
+            $('#caja-edit-stock-form').on('submit', function(e) {
+                e.preventDefault();
+                self.handleUpdateStock($(this));
             });
         },
 
@@ -359,6 +430,7 @@
         },
 
         renderOrders: function(orders) {
+            const self = this;
             const $grid = $('#caja-orders-grid');
             const $empty = $('#caja-orders-empty');
 
@@ -443,6 +515,33 @@
                     `;
                 }
 
+                // Generar historial cronológico para la sección de información detallada
+                let timelineHtml = '';
+                if (order.timeline && order.timeline.length) {
+                    timelineHtml = '<div class="caja-timeline-list">';
+                    order.timeline.forEach((event, idx) => {
+                        const isLast = (idx === order.timeline.length - 1);
+                        timelineHtml += `
+                            <div class="caja-timeline-item ${isLast ? 'timeline-latest' : ''}">
+                                <div class="caja-timeline-time-col">
+                                    <span class="caja-timeline-time">${event.time}</span>
+                                </div>
+                                <div class="caja-timeline-axis-col">
+                                    <span class="caja-timeline-dot"></span>
+                                    ${!isLast ? '<span class="caja-timeline-bar"></span>' : ''}
+                                </div>
+                                <div class="caja-timeline-content-col">
+                                    <span class="caja-timeline-icon">${event.icon || '•'}</span>
+                                    <span class="caja-timeline-text">${event.text}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    timelineHtml += '</div>';
+                } else {
+                    timelineHtml = '<div class="caja-timeline-empty">Sin historial registrado</div>';
+                }
+
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
                         <div class="caja-card-header">
@@ -499,6 +598,8 @@
                                     </select>
                                 </div>
                             </div>
+                        </div>
+
                         <!-- Aclaración / Nota de compra -->
                         <div class="caja-order-note-block">
                             <div class="caja-note-label-row">
@@ -513,6 +614,25 @@
                                         <span class="caja-note-btn-text">Guardar nota</span>
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Información Detallada e Historial Cronológico (Oculto por defecto) -->
+                        <div class="caja-details-accordion">
+                            <button type="button" class="caja-btn-details-toggle" data-order-id="${order.id}">
+                                <span class="caja-toggle-left">
+                                    <span class="caja-toggle-icon">ℹ️</span>
+                                    <span class="caja-toggle-text">Ver información detallada</span>
+                                </span>
+                                <span class="caja-toggle-arrow">▼</span>
+                            </button>
+                            <div class="caja-details-collapse" id="caja-details-${order.id}" style="display:none;">
+                                <div class="caja-timeline-wrap">
+                                    <div class="caja-timeline-header-title">📋 Historial de eventos:</div>
+                                    ${timelineHtml}
+                                </div>
+                                ${order.billing_email ? `<div class="caja-details-subinfo"><span>✉️ Email:</span> <strong>${order.billing_email}</strong></div>` : ''}
+                                ${order.shipping_total ? `<div class="caja-details-subinfo"><span>🛵 Costo de envío:</span> <strong>${order.shipping_total}</strong></div>` : ''}
                             </div>
                         </div>
 
@@ -820,7 +940,7 @@
             let html = '';
             products.forEach(p => {
                 html += `
-                    <tr>
+                    <tr id="caja-prod-row-${p.id}">
                         <td>
                             <img src="${p.image_url}" alt="${p.name}" class="caja-prod-thumb" />
                         </td>
@@ -838,6 +958,12 @@
                             <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
                             <small class="caja-stock-num">(${p.stock_quantity})</small>
                         </td>
+                        <td style="text-align: center;">
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-stock-action caja-btn-open-stock-modal" data-product-id="${p.id}" title="Cargar y renovar stock">
+                                <span class="caja-btn-icon">📦</span>
+                                <span>Ingreso / Stock</span>
+                            </button>
+                        </td>
                     </tr>
                 `;
             });
@@ -848,6 +974,7 @@
         filterProductsInDom: function() {
             const search = $('#caja-search-products').val().toLowerCase().trim();
             const cat = $('#caja-filter-product-cat').val().toLowerCase();
+            const stockFilter = $('#caja-filter-product-stock').val();
 
             const filtered = this.cachedProducts.filter(p => {
                 const matchesSearch = !search || 
@@ -855,10 +982,122 @@
                     p.sku.toLowerCase().includes(search);
                 const matchesCat = !cat || 
                     (p.categories && p.categories.toLowerCase().includes(cat));
-                return matchesSearch && matchesCat;
+
+                let matchesStock = true;
+                if (stockFilter === 'instock') {
+                    matchesStock = p.stock_status === 'instock' && (p.stock_quantity_raw === null || p.stock_quantity_raw > 0);
+                } else if (stockFilter === 'lowstock') {
+                    matchesStock = p.is_low_stock || (p.stock_quantity_raw !== null && p.stock_quantity_raw > 0 && p.stock_quantity_raw <= 5);
+                } else if (stockFilter === 'outofstock') {
+                    matchesStock = p.stock_status === 'outofstock' || (p.stock_quantity_raw !== null && p.stock_quantity_raw <= 0);
+                }
+
+                return matchesSearch && matchesCat && matchesStock;
             });
 
             this.renderProducts(filtered);
+        },
+
+        openStockModal: function(productId) {
+            const self = this;
+            const p = self.cachedProducts.find(item => item.id === productId);
+            if (!p) return;
+
+            $('#stock-modal-prod-id').val(p.id);
+            $('#stock-modal-mode').val('add');
+            $('#caja-edit-stock-error').hide();
+
+            if (p.image_url) {
+                $('#stock-modal-thumb').attr('src', p.image_url).show();
+            } else {
+                $('#stock-modal-thumb').hide();
+            }
+            $('#stock-modal-prod-title').text(p.name);
+            $('#stock-modal-sku').text(p.sku ? `SKU: ${p.sku}` : 'Sin SKU');
+            $('#stock-modal-cat').text(p.categories || 'Sin categoría');
+
+            const currentQty = (p.stock_quantity_raw !== null && p.stock_quantity_raw !== undefined) ? parseInt(p.stock_quantity_raw) : 0;
+            $('#stock-modal-current-qty').text(currentQty);
+            $('#stock-modal-current-badge')
+                .attr('class', 'caja-badge ' + (p.stock_badge || ''))
+                .text(p.stock_label || '');
+
+            $('#calc-current-num').text(currentQty);
+            $('#calc-incoming-num').text('+0');
+            $('#calc-result-num').text(currentQty);
+
+            $('#stock-incoming-qty').val('');
+            $('#stock-direct-qty').val(currentQty);
+
+            $('#stock-prod-price').val(p.regular_price || '');
+            $('#stock-prod-sale-price').val(p.sale_price || '');
+            $('#stock-prod-manage-stock').prop('checked', p.manage_stock !== false);
+
+            // Reiniciar botones de modo a "Sumar ingreso"
+            $('.caja-stock-mode-btn').removeClass('active');
+            $('#btn-mode-add').addClass('active');
+            $('#caja-panel-mode-add').show();
+            $('#caja-panel-mode-set').hide();
+
+            $('#caja-modal-edit-stock').fadeIn(200);
+            setTimeout(() => {
+                $('#stock-incoming-qty').focus();
+            }, 100);
+        },
+
+        handleUpdateStock: function($form) {
+            const self = this;
+            const $btn = $('#caja-stock-modal-submit-btn');
+            const $err = $('#caja-edit-stock-error');
+            const originalText = $btn.find('.caja-btn-text').text();
+
+            $err.hide();
+            $btn.prop('disabled', true);
+            $btn.find('.caja-btn-spinner').show();
+            $btn.find('.caja-btn-text').text('Guardando en WooCommerce...');
+
+            const productId = parseInt($('#stock-modal-prod-id').val());
+            const mode = $('#stock-modal-mode').val();
+            const incomingQty = $('#stock-incoming-qty').val();
+            const directQty = $('#stock-direct-qty').val();
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_update_stock',
+                    security: self.config.nonce,
+                    product_id: productId,
+                    mode: mode,
+                    incoming_quantity: incomingQty,
+                    direct_quantity: directQty,
+                    regular_price: $('#stock-prod-price').val(),
+                    sale_price: $('#stock-prod-sale-price').val(),
+                    manage_stock: $('#stock-prod-manage-stock').is(':checked') ? 'yes' : 'no'
+                },
+                success: function(res) {
+                    if (res.success && res.data && res.data.product) {
+                        const updated = res.data.product;
+                        const idx = self.cachedProducts.findIndex(p => p.id === updated.id);
+                        if (idx !== -1) {
+                            self.cachedProducts[idx] = updated;
+                        }
+                        self.filterProductsInDom();
+                        $('#caja-modal-edit-stock').fadeOut(150);
+                        self.showToast(`✅ Stock de "${updated.name}" actualizado a ${updated.stock_quantity}`);
+                    } else {
+                        $err.text(res.data && res.data.message ? res.data.message : 'Error al actualizar el stock').fadeIn(150);
+                    }
+                },
+                error: function() {
+                    $err.text('Error de conexión con el servidor al actualizar stock').fadeIn(150);
+                },
+                complete: function() {
+                    $btn.prop('disabled', false);
+                    $btn.find('.caja-btn-spinner').hide();
+                    $btn.find('.caja-btn-text').text(originalText);
+                }
+            });
         },
 
         handleCreateProduct: function($form) {

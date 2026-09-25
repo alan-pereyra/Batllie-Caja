@@ -240,6 +240,7 @@ class Batllie_Caja_Orders {
             'time_diff'       => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'  => $time_formatted,
             'timestamp'       => $date_created ? $date_created->getTimestamp() : 0,
+            'timeline'        => self::get_order_timeline($order),
         );
     }
 
@@ -288,8 +289,20 @@ class Batllie_Caja_Orders {
         // Si el estado principal pasa a "Recibido" (completed), actualizar automáticamente el estado del envío a "entregado" (Recibido sin problemas)
         if ($clean_status === 'completed') {
             $order->update_meta_data('_caja_shipping_status', 'entregado');
+            self::add_timeline_event($order, __('llegó a destino (sin inconvenientes)', 'emp-caja'), '🏁', 'shipping_dest');
+            self::add_timeline_event($order, __('pedido completado', 'emp-caja'), '✅', 'status_comp');
         } elseif ($clean_status === 'recibido-problema') {
             $order->update_meta_data('_caja_shipping_status', 'entregado_problemas');
+            self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
+            self::add_timeline_event($order, __('pedido completado con inconvenientes', 'emp-caja'), '⚠️', 'status_comp');
+        } elseif ($clean_status === 'processing') {
+            self::add_timeline_event($order, __('en preparación', 'emp-caja'), '👨‍🍳', 'status_prep');
+        } elseif ($clean_status === 'enviando' || $clean_status === 'on-hold') {
+            self::add_timeline_event($order, __('el repartidor salió', 'emp-caja'), '🛵', 'shipping_out');
+        } elseif ($clean_status === 'cancelled') {
+            self::add_timeline_event($order, __('pedido cancelado', 'emp-caja'), '❌', 'status');
+        } elseif ($clean_status === 'refunded') {
+            self::add_timeline_event($order, __('pedido reembolzado', 'emp-caja'), '🔄', 'status');
         }
 
         $order->update_status($clean_status, __('Estado modificado desde terminal Batllie Caja', 'emp-caja'));
@@ -312,6 +325,8 @@ class Batllie_Caja_Orders {
         $clean_note = sanitize_textarea_field(wp_unslash($note));
         $order->set_customer_note($clean_note);
         $order->save();
+
+        self::add_timeline_event($order, __('se añadió una aclaración al pedido', 'emp-caja'), '📝', 'note');
 
         return self::format_order($order);
     }
@@ -339,6 +354,16 @@ class Batllie_Caja_Orders {
             }
             $order->update_meta_data('_caja_payment_status', $clean_val);
             $order->save();
+
+            if ($clean_val === 'pagado') {
+                self::add_timeline_event($order, __('se confirmó el pago', 'emp-caja'), '💳', 'payment');
+            } elseif ($clean_val === 'efectivo_entrega') {
+                self::add_timeline_event($order, __('cobro: efectivo en entrega', 'emp-caja'), '💵', 'payment');
+            } elseif ($clean_val === 'pendiente_devolucion') {
+                self::add_timeline_event($order, __('pendiente de devolución', 'emp-caja'), '⏳', 'payment');
+            } elseif ($clean_val === 'devolucion') {
+                self::add_timeline_event($order, __('devolución confirmada', 'emp-caja'), '🔄', 'payment');
+            }
         } elseif ($clean_field === 'shipping_status') {
             $allowed = array('no_gestionado', 'esperando_repartidor', 'enviando', 'demorado', 'entregado', 'entregado_problemas');
             if (!in_array($clean_val, $allowed)) {
@@ -346,11 +371,217 @@ class Batllie_Caja_Orders {
             }
             $order->update_meta_data('_caja_shipping_status', $clean_val);
             $order->save();
+
+            if ($clean_val === 'esperando_repartidor') {
+                self::add_timeline_event($order, __('se coordinó el envío', 'emp-caja'), '⏳', 'shipping_coord');
+            } elseif ($clean_val === 'enviando') {
+                self::add_timeline_event($order, __('el repartidor salió', 'emp-caja'), '🛵', 'shipping_out');
+            } elseif ($clean_val === 'demorado') {
+                self::add_timeline_event($order, __('el repartidor con demora', 'emp-caja'), '⚠️', 'shipping_delay');
+            } elseif ($clean_val === 'entregado') {
+                self::add_timeline_event($order, __('llegó a destino (sin inconvenientes)', 'emp-caja'), '🏁', 'shipping_dest');
+            } elseif ($clean_val === 'entregado_problemas') {
+                self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
+            }
         } else {
             return false;
         }
 
         return self::format_order($order);
+    }
+
+    /**
+     * Añadir un evento a la línea de tiempo del pedido
+     */
+    public static function add_timeline_event($order, $text, $icon = '⏱️', $type = 'general') {
+        if (!class_exists('WooCommerce')) {
+            return;
+        }
+        if (!is_a($order, 'WC_Order')) {
+            $order = wc_get_order($order);
+        }
+        if (!$order) {
+            return;
+        }
+
+        $timeline = (array) $order->get_meta('_caja_timeline');
+        if (!is_array($timeline)) {
+            $timeline = array();
+        }
+
+        $now = current_time('timestamp');
+        $time_str = date_i18n('H:i', $now);
+        $date_str = date_i18n('d/m', $now);
+
+        $last_event = end($timeline);
+        if ($last_event && isset($last_event['text']) && $last_event['text'] === $text && isset($last_event['time']) && $last_event['time'] === $time_str) {
+            return;
+        }
+
+        $timeline[] = array(
+            'time'      => $time_str,
+            'date'      => $date_str,
+            'timestamp' => $now,
+            'text'      => $text,
+            'icon'      => $icon,
+            'type'      => $type,
+        );
+
+        $order->update_meta_data('_caja_timeline', $timeline);
+        $order->save();
+    }
+
+    /**
+     * Obtener y compilar la línea de tiempo / historial completo del pedido
+     */
+    public static function get_order_timeline($order) {
+        if (!is_a($order, 'WC_Order')) {
+            $order = wc_get_order($order);
+        }
+        if (!$order) {
+            return array();
+        }
+
+        $timeline = (array) $order->get_meta('_caja_timeline');
+        if (!is_array($timeline)) {
+            $timeline = array();
+        }
+
+        $date_created = $order->get_date_created();
+        $date_paid    = $order->get_date_paid();
+
+        // 1. Evento de llegada del pedido
+        $has_created = false;
+        foreach ($timeline as $ev) {
+            if (isset($ev['type']) && $ev['type'] === 'created') {
+                $has_created = true;
+                break;
+            }
+        }
+        if (!$has_created && $date_created) {
+            array_unshift($timeline, array(
+                'time'      => $date_created->date_i18n('H:i'),
+                'date'      => $date_created->date_i18n('d/m'),
+                'timestamp' => $date_created->getTimestamp(),
+                'text'      => __('llegó el pedido', 'emp-caja'),
+                'icon'      => '📥',
+                'type'      => 'created'
+            ));
+        }
+
+        // 2. Evento de confirmación de pago
+        $has_paid = false;
+        foreach ($timeline as $ev) {
+            if (isset($ev['type']) && $ev['type'] === 'payment') {
+                $has_paid = true;
+                break;
+            }
+        }
+        if (!$has_paid) {
+            $pay_status = $order->get_meta('_caja_payment_status');
+            $status     = $order->get_status();
+            if ($date_paid) {
+                $timeline[] = array(
+                    'time'      => $date_paid->date_i18n('H:i'),
+                    'date'      => $date_paid->date_i18n('d/m'),
+                    'timestamp' => $date_paid->getTimestamp(),
+                    'text'      => __('se confirmó el pago', 'emp-caja'),
+                    'icon'      => '💳',
+                    'type'      => 'payment'
+                );
+            } elseif ($pay_status === 'pagado' || in_array($status, array('processing', 'completed'))) {
+                $ts = $date_created ? $date_created->getTimestamp() : current_time('timestamp');
+                $timeline[] = array(
+                    'time'      => date_i18n('H:i', $ts),
+                    'date'      => date_i18n('d/m', $ts),
+                    'timestamp' => $ts,
+                    'text'      => __('se confirmó el pago', 'emp-caja'),
+                    'icon'      => '💳',
+                    'type'      => 'payment'
+                );
+            }
+        }
+
+        // 3. Reconstruir hitos clave para pedidos ya existentes
+        $status   = $order->get_status();
+        $shipping = $order->get_meta('_caja_shipping_status');
+        $base_ts  = $date_created ? $date_created->getTimestamp() : current_time('timestamp');
+
+        $has_prep = false;
+        $has_coord = false;
+        $has_ship = false;
+        $has_dest = false;
+        $has_comp = false;
+        foreach ($timeline as $ev) {
+            if (isset($ev['type'])) {
+                if ($ev['type'] === 'status_prep') $has_prep = true;
+                if ($ev['type'] === 'shipping_coord') $has_coord = true;
+                if ($ev['type'] === 'shipping_out') $has_ship = true;
+                if ($ev['type'] === 'shipping_dest') $has_dest = true;
+                if ($ev['type'] === 'status_comp') $has_comp = true;
+            }
+        }
+
+        if (!$has_prep && in_array($status, array('processing', 'enviando', 'completed', 'recibido-problema'))) {
+            $timeline[] = array(
+                'time'      => date_i18n('H:i', $base_ts + 60),
+                'date'      => date_i18n('d/m', $base_ts + 60),
+                'timestamp' => $base_ts + 60,
+                'text'      => __('en preparación', 'emp-caja'),
+                'icon'      => '👨‍🍳',
+                'type'      => 'status_prep'
+            );
+        }
+
+        if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+            $timeline[] = array(
+                'time'      => date_i18n('H:i', $base_ts + 120),
+                'date'      => date_i18n('d/m', $base_ts + 120),
+                'timestamp' => $base_ts + 120,
+                'text'      => __('se coordinó el envío', 'emp-caja'),
+                'icon'      => '⏳',
+                'type'      => 'shipping_coord'
+            );
+        }
+
+        if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+            $timeline[] = array(
+                'time'      => date_i18n('H:i', $base_ts + 360),
+                'date'      => date_i18n('d/m', $base_ts + 360),
+                'timestamp' => $base_ts + 360,
+                'text'      => __('el repartidor salió', 'emp-caja'),
+                'icon'      => '🛵',
+                'type'      => 'shipping_out'
+            );
+        }
+
+        if (!$has_dest && in_array($shipping, array('entregado', 'entregado_problemas'))) {
+            $timeline[] = array(
+                'time'      => date_i18n('H:i', $base_ts + 900),
+                'date'      => date_i18n('d/m', $base_ts + 900),
+                'timestamp' => $base_ts + 900,
+                'text'      => $shipping === 'entregado' ? __('llegó a destino (sin inconvenientes)', 'emp-caja') : __('llegó a destino (con inconvenientes)', 'emp-caja'),
+                'icon'      => $shipping === 'entregado' ? '🏁' : '🛑',
+                'type'      => 'shipping_dest'
+            );
+        }
+
+        if (!$has_comp && in_array($status, array('completed', 'recibido-problema'))) {
+            $timeline[] = array(
+                'time'      => date_i18n('H:i', $base_ts + 900),
+                'date'      => date_i18n('d/m', $base_ts + 900),
+                'timestamp' => $base_ts + 900,
+                'text'      => $status === 'completed' ? __('pedido completado', 'emp-caja') : __('pedido completado con inconvenientes', 'emp-caja'),
+                'icon'      => '✅',
+                'type'      => 'status_comp'
+            );
+        }
+
+        usort($timeline, function($a, $b) {
+            return ($a['timestamp'] ?? 0) - ($b['timestamp'] ?? 0);
+        });
+
+        return $timeline;
     }
 
     /**

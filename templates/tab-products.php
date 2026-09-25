@@ -23,6 +23,13 @@ if (!defined('ABSPATH')) {
             <select id="caja-filter-product-cat" class="caja-select">
                 <option value=""><?php _e('Todas las categorías', 'emp-caja'); ?></option>
             </select>
+
+            <select id="caja-filter-product-stock" class="caja-select">
+                <option value=""><?php _e('Todos los niveles de stock', 'emp-caja'); ?></option>
+                <option value="instock"><?php _e('✅ En stock', 'emp-caja'); ?></option>
+                <option value="lowstock"><?php _e('⚠️ Stock bajo (≤ 5)', 'emp-caja'); ?></option>
+                <option value="outofstock"><?php _e('🛑 Agotado / Sin stock', 'emp-caja'); ?></option>
+            </select>
         </div>
 
         <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-product">
@@ -51,6 +58,7 @@ if (!defined('ABSPATH')) {
                     <th><?php _e('Categoría', 'emp-caja'); ?></th>
                     <th><?php _e('Precio', 'emp-caja'); ?></th>
                     <th><?php _e('Stock', 'emp-caja'); ?></th>
+                    <th style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
                 </tr>
             </thead>
             <tbody id="caja-products-tbody">
@@ -129,6 +137,134 @@ if (!defined('ABSPATH')) {
                     </button>
                     <button type="submit" class="caja-btn caja-btn-primary" id="caja-modal-submit-btn">
                         <span class="caja-btn-text"><?php _e('Guardar Producto', 'emp-caja'); ?></span>
+                        <span class="caja-btn-spinner" style="display:none;"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Control y Renovación de Stock / Edición de Producto -->
+    <div id="caja-modal-edit-stock" class="caja-modal" style="display:none;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog">
+            <div class="caja-modal-header">
+                <h3>📦 <?php _e('Control y Renovación de Stock', 'emp-caja'); ?></h3>
+                <button type="button" class="caja-modal-close" id="caja-stock-modal-close-btn">&times;</button>
+            </div>
+
+            <form id="caja-edit-stock-form" class="caja-modal-body">
+                <input type="hidden" id="stock-modal-prod-id" name="product_id" value="" />
+                <input type="hidden" id="stock-modal-mode" name="mode" value="add" />
+
+                <div id="caja-edit-stock-error" class="caja-alert caja-alert-danger" style="display:none;"></div>
+
+                <!-- Cabecera del producto seleccionado -->
+                <div class="caja-stock-prod-summary">
+                    <img id="stock-modal-thumb" src="" alt="" class="caja-prod-thumb" />
+                    <div class="caja-stock-prod-info">
+                        <strong id="stock-modal-prod-title"></strong>
+                        <div class="caja-stock-prod-meta">
+                            <span class="caja-sku-badge" id="stock-modal-sku"></span>
+                            <span class="caja-cat-badge" id="stock-modal-cat"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Banner de Stock Actual -->
+                <div class="caja-stock-current-banner">
+                    <span class="caja-stock-current-label"><?php _e('Stock Actual en WooCommerce:', 'emp-caja'); ?></span>
+                    <div class="caja-stock-current-badge-wrap">
+                        <strong class="caja-stock-current-val" id="stock-modal-current-qty">0</strong>
+                        <span class="caja-badge" id="stock-modal-current-badge"></span>
+                    </div>
+                </div>
+
+                <!-- Selector de Modo de Carga / Renovación -->
+                <div class="caja-stock-mode-selector">
+                    <button type="button" class="caja-stock-mode-btn active" data-mode="add" id="btn-mode-add">
+                        <span class="caja-mode-icon">➕</span>
+                        <span class="caja-mode-title"><?php _e('Sumar Ingreso de Mercadería', 'emp-caja'); ?></span>
+                        <small><?php _e('Llegaron unidades nuevas', 'emp-caja'); ?></small>
+                    </button>
+                    <button type="button" class="caja-stock-mode-btn" data-mode="set" id="btn-mode-set">
+                        <span class="caja-mode-icon">✏️</span>
+                        <span class="caja-mode-title"><?php _e('Fijar Total Directo', 'emp-caja'); ?></span>
+                        <small><?php _e('Recuento manual de inventario', 'emp-caja'); ?></small>
+                    </button>
+                </div>
+
+                <!-- Panel Modo 1: Sumar Ingreso de Mercadería -->
+                <div id="caja-panel-mode-add" class="caja-stock-panel">
+                    <div class="caja-form-group">
+                        <label for="stock-incoming-qty">
+                            <strong><?php _e('¿Cuántas unidades nuevas ingresaron?', 'emp-caja'); ?></strong>
+                        </label>
+                        <div class="caja-stock-input-wrap">
+                            <span class="caja-input-prefix">+</span>
+                            <input type="number" id="stock-incoming-qty" min="1" step="1" placeholder="Ej: 30" class="caja-stock-large-input" />
+                        </div>
+                        <small class="caja-form-hint"><?php _e('Ingresá las unidades que llegaron. El sistema las sumará al stock existente automáticamente.', 'emp-caja'); ?></small>
+                    </div>
+
+                    <!-- Vista previa en vivo del cálculo -->
+                    <div class="caja-stock-calc-preview" id="caja-stock-calc-preview">
+                        <div class="caja-calc-row">
+                            <span><?php _e('Stock actual:', 'emp-caja'); ?></span>
+                            <strong id="calc-current-num">0</strong>
+                        </div>
+                        <div class="caja-calc-row caja-calc-incoming">
+                            <span><?php _e('+ Unidades que ingresan:', 'emp-caja'); ?></span>
+                            <strong id="calc-incoming-num">+0</strong>
+                        </div>
+                        <div class="caja-calc-divider"></div>
+                        <div class="caja-calc-row caja-calc-total">
+                            <span><?php _e('Nuevo Stock Total Resultante:', 'emp-caja'); ?></span>
+                            <strong id="calc-result-num">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Modo 2: Fijar Total Directo -->
+                <div id="caja-panel-mode-set" class="caja-stock-panel" style="display:none;">
+                    <div class="caja-form-group">
+                        <label for="stock-direct-qty">
+                            <strong><?php _e('Cantidad total exacta en stock:', 'emp-caja'); ?></strong>
+                        </label>
+                        <input type="number" id="stock-direct-qty" min="0" step="1" placeholder="Ej: 45" class="caja-stock-large-input" />
+                        <small class="caja-form-hint"><?php _e('Reemplazará el stock actual por este número exacto.', 'emp-caja'); ?></small>
+                    </div>
+                </div>
+
+                <!-- Opciones avanzadas de producto (Precios y Gestión) -->
+                <details class="caja-stock-extra-details">
+                    <summary><?php _e('⚙️ Editar Precios y Configuración (Opcional)', 'emp-caja'); ?></summary>
+                    <div class="caja-extra-fields-wrap">
+                        <div class="caja-form-row">
+                            <div class="caja-form-group caja-col">
+                                <label for="stock-prod-price"><?php _e('Precio Regular ($)', 'emp-caja'); ?></label>
+                                <input type="number" step="0.01" min="0" id="stock-prod-price" />
+                            </div>
+                            <div class="caja-form-group caja-col">
+                                <label for="stock-prod-sale-price"><?php _e('Precio Oferta ($)', 'emp-caja'); ?></label>
+                                <input type="number" step="0.01" min="0" id="stock-prod-sale-price" />
+                            </div>
+                        </div>
+                        <div class="caja-form-group">
+                            <label class="caja-checkbox-label">
+                                <input type="checkbox" id="stock-prod-manage-stock" value="yes" checked />
+                                <span><?php _e('Activar control de inventario de WooCommerce para este producto', 'emp-caja'); ?></span>
+                            </label>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="caja-modal-footer">
+                    <button type="button" class="caja-btn caja-btn-secondary" id="caja-stock-modal-cancel-btn">
+                        <?php _e('Cancelar', 'emp-caja'); ?>
+                    </button>
+                    <button type="submit" class="caja-btn caja-btn-primary" id="caja-stock-modal-submit-btn">
+                        <span class="caja-btn-text"><?php _e('💾 Actualizar Inventario', 'emp-caja'); ?></span>
                         <span class="caja-btn-spinner" style="display:none;"></span>
                     </button>
                 </div>

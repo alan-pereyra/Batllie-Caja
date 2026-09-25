@@ -25,6 +25,7 @@ class Batllie_Caja_Ajax {
         // Productos
         add_action('wp_ajax_emp_caja_get_products', array(__CLASS__, 'ajax_get_products'));
         add_action('wp_ajax_emp_caja_create_product', array(__CLASS__, 'ajax_create_product'));
+        add_action('wp_ajax_emp_caja_update_stock', array(__CLASS__, 'ajax_update_stock'));
         add_action('wp_ajax_emp_caja_get_categories', array(__CLASS__, 'ajax_get_categories'));
     }
 
@@ -216,6 +217,31 @@ class Batllie_Caja_Ajax {
 
         $cats = Batllie_Caja_Products::get_categories();
         wp_send_json_success(array('categories' => $cats));
+    }
+
+    /**
+     * AJAX: Actualizar inventario / stock de un producto
+     */
+    public static function ajax_update_stock() {
+        self::check_auth();
+
+        $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
+        $stock_data = isset($_POST['stock_data']) ? (array) $_POST['stock_data'] : array();
+
+        if (!$product_id || empty($stock_data)) {
+            wp_send_json_error(array('message' => __('Datos de inventario incompletos.', 'emp-caja')));
+        }
+
+        $result = Batllie_Caja_Products::update_stock($product_id, $stock_data);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Inventario actualizado con éxito en WooCommerce.', 'emp-caja'),
+            'product' => $result
+        ));
     }
 }
 
