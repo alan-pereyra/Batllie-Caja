@@ -58,6 +58,12 @@
                 self.switchTab(tabId);
             });
 
+            // Botón 'En Vivo' / 'Ir a Caja': Alterna entre Pedidos y Productos en la misma posición
+            $(document).on('click', '#caja-live-status', function(e) {
+                e.preventDefault();
+                self.toggleScreen();
+            });
+
             // Botón de cambio de pantalla entre sí (alternador directo)
             $(document).on('click', '#caja-btn-screen-toggle', function(e) {
                 e.preventDefault();
@@ -405,24 +411,44 @@
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
 
-            // Actualizar apariencia y texto del botón de cambio de pantallas
-            const $toggleBtn = $('#caja-btn-screen-toggle');
+            // Actualizar el botón 'En Vivo' / 'Ir a Caja' en la misma posición exacta
+            const $livePill = $('#caja-live-status');
             if (tabId === 'tab-products') {
-                const count = this.cachedOrders ? this.cachedOrders.length : 0;
-                $toggleBtn.addClass('active-in-products');
-                $toggleBtn.html(`
-                    <span class="caja-toggle-arrow">⬅</span>
-                    <span class="caja-toggle-icon">📋</span>
-                    <span class="caja-toggle-text">Volver a Pedidos</span>
-                    <span class="caja-badge-count">${count}</span>
+                $livePill.addClass('caja-live-pill-products');
+                $livePill.attr('title', 'Toca para ir a la Caja');
+                $livePill.html(`
+                    <span class="caja-pulse-dot dot-blue"></span>
+                    <span class="caja-live-text">Ir a Caja</span>
                 `);
             } else {
-                $toggleBtn.removeClass('active-in-products');
-                $toggleBtn.html(`
-                    <span class="caja-toggle-icon">📦</span>
-                    <span class="caja-toggle-text">Cambiar a Productos</span>
-                    <span class="caja-toggle-arrow">➔</span>
+                $livePill.removeClass('caja-live-pill-products');
+                $livePill.attr('title', 'Toca para ir a Productos');
+                $livePill.html(`
+                    <span class="caja-pulse-dot"></span>
+                    <span class="caja-live-text">En Vivo</span>
                 `);
+            }
+
+            // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
+            const $toggleBtn = $('#caja-btn-screen-toggle');
+            if ($toggleBtn.length) {
+                if (tabId === 'tab-products') {
+                    const count = this.cachedOrders ? this.cachedOrders.length : 0;
+                    $toggleBtn.addClass('active-in-products');
+                    $toggleBtn.html(`
+                        <span class="caja-toggle-arrow">⬅</span>
+                        <span class="caja-toggle-icon">📋</span>
+                        <span class="caja-toggle-text">Volver a Pedidos</span>
+                        <span class="caja-badge-count">${count}</span>
+                    `);
+                } else {
+                    $toggleBtn.removeClass('active-in-products');
+                    $toggleBtn.html(`
+                        <span class="caja-toggle-icon">📦</span>
+                        <span class="caja-toggle-text">Cambiar a Productos</span>
+                        <span class="caja-toggle-arrow">➔</span>
+                    `);
+                }
             }
 
             // Actualizar URL hash para navegación y marcadores directos

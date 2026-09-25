@@ -20,10 +20,10 @@ if (!defined('ABSPATH')) {
                 </svg>
             </div>
             <span class="caja-title"><?php _e('Batllie Caja', 'emp-caja'); ?></span>
-            <div class="caja-live-pill" id="caja-live-status">
+            <button type="button" class="caja-live-pill" id="caja-live-status" title="<?php esc_attr_e('Toca para ir a Productos', 'emp-caja'); ?>">
                 <span class="caja-pulse-dot"></span>
                 <span class="caja-live-text"><?php _e('En Vivo', 'emp-caja'); ?></span>
-            </div>
+            </button>
         </div>
 
         <!-- Pestañas Principales -->
@@ -46,13 +46,6 @@ if (!defined('ABSPATH')) {
                 <span><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
             </button>
         </nav>
-
-        <!-- Botón Directo de Cambio de Pantallas entre sí -->
-        <button type="button" class="caja-btn-screen-toggle" id="caja-btn-screen-toggle" title="<?php esc_attr_e('Alternar entre pantalla de Pedidos y Productos', 'emp-caja'); ?>">
-            <span class="caja-toggle-icon">📦</span>
-            <span class="caja-toggle-text"><?php _e('Cambiar a Productos', 'emp-caja'); ?></span>
-            <span class="caja-toggle-arrow">➔</span>
-        </button>
 
         <!-- Controles de la Barra Superior -->
         <div class="caja-actions">
