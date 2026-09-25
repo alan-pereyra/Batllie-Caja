@@ -2287,13 +2287,6 @@ body.batllie-caja-active .container {
         width: 100% !important;
     }
 
-    .caja-search-row .caja-btn-screen-switch {
-        height: 42px !important;
-        padding: 0 10px !important;
-        font-size: 0.82rem !important;
-        flex-shrink: 0 !important;
-    }
-
     .caja-products-actions-group {
         display: flex !important;
         flex-direction: column !important;
