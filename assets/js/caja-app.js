@@ -997,7 +997,6 @@
                                     <strong class="caja-meta-val">${order.payment_method}</strong>
                                 </div>
                                 <div class="caja-meta-select-wrap">
-                                    <label class="caja-meta-label">Cobro:</label>
                                     <select class="caja-status-select caja-payment-select status-pay-${order.payment_status}" data-order-id="${order.id}">
                                         <option value="pagado" ${order.payment_status === 'pagado' ? 'selected' : ''}>✅ Pagado</option>
                                         <option value="pendiente" ${order.payment_status === 'pendiente' ? 'selected' : ''}>⏳ Pendiente de pago</option>

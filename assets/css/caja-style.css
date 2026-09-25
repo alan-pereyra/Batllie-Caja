@@ -1029,10 +1029,10 @@ body.batllie-caja-active .container {
 
 .caja-meta-box {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
     gap: 6px;
+    width: 100%;
 }
 
 .caja-meta-header {
@@ -1059,26 +1059,27 @@ body.batllie-caja-active .container {
 .caja-meta-select-wrap {
     display: flex;
     align-items: center;
-    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .caja-meta-label {
-    font-size: 0.78rem;
-    color: var(--caja-text-muted);
-    font-weight: 600;
+    display: none;
 }
 
 .caja-status-select {
     background: rgba(15, 23, 42, 0.85);
     border: 1px solid var(--caja-card-border);
     color: var(--caja-text);
-    padding: 5px 8px;
+    padding: 7px 10px;
     border-radius: 6px;
-    font-size: 0.8rem;
+    font-size: 0.84rem;
     font-weight: 600;
     cursor: pointer;
     outline: none;
-    max-width: 200px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     transition: border-color 0.2s;
 }
 
