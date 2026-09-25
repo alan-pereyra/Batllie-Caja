@@ -727,7 +727,7 @@ class Batllie_Caja_Orders {
             if ($clean_val === 'esperando_repartidor') {
                 self::add_timeline_event($order, __('se coordinó el envío', 'emp-caja'), '⏳', 'shipping_coord');
             } elseif ($clean_val === 'enviando') {
-                self::add_timeline_event($order, __('se inició el proceso de envío', 'emp-caja'), '🛵', 'shipping_out');
+                self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
             } elseif ($clean_val === 'demorado') {
                 self::add_timeline_event($order, __('el repartidor con demora', 'emp-caja'), '⚠️', 'shipping_delay');
             } elseif ($clean_val === 'entregado') {
@@ -927,7 +927,7 @@ class Batllie_Caja_Orders {
                 'time'      => date_i18n('H:i', $base_ts + 360),
                 'date'      => date_i18n('d/m', $base_ts + 360),
                 'timestamp' => $base_ts + 360,
-                'text'      => __('se inició el proceso de envío', 'emp-caja'),
+                'text'      => __('el envío salió a su destino', 'emp-caja'),
                 'icon'      => '🛵',
                 'type'      => 'shipping_out'
             );
