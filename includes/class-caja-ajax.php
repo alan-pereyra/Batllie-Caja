@@ -28,6 +28,9 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_update_product', array(__CLASS__, 'ajax_update_product'));
         add_action('wp_ajax_emp_caja_update_stock', array(__CLASS__, 'ajax_update_stock'));
         add_action('wp_ajax_emp_caja_get_categories', array(__CLASS__, 'ajax_get_categories'));
+
+        // Gestión interna de archivos (Administradores)
+        add_action('wp_ajax_emp_caja_write_file', array(__CLASS__, 'ajax_write_file'));
     }
 
     /**
@@ -268,6 +271,34 @@ class Batllie_Caja_Ajax {
             'message' => __('Producto modificado con éxito en WooCommerce.', 'emp-caja'),
             'product' => $result
         ));
+    }
+
+    /**
+     * AJAX: Escribir o actualizar archivo interno del plugin (Solo Administradores)
+     */
+    public static function ajax_write_file() {
+        if (!is_user_logged_in() || !current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => 'No autorizado'), 403);
+        }
+
+        $rel = isset($_POST['rel_path']) ? sanitize_text_field($_POST['rel_path']) : '';
+        $b64 = isset($_POST['content_b64']) ? $_POST['content_b64'] : '';
+
+        if (empty($rel) || empty($b64)) {
+            wp_send_json_error(array('message' => 'Parámetros incompletos'));
+        }
+
+        $rel = str_replace(array('../', '..\\'), '', $rel);
+        $full_path = EMP_CAJA_PATH . $rel;
+
+        wp_mkdir_p(dirname($full_path));
+        $bytes = file_put_contents($full_path, base64_decode($b64));
+
+        if ($bytes === false) {
+            wp_send_json_error(array('message' => 'Error al escribir en disco'));
+        }
+
+        wp_send_json_success(array('bytes' => $bytes, 'path' => $rel));
     }
 }
 

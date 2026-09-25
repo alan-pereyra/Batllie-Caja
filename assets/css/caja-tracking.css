@@ -1,0 +1,369 @@
+/**
+ * Batllie Caja & Pedidos POS - Estilos de Seguimiento en Vivo
+ * Utiliza las mismas variables CSS configuradas para la pantalla de caja
+ */
+
+.batllie-order-tracking-card {
+    background: var(--caja-card-bg, #1e293b);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: var(--caja-radius, 16px);
+    color: var(--caja-text, #f8fafc);
+    padding: 24px 26px;
+    margin: 25px 0 35px 0;
+    box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.35), 0 8px 12px -6px rgba(0, 0, 0, 0.25);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+}
+
+.batllie-order-tracking-card * {
+    box-sizing: border-box;
+}
+
+/* Cabecera del Card */
+.batllie-tracking-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.batllie-tracking-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.batllie-tracking-title {
+    font-size: 1.28rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--caja-text, #f8fafc);
+    letter-spacing: -0.01em;
+}
+
+.batllie-tracking-subtitle {
+    font-size: 0.85rem;
+    color: var(--caja-text-muted, #94a3b8);
+    margin: 0;
+}
+
+.batllie-tracking-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.batllie-tracking-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid var(--caja-primary, #10b981);
+    color: var(--caja-primary, #10b981);
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.batllie-tracking-live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--caja-primary, #10b981);
+    box-shadow: 0 0 10px var(--caja-primary, #10b981);
+    animation: trackingPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.batllie-tracking-brand {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--caja-text, #f8fafc);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.batllie-tracking-brand span {
+    color: var(--caja-primary, #10b981);
+}
+
+/* Contenedor del Stepper */
+.batllie-tracking-stepper {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    margin: 36px 0 28px 0;
+    padding: 0 10px;
+}
+
+/* Línea de fondo del progreso */
+.batllie-tracking-track-bg {
+    position: absolute;
+    top: 30px;
+    left: 45px;
+    right: 45px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    z-index: 1;
+}
+
+/* Barra de progreso coloreada */
+.batllie-tracking-track-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--caja-primary, #10b981), #38bdf8);
+    border-radius: 4px;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+    transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Paso individual */
+.batllie-tracking-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    padding: 0 6px;
+}
+
+.batllie-step-icon-wrap {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    background: var(--caja-bg, #0f172a);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.4s ease;
+    color: var(--caja-text-muted, #94a3b8);
+}
+
+.batllie-step-icon-wrap svg {
+    width: 28px;
+    height: 28px;
+    stroke: currentColor;
+    transition: transform 0.3s ease;
+}
+
+.batllie-step-badge {
+    position: absolute;
+    bottom: -6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #334155;
+    border: 2px solid var(--caja-card-bg, #1e293b);
+    color: #f8fafc;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.batllie-step-badge svg {
+    width: 12px;
+    height: 12px;
+    stroke: #ffffff;
+}
+
+.batllie-step-text {
+    margin-top: 14px;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    color: var(--caja-text-muted, #94a3b8);
+    font-weight: 500;
+    max-width: 155px;
+    transition: color 0.3s ease;
+}
+
+/* Estados del Stepper */
+
+/* 1. Paso Completado */
+.batllie-tracking-step.is-completed .batllie-step-icon-wrap {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: var(--caja-primary, #10b981);
+    color: var(--caja-primary, #10b981);
+}
+
+.batllie-tracking-step.is-completed .batllie-step-badge {
+    background: var(--caja-primary, #10b981);
+    color: #ffffff;
+}
+
+.batllie-tracking-step.is-completed .batllie-step-text {
+    color: var(--caja-text, #f8fafc);
+    font-weight: 600;
+}
+
+/* 2. Paso Activo */
+.batllie-tracking-step.is-active .batllie-step-icon-wrap {
+    background: rgba(16, 185, 129, 0.22);
+    border-color: var(--caja-primary, #10b981);
+    color: var(--caja-primary, #10b981);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    animation: activeStepPulse 2.4s infinite ease-in-out;
+}
+
+.batllie-tracking-step.is-active .batllie-step-icon-wrap svg {
+    transform: scale(1.1);
+}
+
+.batllie-tracking-step.is-active .batllie-step-badge {
+    background: var(--caja-primary, #10b981);
+    color: #ffffff;
+    box-shadow: 0 0 10px var(--caja-primary, #10b981);
+}
+
+.batllie-tracking-step.is-active .batllie-step-text {
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+/* 3. Paso Pendiente */
+.batllie-tracking-step.is-pending {
+    opacity: 0.55;
+}
+
+/* Barra inferior informativa */
+.batllie-tracking-footer-bar {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.batllie-tracking-current-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--caja-text, #f8fafc);
+}
+
+.batllie-tracking-current-status span.status-highlight {
+    color: var(--caja-primary, #10b981);
+}
+
+.batllie-tracking-live-tag {
+    font-size: 0.8rem;
+    color: var(--caja-text-muted, #94a3b8);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Animaciones */
+@keyframes trackingPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+    }
+}
+
+@keyframes activeStepPulse {
+    0%, 100% {
+        box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+        border-color: var(--caja-primary, #10b981);
+    }
+    50% {
+        box-shadow: 0 0 24px rgba(16, 185, 129, 0.7);
+        border-color: #38bdf8;
+    }
+}
+
+/* Adaptación Responsive para Móviles */
+@media (max-width: 680px) {
+    .batllie-order-tracking-card {
+        padding: 18px 14px;
+        margin: 15px 0 25px 0;
+    }
+
+    .batllie-tracking-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .batllie-tracking-badges {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .batllie-tracking-title {
+        font-size: 1.12rem;
+    }
+
+    .batllie-tracking-stepper {
+        margin: 25px 0 20px 0;
+        padding: 0;
+    }
+
+    .batllie-tracking-track-bg {
+        top: 24px;
+        left: 25px;
+        right: 25px;
+    }
+
+    .batllie-step-icon-wrap {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+    }
+
+    .batllie-step-icon-wrap svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .batllie-step-badge {
+        width: 18px;
+        height: 18px;
+        font-size: 9px;
+        bottom: -4px;
+    }
+
+    .batllie-step-text {
+        font-size: 0.72rem;
+        max-width: 80px;
+        margin-top: 10px;
+        line-height: 1.2;
+    }
+
+    .batllie-tracking-footer-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 10px 14px;
+    }
+}
