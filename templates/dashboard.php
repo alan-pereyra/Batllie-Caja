@@ -47,6 +47,13 @@ if (!defined('ABSPATH')) {
             </button>
         </nav>
 
+        <!-- Botón Directo de Cambio de Pantallas entre sí -->
+        <button type="button" class="caja-btn-screen-toggle" id="caja-btn-screen-toggle" title="<?php esc_attr_e('Alternar entre pantalla de Pedidos y Productos', 'emp-caja'); ?>">
+            <span class="caja-toggle-icon">📦</span>
+            <span class="caja-toggle-text"><?php _e('Cambiar a Productos', 'emp-caja'); ?></span>
+            <span class="caja-toggle-arrow">➔</span>
+        </button>
+
         <!-- Controles de la Barra Superior -->
         <div class="caja-actions">
             <!-- Botón de Audio / Alerta Sonora -->

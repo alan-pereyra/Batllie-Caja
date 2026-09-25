@@ -32,13 +32,22 @@ if (!defined('ABSPATH')) {
             </select>
         </div>
 
-        <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-product">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span><?php _e('Cargar Nuevo Producto', 'emp-caja'); ?></span>
-        </button>
+        <div class="caja-products-actions-group">
+            <button type="button" class="caja-btn caja-btn-secondary caja-btn-screen-switch" data-target="tab-orders" title="<?php esc_attr_e('Volver a la pantalla de Pedidos en Vivo', 'emp-caja'); ?>">
+                <span class="caja-btn-arrow">⬅</span>
+                <span class="caja-btn-icon">📋</span>
+                <span class="caja-btn-text-responsive"><?php _e('Volver a Pedidos', 'emp-caja'); ?></span>
+                <span class="caja-badge-count" id="caja-products-orders-badge">0</span>
+            </button>
+
+            <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-product">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span><?php _e('Cargar Nuevo Producto', 'emp-caja'); ?></span>
+            </button>
+        </div>
     </div>
 
     <!-- Indicador de carga -->

@@ -58,6 +58,23 @@
                 self.switchTab(tabId);
             });
 
+            // Botón de cambio de pantalla entre sí (alternador directo)
+            $(document).on('click', '#caja-btn-screen-toggle', function(e) {
+                e.preventDefault();
+                self.toggleScreen();
+            });
+
+            // Botones rápidos de cambio de pantalla contextuales
+            $(document).on('click', '.caja-btn-screen-switch', function(e) {
+                e.preventDefault();
+                const target = $(this).data('target');
+                if (target) {
+                    self.switchTab(target);
+                } else {
+                    self.toggleScreen();
+                }
+            });
+
             // Filtro Desplegable de Estados
             $(document).on('change', '#caja-filter-status', function() {
                 self.currentStatusFilter = $(this).val();
@@ -372,6 +389,14 @@
             });
         },
 
+        toggleScreen: function() {
+            if (this.activeTab === 'tab-orders') {
+                this.switchTab('tab-products');
+            } else {
+                this.switchTab('tab-orders');
+            }
+        },
+
         switchTab: function(tabId) {
             $('.caja-tab-btn').removeClass('active');
             $(`.caja-tab-btn[data-tab="${tabId}"]`).addClass('active');
@@ -379,6 +404,26 @@
             $('.caja-tab-panel').hide();
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
+
+            // Actualizar apariencia y texto del botón de cambio de pantallas
+            const $toggleBtn = $('#caja-btn-screen-toggle');
+            if (tabId === 'tab-products') {
+                const count = this.cachedOrders ? this.cachedOrders.length : 0;
+                $toggleBtn.addClass('active-in-products');
+                $toggleBtn.html(`
+                    <span class="caja-toggle-arrow">⬅</span>
+                    <span class="caja-toggle-icon">📋</span>
+                    <span class="caja-toggle-text">Volver a Pedidos</span>
+                    <span class="caja-badge-count">${count}</span>
+                `);
+            } else {
+                $toggleBtn.removeClass('active-in-products');
+                $toggleBtn.html(`
+                    <span class="caja-toggle-icon">📦</span>
+                    <span class="caja-toggle-text">Cambiar a Productos</span>
+                    <span class="caja-toggle-arrow">➔</span>
+                `);
+            }
 
             // Actualizar URL hash para navegación y marcadores directos
             if (window.history && window.history.replaceState) {
@@ -408,6 +453,7 @@
                 success: function(res) {
                     if (res.success && res.data) {
                         self.cachedOrders = res.data.orders || [];
+                        $('#caja-orders-count, #caja-products-orders-badge').text(self.cachedOrders.length);
                         self.applyFilters();
 
                         // Actualizar id más alto conocido

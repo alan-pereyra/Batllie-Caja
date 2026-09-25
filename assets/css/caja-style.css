@@ -383,6 +383,72 @@ body.batllie-caja-active .container {
     font-weight: 700;
 }
 
+/* Botón Directo de Cambio de Pantallas entre sí */
+.caja-btn-screen-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.4));
+    border: 1px solid var(--caja-primary);
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+    white-space: nowrap;
+}
+
+.caja-btn-screen-toggle:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.38), rgba(5, 150, 105, 0.6));
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+    transform: translateY(-1px);
+}
+
+.caja-btn-screen-toggle.active-in-products {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(37, 99, 235, 0.45));
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+}
+
+.caja-btn-screen-toggle.active-in-products:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.42), rgba(37, 99, 235, 0.65));
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+}
+
+.caja-toggle-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.caja-toggle-arrow {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Botones rápidos de cambio de pantalla en toolbar */
+.caja-btn-screen-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.caja-btn-screen-switch:hover {
+    transform: translateY(-1px);
+}
+
+.caja-products-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 /* Herramientas de la barra superior */
 .caja-actions {
     display: flex;
@@ -1930,9 +1996,21 @@ body.batllie-caja-active .container {
         font-size: 1.1rem !important;
     }
 
-    .caja-actions {
+    /* Botón de cambio de pantalla en la parte superior derecha de móvil */
+    .caja-btn-screen-toggle {
         order: 2 !important;
+        padding: 6px 12px !important;
+        font-size: 0.8rem !important;
+        gap: 5px !important;
+    }
+
+    .caja-actions {
+        order: 4 !important;
+        width: 100% !important;
+        justify-content: space-between !important;
         gap: 6px !important;
+        padding-top: 4px !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
     }
 
     .caja-btn-tool {
@@ -2167,6 +2245,26 @@ body.batllie-caja-active .container {
 
     .caja-products-search .caja-search-box {
         width: 100% !important;
+    }
+
+    .caja-search-row .caja-btn-screen-switch {
+        height: 42px !important;
+        padding: 0 10px !important;
+        font-size: 0.82rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    .caja-products-actions-group {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .caja-products-actions-group .caja-btn {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        justify-content: center !important;
     }
 
     .caja-btn#caja-btn-open-new-product {
