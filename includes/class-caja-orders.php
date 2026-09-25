@@ -48,6 +48,194 @@ class Batllie_Caja_Orders {
     }
 
     /**
+     * Hacer que el número de teléfono sea 100% obligatorio en WooCommerce (Clásico y Bloques)
+     */
+    public static function make_phone_required_hooks() {
+        if (get_option('woocommerce_checkout_phone_field') !== 'required') {
+            update_option('woocommerce_checkout_phone_field', 'required');
+        }
+
+        // Forzar opción a nivel de WooCommerce
+        add_filter('pre_option_woocommerce_checkout_phone_field', function() {
+            return 'required';
+        });
+
+        // Forzar en campos de facturación
+        add_filter('woocommerce_billing_fields', array(__CLASS__, 'filter_billing_phone_required'), 9999, 1);
+
+        // Forzar en campos del checkout
+        add_filter('woocommerce_checkout_fields', array(__CLASS__, 'filter_checkout_phone_required'), 9999, 1);
+
+        // Forzar en campos de dirección por defecto
+        add_filter('woocommerce_default_address_fields', array(__CLASS__, 'filter_default_phone_required'), 9999, 1);
+
+        // Validación estricta del lado del servidor al procesar el checkout clásico
+        add_action('woocommerce_after_checkout_validation', array(__CLASS__, 'validate_checkout_phone'), 10, 2);
+
+        // Validación estricta en Checkout de Bloques (WooCommerce Store API)
+        add_action('woocommerce_store_api_checkout_update_order_from_request', array(__CLASS__, 'validate_store_api_checkout_phone'), 10, 2);
+
+        // Asegurar atributos requirePhoneField en los bloques de la página de checkout
+        self::ensure_checkout_blocks_phone_required();
+
+        // Script frontend para eliminar "(opcional)" en React/Gutenberg y forzar required
+        add_action('wp_footer', array(__CLASS__, 'render_checkout_phone_fix_script'), 999);
+    }
+
+    public static function ensure_checkout_blocks_phone_required() {
+        $checkout_page_id = function_exists('wc_get_page_id') ? wc_get_page_id('checkout') : 10;
+        if (!$checkout_page_id || $checkout_page_id <= 0) {
+            $checkout_page_id = 10;
+        }
+
+        $post = get_post($checkout_page_id);
+        if (!$post || empty($post->post_content)) {
+            return;
+        }
+
+        $content = $post->post_content;
+        $needs_update = false;
+
+        // Reemplazar requirePhoneField:false por true
+        if (strpos($content, '"requirePhoneField":false') !== false) {
+            $content = str_replace('"requirePhoneField":false', '"requirePhoneField":true', $content);
+            $needs_update = true;
+        }
+
+        // Si los bloques no tienen atributos, agregarlos
+        $replacements = array(
+            '<!-- wp:woocommerce/checkout-shipping-address-block /-->' => '<!-- wp:woocommerce/checkout-shipping-address-block {"showPhoneField":true,"requirePhoneField":true} /-->',
+            '<!-- wp:woocommerce/checkout-billing-address-block /-->'  => '<!-- wp:woocommerce/checkout-billing-address-block {"showPhoneField":true,"requirePhoneField":true} /-->',
+        );
+
+        foreach ($replacements as $orig => $repl) {
+            if (strpos($content, $orig) !== false) {
+                $content = str_replace($orig, $repl, $content);
+                $needs_update = true;
+            }
+        }
+
+        if ($needs_update) {
+            wp_update_post(array(
+                'ID'           => $checkout_page_id,
+                'post_content' => $content,
+            ));
+        }
+    }
+
+    public static function filter_billing_phone_required($fields) {
+        if (isset($fields['billing_phone'])) {
+            $fields['billing_phone']['required'] = true;
+            $fields['billing_phone']['label'] = __('Teléfono', 'woocommerce');
+            $fields['billing_phone']['placeholder'] = __('Teléfono *', 'emp-caja');
+        }
+        return $fields;
+    }
+
+    public static function filter_checkout_phone_required($fields) {
+        if (isset($fields['billing']['billing_phone'])) {
+            $fields['billing']['billing_phone']['required'] = true;
+            $fields['billing']['billing_phone']['label'] = __('Teléfono', 'woocommerce');
+            $fields['billing']['billing_phone']['placeholder'] = __('Teléfono *', 'emp-caja');
+        }
+        return $fields;
+    }
+
+    public static function filter_default_phone_required($fields) {
+        if (isset($fields['phone'])) {
+            $fields['phone']['required'] = true;
+        }
+        return $fields;
+    }
+
+    public static function validate_checkout_phone($data, $errors) {
+        if (empty($data['billing_phone']) || trim($data['billing_phone']) === '') {
+            $errors->add('billing_phone_required', __('<strong>Teléfono</strong> es un campo obligatorio para poder coordinar la entrega de tu pedido.', 'emp-caja'));
+        }
+    }
+
+    public static function validate_store_api_checkout_phone($order, $request) {
+        $billing = is_object($request) && method_exists($request, 'get_param') ? $request->get_param('billing_address') : array();
+        $shipping = is_object($request) && method_exists($request, 'get_param') ? $request->get_param('shipping_address') : array();
+
+        $phone = '';
+        if (!empty($billing['phone'])) {
+            $phone = trim($billing['phone']);
+        } elseif (!empty($shipping['phone'])) {
+            $phone = trim($shipping['phone']);
+        } elseif (method_exists($order, 'get_billing_phone') && $order->get_billing_phone()) {
+            $phone = trim($order->get_billing_phone());
+        }
+
+        if (empty($phone)) {
+            if (class_exists('\Automattic\WooCommerce\StoreApi\Exceptions\RouteException')) {
+                throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+                    'woocommerce_rest_missing_phone',
+                    __('El número de teléfono es obligatorio para poder coordinar la entrega de tu pedido.', 'emp-caja'),
+                    400
+                );
+            }
+        }
+    }
+
+    public static function render_checkout_phone_fix_script() {
+        if (!is_checkout() && !is_cart()) {
+            return;
+        }
+        ?>
+        <script>
+        (function() {
+            function updatePhoneFields() {
+                var phoneInputs = document.querySelectorAll('input[type="tel"], input#billing_phone, input#shipping_phone, input[name*="phone"], input[id*="phone"]');
+                phoneInputs.forEach(function(input) {
+                    if (input.placeholder && input.placeholder.toLowerCase().includes('opcional')) {
+                        input.placeholder = input.placeholder.replace(/\s*\(opcional\)/gi, '').trim() + ' *';
+                    }
+                    if (!input.placeholder || input.placeholder === 'Teléfono' || input.placeholder === 'Teléfono *') {
+                        input.placeholder = 'Teléfono *';
+                    }
+
+                    input.required = true;
+                    input.setAttribute('required', 'required');
+                    input.setAttribute('aria-required', 'true');
+
+                    var label = document.querySelector('label[for="' + input.id + '"]') || 
+                                (input.closest('.wc-block-components-text-input') ? input.closest('.wc-block-components-text-input').querySelector('label') : null) ||
+                                (input.closest('.form-row') ? input.closest('.form-row').querySelector('label') : null);
+                    
+                    if (label) {
+                        var text = label.textContent || '';
+                        if (text.toLowerCase().includes('opcional')) {
+                            label.innerHTML = label.innerHTML.replace(/\s*\(opcional\)/gi, '').replace(/<span[^>]*class="[^"]*optional[^"]*"[^>]*>.*?<\/span>/gi, '') + ' <abbr class="required" title="obligatorio">*</abbr>';
+                        }
+                    }
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updatePhoneFields);
+            } else {
+                updatePhoneFields();
+            }
+
+            if (window.MutationObserver) {
+                var observer = new MutationObserver(function() {
+                    updatePhoneFields();
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+        })();
+        </script>
+        <style>
+        .wc-block-components-text-input:has(input[name*="phone"]) .wc-block-components-text-input__label span.optional,
+        #billing_phone_field .optional {
+            display: none !important;
+        }
+        </style>
+        <?php
+    }
+
+    /**
      * Obtener listado de pedidos WooCommerce
      */
     public static function get_orders($status = 'all', $limit = 50, $search = '') {
