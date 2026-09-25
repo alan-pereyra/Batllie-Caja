@@ -629,6 +629,15 @@ class Batllie_Caja_Orders {
         // Quitar prefijo 'wc-' si viene incluido
         $clean_status = str_replace('wc-', '', sanitize_key($new_status));
 
+        // En "Pendiente", solo habilitar pasar a "En preparación" si está Pagado o Efectivo en entrega
+        $current_status = $order->get_status();
+        if ($current_status === 'pending' && $clean_status === 'processing') {
+            $payment_status = $order->get_meta('_caja_payment_status');
+            if ($payment_status !== 'pagado' && $payment_status !== 'efectivo_entrega') {
+                return new WP_Error('payment_required', __('Para pasar a En preparación, primero debes marcar el cobro como Pagado o Efectivo en entrega.', 'emp-caja'));
+            }
+        }
+
         // Si el estado principal pasa a "Recibido" (completed), actualizar automáticamente el estado del envío a "entregado" (Recibido sin problemas)
         if ($clean_status === 'completed') {
             $order->update_meta_data('_caja_shipping_status', 'entregado');
@@ -641,7 +650,7 @@ class Batllie_Caja_Orders {
         } elseif ($clean_status === 'processing') {
             self::add_timeline_event($order, __('en preparación', 'emp-caja'), '👨‍🍳', 'status_prep');
         } elseif ($clean_status === 'enviando' || $clean_status === 'on-hold') {
-            self::add_timeline_event($order, __('el repartidor salió', 'emp-caja'), '🛵', 'shipping_out');
+            self::add_timeline_event($order, __('se inició el proceso de envío', 'emp-caja'), '🛵', 'shipping_out');
         } elseif ($clean_status === 'cancelled') {
             self::add_timeline_event($order, __('pedido cancelado', 'emp-caja'), '❌', 'status');
         } elseif ($clean_status === 'refunded') {
@@ -718,13 +727,17 @@ class Batllie_Caja_Orders {
             if ($clean_val === 'esperando_repartidor') {
                 self::add_timeline_event($order, __('se coordinó el envío', 'emp-caja'), '⏳', 'shipping_coord');
             } elseif ($clean_val === 'enviando') {
-                self::add_timeline_event($order, __('el repartidor salió', 'emp-caja'), '🛵', 'shipping_out');
+                self::add_timeline_event($order, __('se inició el proceso de envío', 'emp-caja'), '🛵', 'shipping_out');
             } elseif ($clean_val === 'demorado') {
                 self::add_timeline_event($order, __('el repartidor con demora', 'emp-caja'), '⚠️', 'shipping_delay');
             } elseif ($clean_val === 'entregado') {
+                $order->update_status('completed', __('Pedido marcado como recibido sin problemas desde terminal Batllie Caja', 'emp-caja'));
                 self::add_timeline_event($order, __('llegó a destino (sin inconvenientes)', 'emp-caja'), '🏁', 'shipping_dest');
+                self::add_timeline_event($order, __('pedido completado', 'emp-caja'), '✅', 'status_comp');
             } elseif ($clean_val === 'entregado_problemas') {
+                $order->update_status('recibido-problema', __('Pedido marcado como recibido con problemas desde terminal Batllie Caja', 'emp-caja'));
                 self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
+                self::add_timeline_event($order, __('pedido completado con inconvenientes', 'emp-caja'), '⚠️', 'status_comp');
             }
         } else {
             return false;
@@ -914,7 +927,7 @@ class Batllie_Caja_Orders {
                 'time'      => date_i18n('H:i', $base_ts + 360),
                 'date'      => date_i18n('d/m', $base_ts + 360),
                 'timestamp' => $base_ts + 360,
-                'text'      => __('el repartidor salió', 'emp-caja'),
+                'text'      => __('se inició el proceso de envío', 'emp-caja'),
                 'icon'      => '🛵',
                 'type'      => 'shipping_out'
             );

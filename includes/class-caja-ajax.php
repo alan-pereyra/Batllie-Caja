@@ -110,6 +110,10 @@ class Batllie_Caja_Ajax {
 
         $updated_order = Batllie_Caja_Orders::update_status($order_id, $new_status);
 
+        if (is_wp_error($updated_order)) {
+            wp_send_json_error(array('message' => $updated_order->get_error_message()));
+        }
+
         if (!$updated_order) {
             wp_send_json_error(array('message' => __('No se pudo actualizar el pedido.', 'emp-caja')));
         }

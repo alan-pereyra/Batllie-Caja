@@ -148,6 +148,24 @@
             $(document).on('change', '.caja-payment-select', function() {
                 const orderId = $(this).data('order-id');
                 const val = $(this).val();
+                const $card = $(`#caja-order-card-${orderId}`);
+                const $mainDropdown = $card.find('.caja-main-status-dropdown');
+                const $procOption = $mainDropdown.find('option[value="processing"]');
+
+                // Si se marca pagado o efectivo_entrega, habilitar pasar a En preparación
+                if (val === 'pagado' || val === 'efectivo_entrega') {
+                    $procOption.prop('disabled', false).text('En preparación');
+                } else {
+                    // Si el pedido está en estado pendiente, bloquear pasar a En preparación
+                    if ($mainDropdown.val() === 'pending') {
+                        $procOption.prop('disabled', true).text('En preparación (requiere pago)');
+                    }
+                }
+
+                // Actualizar clases de color status-pay-*
+                $(this).removeClass('status-pay-pagado status-pay-pendiente status-pay-efectivo_entrega status-pay-pendiente_devolucion status-pay-devolucion')
+                       .addClass('status-pay-' + val);
+
                 self.updateCustomStatus(orderId, 'payment_status', val, $(this));
             });
 
@@ -155,6 +173,25 @@
             $(document).on('change', '.caja-shipping-select', function() {
                 const orderId = $(this).data('order-id');
                 const val = $(this).val();
+                const $card = $(`#caja-order-card-${orderId}`);
+                const $mainDropdown = $card.find('.caja-main-status-dropdown');
+
+                // Actualizar clases de color status-ship-*
+                $(this).removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                       .addClass('status-ship-' + val);
+
+                if (val === 'entregado') {
+                    // Sincronización: El botón grande cambia a Recibido (completed)
+                    $mainDropdown.val('completed');
+                    $mainDropdown.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed')
+                                 .addClass('status-bg-completed');
+                } else if (val === 'entregado_problemas') {
+                    // Sincronización: El botón grande cambia a Recibido (con problemas)
+                    $mainDropdown.val('recibido-problema');
+                    $mainDropdown.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed')
+                                 .addClass('status-bg-recibido-problema');
+                }
+
                 self.updateCustomStatus(orderId, 'shipping_status', val, $(this));
             });
 
@@ -177,6 +214,68 @@
                 const select = $(this);
                 const orderId = select.data('order-id');
                 const newStatus = select.val();
+                const $card = $(`#caja-order-card-${orderId}`);
+                const $grid = $(`#caja-meta-grid-${orderId}`);
+                const $payBox = $(`#caja-meta-payment-${orderId}`);
+                const $shipBox = $(`#caja-meta-shipping-${orderId}`);
+                const $paySelect = $card.find('.caja-payment-select');
+                const $shipSelect = $card.find('.caja-shipping-select');
+                const payVal = $paySelect.val();
+
+                // Validación: En "Pendiente", solo puede pasar a "En preparación" si está Pagado o Efectivo en entrega
+                const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
+                const currentStatus = cachedOrder ? cachedOrder.status : 'pending';
+
+                if (currentStatus === 'pending' && newStatus === 'processing' && payVal !== 'pagado' && payVal !== 'efectivo_entrega') {
+                    alert('Para pasar a En preparación, primero debes marcar el cobro como Pagado o Efectivo en entrega.');
+                    select.val(currentStatus);
+                    return;
+                }
+
+                const setVisible = ($el, show) => {
+                    if (show) {
+                        $el.removeClass('caja-meta-hidden').show();
+                    } else {
+                        $el.addClass('caja-meta-hidden').hide();
+                    }
+                };
+
+                // Ajustar visibilidad dinámica del recuadro debajo del botón de estado
+                if (newStatus === 'pending') {
+                    setVisible($grid, true);
+                    setVisible($payBox, true);
+                    setVisible($shipBox, false);
+                } else if (newStatus === 'processing') {
+                    setVisible($grid, false);
+                    setVisible($payBox, false);
+                    setVisible($shipBox, false);
+                } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
+                    setVisible($grid, true);
+                    setVisible($payBox, false);
+                    setVisible($shipBox, true);
+                } else if (newStatus === 'completed') {
+                    setVisible($grid, true);
+                    setVisible($payBox, false);
+                    setVisible($shipBox, true);
+                    // Sincronización: selector de la moto se pone en Recibido sin problemas
+                    $shipSelect.val('entregado');
+                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                               .addClass('status-ship-entregado');
+                } else if (newStatus === 'recibido-problema') {
+                    setVisible($grid, true);
+                    setVisible($payBox, false);
+                    setVisible($shipBox, true);
+                    // Sincronización: selector de la moto se pone en Recibido con problemas
+                    $shipSelect.val('entregado_problemas');
+                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                               .addClass('status-ship-entregado_problemas');
+                } else if (newStatus === 'cancelled' || newStatus === 'refunded') {
+                    // Si se pone "cancelado" o "Reembolzado" en el botón grande se vuelve a habilitar el desplegable del pago
+                    setVisible($grid, true);
+                    setVisible($payBox, true);
+                    setVisible($shipBox, false);
+                }
+
                 select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed');
                 select.addClass('status-bg-' + newStatus);
                 self.updateOrderStatus(orderId, newStatus, select);
@@ -959,6 +1058,34 @@
                     timelineHtml = '<div class="caja-timeline-empty">Sin historial registrado</div>';
                 }
 
+                // Reglas de visibilidad condicional para el recuadro de pago y envío (debajo del botón de estado):
+                // En "Pendiente": mostrar pago, ocultar moto.
+                // En "En preparación": ocultar todo el recuadro.
+                // En "Enviando", "Recibido", etc.: mostrar moto, ocultar pago.
+                // En "Cancelado" o "Reembolzado": mostrar pago, ocultar moto.
+                const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
+                let showMetaGrid = true;
+                let showPaymentBox = false;
+                let showShippingBox = false;
+
+                if (order.status === 'pending') {
+                    showPaymentBox = true;
+                    showShippingBox = false;
+                } else if (order.status === 'processing') {
+                    showMetaGrid = false;
+                    showPaymentBox = false;
+                    showShippingBox = false;
+                } else if (order.status === 'enviando' || order.status === 'on-hold' || order.status === 'completed' || order.status === 'recibido-problema' || order.status === 'failed') {
+                    showPaymentBox = false;
+                    showShippingBox = true;
+                } else if (order.status === 'cancelled' || order.status === 'refunded') {
+                    showPaymentBox = true;
+                    showShippingBox = false;
+                } else {
+                    showPaymentBox = true;
+                    showShippingBox = false;
+                }
+
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
                         <div class="caja-card-header">
@@ -988,9 +1115,31 @@
                             ${itemsHtml}
                         </div>
 
-                        <!-- Medio de Pago y Estado del Envío -->
-                        <div class="caja-order-meta-grid">
-                            <div class="caja-meta-box">
+                        <div class="caja-card-footer">
+                            <div class="caja-order-total-block">
+                                <span class="caja-total-label">Total a cobrar:</span>
+                                <span class="caja-total-val">${order.total}</span>
+                            </div>
+
+                            <div class="caja-order-status-select-wrap">
+                                <div class="caja-dropdown-relative">
+                                    <select class="caja-main-status-dropdown status-bg-${order.status}" data-order-id="${order.id}">
+                                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${(!isPayApproved && order.status === 'pending') ? 'disabled' : ''}>En preparación${(!isPayApproved && order.status === 'pending') ? ' (requiere pago)' : ''}</option>
+                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''}>Enviando</option>
+                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Recibido</option>
+                                        <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
+                                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                    </select>
+                                    <span class="caja-dropdown-arrow">▼</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medio de Pago y Estado del Envío (ubicado debajo del botón de estado) -->
+                        <div class="caja-order-meta-grid ${showMetaGrid ? '' : 'caja-meta-hidden'}" id="caja-meta-grid-${order.id}" style="${showMetaGrid ? '' : 'display:none;'}">
+                            <div class="caja-meta-box caja-meta-payment-box ${showPaymentBox ? '' : 'caja-meta-hidden'}" id="caja-meta-payment-${order.id}" style="${showPaymentBox ? '' : 'display:none;'}">
                                 <div class="caja-meta-header">
                                     <span class="caja-meta-icon">💳</span>
                                     <span class="caja-meta-title">Pago:</span>
@@ -1007,7 +1156,7 @@
                                 </div>
                             </div>
 
-                            <div class="caja-meta-box">
+                            <div class="caja-meta-box caja-meta-shipping-box ${showShippingBox ? '' : 'caja-meta-hidden'}" id="caja-meta-shipping-${order.id}" style="${showShippingBox ? '' : 'display:none;'}">
                                 <div class="caja-meta-header">
                                     <span class="caja-meta-icon">🛵</span>
                                     <span class="caja-meta-title">Envío:</span>
@@ -1021,28 +1170,6 @@
                                         <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''}>🏁 Recibido sin problemas</option>
                                         <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''}>🛑 Recibido con problemas</option>
                                     </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="caja-card-footer">
-                            <div class="caja-order-total-block">
-                                <span class="caja-total-label">Total a cobrar:</span>
-                                <span class="caja-total-val">${order.total}</span>
-                            </div>
-
-                            <div class="caja-order-status-select-wrap">
-                                <div class="caja-dropdown-relative">
-                                    <select class="caja-main-status-dropdown status-bg-${order.status}" data-order-id="${order.id}">
-                                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
-                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''}>En preparación</option>
-                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''}>Enviando</option>
-                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Recibido</option>
-                                        <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
-                                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
-                                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
-                                    </select>
-                                    <span class="caja-dropdown-arrow">▼</span>
                                 </div>
                             </div>
                         </div>

@@ -530,6 +530,8 @@
    Detalles Bancarios BACS (Transferencia Bancaria):
    Mostrar ÚNICAMENTE 'Nuestros detalles bancarios', Alias y Banco.
    Ocultar 'Acreditar compra:', textos explicativos y avisos inferiores.
+   Fondo del mismo color blanco/crema de la página y texto con variables del tema.
+   Margen/padding izquierdo consistente de 20px para todos los textos (incluyendo Banco).
    ========================================================================== */
 .woocommerce-bacs-bank-details > .emp,
 .woocommerce-bacs-bank-details > h2:not(.wc-bacs-bank-details-heading),
@@ -539,25 +541,100 @@
     display: none !important;
 }
 
+body.woocommerce-order-received section.woocommerce-bacs-bank-details,
+.woocommerce-order section.woocommerce-bacs-bank-details,
+.woocommerce section.woocommerce-bacs-bank-details,
+section.woocommerce-bacs-bank-details,
 .woocommerce-bacs-bank-details {
+    background: var(--emp-woocommerce-bg, var(--wp--preset--color--background, #fcfbf8)) !important;
+    background-color: var(--emp-woocommerce-bg, var(--wp--preset--color--background, #fcfbf8)) !important;
+    color: var(--emp-woocommerce-color, var(--wp--preset--color--primary, #162a1f)) !important;
     margin: 20px 0 30px 0 !important;
-    padding: 0 !important;
+    padding: 10px 0 15px 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
 }
 
+section.woocommerce-bacs-bank-details .wc-bacs-bank-details-heading,
 .woocommerce-bacs-bank-details .wc-bacs-bank-details-heading {
     display: block !important;
-    margin-bottom: 12px !important;
+    color: var(--emp-woocommerce-color, var(--wp--preset--color--primary, #162a1f)) !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 10px 20px 6px 20px !important;
+    box-sizing: border-box !important;
+    font-family: "Cormorant Garamond", Georgia, serif !important;
+    font-size: 32px !important;
+    font-weight: 500 !important;
+    line-height: 1.25 !important;
+    text-align: left !important;
 }
 
+section.woocommerce-bacs-bank-details .wc-bacs-bank-details-account-name,
 .woocommerce-bacs-bank-details .wc-bacs-bank-details-account-name {
     display: block !important;
-    margin-bottom: 8px !important;
+    color: var(--emp-woocommerce-color, var(--wp--preset--color--primary, #162a1f)) !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 4px 20px 10px 20px !important;
+    box-sizing: border-box !important;
+    font-family: "Cormorant Garamond", Georgia, serif !important;
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    text-align: left !important;
 }
 
-.woocommerce-bacs-bank-details ul.wc-bacs-bank-details {
+section.woocommerce-bacs-bank-details ul.wc-bacs-bank-details,
+section.woocommerce-bacs-bank-details ul.order_details,
+section.woocommerce-bacs-bank-details ul.bacs_details,
+.woocommerce-bacs-bank-details ul.wc-bacs-bank-details,
+.woocommerce-bacs-bank-details ul.order_details,
+.woocommerce-bacs-bank-details ul.bacs_details {
     display: block !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 20px 15px 20px !important;
+    list-style: none !important;
+    box-sizing: border-box !important;
+    float: none !important;
+    clear: both !important;
+    text-align: left !important;
+}
+
+section.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li,
+section.woocommerce-bacs-bank-details ul.order_details li,
+section.woocommerce-bacs-bank-details ul.bacs_details li,
+section.woocommerce-bacs-bank-details li.bank_name,
+.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li,
+.woocommerce-bacs-bank-details ul.order_details li,
+.woocommerce-bacs-bank-details ul.bacs_details li,
+.woocommerce-bacs-bank-details li.bank_name {
+    display: block !important;
+    float: none !important;
+    clear: both !important;
+    color: var(--emp-woocommerce-color, var(--wp--preset--color--primary, #162a1f)) !important;
+    background: transparent !important;
     margin: 0 !important;
     padding: 0 !important;
-    list-style: none !important;
+    font-family: "Cormorant Garamond", Georgia, serif !important;
+    font-size: 20px !important;
+    line-height: 1.4 !important;
+    box-sizing: border-box !important;
+    text-align: left !important;
+}
+
+section.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li strong,
+section.woocommerce-bacs-bank-details ul.order_details li strong,
+section.woocommerce-bacs-bank-details ul.bacs_details li strong,
+section.woocommerce-bacs-bank-details li.bank_name strong,
+.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li strong,
+.woocommerce-bacs-bank-details ul.order_details li strong,
+.woocommerce-bacs-bank-details ul.bacs_details li strong,
+.woocommerce-bacs-bank-details li.bank_name strong {
+    color: var(--emp-woocommerce-color, var(--wp--preset--color--primary, #162a1f)) !important;
+    font-weight: 700 !important;
 }
 

@@ -1015,16 +1015,24 @@ body.batllie-caja-active .container {
     font-size: 0.95rem;
 }
 
-/* Medio de Pago y Estado de Envío */
+/* Medio de Pago y Estado de Envío (debajo del botón de estado) */
 .caja-order-meta-grid {
     background: rgba(15, 23, 42, 0.45);
     border: 1px solid var(--caja-card-border);
     border-radius: 8px;
     padding: 10px 12px;
-    margin-bottom: 12px;
+    margin-top: 10px;
+    margin-bottom: 4px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.caja-order-meta-grid.caja-meta-hidden,
+.caja-meta-box.caja-meta-hidden {
+    display: none !important;
 }
 
 .caja-meta-box {
@@ -1557,6 +1565,12 @@ body.batllie-caja-active .container {
     font-weight: 600;
     padding: 12px;
     text-align: left;
+}
+
+.caja-main-status-dropdown option:disabled {
+    color: #64748b !important;
+    background-color: #0f172a !important;
+    cursor: not-allowed !important;
 }
 
 /* ==========================================================================
@@ -2315,12 +2329,14 @@ body.batllie-caja-active .container {
     .caja-order-meta-grid {
         padding: 10px !important;
         gap: 10px !important;
+        margin-top: 10px !important;
+        margin-bottom: 4px !important;
         box-sizing: border-box !important;
         width: 100% !important;
     }
 
     .caja-meta-box {
-        display: flex !important;
+        display: flex;
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 6px !important;
