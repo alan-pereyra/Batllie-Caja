@@ -75,6 +75,9 @@ class Batllie_Caja_Orders {
         // Validación estricta en Checkout de Bloques (WooCommerce Store API)
         add_action('woocommerce_store_api_checkout_update_order_from_request', array(__CLASS__, 'validate_store_api_checkout_phone'), 10, 2);
 
+        // Normalizar automáticamente el teléfono argentino al crear el pedido
+        add_action('woocommerce_checkout_create_order', array(__CLASS__, 'normalize_order_phone_on_create'), 20, 2);
+
         // Asegurar atributos requirePhoneField en los bloques de la página de checkout
         self::ensure_checkout_blocks_phone_required();
 
@@ -175,11 +178,123 @@ class Batllie_Caja_Orders {
                     400
                 );
             }
+        } else {
+            // Normalizar número en el pedido
+            $norm = self::normalize_argentine_phone($phone);
+            if (!empty($norm['formatted']) && method_exists($order, 'set_billing_phone')) {
+                $order->set_billing_phone($norm['formatted']);
+                $order->update_meta_data('_caja_phone_wa', $norm['wa']);
+            }
         }
     }
 
+    /**
+     * Normalizar automáticamente el teléfono al crear pedido en checkout clásico
+     */
+    public static function normalize_order_phone_on_create($order, $data) {
+        if (!is_a($order, 'WC_Order')) {
+            return;
+        }
+        $bphone = $order->get_billing_phone();
+        if (!empty($bphone)) {
+            $norm = self::normalize_argentine_phone($bphone);
+            if (!empty($norm['formatted'])) {
+                $order->set_billing_phone($norm['formatted']);
+                $order->update_meta_data('_caja_phone_wa', $norm['wa']);
+            }
+        }
+        $sphone = $order->get_shipping_phone();
+        if (!empty($sphone)) {
+            $norm_s = self::normalize_argentine_phone($sphone);
+            if (!empty($norm_s['formatted'])) {
+                $order->set_shipping_phone($norm_s['formatted']);
+            }
+        }
+    }
+
+    /**
+     * Normalizar teléfonos argentinos para visualización, almacenamiento y WhatsApp
+     */
+    public static function normalize_argentine_phone($raw_phone) {
+        if (empty($raw_phone)) {
+            return array(
+                'raw'           => '',
+                'clean'         => '',
+                'formatted'     => '',
+                'wa'            => '',
+                'international' => '',
+            );
+        }
+
+        // Dejar solo dígitos
+        $digits = preg_replace('/[^0-9]/', '', (string)$raw_phone);
+
+        // Si empieza con 549 (formato internacional móvil Argentina, ej: 5491149472377)
+        if (strpos($digits, '549') === 0 && strlen($digits) >= 12) {
+            $national = substr($digits, 3);
+        } elseif (strpos($digits, '54') === 0 && strlen($digits) >= 12) {
+            // Empieza con 54 pero sin 9
+            $national = substr($digits, 2);
+        } else {
+            $national = $digits;
+        }
+
+        // Quitar ceros a la izquierda (ej: 011 -> 11)
+        $national = ltrim($national, '0');
+
+        // Quitar '15' si está después del código de área o al inicio
+        // Ej 1: 1549472377 (10 dígitos empezando con 15) -> asumir Buenos Aires 11 + 49472377
+        if (strlen($national) === 10 && strpos($national, '15') === 0) {
+            $national = '11' . substr($national, 2);
+        }
+        // Ej 2: 111549472377 (12 dígitos: 11 + 15 + 8 dígitos) -> 11 + 49472377
+        if (strlen($national) === 12 && strpos($national, '1115') === 0) {
+            $national = '11' . substr($national, 4);
+        }
+        // Ej 3: Si tiene 11 dígitos y empieza con 119 (ej: 11949472377) o 911 (ej: 91149472377)
+        if (strlen($national) === 11) {
+            if (strpos($national, '119') === 0) {
+                $national = '11' . substr($national, 3);
+            } elseif (strpos($national, '911') === 0) {
+                $national = substr($national, 1);
+            } elseif (strpos($national, '9') === 0) {
+                $national = substr($national, 1);
+            }
+        }
+
+        // Formatear para lectura amigable
+        $formatted = $national;
+        if (strlen($national) === 10) {
+            if (strpos($national, '11') === 0) {
+                $formatted = substr($national, 0, 2) . ' ' . substr($national, 2, 4) . '-' . substr($national, 6);
+            } else {
+                $formatted = substr($national, 0, 3) . ' ' . substr($national, 3, 3) . '-' . substr($national, 6);
+            }
+        }
+
+        // Número para WhatsApp (wa.me)
+        $wa = '';
+        if (!empty($national)) {
+            if (strlen($national) === 10) {
+                $wa = '549' . $national;
+            } elseif (strpos($digits, '549') === 0) {
+                $wa = $digits;
+            } else {
+                $wa = '549' . $national;
+            }
+        }
+
+        return array(
+            'raw'           => $raw_phone,
+            'clean'         => $national,
+            'formatted'     => $formatted,
+            'wa'            => $wa,
+            'international' => !empty($national) ? '+54 9 ' . $formatted : '',
+        );
+    }
+
     public static function render_checkout_phone_fix_script() {
-        if (!is_checkout() && !is_cart()) {
+        if (!is_checkout() && !is_cart() && !is_account_page()) {
             return;
         }
         ?>
@@ -192,7 +307,7 @@ class Batllie_Caja_Orders {
                         input.placeholder = input.placeholder.replace(/\s*\(opcional\)/gi, '').trim() + ' *';
                     }
                     if (!input.placeholder || input.placeholder === 'Teléfono' || input.placeholder === 'Teléfono *') {
-                        input.placeholder = 'Teléfono *';
+                        input.placeholder = 'Ej: 11 4947-2377 *';
                     }
 
                     input.required = true;
@@ -208,6 +323,16 @@ class Batllie_Caja_Orders {
                         if (text.toLowerCase().includes('opcional')) {
                             label.innerHTML = label.innerHTML.replace(/\s*\(opcional\)/gi, '').replace(/<span[^>]*class="[^"]*optional[^"]*"[^>]*>.*?<\/span>/gi, '') + ' <abbr class="required" title="obligatorio">*</abbr>';
                         }
+                    }
+
+                    // Agregar mensaje guía debajo del campo si no existe
+                    var parent = input.closest('.wc-block-components-text-input') || input.parentElement;
+                    if (parent && !parent.querySelector('.caja-phone-help')) {
+                        var help = document.createElement('small');
+                        help.className = 'caja-phone-help';
+                        help.style.cssText = 'display:block;font-size:12px;color:#718096;margin-top:4px;font-style:normal;line-height:1.3;';
+                        help.textContent = '🇦🇷 Celular (código de área + número, ej: 11 4947-2377. Sin el 0 ni el 15)';
+                        parent.appendChild(help);
                     }
                 });
             }
@@ -230,6 +355,16 @@ class Batllie_Caja_Orders {
         .wc-block-components-text-input:has(input[name*="phone"]) .wc-block-components-text-input__label span.optional,
         #billing_phone_field .optional {
             display: none !important;
+        }
+        /* Cifras alineadas y números de teléfono legibles (evita números colgantes de Cormorant Garamond) */
+        .woocommerce-order-details, 
+        .woocommerce-customer-details, 
+        .wc-block-checkout, 
+        .wc-block-components-checkout-step,
+        .caja-customer-phone, 
+        address, 
+        [class*="phone"] {
+            font-variant-numeric: lining-nums tabular-nums !important;
         }
         </style>
         <?php
@@ -349,6 +484,7 @@ class Batllie_Caja_Orders {
         }
 
         $phone = method_exists($order, 'get_billing_phone') ? $order->get_billing_phone() : '';
+        $phone_data = self::normalize_argentine_phone($phone);
 
         // Formateo limpio de dirección evitando concatenación sin espacios
         $addr_1 = $order->get_shipping_address_1() ? $order->get_shipping_address_1() : $order->get_billing_address_1();
@@ -413,8 +549,10 @@ class Batllie_Caja_Orders {
             'status_name'     => $status_name,
             'status_badge'    => self::get_status_badge_class($status),
             'customer_name'   => $customer_name,
-            'phone'           => $phone,
-            'phone_clean'     => preg_replace('/[^0-9]/', '', $phone),
+            'phone'           => !empty($phone_data['formatted']) ? $phone_data['formatted'] : $phone,
+            'phone_clean'     => $phone_data['clean'],
+            'phone_formatted' => $phone_data['formatted'],
+            'phone_wa'        => $phone_data['wa'],
             'address'         => $clean_address,
             'customer_note'   => $order->get_customer_note(),
             'payment_method'  => $order->get_payment_method_title() ? $order->get_payment_method_title() : __('No especificado', 'emp-caja'),
@@ -592,9 +730,14 @@ class Batllie_Caja_Orders {
             return;
         }
 
-        $timeline = (array) $order->get_meta('_caja_timeline');
-        if (!is_array($timeline)) {
-            $timeline = array();
+        $raw = $order->get_meta('_caja_timeline');
+        $timeline = array();
+        if (is_array($raw)) {
+            foreach ($raw as $ev) {
+                if (is_array($ev) && !empty($ev['text']) && !empty($ev['time']) && $ev['text'] !== 'undefined') {
+                    $timeline[] = $ev;
+                }
+            }
         }
 
         $now = current_time('timestamp');
@@ -630,9 +773,19 @@ class Batllie_Caja_Orders {
             return array();
         }
 
-        $timeline = (array) $order->get_meta('_caja_timeline');
-        if (!is_array($timeline)) {
-            $timeline = array();
+        $raw = $order->get_meta('_caja_timeline');
+        $timeline = array();
+        $needs_meta_cleanup = false;
+        if (is_array($raw)) {
+            foreach ($raw as $ev) {
+                if (is_array($ev) && !empty($ev['text']) && !empty($ev['time']) && $ev['text'] !== 'undefined') {
+                    $timeline[] = $ev;
+                } else {
+                    $needs_meta_cleanup = true;
+                }
+            }
+        } elseif (!empty($raw)) {
+            $needs_meta_cleanup = true;
         }
 
         $date_created = $order->get_date_created();
@@ -765,9 +918,19 @@ class Batllie_Caja_Orders {
             );
         }
 
+        // Filtrar estrictamente cualquier elemento no válido o con 'undefined'
+        $timeline = array_values(array_filter($timeline, function($e) {
+            return is_array($e) && !empty($e['text']) && !empty($e['time']) && $e['text'] !== 'undefined' && $e['time'] !== 'undefined';
+        }));
+
         usort($timeline, function($a, $b) {
             return ($a['timestamp'] ?? 0) - ($b['timestamp'] ?? 0);
         });
+
+        if ($needs_meta_cleanup) {
+            $order->update_meta_data('_caja_timeline', $timeline);
+            $order->save();
+        }
 
         return $timeline;
     }

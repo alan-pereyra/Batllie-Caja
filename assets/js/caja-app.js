@@ -612,11 +612,15 @@
 
                 let phoneHtml = '';
                 if (order.phone) {
+                    let phoneWa = order.phone_wa || order.phone_clean || '';
+                    if (phoneWa && !phoneWa.startsWith('549') && !phoneWa.startsWith('54')) {
+                        phoneWa = '549' + phoneWa.replace(/^0+/, '').replace(/^15/, '');
+                    }
                     phoneHtml = `
                         <div class="caja-phone-row">
-                            <a href="https://wa.me/${order.phone_clean}" target="_blank" class="caja-customer-phone" title="Contactar por WhatsApp">
+                            <a href="https://wa.me/${phoneWa}" target="_blank" class="caja-customer-phone" title="Contactar por WhatsApp">
                                 <span class="caja-phone-icon">📱</span>
-                                <span class="caja-phone-text">${order.phone}</span>
+                                <span class="caja-phone-text">${order.phone_formatted || order.phone}</span>
                                 <span class="caja-phone-whatsapp-tag">WhatsApp</span>
                             </a>
                         </div>
@@ -634,14 +638,18 @@
 
                 // Generar historial cronológico para la sección de información detallada
                 let timelineHtml = '';
-                if (order.timeline && order.timeline.length) {
+                const validEvents = (order.timeline && Array.isArray(order.timeline))
+                    ? order.timeline.filter(e => e && typeof e === 'object' && e.text && e.text !== 'undefined' && e.time && e.time !== 'undefined')
+                    : [];
+
+                if (validEvents.length) {
                     timelineHtml = '<div class="caja-timeline-list">';
-                    order.timeline.forEach((event, idx) => {
-                        const isLast = (idx === order.timeline.length - 1);
+                    validEvents.forEach((event, idx) => {
+                        const isLast = (idx === validEvents.length - 1);
                         timelineHtml += `
                             <div class="caja-timeline-item ${isLast ? 'timeline-latest' : ''}">
                                 <div class="caja-timeline-time-col">
-                                    <span class="caja-timeline-time">${event.time}</span>
+                                    <span class="caja-timeline-time">${event.time || ''}</span>
                                 </div>
                                 <div class="caja-timeline-axis-col">
                                     <span class="caja-timeline-dot"></span>
@@ -649,7 +657,7 @@
                                 </div>
                                 <div class="caja-timeline-content-col">
                                     <span class="caja-timeline-icon">${event.icon || '•'}</span>
-                                    <span class="caja-timeline-text">${event.text}</span>
+                                    <span class="caja-timeline-text">${event.text || ''}</span>
                                 </div>
                             </div>
                         `;
