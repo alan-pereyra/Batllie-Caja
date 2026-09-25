@@ -33,10 +33,10 @@
 /* Cabecera del Card */
 .batllie-tracking-header {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    text-align: center;
+    gap: 14px;
     padding-bottom: 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -44,34 +44,40 @@
 .batllie-tracking-title-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
 }
 
 .batllie-tracking-title {
-    font-size: 1.28rem;
+    font-size: 1.35rem;
     font-weight: 700;
     margin: 0;
     color: var(--caja-text, #f8fafc);
     letter-spacing: -0.01em;
+    text-align: center;
 }
 
 .batllie-tracking-subtitle {
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     color: var(--caja-text-muted, #94a3b8);
     margin: 0;
+    text-align: center;
 }
 
 .batllie-tracking-badges {
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 10px;
+    width: 100%;
 }
 
 .batllie-tracking-live-pill {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
-    padding: 5px 12px;
+    padding: 6px 16px;
     background: rgba(16, 185, 129, 0.12);
     border: 1px solid var(--caja-primary, #10b981);
     color: var(--caja-primary, #10b981);
@@ -79,7 +85,8 @@
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    margin: 0 auto;
 }
 
 .batllie-tracking-live-dot {
@@ -89,20 +96,6 @@
     background-color: var(--caja-primary, #10b981);
     box-shadow: 0 0 10px var(--caja-primary, #10b981);
     animation: trackingPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.batllie-tracking-brand {
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--caja-text, #f8fafc);
-    letter-spacing: 0.03em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.batllie-tracking-brand span {
-    color: var(--caja-primary, #10b981);
 }
 
 /* Contenedor del Stepper */
@@ -320,13 +313,14 @@
 
     .batllie-tracking-header {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
     }
 
     .batllie-tracking-badges {
         width: 100%;
-        justify-content: space-between;
+        justify-content: center;
     }
 
     .batllie-tracking-title {

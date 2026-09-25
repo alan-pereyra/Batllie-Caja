@@ -70,9 +70,6 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 <span class="batllie-tracking-live-dot"></span>
                 <?php _e('Actualización en vivo', 'emp-caja'); ?>
             </div>
-            <div class="batllie-tracking-brand">
-                <span>🍃</span> Batllie
-            </div>
         </div>
     </div>
 
