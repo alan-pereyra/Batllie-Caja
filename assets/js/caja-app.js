@@ -1391,7 +1391,7 @@
                         const $select = $('#new-prod-category');
 
                         res.data.categories.forEach(cat => {
-                            $filter.append(`<option value="${cat.slug}">${cat.name}</option>`);
+                            $filter.append(`<option value="${cat.id}" data-slug="${cat.slug}">${cat.name}</option>`);
                             $select.append(`<option value="${cat.id}">${cat.name}</option>`);
                         });
                     }
@@ -1407,6 +1407,29 @@
             if (!products || products.length === 0) {
                 $tbody.empty();
                 $tableWrap.hide();
+                const hasFilters = ($('#caja-search-products').val() || '').trim() !== '' ||
+                                   ($('#caja-filter-product-cat').val() || '').trim() !== '' ||
+                                   ($('#caja-filter-product-stock').val() || '').trim() !== '';
+                if (hasFilters) {
+                    $empty.html(`
+                        <h3>No se encontraron productos</h3>
+                        <p>No hay productos que coincidan con los filtros seleccionados.</p>
+                        <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-reset-filters" style="margin-top: 10px;">
+                            <span>Limpiar filtros</span>
+                        </button>
+                    `);
+                    $('#caja-btn-reset-filters').off('click').on('click', () => {
+                        $('#caja-search-products').val('');
+                        $('#caja-filter-product-cat').val('');
+                        $('#caja-filter-product-stock').val('');
+                        this.filterProductsInDom();
+                    });
+                } else {
+                    $empty.html(`
+                        <h3>No se encontraron productos</h3>
+                        <p>Puedes agregar productos pulsando en "Cargar Nuevo Producto".</p>
+                    `);
+                }
                 $empty.show();
                 return;
             }
@@ -1452,16 +1475,48 @@
         },
 
         filterProductsInDom: function() {
-            const search = $('#caja-search-products').val().toLowerCase().trim();
-            const cat = $('#caja-filter-product-cat').val().toLowerCase();
+            const search = ($('#caja-search-products').val() || '').toLowerCase().trim();
+            const selectedCat = ($('#caja-filter-product-cat').val() || '').trim();
             const stockFilter = $('#caja-filter-product-stock').val();
+
+            // Normalizador de texto: sin tildes, minúsculas, espacios simples
+            const normalize = str => (str || '')
+                .toString()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[-_\s]+/g, ' ')
+                .trim();
 
             const filtered = this.cachedProducts.filter(p => {
                 const matchesSearch = !search || 
-                    p.name.toLowerCase().includes(search) || 
-                    p.sku.toLowerCase().includes(search);
-                const matchesCat = !cat || 
-                    (p.categories && p.categories.toLowerCase().includes(cat));
+                    (p.name && p.name.toLowerCase().includes(search)) || 
+                    (p.sku && p.sku.toLowerCase().includes(search));
+
+                let matchesCat = true;
+                if (selectedCat && selectedCat !== 'all' && selectedCat !== '') {
+                    const catIdNum = parseInt(selectedCat, 10);
+                    const selSlug = selectedCat.toLowerCase();
+                    const selNorm = normalize(selectedCat);
+
+                    // 1. Coincidencia por ID numérico de categoría (WooCommerce term_id)
+                    const matchId = !isNaN(catIdNum) && Array.isArray(p.category_ids) && 
+                        p.category_ids.map(Number).includes(catIdNum);
+
+                    // 2. Coincidencia por slug de categoría
+                    const matchSlug = Array.isArray(p.category_slugs) && 
+                        p.category_slugs.map(s => String(s).toLowerCase()).includes(selSlug);
+
+                    // 3. Coincidencia por nombre normalizado (soporta tildes, espacios o guiones)
+                    const prodCatNorm = normalize(p.categories);
+                    const matchName = prodCatNorm.length > 0 && (
+                        prodCatNorm === selNorm ||
+                        prodCatNorm.split(',').some(c => c.trim() === selNorm) ||
+                        prodCatNorm.includes(selNorm)
+                    );
+
+                    matchesCat = matchId || matchSlug || matchName;
+                }
 
                 let matchesStock = true;
                 if (stockFilter === 'instock') {

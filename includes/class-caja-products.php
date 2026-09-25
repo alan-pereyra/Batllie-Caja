@@ -57,10 +57,14 @@ class Batllie_Caja_Products {
 
         // Obtener categorías
         $category_names = array();
+        $category_slugs = array();
+        $category_ids   = array();
         $terms = get_the_terms($product->get_id(), 'product_cat');
         if ($terms && !is_wp_error($terms)) {
             foreach ($terms as $term) {
                 $category_names[] = $term->name;
+                $category_slugs[] = $term->slug;
+                $category_ids[]   = (int) $term->term_id;
             }
         }
 
@@ -99,6 +103,8 @@ class Batllie_Caja_Products {
             'sale_price'         => $product->get_sale_price(),
             'is_on_sale'         => $product->is_on_sale(),
             'categories'         => implode(', ', $category_names),
+            'category_ids'       => !empty($category_ids) ? $category_ids : $product->get_category_ids(),
+            'category_slugs'     => $category_slugs,
             'stock_status'       => $product->get_stock_status(),
             'manage_stock'       => $manage_stock,
             'stock_quantity_raw' => $stock_qty !== null ? intval($stock_qty) : null,
