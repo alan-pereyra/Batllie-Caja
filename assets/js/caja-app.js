@@ -730,6 +730,23 @@
                     `;
                 }
 
+                // Formatear fecha del pedido para el encabezado del historial
+                let orderDateDisplay = order.order_date_formatted || '';
+                if (!orderDateDisplay && order.timestamp) {
+                    try {
+                        const d = new Date(order.timestamp * 1000);
+                        const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                        const dayName = days[d.getDay()];
+                        const dayNum = String(d.getDate()).padStart(2, '0');
+                        const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+                        const yearNum = d.getFullYear();
+                        orderDateDisplay = `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
+                    } catch(e) {}
+                }
+                if (!orderDateDisplay && order.time_formatted) {
+                    orderDateDisplay = order.time_formatted.split(' ')[0];
+                }
+
                 // Generar historial cronológico para la sección de información detallada
                 let timelineHtml = '';
                 const validEvents = (order.timeline && Array.isArray(order.timeline))
@@ -848,6 +865,11 @@
                             <div class="caja-details-collapse" id="caja-details-${order.id}" style="display:none;">
                                 <div class="caja-timeline-wrap">
                                     <div class="caja-timeline-header-title">📋 Historial de eventos:</div>
+                                    <div class="caja-timeline-order-date">
+                                        <span class="caja-timeline-date-icon">📅</span>
+                                        <span class="caja-timeline-date-label">Fecha del pedido:</span>
+                                        <span class="caja-timeline-date-val">${orderDateDisplay}</span>
+                                    </div>
                                     ${timelineHtml}
                                 </div>
                                 ${order.billing_email ? `<div class="caja-details-subinfo"><span>✉️ Email:</span> <strong>${order.billing_email}</strong></div>` : ''}

@@ -475,6 +475,16 @@ class Batllie_Caja_Orders {
         $time_diff = $date_created ? human_time_diff($date_created->getTimestamp(), current_time('timestamp')) : '';
         $time_formatted = $date_created ? $date_created->date_i18n('d/m/Y H:i') : '';
 
+        // Formato con nombre de día y fecha para encabezado de historial (ej: Viernes 25/09/2026)
+        $order_date_formatted = '';
+        if ($date_created) {
+            $ts = $date_created->getTimestamp();
+            $day_name = date_i18n('l', $ts);
+            $day_capitalized = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
+            $date_str = date_i18n('d/m/Y', $ts);
+            $order_date_formatted = $day_capitalized . ' ' . $date_str;
+        }
+
         // Datos del cliente
         $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
         $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
@@ -564,10 +574,12 @@ class Batllie_Caja_Orders {
             'total_raw'       => (float) $order->get_total(),
             'items'           => $items,
             'items_count'     => $order->get_item_count(),
-            'time_diff'       => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
-            'time_formatted'  => $time_formatted,
-            'timestamp'       => $date_created ? $date_created->getTimestamp() : 0,
-            'timeline'        => self::get_order_timeline($order),
+            'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
+            'time_formatted'       => $time_formatted,
+            'order_date_formatted' => $order_date_formatted,
+            'order_date'           => $date_created ? $date_created->date_i18n('d/m/Y') : '',
+            'timestamp'            => $date_created ? $date_created->getTimestamp() : 0,
+            'timeline'             => self::get_order_timeline($order),
         );
     }
 

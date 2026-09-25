@@ -1203,6 +1203,34 @@ body.batllie-caja-active .container {
     margin-bottom: 4px;
 }
 
+.caja-timeline-order-date {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: var(--caja-text-muted, #94a3b8);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin-bottom: 8px;
+    width: fit-content;
+}
+
+.caja-timeline-order-date .caja-timeline-date-icon {
+    font-size: 0.88rem;
+    line-height: 1;
+}
+
+.caja-timeline-order-date .caja-timeline-date-label {
+    color: var(--caja-text-muted, #94a3b8);
+}
+
+.caja-timeline-order-date .caja-timeline-date-val {
+    color: var(--caja-text, #ffffff);
+    font-weight: 700;
+}
+
 .caja-timeline-list {
     display: flex;
     flex-direction: column;
