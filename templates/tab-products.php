@@ -271,4 +271,76 @@ if (!defined('ABSPATH')) {
             </form>
         </div>
     </div>
+
+    <!-- Modal para Modificar Producto Completo (Datos, Precios, Categoría, Descripción) -->
+    <div id="caja-modal-edit-product" class="caja-modal" style="display:none;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog">
+            <div class="caja-modal-header">
+                <h3>✏️ <?php _e('Modificar Producto', 'emp-caja'); ?></h3>
+                <button type="button" class="caja-modal-close" id="caja-edit-prod-close-btn">&times;</button>
+            </div>
+
+            <form id="caja-edit-product-form" class="caja-modal-body">
+                <input type="hidden" id="edit-prod-id" name="id" value="" />
+                <div id="caja-edit-product-error" class="caja-alert caja-alert-danger" style="display:none;"></div>
+
+                <div class="caja-form-group">
+                    <label for="edit-prod-name"><?php _e('Nombre del Producto *', 'emp-caja'); ?></label>
+                    <input type="text" id="edit-prod-name" name="name" required placeholder="<?php esc_attr_e('Nombre...', 'emp-caja'); ?>" />
+                </div>
+
+                <div class="caja-form-row">
+                    <div class="caja-form-group caja-col">
+                        <label for="edit-prod-price"><?php _e('Precio Regular *', 'emp-caja'); ?></label>
+                        <input type="number" step="0.01" min="0" id="edit-prod-price" name="regular_price" required placeholder="0.00" />
+                    </div>
+                    <div class="caja-form-group caja-col">
+                        <label for="edit-prod-sale-price"><?php _e('Precio Oferta (Opcional)', 'emp-caja'); ?></label>
+                        <input type="number" step="0.01" min="0" id="edit-prod-sale-price" name="sale_price" placeholder="0.00" />
+                    </div>
+                </div>
+
+                <div class="caja-form-row">
+                    <div class="caja-form-group caja-col">
+                        <label for="edit-prod-category"><?php _e('Categoría', 'emp-caja'); ?></label>
+                        <select id="edit-prod-category" name="category_id" class="caja-select">
+                            <option value="0"><?php _e('-- Seleccionar Categoría --', 'emp-caja'); ?></option>
+                        </select>
+                    </div>
+                    <div class="caja-form-group caja-col">
+                        <label for="edit-prod-sku"><?php _e('Código / SKU (Opcional)', 'emp-caja'); ?></label>
+                        <input type="text" id="edit-prod-sku" name="sku" placeholder="PROD-001" />
+                    </div>
+                </div>
+
+                <div class="caja-form-group">
+                    <label class="caja-checkbox-label">
+                        <input type="checkbox" id="edit-prod-manage-stock" name="manage_stock" value="yes" />
+                        <span><?php _e('¿Gestionar inventario / stock en WooCommerce?', 'emp-caja'); ?></span>
+                    </label>
+                </div>
+
+                <div class="caja-form-group" id="caja-edit-stock-qty-group">
+                    <label for="edit-prod-stock-qty"><?php _e('Cantidad en Stock', 'emp-caja'); ?></label>
+                    <input type="number" min="0" id="edit-prod-stock-qty" name="stock_quantity" />
+                </div>
+
+                <div class="caja-form-group">
+                    <label for="edit-prod-desc"><?php _e('Descripción Corta / Ingredientes', 'emp-caja'); ?></label>
+                    <textarea id="edit-prod-desc" name="description" rows="3" placeholder="<?php esc_attr_e('Detalles del producto...', 'emp-caja'); ?>"></textarea>
+                </div>
+
+                <div class="caja-modal-footer">
+                    <button type="button" class="caja-btn caja-btn-secondary" id="caja-edit-prod-cancel-btn">
+                        <?php _e('Cancelar', 'emp-caja'); ?>
+                    </button>
+                    <button type="submit" class="caja-btn caja-btn-primary" id="caja-edit-prod-submit-btn">
+                        <span class="caja-btn-text"><?php _e('💾 Guardar Modificaciones', 'emp-caja'); ?></span>
+                        <span class="caja-btn-spinner" style="display:none;"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>

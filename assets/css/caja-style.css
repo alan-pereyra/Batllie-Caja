@@ -1913,11 +1913,16 @@ body.batllie-caja-active .container {
    ========================================================================== */
 @media (max-width: 768px) {
     .caja-topbar {
-        padding: 10px 12px !important;
-        gap: 10px !important;
+        padding: 10px 12px 8px 12px !important;
+        gap: 8px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: space-between !important;
+        align-items: center !important;
     }
 
     .caja-brand {
+        order: 1 !important;
         gap: 8px !important;
     }
 
@@ -1926,12 +1931,38 @@ body.batllie-caja-active .container {
     }
 
     .caja-actions {
+        order: 2 !important;
         gap: 6px !important;
     }
 
     .caja-btn-tool {
         padding: 6px 10px !important;
         font-size: 0.8rem !important;
+    }
+
+    /* Pestañas de navegación en móvil: Fila propia a todo el ancho (50% y 50%) */
+    .caja-nav-tabs {
+        order: 3 !important;
+        width: 100% !important;
+        display: flex !important;
+        gap: 6px !important;
+        padding: 4px !important;
+        background: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid var(--caja-card-border) !important;
+        border-radius: 10px !important;
+        box-sizing: border-box !important;
+        margin-top: 2px !important;
+    }
+
+    .caja-tab-btn {
+        flex: 1 1 50% !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 9px 4px !important;
+        font-size: 0.82rem !important;
+        border-radius: 8px !important;
+        box-sizing: border-box !important;
+        white-space: nowrap !important;
     }
 
     .caja-main-content {

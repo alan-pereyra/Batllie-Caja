@@ -17,13 +17,18 @@
         isProductsLoaded: false,
         categoriesLoaded: false,
         cachedOrders: [],
-        cachedProducts: [],
-
         init: function() {
             this.bindEvents();
 
             if (this.config.isUserLoggedIn) {
                 this.initDashboard();
+
+                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos)
+                const urlParams = new URLSearchParams(window.location.search);
+                const hash = window.location.hash.toLowerCase();
+                if (hash === '#productos' || hash === '#tab-products' || urlParams.get('tab') === 'productos' || urlParams.get('tab') === 'products') {
+                    this.switchTab('tab-products');
+                }
             }
         },
 
@@ -206,6 +211,40 @@
                 self.handleCreateProduct($(this));
             });
 
+            // Modal de Modificación Completa de Producto (Datos, Precios, SKU, etc.)
+            $(document).on('click', '.caja-btn-open-edit-prod', function(e) {
+                e.preventDefault();
+                const productId = parseInt($(this).data('product-id'));
+                self.openEditProductModal(productId);
+            });
+
+            $('#caja-edit-prod-close-btn, #caja-edit-prod-cancel-btn').on('click', function() {
+                $('#caja-modal-edit-product').fadeOut(150);
+            });
+
+            $('#edit-prod-manage-stock').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#caja-edit-stock-qty-group').slideDown(150);
+                } else {
+                    $('#caja-edit-stock-qty-group').slideUp(150);
+                }
+            });
+
+            $('#caja-edit-product-form').on('submit', function(e) {
+                e.preventDefault();
+                self.handleUpdateProduct($(this));
+            });
+
+            // Soporte para botón atrás/adelante en el historial del navegador
+            $(window).on('hashchange', function() {
+                const h = window.location.hash.toLowerCase();
+                if (h === '#productos' || h === '#tab-products') {
+                    if (self.activeTab !== 'tab-products') self.switchTab('tab-products');
+                } else if (h === '#pedidos' || h === '#tab-orders' || !h) {
+                    if (self.activeTab !== 'tab-orders') self.switchTab('tab-orders');
+                }
+            });
+
             // Modal de Control y Renovación de Stock
             $(document).on('click', '.caja-btn-open-stock-modal', function(e) {
                 e.preventDefault();
@@ -340,6 +379,12 @@
             $('.caja-tab-panel').hide();
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
+
+            // Actualizar URL hash para navegación y marcadores directos
+            if (window.history && window.history.replaceState) {
+                const newHash = tabId === 'tab-products' ? '#productos' : '#pedidos';
+                window.history.replaceState(null, null, newHash);
+            }
 
             if (tabId === 'tab-products' && !this.isProductsLoaded) {
                 this.loadProducts();
@@ -958,10 +1003,13 @@
                             <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
                             <small class="caja-stock-num">(${p.stock_quantity})</small>
                         </td>
-                        <td style="text-align: center;">
-                            <button type="button" class="caja-btn caja-btn-sm caja-btn-stock-action caja-btn-open-stock-modal" data-product-id="${p.id}" title="Cargar y renovar stock">
+                        <td style="text-align: center; white-space: nowrap;">
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary caja-btn-open-edit-prod" data-product-id="${p.id}" title="Modificar todos los datos del producto (Nombre, Precios, Categoría, SKU, Descripción)" style="margin-right: 4px; padding: 6px 10px;">
+                                <span>✏️ Modificar</span>
+                            </button>
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-stock-action caja-btn-open-stock-modal" data-product-id="${p.id}" title="Cargar y renovar stock (Sumar ingresos)" style="padding: 6px 10px;">
                                 <span class="caja-btn-icon">📦</span>
-                                <span>Ingreso / Stock</span>
+                                <span>Stock</span>
                             </button>
                         </td>
                     </tr>
@@ -996,6 +1044,94 @@
             });
 
             this.renderProducts(filtered);
+        },
+
+        openEditProductModal: function(productId) {
+            const self = this;
+            const p = self.cachedProducts.find(item => item.id === productId);
+            if (!p) return;
+
+            $('#edit-prod-id').val(p.id);
+            $('#edit-prod-name').val(p.name);
+            $('#edit-prod-price').val(p.regular_price || p.price_raw || '');
+            $('#edit-prod-sale-price').val(p.sale_price || '');
+            $('#edit-prod-sku').val(p.raw_sku || (p.sku !== 'S/N' ? p.sku : ''));
+            $('#edit-prod-desc').val(p.raw_description || '');
+
+            const catId = (p.category_ids && p.category_ids.length > 0) ? p.category_ids[0] : 0;
+            $('#edit-prod-category').val(catId);
+
+            if (p.manage_stock) {
+                $('#edit-prod-manage-stock').prop('checked', true);
+                $('#caja-edit-stock-qty-group').show();
+                $('#edit-prod-stock-qty').val(p.stock_quantity_raw !== null ? p.stock_quantity_raw : 0);
+            } else {
+                $('#edit-prod-manage-stock').prop('checked', false);
+                $('#caja-edit-stock-qty-group').hide();
+                $('#edit-prod-stock-qty').val(0);
+            }
+
+            $('#caja-edit-product-error').hide();
+            $('#caja-modal-edit-product').fadeIn(200);
+            setTimeout(() => {
+                $('#edit-prod-name').focus();
+            }, 100);
+        },
+
+        handleUpdateProduct: function($form) {
+            const self = this;
+            const $btn = $('#caja-edit-prod-submit-btn');
+            const $err = $('#caja-edit-product-error');
+            const productId = parseInt($('#edit-prod-id').val());
+
+            $err.hide();
+            $btn.prop('disabled', true);
+            $btn.find('.caja-btn-spinner').show();
+            $btn.find('.caja-btn-text').text('Guardando cambios...');
+
+            const productData = {
+                name: $('#edit-prod-name').val(),
+                regular_price: $('#edit-prod-price').val(),
+                sale_price: $('#edit-prod-sale-price').val(),
+                category_id: $('#edit-prod-category').val(),
+                sku: $('#edit-prod-sku').val(),
+                manage_stock: $('#edit-prod-manage-stock').is(':checked') ? 'yes' : 'no',
+                stock_quantity: $('#edit-prod-stock-qty').val(),
+                description: $('#edit-prod-desc').val()
+            };
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_update_product',
+                    security: self.config.nonce,
+                    product_id: productId,
+                    product: productData
+                },
+                success: function(res) {
+                    if (res.success && res.data && res.data.product) {
+                        const updated = res.data.product;
+                        const idx = self.cachedProducts.findIndex(p => p.id === productId);
+                        if (idx !== -1) {
+                            self.cachedProducts[idx] = updated;
+                        }
+                        self.filterProductsInDom();
+                        $('#caja-modal-edit-product').fadeOut(150);
+                        self.showToast(`✅ Producto "${updated.name}" modificado con éxito`);
+                    } else {
+                        $err.text(res.data && res.data.message ? res.data.message : 'Error al modificar el producto.').fadeIn(150);
+                    }
+                },
+                error: function() {
+                    $err.text('Error de comunicación con el servidor.').fadeIn(150);
+                },
+                complete: function() {
+                    $btn.prop('disabled', false);
+                    $btn.find('.caja-btn-spinner').hide();
+                    $btn.find('.caja-btn-text').text('💾 Guardar Modificaciones');
+                }
+            });
         },
 
         openStockModal: function(productId) {

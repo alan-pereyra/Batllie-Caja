@@ -106,6 +106,9 @@ class Batllie_Caja_Products {
             'is_low_stock'       => $is_low_stock,
             'stock_badge'        => $stock_badge,
             'stock_label'        => $stock_label,
+            'raw_sku'            => $product->get_sku(),
+            'category_ids'       => $product->get_category_ids(),
+            'raw_description'    => $product->get_short_description() ?: $product->get_description(),
             'image_url'          => $image_url,
             'description'        => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
@@ -269,6 +272,70 @@ class Batllie_Caja_Products {
 
         if (function_exists('wc_update_product_stock')) {
             wc_update_product_stock($product, $new_stock, 'set');
+        }
+
+        return self::format_product($product);
+    }
+
+    /**
+     * Actualizar datos completos de un producto WooCommerce (Modificación de Producto)
+     */
+    public static function update_product($product_id, $data) {
+        if (!class_exists('WooCommerce')) {
+            return new WP_Error('wc_missing', __('WooCommerce no está activo.', 'emp-caja'));
+        }
+
+        $product = wc_get_product($product_id);
+        if (!$product) {
+            return new WP_Error('not_found', __('Producto no encontrado.', 'emp-caja'));
+        }
+
+        if (isset($data['name']) && !empty(trim($data['name']))) {
+            $product->set_name(sanitize_text_field($data['name']));
+        }
+
+        if (isset($data['regular_price']) && $data['regular_price'] !== '') {
+            $reg = wc_format_decimal($data['regular_price']);
+            $product->set_regular_price($reg);
+        }
+
+        if (isset($data['sale_price'])) {
+            $sale = wc_format_decimal($data['sale_price']);
+            $product->set_sale_price($sale);
+            if ($sale !== '' && (float)$sale > 0) {
+                $product->set_price($sale);
+            } else {
+                $product->set_price($product->get_regular_price());
+            }
+        }
+
+        if (isset($data['sku'])) {
+            $product->set_sku(sanitize_text_field($data['sku']));
+        }
+
+        if (isset($data['category_id']) && intval($data['category_id']) > 0) {
+            $product->set_category_ids(array(intval($data['category_id'])));
+        }
+
+        if (isset($data['description'])) {
+            $product->set_short_description(wp_kses_post($data['description']));
+        }
+
+        if (isset($data['manage_stock'])) {
+            $manage_stock = ($data['manage_stock'] === 'yes' || $data['manage_stock'] === true || $data['manage_stock'] === '1');
+            $product->set_manage_stock($manage_stock);
+
+            if ($manage_stock && isset($data['stock_quantity'])) {
+                $qty = intval($data['stock_quantity']);
+                $product->set_stock_quantity($qty);
+                $product->set_stock_status($qty > 0 ? 'instock' : 'outofstock');
+            }
+        }
+
+        $product->save();
+
+        if (isset($qty) && function_exists('wc_update_product_stock')) {
+            wc_update_product_stock($product, $qty, 'set');
         }
 
         return self::format_product($product);

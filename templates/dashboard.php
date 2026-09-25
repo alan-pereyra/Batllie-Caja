@@ -39,11 +39,11 @@ if (!defined('ABSPATH')) {
                 <span><?php _e('Pedidos en Vivo', 'emp-caja'); ?></span>
                 <span class="caja-badge-count" id="caja-orders-count">0</span>
             </button>
-            <button class="caja-tab-btn" data-tab="tab-products">
+            <button class="caja-tab-btn" data-tab="tab-products" id="caja-tab-nav-products">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
-                <span><?php _e('Gestión de Productos', 'emp-caja'); ?></span>
+                <span><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
             </button>
         </nav>
 
