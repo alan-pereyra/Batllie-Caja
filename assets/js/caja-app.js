@@ -564,7 +564,7 @@
                         </div>
                         <h3>No hay pedidos nuevos (< 30 min)</h3>
                         <p>Los pedidos anteriores se agrupan en las opciones del filtro de tiempo.</p>
-                        <button type="button" class="caja-btn-show-all" style="margin-top:14px; padding:10px 20px; background:var(--caja-primary, #10b981); color:#fff; border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:0.95rem;">
+                        <button type="button" class="caja-btn-show-all" style="margin-top:14px; padding:10px 20px; background:var(--caja-primary, #10b981); color:var(--caja-bg, #0f172a); border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:0.95rem;">
                             Ver todos los pedidos anteriores
                         </button>
                     `).show();
