@@ -526,3 +526,38 @@
     }
 }
 
+/* ==========================================================================
+   Detalles Bancarios BACS (Transferencia Bancaria):
+   Mostrar ÚNICAMENTE 'Nuestros detalles bancarios', Alias y Banco.
+   Ocultar 'Acreditar compra:', textos explicativos y avisos inferiores.
+   ========================================================================== */
+.woocommerce-bacs-bank-details > .emp,
+.woocommerce-bacs-bank-details > h2:not(.wc-bacs-bank-details-heading),
+.woocommerce-bacs-bank-details > p,
+.woocommerce-order > .emp,
+.woocommerce-order > h2.emp {
+    display: none !important;
+}
+
+.woocommerce-bacs-bank-details {
+    margin: 20px 0 30px 0 !important;
+    padding: 0 !important;
+}
+
+.woocommerce-bacs-bank-details .wc-bacs-bank-details-heading {
+    display: block !important;
+    margin-bottom: 12px !important;
+}
+
+.woocommerce-bacs-bank-details .wc-bacs-bank-details-account-name {
+    display: block !important;
+    margin-bottom: 8px !important;
+}
+
+.woocommerce-bacs-bank-details ul.wc-bacs-bank-details {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+

@@ -25,9 +25,12 @@ class Batllie_Caja_Tracking {
         // Ocultar texto por defecto de "Gracias. Tu pedido ha sido recibido."
         add_filter('woocommerce_thankyou_order_received_text', '__return_empty_string', 999);
 
+        // Ocultar instrucciones y textos sobrantes de BACS en la página de orden recibida
+        add_action('woocommerce_before_thankyou', array(__CLASS__, 'clean_bacs_instructions'), 1, 1);
+
         // Mostrar arriba al principio en la pantalla de compra realizada (Thank You / Order Received)
-        add_action('woocommerce_before_thankyou', array(__CLASS__, 'render_tracking_widget'), 1, 1);
-        add_action('woocommerce_thankyou', array(__CLASS__, 'render_tracking_widget'), 1, 1);
+        add_action('woocommerce_before_thankyou', array(__CLASS__, 'render_tracking_widget'), 2, 1);
+        add_action('woocommerce_thankyou', array(__CLASS__, 'render_tracking_widget'), 2, 1);
 
         // Mostrar en la pantalla de "Mi Cuenta > Ver Pedido"
         add_action('woocommerce_view_order', array(__CLASS__, 'render_tracking_widget'), 1, 1);
@@ -44,11 +47,23 @@ class Batllie_Caja_Tracking {
     }
 
     /**
-     * Filtro para sobreescribir la plantilla checkout/thankyou.php
+     * Limpiar instrucciones de BACS para que solo se muestren los datos bancarios limpios
+     */
+    public static function clean_bacs_instructions($order_id) {
+        if (function_exists('WC') && WC()->payment_gateways()) {
+            $gateways = WC()->payment_gateways()->get_available_payment_gateways();
+            if (isset($gateways['bacs'])) {
+                $gateways['bacs']->instructions = '';
+            }
+        }
+    }
+
+    /**
+     * Filtro para sobreescribir la plantilla checkout/thankyou.php y checkout/bacs-details.php
      */
     public static function override_thankyou_template($template, $template_name, $template_path) {
-        if ($template_name === 'checkout/thankyou.php') {
-            $custom = EMP_CAJA_PATH . 'templates/woocommerce/checkout/thankyou.php';
+        if ($template_name === 'checkout/thankyou.php' || $template_name === 'checkout/bacs-details.php') {
+            $custom = EMP_CAJA_PATH . 'templates/woocommerce/' . $template_name;
             if (file_exists($custom)) {
                 return $custom;
             }
@@ -57,11 +72,11 @@ class Batllie_Caja_Tracking {
     }
 
     /**
-     * Filtro alternativo wc_get_template para sobreescribir la plantilla checkout/thankyou.php
+     * Filtro alternativo wc_get_template para sobreescribir la plantilla checkout/thankyou.php y checkout/bacs-details.php
      */
     public static function override_wc_get_template($located, $template_name, $args, $template_path, $default_path) {
-        if ($template_name === 'checkout/thankyou.php') {
-            $custom = EMP_CAJA_PATH . 'templates/woocommerce/checkout/thankyou.php';
+        if ($template_name === 'checkout/thankyou.php' || $template_name === 'checkout/bacs-details.php') {
+            $custom = EMP_CAJA_PATH . 'templates/woocommerce/' . $template_name;
             if (file_exists($custom)) {
                 return $custom;
             }

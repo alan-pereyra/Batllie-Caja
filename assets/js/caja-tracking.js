@@ -21,6 +21,9 @@
         // Eliminar sección tradicional de gracias por tu pedido y resumen inicial
         $('.woocommerce-thankyou-order-received, .woocommerce-order-overview').remove();
 
+        // Limpiar secciones de instrucciones no deseadas en detalles bancarios BACS
+        $('.woocommerce-bacs-bank-details > .emp, .woocommerce-bacs-bank-details > h2:not(.wc-bacs-bank-details-heading), .woocommerce-bacs-bank-details > p, .woocommerce-order > .emp, .woocommerce-order > h2.emp').remove();
+
         var ajaxUrl = (typeof emp_caja_tracking_params !== 'undefined' && emp_caja_tracking_params.ajax_url) 
             ? emp_caja_tracking_params.ajax_url 
             : '/wp-admin/admin-ajax.php';

@@ -916,6 +916,46 @@ body.batllie-caja-active .container {
     margin-top: 4px;
 }
 
+.caja-customer-note-row {
+    margin-top: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    border-radius: 6px;
+    padding: 7px 9px;
+    box-sizing: border-box;
+}
+
+.caja-customer-note-icon {
+    font-size: 0.95rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+
+.caja-customer-note-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    min-width: 0;
+}
+
+.caja-customer-note-label {
+    color: #fcd34d;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.caja-customer-note-val {
+    color: var(--caja-text, #ffffff);
+    word-break: break-word;
+}
+
 /* Ítems del pedido */
 .caja-order-items-list {
     flex: 1;
@@ -1133,8 +1173,17 @@ body.batllie-caja-active .container {
 /* ==========================================================================
    Información Detallada e Historial Cronológico del Pedido (Desplegable)
    ========================================================================== */
-.caja-details-accordion {
-    margin: 12px 0;
+.caja-card-bottom-actions {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.caja-details-accordion,
+.caja-notes-accordion {
+    margin: 0;
     width: 100%;
 }
 
@@ -1177,7 +1226,8 @@ body.batllie-caja-active .container {
     transition: transform 0.2s ease;
 }
 
-.caja-details-collapse {
+.caja-details-collapse,
+.caja-notes-collapse {
     background: rgba(15, 23, 42, 0.7);
     border: 1px solid var(--caja-card-border);
     border-top: none;
@@ -1186,6 +1236,14 @@ body.batllie-caja-active .container {
     padding: 14px;
     margin-top: -3px;
     box-sizing: border-box;
+}
+
+.caja-notes-collapse {
+    padding: 12px;
+}
+
+.caja-order-note-block-inner {
+    width: 100%;
 }
 
 .caja-timeline-wrap {
@@ -1228,6 +1286,25 @@ body.batllie-caja-active .container {
 
 .caja-timeline-order-date .caja-timeline-date-val {
     color: var(--caja-text, #ffffff);
+    font-weight: 700;
+}
+
+.caja-timeline-day-divider {
+    padding: 8px 0 4px 0;
+    margin-top: 6px;
+    margin-bottom: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.caja-timeline-order-date.caja-timeline-date-subsequent {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.28);
+    color: #93c5fd;
+    margin-bottom: 8px;
+}
+
+.caja-timeline-order-date.caja-timeline-date-subsequent .caja-timeline-date-val {
+    color: #bfdbfe;
     font-weight: 700;
 }
 

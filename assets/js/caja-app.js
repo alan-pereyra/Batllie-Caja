@@ -17,6 +17,40 @@
         isProductsLoaded: false,
         categoriesLoaded: false,
         cachedOrders: [],
+        isUserInteracting: false,
+        pendingOrdersUpdate: null,
+
+        isDropdownOrControlInUse: function() {
+            if (this.isUserInteracting) return true;
+            const el = document.activeElement;
+            if (!el) return false;
+            const tag = el.tagName;
+            if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') {
+                return true;
+            }
+            return false;
+        },
+
+        haveOrdersChanged: function(oldOrders, newOrders) {
+            if (!oldOrders || !newOrders) return true;
+            if (oldOrders.length !== newOrders.length) return true;
+
+            for (let i = 0; i < newOrders.length; i++) {
+                const n = newOrders[i];
+                const o = oldOrders[i];
+                if (!o || o.id !== n.id) return true;
+                if (o.status !== n.status) return true;
+                if (o.payment_status !== n.payment_status) return true;
+                if (o.shipping_status !== n.shipping_status) return true;
+                if ((o.customer_note || '') !== (n.customer_note || '')) return true;
+                if ((o.caja_note || '') !== (n.caja_note || '')) return true;
+                if (o.total !== n.total) return true;
+                const oLen = (o.timeline && Array.isArray(o.timeline)) ? o.timeline.length : 0;
+                const nLen = (n.timeline && Array.isArray(n.timeline)) ? n.timeline.length : 0;
+                if (oLen !== nLen) return true;
+            }
+            return false;
+        },
         init: function() {
             this.bindEvents();
 
@@ -174,7 +208,7 @@
             });
 
             // Desplegar / ocultar información detallada e historial del pedido
-            $(document).on('click', '.caja-btn-details-toggle', function(e) {
+            $(document).on('click', '.caja-btn-details-toggle:not(.caja-btn-notes-toggle)', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
                 const $panel = $(`#caja-details-${orderId}`);
@@ -193,6 +227,55 @@
                         $arrow.text('▼');
                     }
                 });
+            });
+
+            // Desplegar / ocultar notas adicionales del pedido (quien gestiona la caja)
+            $(document).on('click', '.caja-btn-notes-toggle', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $panel = $(`#caja-notes-${orderId}`);
+                const $arrow = $(this).find('.caja-toggle-arrow');
+                const $text = $(this).find('.caja-toggle-text');
+                const $btn = $(this);
+
+                $panel.slideToggle(200, function() {
+                    if ($panel.is(':visible')) {
+                        $btn.addClass('active');
+                        $text.text('Ocultar notas adicionales');
+                        $arrow.text('▲');
+                    } else {
+                        $btn.removeClass('active');
+                        $text.text('Notas adicionales');
+                        $arrow.text('▼');
+                    }
+                });
+            });
+
+            // Protección de desplegables y controles durante recargas automáticas
+            $(document).on('focusin', 'select, input, textarea', function() {
+                self.isUserInteracting = true;
+            });
+
+            $(document).on('focusout', 'select, input, textarea', function() {
+                setTimeout(function() {
+                    const el = document.activeElement;
+                    const isStillActive = el && (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+                    if (!isStillActive) {
+                        self.isUserInteracting = false;
+                        if (self.pendingOrdersUpdate) {
+                            const pending = self.pendingOrdersUpdate;
+                            self.pendingOrdersUpdate = null;
+                            if (self.haveOrdersChanged(self.cachedOrders, pending)) {
+                                self.cachedOrders = pending;
+                                self.applyFilters();
+                            }
+                        }
+                    }
+                }, 350);
+            });
+
+            $(document).on('mousedown pointerdown', 'select', function() {
+                self.isUserInteracting = true;
             });
 
             // Búsqueda y Filtro de Productos
@@ -611,9 +694,22 @@
                                 self.loadOrders(false);
                                 self.showToast(`🔔 ¡Nuevo pedido #${highestId} recibido!`);
                             } else if (res.data.orders) {
-                                // Actualizar si hubo cambios de estado
-                                self.cachedOrders = res.data.orders;
-                                self.applyFilters();
+                                const newOrders = res.data.orders;
+                                if (self.haveOrdersChanged(self.cachedOrders, newOrders)) {
+                                    if (self.isDropdownOrControlInUse()) {
+                                        self.pendingOrdersUpdate = newOrders;
+                                    } else {
+                                        self.cachedOrders = newOrders;
+                                        self.applyFilters();
+                                    }
+                                } else {
+                                    // Si no hubo cambios de estado, actualizar únicamente la hora relativa sin tocar el DOM ni cerrar ningún desplegable
+                                    newOrders.forEach(no => {
+                                        if (no.time_diff) {
+                                            $(`#caja-order-card-${no.id} .caja-order-time`).text(no.time_diff);
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
@@ -625,6 +721,31 @@
             const self = this;
             const $grid = $('#caja-orders-grid');
             const $empty = $('#caja-orders-empty');
+
+            // Memorizar estado de paneles desplegados y notas antes de re-renderizar
+            const openDetailIds = [];
+            $('.caja-details-collapse:visible').each(function() {
+                const id = $(this).attr('id');
+                if (id && id.startsWith('caja-details-')) {
+                    openDetailIds.push(id.replace('caja-details-', ''));
+                }
+            });
+
+            const openNotesIds = [];
+            $('.caja-notes-collapse:visible').each(function() {
+                const id = $(this).attr('id');
+                if (id && id.startsWith('caja-notes-')) {
+                    openNotesIds.push(id.replace('caja-notes-', ''));
+                }
+            });
+
+            const draftNotes = {};
+            $('.caja-order-note-textarea').each(function() {
+                const id = $(this).data('order-id');
+                if (id) {
+                    draftNotes[id] = $(this).val();
+                }
+            });
 
             if (!orders || orders.length === 0) {
                 $grid.empty();
@@ -732,20 +853,60 @@
 
                 // Formatear fecha del pedido para el encabezado del historial
                 let orderDateDisplay = order.order_date_formatted || '';
-                if (!orderDateDisplay && order.timestamp) {
+                let orderDateKey = order.order_date_key || '';
+                if (order.timestamp) {
                     try {
                         const d = new Date(order.timestamp * 1000);
-                        const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                        const dayName = days[d.getDay()];
-                        const dayNum = String(d.getDate()).padStart(2, '0');
-                        const monthNum = String(d.getMonth() + 1).padStart(2, '0');
-                        const yearNum = d.getFullYear();
-                        orderDateDisplay = `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
+                        if (!orderDateDisplay) {
+                            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                            const dayName = days[d.getDay()];
+                            const dayNum = String(d.getDate()).padStart(2, '0');
+                            const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+                            const yearNum = d.getFullYear();
+                            orderDateDisplay = `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
+                        }
+                        if (!orderDateKey) {
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            orderDateKey = `${y}-${m}-${day}`;
+                        }
                     } catch(e) {}
                 }
                 if (!orderDateDisplay && order.time_formatted) {
                     orderDateDisplay = order.time_formatted.split(' ')[0];
                 }
+
+                // Funciones auxiliares para fechas de eventos individuales
+                const getEventDateFormatted = (ev) => {
+                    if (ev.date_formatted) return ev.date_formatted;
+                    if (ev.timestamp) {
+                        try {
+                            const d = new Date(ev.timestamp * 1000);
+                            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                            const dayName = days[d.getDay()];
+                            const dayNum = String(d.getDate()).padStart(2, '0');
+                            const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+                            const yearNum = d.getFullYear();
+                            return `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
+                        } catch(e) {}
+                    }
+                    return ev.date || '';
+                };
+
+                const getEventDateKey = (ev) => {
+                    if (ev.date_key) return ev.date_key;
+                    if (ev.timestamp) {
+                        try {
+                            const d = new Date(ev.timestamp * 1000);
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, '0');
+                            const day = String(d.getDate()).padStart(2, '0');
+                            return `${y}-${m}-${day}`;
+                        } catch(e) {}
+                    }
+                    return '';
+                };
 
                 // Generar historial cronológico para la sección de información detallada
                 let timelineHtml = '';
@@ -755,8 +916,28 @@
 
                 if (validEvents.length) {
                     timelineHtml = '<div class="caja-timeline-list">';
+                    let lastDateKey = orderDateKey;
+
                     validEvents.forEach((event, idx) => {
                         const isLast = (idx === validEvents.length - 1);
+                        const eventDateKey = getEventDateKey(event);
+                        const eventDateDisplay = getEventDateFormatted(event);
+
+                        // Si este evento ocurrió en un día distinto al anterior, insertar separador con la fecha del nuevo día
+                        if (eventDateKey && lastDateKey && eventDateKey !== lastDateKey) {
+                            timelineHtml += `
+                                <div class="caja-timeline-day-divider">
+                                    <div class="caja-timeline-order-date caja-timeline-date-subsequent">
+                                        <span class="caja-timeline-date-icon">📅</span>
+                                        <span class="caja-timeline-date-val">${eventDateDisplay}</span>
+                                    </div>
+                                </div>
+                            `;
+                            lastDateKey = eventDateKey;
+                        } else if (!lastDateKey && eventDateKey) {
+                            lastDateKey = eventDateKey;
+                        }
+
                         timelineHtml += `
                             <div class="caja-timeline-item ${isLast ? 'timeline-latest' : ''}">
                                 <div class="caja-timeline-time-col">
@@ -792,6 +973,15 @@
                             <div class="caja-customer-name">👤 ${order.customer_name}</div>
                             ${phoneHtml}
                             ${order.address ? `<div class="caja-customer-address">📍 ${order.address}</div>` : ''}
+                            ${order.customer_note ? `
+                                <div class="caja-customer-note-row">
+                                    <span class="caja-customer-note-icon">📝</span>
+                                    <div class="caja-customer-note-body">
+                                        <strong class="caja-customer-note-label">Nota del cliente:</strong>
+                                        <span class="caja-customer-note-val">${order.customer_note}</span>
+                                    </div>
+                                </div>
+                            ` : ''}
                         </div>
 
                         <div class="caja-order-items-list">
@@ -836,47 +1026,6 @@
                             </div>
                         </div>
 
-                        <!-- Aclaración / Nota de compra -->
-                        <div class="caja-order-note-block">
-                            <div class="caja-note-label-row">
-                                <span class="caja-note-icon">📝</span>
-                                <span class="caja-note-title">Aclaración / Nota del Cliente</span>
-                            </div>
-                            <div class="caja-note-field-wrap">
-                                <textarea class="caja-order-note-textarea" data-order-id="${order.id}" placeholder="Escribir una aclaración sobre el pedido..." rows="2">${order.customer_note || ''}</textarea>
-                                <div class="caja-note-actions-row">
-                                    <span class="caja-note-saved-msg" id="caja-note-saved-${order.id}" style="display:none;"></span>
-                                    <button type="button" class="caja-btn-save-note" data-order-id="${order.id}">
-                                        <span class="caja-note-btn-text">Guardar nota</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Información Detallada e Historial Cronológico (Oculto por defecto) -->
-                        <div class="caja-details-accordion">
-                            <button type="button" class="caja-btn-details-toggle" data-order-id="${order.id}">
-                                <span class="caja-toggle-left">
-                                    <span class="caja-toggle-icon">ℹ️</span>
-                                    <span class="caja-toggle-text">Ver información detallada</span>
-                                </span>
-                                <span class="caja-toggle-arrow">▼</span>
-                            </button>
-                            <div class="caja-details-collapse" id="caja-details-${order.id}" style="display:none;">
-                                <div class="caja-timeline-wrap">
-                                    <div class="caja-timeline-header-title">📋 Historial de eventos:</div>
-                                    <div class="caja-timeline-order-date">
-                                        <span class="caja-timeline-date-icon">📅</span>
-                                        <span class="caja-timeline-date-label">Fecha del pedido:</span>
-                                        <span class="caja-timeline-date-val">${orderDateDisplay}</span>
-                                    </div>
-                                    ${timelineHtml}
-                                </div>
-                                ${order.billing_email ? `<div class="caja-details-subinfo"><span>✉️ Email:</span> <strong>${order.billing_email}</strong></div>` : ''}
-                                ${order.shipping_total ? `<div class="caja-details-subinfo"><span>🛵 Costo de envío:</span> <strong>${order.shipping_total}</strong></div>` : ''}
-                            </div>
-                        </div>
-
                         <div class="caja-card-footer">
                             <div class="caja-order-total-block">
                                 <span class="caja-total-label">Total a cobrar:</span>
@@ -898,11 +1047,94 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Acciones y detalles colapsables directamente debajo del botón grande de estado -->
+                        <div class="caja-card-bottom-actions">
+                            <!-- Botón 1: Ver información detallada -->
+                            <div class="caja-details-accordion">
+                                <button type="button" class="caja-btn-details-toggle" data-order-id="${order.id}">
+                                    <span class="caja-toggle-left">
+                                        <span class="caja-toggle-icon">ℹ️</span>
+                                        <span class="caja-toggle-text">Ver información detallada</span>
+                                    </span>
+                                    <span class="caja-toggle-arrow">▼</span>
+                                </button>
+                                <div class="caja-details-collapse" id="caja-details-${order.id}" style="display:none;">
+                                    <div class="caja-timeline-wrap">
+                                        <div class="caja-timeline-header-title">📋 Historial de eventos:</div>
+                                        <div class="caja-timeline-order-date">
+                                            <span class="caja-timeline-date-icon">📅</span>
+                                            <span class="caja-timeline-date-label">Fecha del pedido:</span>
+                                            <span class="caja-timeline-date-val">${orderDateDisplay}</span>
+                                        </div>
+                                        ${timelineHtml}
+                                    </div>
+                                    ${order.billing_email ? `<div class="caja-details-subinfo"><span>✉️ Email:</span> <strong>${order.billing_email}</strong></div>` : ''}
+                                    ${order.shipping_total ? `<div class="caja-details-subinfo"><span>🛵 Costo de envío:</span> <strong>${order.shipping_total}</strong></div>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Botón 2: Notas adicionales colapsable con el mismo estilo (quien gestiona la caja) -->
+                            <div class="caja-notes-accordion">
+                                <button type="button" class="caja-btn-details-toggle caja-btn-notes-toggle" data-order-id="${order.id}">
+                                    <span class="caja-toggle-left">
+                                        <span class="caja-toggle-icon">📝</span>
+                                        <span class="caja-toggle-text">Notas adicionales</span>
+                                    </span>
+                                    <span class="caja-toggle-arrow">▼</span>
+                                </button>
+                                <div class="caja-details-collapse caja-notes-collapse" id="caja-notes-${order.id}" style="display:none;">
+                                    <div class="caja-order-note-block-inner">
+                                        <div class="caja-note-field-wrap">
+                                            <textarea class="caja-order-note-textarea" data-order-id="${order.id}" placeholder="Escribir una nota o aclaración interna..." rows="2">${order.caja_note || ''}</textarea>
+                                            <div class="caja-note-actions-row">
+                                                <span class="caja-note-saved-msg" id="caja-note-saved-${order.id}" style="display:none;"></span>
+                                                <button type="button" class="caja-btn-save-note" data-order-id="${order.id}">
+                                                    <span class="caja-note-btn-text">Guardar nota</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
             });
 
             $grid.html(html);
+
+            // Restaurar paneles de detalles abiertos
+            openDetailIds.forEach(id => {
+                const $panel = $(`#caja-details-${id}`);
+                if ($panel.length) {
+                    $panel.show();
+                    const $btn = $(`.caja-btn-details-toggle[data-order-id="${id}"]`).not('.caja-btn-notes-toggle');
+                    $btn.addClass('active');
+                    $btn.find('.caja-toggle-arrow').text('▲');
+                    $btn.find('.caja-toggle-text').text('Ocultar información detallada');
+                }
+            });
+
+            // Restaurar paneles de notas adicionales abiertas
+            openNotesIds.forEach(id => {
+                const $panel = $(`#caja-notes-${id}`);
+                if ($panel.length) {
+                    $panel.show();
+                    const $btn = $(`.caja-btn-notes-toggle[data-order-id="${id}"]`);
+                    $btn.addClass('active');
+                    $btn.find('.caja-toggle-arrow').text('▲');
+                    $btn.find('.caja-toggle-text').text('Ocultar notas adicionales');
+                }
+            });
+
+            // Restaurar borradores de notas no guardadas
+            Object.keys(draftNotes).forEach(id => {
+                const $ta = $(`.caja-order-note-textarea[data-order-id="${id}"]`);
+                if ($ta.length && draftNotes[id] !== undefined) {
+                    $ta.val(draftNotes[id]);
+                }
+            });
         },
 
         applyFilters: function() {
@@ -1015,9 +1247,9 @@
                         // Actualizar en caché local
                         const found = self.cachedOrders.find(o => o.id === orderId);
                         if (found) {
-                            found.customer_note = noteText;
+                            found.caja_note = noteText;
                         }
-                        self.showToast('Aclaración de compra guardada con éxito');
+                        self.showToast('Nota adicional guardada con éxito');
                     } else {
                         alert(res.data && res.data.message ? res.data.message : 'Error al guardar la nota');
                         $btn.find('.caja-note-btn-text').text(originalText);
@@ -1505,6 +1737,8 @@
             }, 3500);
         }
     };
+
+    window.BatllieCajaApp = App;
 
     $(document).ready(function() {
         App.init();

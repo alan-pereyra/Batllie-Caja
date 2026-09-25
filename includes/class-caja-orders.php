@@ -477,12 +477,14 @@ class Batllie_Caja_Orders {
 
         // Formato con nombre de día y fecha para encabezado de historial (ej: Viernes 25/09/2026)
         $order_date_formatted = '';
+        $order_date_key = '';
         if ($date_created) {
             $ts = $date_created->getTimestamp();
             $day_name = date_i18n('l', $ts);
             $day_capitalized = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
             $date_str = date_i18n('d/m/Y', $ts);
             $order_date_formatted = $day_capitalized . ' ' . $date_str;
+            $order_date_key = date_i18n('Y-m-d', $ts);
         }
 
         // Datos del cliente
@@ -566,6 +568,7 @@ class Batllie_Caja_Orders {
             'phone_wa'        => $phone_data['wa'],
             'address'         => $clean_address,
             'customer_note'   => $order->get_customer_note(),
+            'caja_note'       => (string) $order->get_meta('_caja_staff_note'),
             'payment_method'  => $order->get_payment_method_title() ? $order->get_payment_method_title() : __('No especificado', 'emp-caja'),
             'payment_status'  => $payment_status,
             'shipping_status' => $shipping_status,
@@ -577,6 +580,7 @@ class Batllie_Caja_Orders {
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
             'order_date_formatted' => $order_date_formatted,
+            'order_date_key'       => $order_date_key,
             'order_date'           => $date_created ? $date_created->date_i18n('d/m/Y') : '',
             'timestamp'            => $date_created ? $date_created->getTimestamp() : 0,
             'timeline'             => self::get_order_timeline($order),
@@ -662,10 +666,10 @@ class Batllie_Caja_Orders {
         }
 
         $clean_note = sanitize_textarea_field(wp_unslash($note));
-        $order->set_customer_note($clean_note);
+        $order->update_meta_data('_caja_staff_note', $clean_note);
         $order->save();
 
-        self::add_timeline_event($order, __('se añadió una aclaración al pedido', 'emp-caja'), '📝', 'note');
+        self::add_timeline_event($order, __('se añadió una nota adicional al pedido', 'emp-caja'), '📝', 'note');
 
         return self::format_order($order);
     }
@@ -756,6 +760,11 @@ class Batllie_Caja_Orders {
         $now = current_time('timestamp');
         $time_str = date_i18n('H:i', $now);
         $date_str = date_i18n('d/m', $now);
+        $day_name = date_i18n('l', $now);
+        $day_cap  = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
+        $d_str    = date_i18n('d/m/Y', $now);
+        $date_formatted = $day_cap . ' ' . $d_str;
+        $date_key = date_i18n('Y-m-d', $now);
 
         $last_event = end($timeline);
         if ($last_event && isset($last_event['text']) && $last_event['text'] === $text && isset($last_event['time']) && $last_event['time'] === $time_str) {
@@ -763,12 +772,14 @@ class Batllie_Caja_Orders {
         }
 
         $timeline[] = array(
-            'time'      => $time_str,
-            'date'      => $date_str,
-            'timestamp' => $now,
-            'text'      => $text,
-            'icon'      => $icon,
-            'type'      => $type,
+            'time'           => $time_str,
+            'date'           => $date_str,
+            'date_formatted' => $date_formatted,
+            'date_key'       => $date_key,
+            'timestamp'      => $now,
+            'text'           => $text,
+            'icon'           => $icon,
+            'type'           => $type,
         );
 
         $order->update_meta_data('_caja_timeline', $timeline);
@@ -939,6 +950,22 @@ class Batllie_Caja_Orders {
         usort($timeline, function($a, $b) {
             return ($a['timestamp'] ?? 0) - ($b['timestamp'] ?? 0);
         });
+
+        foreach ($timeline as &$ev) {
+            $ev_ts = isset($ev['timestamp']) && is_numeric($ev['timestamp']) ? (int)$ev['timestamp'] : 0;
+            if ($ev_ts > 0) {
+                if (empty($ev['date_formatted'])) {
+                    $day_name = date_i18n('l', $ev_ts);
+                    $day_cap  = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
+                    $d_str    = date_i18n('d/m/Y', $ev_ts);
+                    $ev['date_formatted'] = $day_cap . ' ' . $d_str;
+                }
+                if (empty($ev['date_key'])) {
+                    $ev['date_key'] = date_i18n('Y-m-d', $ev_ts);
+                }
+            }
+        }
+        unset($ev);
 
         if ($needs_meta_cleanup) {
             $order->update_meta_data('_caja_timeline', $timeline);
