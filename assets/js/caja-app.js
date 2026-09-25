@@ -314,7 +314,81 @@
             });
         },
 
+        getArgDateKey: function(dateOrTimestamp) {
+            let d;
+            if (typeof dateOrTimestamp === 'number') {
+                d = new Date(dateOrTimestamp * 1000);
+            } else if (dateOrTimestamp instanceof Date) {
+                d = dateOrTimestamp;
+            } else {
+                d = new Date(dateOrTimestamp);
+            }
+            try {
+                const formatter = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'America/Argentina/Buenos_Aires',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                return formatter.format(d);
+            } catch (e) {
+                const argMs = d.getTime() - (3 * 3600 * 1000);
+                const argDate = new Date(argMs);
+                const y = argDate.getUTCFullYear();
+                const m = String(argDate.getUTCMonth() + 1).padStart(2, '0');
+                const day = String(argDate.getUTCDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+        },
+
+        getArgDayLabel: function(daysAgo) {
+            const targetDate = new Date(Date.now() - (daysAgo * 86400000));
+            try {
+                const formatter = new Intl.DateTimeFormat('es-AR', {
+                    timeZone: 'America/Argentina/Buenos_Aires',
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: '2-digit'
+                });
+                const parts = formatter.formatToParts(targetDate);
+                let weekday = '', day = '', month = '';
+                parts.forEach(p => {
+                    if (p.type === 'weekday') weekday = p.value;
+                    if (p.type === 'day') day = p.value;
+                    if (p.type === 'month') month = p.value;
+                });
+                if (weekday) {
+                    weekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+                }
+                return `${weekday} ${day}/${month}`;
+            } catch (e) {
+                const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const argMs = targetDate.getTime() - (3 * 3600 * 1000);
+                const d = new Date(argMs);
+                const weekday = dias[d.getUTCDay()];
+                const day = String(d.getUTCDate()).padStart(2, '0');
+                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                return `${weekday} ${day}/${month}`;
+            }
+        },
+
+        updateTimeFilterLabels: function() {
+            const label1 = this.getArgDayLabel(1);
+            const label2 = this.getArgDayLabel(2);
+
+            const $opt1 = $('#caja-filter-time option[value="1_day"]');
+            const $opt2 = $('#caja-filter-time option[value="2_days"]');
+
+            if ($opt1.length && label1) {
+                $opt1.text(label1);
+            }
+            if ($opt2.length && label2) {
+                $opt2.text(label2);
+            }
+        },
+
         initDashboard: function() {
+            this.updateTimeFilterLabels();
             if (this.audio) {
                 this.audio.setEnabled(this.config.soundEnabled);
                 this.updateSoundUI(this.config.soundEnabled);
@@ -479,6 +553,7 @@
                 success: function(res) {
                     if (res.success && res.data) {
                         self.cachedOrders = res.data.orders || [];
+                        self.updateTimeFilterLabels();
                         $('#caja-orders-count, #caja-products-orders-badge').text(self.cachedOrders.length);
                         self.applyFilters();
 
@@ -568,6 +643,22 @@
                             Ver todos los pedidos anteriores
                         </button>
                     `).show();
+                } else if (self.currentTimeFilter === '1_day' || self.currentTimeFilter === '2_days') {
+                    const dayLabel = (self.currentTimeFilter === '1_day') ? self.getArgDayLabel(1) : self.getArgDayLabel(2);
+                    $empty.html(`
+                        <div class="caja-empty-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <h3>No hay pedidos para ${dayLabel}</h3>
+                        <p>No se registraron ventas en la fecha seleccionada.</p>
+                        <button type="button" class="caja-btn-show-all" style="margin-top:14px; padding:10px 20px; background:var(--caja-primary, #10b981); color:var(--caja-bg, #0f172a); border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:0.95rem;">
+                            Ver todos los pedidos
+                        </button>
+                    `).show();
                 } else {
                     $empty.html(`
                         <div class="caja-empty-icon">
@@ -579,6 +670,9 @@
                         </div>
                         <h3>No hay pedidos en esta sección</h3>
                         <p>Los pedidos que coincidan con los filtros seleccionados aparecerán aquí automáticamente.</p>
+                        <button type="button" class="caja-btn-show-all" style="margin-top:14px; padding:10px 20px; background:var(--caja-primary, #10b981); color:var(--caja-bg, #0f172a); border-radius:8px; border:none; font-weight:700; cursor:pointer; font-size:0.95rem;">
+                            Ver todos los pedidos
+                        </button>
                     `).show();
                 }
                 return;
@@ -793,6 +887,10 @@
             const self = this;
             const nowSec = Math.floor(Date.now() / 1000);
 
+            // Fechas clave de Argentina para los filtros específicos de 1 día (ayer) y 2 días (anteayer)
+            const targetDay1Key = self.getArgDateKey(new Date(Date.now() - 86400000));
+            const targetDay2Key = self.getArgDateKey(new Date(Date.now() - (2 * 86400000)));
+
             const filtered = self.cachedOrders.filter(ord => {
                 // 1. Filtro de Estado
                 if (self.currentStatusFilter && self.currentStatusFilter !== 'all') {
@@ -807,11 +905,9 @@
                 }
 
                 // 2. Filtro de Tiempo
-                // "Si selecciona nuevos va desde los nuevos para adelante, si toca 30 minutos los de 30 minutos y más antigüos, 1 día del día anterior y anteriores"
                 const ageSec = Math.max(0, nowSec - ord.timestamp);
                 const ageMin = ageSec / 60;
                 const ageHours = ageSec / 3600;
-                const ageDays = ageSec / 86400;
 
                 switch (self.currentTimeFilter) {
                     case 'nuevos':
@@ -831,12 +927,14 @@
                         if (ageHours < 2) return false;
                         break;
                     case '1_day':
-                        // 1 día (del día anterior y anteriores)
-                        if (ageDays < 1) return false;
+                        // Muestra exactamente los pedidos del día anterior (ej: Jueves 24/09)
+                        if (!ord.timestamp) return false;
+                        if (self.getArgDateKey(ord.timestamp) !== targetDay1Key) return false;
                         break;
                     case '2_days':
-                        // 2 días y anteriores
-                        if (ageDays < 2) return false;
+                        // Muestra exactamente los pedidos de hace 2 días (ej: Miércoles 23/09)
+                        if (!ord.timestamp) return false;
+                        if (self.getArgDateKey(ord.timestamp) !== targetDay2Key) return false;
                         break;
                     case 'all':
                     default:

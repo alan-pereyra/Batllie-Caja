@@ -6,6 +6,26 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// Calcular etiquetas dinámicas de días para los filtros (Zona horaria de Argentina)
+$site_tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+$now_dt  = new DateTime('now', $site_tz);
+
+$dias_esp = array(
+    0 => 'Domingo',
+    1 => 'Lunes',
+    2 => 'Martes',
+    3 => 'Miércoles',
+    4 => 'Jueves',
+    5 => 'Viernes',
+    6 => 'Sábado',
+);
+
+$dt_1day = (clone $now_dt)->modify('-1 day');
+$label_1day = $dias_esp[(int) $dt_1day->format('w')] . ' ' . $dt_1day->format('d/m');
+
+$dt_2days = (clone $now_dt)->modify('-2 days');
+$label_2days = $dias_esp[(int) $dt_2days->format('w')] . ' ' . $dt_2days->format('d/m');
 ?>
 
 <div class="caja-orders-container">
@@ -32,8 +52,8 @@ if (!defined('ABSPATH')) {
                     <option value="30_min"><?php _e('30 minutos', 'emp-caja'); ?></option>
                     <option value="1_hour"><?php _e('1 hora', 'emp-caja'); ?></option>
                     <option value="2_hours"><?php _e('2 horas', 'emp-caja'); ?></option>
-                    <option value="1_day"><?php _e('1 día', 'emp-caja'); ?></option>
-                    <option value="2_days"><?php _e('2 días', 'emp-caja'); ?></option>
+                    <option value="1_day"><?php echo esc_html($label_1day); ?></option>
+                    <option value="2_days"><?php echo esc_html($label_2days); ?></option>
                     <option value="all"><?php _e('Todos', 'emp-caja'); ?></option>
                 </select>
             </div>
