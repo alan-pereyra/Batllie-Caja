@@ -38,6 +38,18 @@ class Batllie_Caja_Tracking {
         // Ocultar acciones de pedido (Pagar / Cancelar) en la confirmación de compra y vista de pedido
         add_filter('woocommerce_my_account_my_orders_actions', array(__CLASS__, 'hide_order_actions'), 999, 2);
 
+        // Añadir enlace "Mis pedidos" al menú de navegación
+        add_filter('wp_nav_menu_items', array(__CLASS__, 'add_mis_pedidos_menu_item'), 10, 2);
+        add_filter('wp_nav_menu', array(__CLASS__, 'filter_wp_nav_menu'), 10, 2);
+
+        // Redirección inteligente para la pantalla del pedido actual
+        add_action('template_redirect', array(__CLASS__, 'handle_mis_pedidos_redirect'));
+
+        // Guardar cookies de pedido reciente al completar o visualizar pedido
+        add_action('woocommerce_thankyou', array(__CLASS__, 'save_recent_order_cookie'), 1, 1);
+        add_action('woocommerce_before_thankyou', array(__CLASS__, 'save_recent_order_cookie'), 1, 1);
+        add_action('woocommerce_checkout_order_processed', array(__CLASS__, 'save_recent_order_cookie'), 10, 1);
+
         // Registrar Shortcode por si se desea incrustar en cualquier página personalizada
         add_shortcode('batllie_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
 
@@ -54,6 +66,158 @@ class Batllie_Caja_Tracking {
      */
     public static function hide_order_actions($actions, $order) {
         return array();
+    }
+
+    /**
+     * Obtener la URL de seguimiento del pedido actual del cliente
+     */
+    public static function get_customer_current_order_url() {
+        // 1. Si hay cookie directa con la URL del pedido
+        if (!empty($_COOKIE['batllie_recent_order_url'])) {
+            $candidate_url = esc_url_raw(wp_unslash($_COOKIE['batllie_recent_order_url']));
+            if (!empty($candidate_url) && (strpos($candidate_url, 'order-received') !== false || strpos($candidate_url, 'view-order') !== false)) {
+                return $candidate_url;
+            }
+        }
+
+        // 2. Si hay cookie de ID de pedido reciente
+        if (!empty($_COOKIE['batllie_recent_order_id'])) {
+            $order_id = intval($_COOKIE['batllie_recent_order_id']);
+            $order    = wc_get_order($order_id);
+            if ($order) {
+                if (!empty($_COOKIE['batllie_recent_order_key'])) {
+                    $order_key = sanitize_text_field(wp_unslash($_COOKIE['batllie_recent_order_key']));
+                    if ($order->get_order_key() === $order_key) {
+                        return $order->get_checkout_order_received_url();
+                    }
+                } else {
+                    return $order->get_checkout_order_received_url();
+                }
+            }
+        }
+
+        // 3. Si el usuario está autenticado, buscar su último pedido
+        if (is_user_logged_in() && function_exists('wc_get_orders')) {
+            $orders = wc_get_orders(array(
+                'customer' => get_current_user_id(),
+                'limit'    => 1,
+                'orderby'  => 'date',
+                'order'    => 'DESC',
+            ));
+            if (!empty($orders)) {
+                return $orders[0]->get_checkout_order_received_url();
+            }
+        }
+
+        // 4. Si hay sesión activa de WooCommerce con pedido reciente
+        if (function_exists('WC') && WC()->session) {
+            $order_id = WC()->session->get('order_awaiting_payment');
+            if (!$order_id) {
+                $order_id = WC()->session->get('last_order_id');
+            }
+            if ($order_id) {
+                $order = wc_get_order($order_id);
+                if ($order) {
+                    return $order->get_checkout_order_received_url();
+                }
+            }
+        }
+
+        // 5. Fallback a endpoint de redirección inteligente
+        return home_url('/?batllie_mis_pedidos=1');
+    }
+
+    /**
+     * Guardar cookies del pedido actual del cliente
+     */
+    public static function save_recent_order_cookie($order_id) {
+        if (!$order_id) {
+            return;
+        }
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return;
+        }
+
+        $url = $order->get_checkout_order_received_url();
+        $key = $order->get_order_key();
+
+        if (!headers_sent()) {
+            $expiry = time() + (30 * DAY_IN_SECONDS);
+            setcookie('batllie_recent_order_id', strval($order_id), $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
+            setcookie('batllie_recent_order_key', $key, $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
+            setcookie('batllie_recent_order_url', $url, $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
+        }
+    }
+
+    /**
+     * Redirigir hacia la pantalla del pedido actual o mi cuenta
+     */
+    public static function handle_mis_pedidos_redirect() {
+        if (isset($_GET['batllie_mis_pedidos'])) {
+            $order_url = self::get_customer_current_order_url();
+            if ($order_url && strpos($order_url, 'batllie_mis_pedidos') === false) {
+                wp_safe_redirect($order_url);
+                exit;
+            }
+
+            if (is_user_logged_in() && function_exists('wc_get_account_endpoint_url')) {
+                wp_safe_redirect(wc_get_account_endpoint_url('orders'));
+                exit;
+            }
+
+            if (function_exists('wc_get_page_permalink')) {
+                wp_safe_redirect(wc_get_page_permalink('myaccount'));
+                exit;
+            }
+
+            wp_safe_redirect(home_url('/'));
+            exit;
+        }
+    }
+
+    /**
+     * Añadir enlace "Mis pedidos" al menú de navegación (items)
+     */
+    public static function add_mis_pedidos_menu_item($items, $args) {
+        if (strpos($items, 'menu-item-mis-pedidos') !== false) {
+            return $items;
+        }
+
+        $url = self::get_customer_current_order_url();
+        $label = __('Mis pedidos', 'emp-caja');
+        $item_html = '<li id="menu-item-mis-pedidos" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-mis-pedidos" onclick="if(typeof openMobileMenu===\'function\')openMobileMenu();"><a href="' . esc_url($url) . '" data-batllie-mis-pedidos="1">' . esc_html($label) . '</a></li>';
+
+        if (preg_match('/(<div[^>]*show-mobile[^>]*>)/i', $items, $matches)) {
+            $items = str_replace($matches[1], $item_html . $matches[1], $items);
+        } else {
+            $items .= $item_html;
+        }
+
+        return $items;
+    }
+
+    /**
+     * Filtro sobre el nav_menu completo como garantía para temas personalizados
+     */
+    public static function filter_wp_nav_menu($nav_menu, $args) {
+        if (strpos($nav_menu, 'menu-item-mis-pedidos') !== false) {
+            return $nav_menu;
+        }
+
+        $url = self::get_customer_current_order_url();
+        $label = __('Mis pedidos', 'emp-caja');
+        $item_html = '<li id="menu-item-mis-pedidos" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-mis-pedidos" onclick="if(typeof openMobileMenu===\'function\')openMobileMenu();"><a href="' . esc_url($url) . '" data-batllie-mis-pedidos="1">' . esc_html($label) . '</a></li>';
+
+        if (preg_match('/(<div[^>]*show-mobile[^>]*>)/i', $nav_menu, $matches)) {
+            return str_replace($matches[1], $item_html . $matches[1], $nav_menu);
+        }
+
+        if (strpos($nav_menu, '</ul>') !== false) {
+            return str_replace('</ul>', $item_html . '</ul>', $nav_menu);
+        }
+
+        return $nav_menu;
     }
 
     /**
@@ -112,6 +276,19 @@ class Batllie_Caja_Tracking {
             EMP_CAJA_VERSION,
             true
         );
+
+        // Encolar script de navegación de pedidos en todo el frontend para sincronizar "Mis pedidos"
+        wp_enqueue_script(
+            'batllie-caja-nav-menu',
+            EMP_CAJA_URL . 'assets/js/caja-nav-menu.js',
+            array('jquery'),
+            EMP_CAJA_VERSION,
+            true
+        );
+
+        wp_localize_script('batllie-caja-nav-menu', 'emp_caja_nav_params', array(
+            'my_orders_url' => self::get_customer_current_order_url(),
+        ));
 
         // Cargar en checkout, orden recibida o ver pedido
         if (is_checkout() || (function_exists('is_order_received_page') && is_order_received_page()) || (function_exists('is_wc_endpoint_url') && (is_wc_endpoint_url('order-received') || is_wc_endpoint_url('view-order')))) {
