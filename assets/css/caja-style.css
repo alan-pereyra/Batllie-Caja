@@ -719,25 +719,59 @@ body.batllie-caja-active .container {
 .caja-search-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .caja-search-box {
     position: relative;
     display: flex;
     align-items: center;
-    min-width: 260px;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .caja-search-box svg {
     position: absolute;
-    left: 12px;
-    color: var(--caja-text-muted);
+    left: 14px;
+    color: var(--caja-text-muted, #94a3b8);
+    pointer-events: none;
+    z-index: 2;
 }
 
 .caja-search-box input {
-    padding-left: 36px !important;
+    width: 100% !important;
+    height: 46px !important;
+    padding-left: 42px !important;
+    padding-right: 14px !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid var(--caja-card-border, #334155) !important;
+    border-radius: 8px !important;
+    font-size: 0.95rem !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    transition: all 0.2s ease !important;
+}
+
+.caja-search-box input:focus {
+    border-color: var(--caja-primary, #10b981) !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+}
+
+.caja-btn-tool#caja-manual-refresh {
+    flex-shrink: 0 !important;
+    min-width: 46px !important;
+    height: 46px !important;
+    padding: 0 14px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
 }
 
 /* ==========================================================================
