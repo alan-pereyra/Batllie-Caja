@@ -25,6 +25,19 @@ class Batllie_Caja_Grouped {
 
         // Validación en el servidor (Seguridad PHP en wp_loaded antes del handler de WooCommerce)
         add_action('wp_loaded', array(__CLASS__, 'validate_grouped_add_to_cart'), 10);
+
+        // Ocultar precio unitario en el encabezado de productos agrupados con caja fija
+        add_filter('woocommerce_grouped_price_html', array(__CLASS__, 'filter_grouped_price_html'), 10, 2);
+    }
+
+    /**
+     * Ocultar el rango de precio unitario en el encabezado para productos agrupados con caja fija
+     */
+    public static function filter_grouped_price_html($price, $product) {
+        if (is_product() && self::get_target_qty($product) > 0) {
+            return '';
+        }
+        return $price;
     }
 
     /**

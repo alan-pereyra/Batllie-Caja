@@ -332,3 +332,43 @@ button.single_add_to_cart_button.batllie-btn-disabled:hover,
     background-color: #334155 !important;
     border-color: #334155 !important;
 }
+
+/* ==========================================================================
+   Ocultar Precio Unitario en Encabezado y Columna de Precios de la Tabla
+   ========================================================================== */
+/* 1. Ocultar el rango de precio unitario en el encabezado del producto */
+.single-product .product-type-grouped .summary > p.price,
+.single-product .product-type-grouped .summary .price:not(.batllie-box-summary-price) {
+    display: none !important;
+}
+
+/* 2. Ocultar la columna de precio unitario individual en la tabla */
+form.cart.grouped_form table.woocommerce-grouped-product-list td.woocommerce-grouped-product-list-item__price,
+form.cart.grouped_form table.woocommerce-grouped-product-list th.woocommerce-grouped-product-list-item__price {
+    display: none !important;
+}
+
+/* 3. El label toma el espacio disponible con bordes redondeados a la derecha */
+form.cart.grouped_form table.woocommerce-grouped-product-list td.woocommerce-grouped-product-list-item__label {
+    width: 100% !important;
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+    padding-left: 14px !important;
+    padding-right: 18px !important;
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list td.woocommerce-grouped-product-list-item__label label {
+    font-size: 1.15rem !important;
+    font-weight: 600 !important;
+    color: #1a1a1a !important;
+    cursor: pointer !important;
+    display: block !important;
+    margin: 0 !important;
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list td.woocommerce-grouped-product-list-item__quantity {
+    width: 1% !important;
+    white-space: nowrap !important;
+    padding-right: 8px !important;
+}
+

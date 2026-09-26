@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.4.3
+ * Version: 1.4.4
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.4.3');
+define('EMP_CAJA_VERSION', '1.4.4');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
