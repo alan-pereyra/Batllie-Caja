@@ -164,7 +164,7 @@ class Batllie_Caja_Grouped {
                 'needMore'     => __('Te falta %d %s para completar tu caja de %d.', 'emp-caja'),
                 'exactWarning' => __('Debes incluir exactamente %d unidades para armar tu caja. Actualmente seleccionaste %d (te falta %d).', 'emp-caja'),
                 'exactExceed'  => __('Debes incluir exactamente %d unidades para armar tu caja. Actualmente seleccionaste %d.', 'emp-caja'),
-                'maxReached'   => __('Ya alcanzaste el máximo de %d unidades para esta caja.', 'emp-caja'),
+                'maxReached'   => sprintf(__('Ya alcanzaste el máximo de %d unidades para esta caja.', 'emp-caja'), $target_qty),
                 'totalLabel'   => __('Total de tu caja:', 'emp-caja'),
             ),
         ));

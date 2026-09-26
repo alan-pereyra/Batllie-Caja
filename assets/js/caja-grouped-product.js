@@ -132,12 +132,14 @@
         /**
          * Calcular estado total, actualizar UI y controlar botones
          */
+        /**
+         * Calcular estado total, actualizar UI y controlar botones
+         */
         function updateGroupedState() {
             let totalSelected = 0;
-            let totalPrice = 0;
-
             const $inputs = $table.find('input.qty');
 
+            // Leer cantidades actuales
             $inputs.each(function () {
                 const $inp = $(this);
                 let q = parseInt($inp.val(), 10);
@@ -145,22 +147,46 @@
                     q = 0;
                     $inp.val(0);
                 }
-                const unitPrice = getUnitPrice($inp);
                 totalSelected += q;
-                totalPrice += q * unitPrice;
             });
 
-            // Si se pasó del máximo permitido (por haber escrito en el teclado)
+            // Si por tipeo manual se superó el límite, recortar el exceso de forma lineal SIN recursión
             if (totalSelected > targetQty) {
-                const excess = totalSelected - targetQty;
-                // Reducir del último input modificado
-                const $active = $(document.activeElement);
-                if ($active.is('input.qty') && parseInt($active.val(), 10) >= excess) {
-                    $active.val(parseInt($active.val(), 10) - excess);
+                let excess = totalSelected - targetQty;
+                // Primero reducir del input actualmente activo si es un input de cantidad
+                const active = document.activeElement;
+                if (active && active.classList && active.classList.contains('qty')) {
+                    const cur = parseInt(active.value, 10) || 0;
+                    const reduce = Math.min(cur, excess);
+                    active.value = cur - reduce;
+                    excess -= reduce;
                 }
-                // Recalcular
-                return updateGroupedState();
+                // Si aún sobra exceso, recortar de los demás inputs
+                if (excess > 0) {
+                    for (let i = $inputs.length - 1; i >= 0 && excess > 0; i--) {
+                        const inp = $inputs[i];
+                        const cur = parseInt(inp.value, 10) || 0;
+                        const reduce = Math.min(cur, excess);
+                        inp.value = cur - reduce;
+                        excess -= reduce;
+                    }
+                }
+                // Recalcular total real ya recortado
+                totalSelected = 0;
+                $inputs.each(function () {
+                    const q = parseInt($(this).val(), 10) || 0;
+                    totalSelected += q;
+                });
             }
+
+            // Calcular precio total exacto
+            let totalPrice = 0;
+            $inputs.each(function () {
+                const $inp = $(this);
+                const q = parseInt($inp.val(), 10) || 0;
+                const unitPrice = getUnitPrice($inp);
+                totalPrice += q * unitPrice;
+            });
 
             // Elementos del DOM
             const $current = $('#batllie-box-current');
@@ -214,41 +240,71 @@
             }
         }
 
-        // Interceptar clicks en botón "+" para evitar superar targetQty
-        $form.on('click', '.emp-qty-plus, .plus', function (e) {
-            let totalSelected = 0;
-            $table.find('input.qty').each(function () {
-                totalSelected += parseInt($(this).val(), 10) || 0;
-            });
+        /**
+         * Manejador de clic en los botones + y - del stepper.
+         * Se registra en la fase de captura (true) para ejecutarse ANTES de que el script
+         * del tema (complements.js) interfiera, evitando el bug donde parseFloat("") || 1 salta de 0 a 2.
+         */
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.emp-qty-btn, .plus, .minus');
+            if (!btn) return;
 
-            if (totalSelected >= targetQty) {
-                e.preventDefault();
-                e.stopPropagation();
-                showAlert(i18n.maxReached || `Ya alcanzaste el máximo de ${targetQty} unidades para esta caja.`);
-                return false;
+            const form = btn.closest('form.grouped_form');
+            if (!form) return; // Solo actuar en el formulario de producto agrupado
+
+            // Frenar inmediatamente la propagación hacia complements.js del tema
+            e.stopImmediatePropagation();
+            e.preventDefault();
+
+            const container = btn.closest('.quantity');
+            if (!container) return;
+            const input = container.querySelector('input.qty');
+            if (!input) return;
+
+            let currentVal = parseInt(input.value, 10);
+            if (isNaN(currentVal) || currentVal < 0) {
+                currentVal = 0;
             }
-        });
 
-        // Interceptar clicks en botón "-" para no bajar de 0
-        $form.on('click', '.emp-qty-minus, .minus', function (e) {
-            const $inp = $(this).closest('.quantity').find('input.qty');
-            const current = parseInt($inp.val(), 10) || 0;
-            if (current <= 0) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
+            const isMinus = btn.classList.contains('emp-qty-minus') || btn.classList.contains('minus') || btn.textContent.trim() === '-';
+            const isPlus = btn.classList.contains('emp-qty-plus') || btn.classList.contains('plus') || btn.textContent.trim() === '+';
+
+            if (isMinus) {
+                if (currentVal > 0) {
+                    input.value = currentVal - 1;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                updateGroupedState();
+                return;
             }
-        });
 
-        // Eventos en inputs de cantidad
+            if (isPlus) {
+                // Calcular total actual
+                let total = 0;
+                form.querySelectorAll('input.qty').forEach(inp => {
+                    const v = parseInt(inp.value, 10);
+                    total += (isNaN(v) || v < 0) ? 0 : v;
+                });
+
+                if (total >= targetQty) {
+                    const maxMsg = (i18n.maxReached || `Ya alcanzaste el máximo de ${targetQty} unidades para esta caja.`).replace('%d', targetQty);
+                    showAlert(maxMsg);
+                    return;
+                }
+
+                // Incrementar exactamente en 1 (ej: de 0 a 1, de 1 a 2)
+                input.value = currentVal + 1;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                updateGroupedState();
+                return;
+            }
+        }, true); // useCapture = true para interceptar antes del tema
+
+        // Eventos en inputs de cantidad (tipeo directo)
         $table.on('input change keyup', 'input.qty', function () {
             updateGroupedState();
-        });
-
-        // Detectar cambios realizados por los steppers del tema con un observador corto
-        $table.on('click', '.emp-qty-btn, .plus, .minus', function () {
-            setTimeout(updateGroupedState, 50);
-            setTimeout(updateGroupedState, 150);
         });
 
         // Interceptar click en el botón de Añadir al Carrito
@@ -272,6 +328,13 @@
 
                 showAlert(message);
                 return false;
+            }
+        });
+
+        // Asegurar que todos los inputs tengan un 0 inicial limpio si vienen vacíos
+        $table.find('input.qty').each(function () {
+            if ($(this).val() === '' || isNaN(parseInt($(this).val(), 10))) {
+                $(this).val(0);
             }
         });
 
