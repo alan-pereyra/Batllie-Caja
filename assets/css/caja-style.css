@@ -1049,6 +1049,157 @@ body.batllie-caja-active .container {
     font-size: 0.95rem;
 }
 
+/* Tarjeta contenedora de Pack / Caja Agrupada en Batllié Caja POS */
+.caja-pack-box-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 4px solid var(--caja-primary, #10b981);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 8px 0 10px 0;
+}
+
+.caja-pack-box-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.caja-pack-box-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 6px;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+.caja-pack-box-title-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.caja-pack-box-top-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.caja-pack-box-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: var(--caja-primary, #34d399);
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 4px;
+    padding: 1px 6px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.caja-pack-units-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+
+.caja-pack-box-name {
+    font-weight: 700;
+    font-size: 0.96rem;
+    color: #ffffff;
+}
+
+.caja-pack-box-total {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.caja-pack-box-items {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-left: 4px;
+}
+
+.caja-pack-subitem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.88rem;
+}
+
+.caja-subitem-tree {
+    color: var(--caja-primary, #10b981);
+    font-weight: 900;
+    font-size: 1.1rem;
+    line-height: 1;
+    opacity: 0.85;
+}
+
+.caja-subitem-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.caja-subitem-qty {
+    font-weight: 800;
+    color: var(--caja-primary, #34d399);
+    min-width: 22px;
+}
+
+.caja-subitem-name {
+    flex: 1;
+    font-weight: 500;
+    color: #f3f4f6;
+}
+
+.caja-subitem-meta {
+    font-size: 0.76rem;
+    color: #9ca3af;
+    margin-left: 4px;
+}
+
+.caja-subitem-price {
+    font-weight: 600;
+    color: #e5e7eb;
+    font-size: 0.88rem;
+}
+
+/* Formateo de precio 'Desde $...' en página principal y catálogo */
+.batllie-grouped-price-from {
+    font-weight: 700;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.batllie-grouped-price-from .batllie-price-from-label {
+    font-size: 0.88em;
+    font-weight: 500;
+    color: inherit;
+    opacity: 0.85;
+}
+
 /* Medio de Pago y Estado de Envío (debajo del botón de estado) */
 .caja-order-meta-grid {
     background: rgba(15, 23, 42, 0.45);

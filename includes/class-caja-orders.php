@@ -441,35 +441,134 @@ class Batllie_Caja_Orders {
 
         $order_id = $order->get_id();
         $items = array();
+        $raw_boxes = array();
+        $raw_standalone = array();
+        $child_items = array();
 
         foreach ($order->get_items() as $item_id => $item) {
             $product = $item->get_product();
             $meta_display = array();
             
+            // Metadatos formateados públicos (excluyendo prefijo '_' para ocultar claves internas)
+            $meta_data = $item->get_formatted_meta_data('_');
+            foreach ($meta_data as $meta) {
+                $meta_display[] = strip_tags($meta->display_key . ': ' . $meta->display_value);
+            }
+
             // Imagen del producto
             $image_url = '';
             if ($product) {
                 $image_id = $product->get_image_id();
+                // Si es caja de empaque y no tiene imagen propia, usar la del pack agrupado padre
+                if (!$image_id && $item->get_meta('_batllie_extra_box') === 'yes') {
+                    $parent_grouped_id = $item->get_meta('_batllie_parent_grouped_id');
+                    if ($parent_grouped_id) {
+                        $parent_product = wc_get_product($parent_grouped_id);
+                        if ($parent_product && $parent_product->get_image_id()) {
+                            $image_id = $parent_product->get_image_id();
+                        }
+                    }
+                }
                 $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
             } else {
                 $image_url = wc_placeholder_img_src('thumbnail');
             }
 
-            // Metadatos formateados (variaciones, notas de cocina, etc.)
-            $meta_data = $item->get_formatted_meta_data('');
-            foreach ($meta_data as $meta) {
-                $meta_display[] = strip_tags($meta->display_key . ': ' . $meta->display_value);
+            $is_extra_box = ($item->get_meta('_batllie_extra_box') === 'yes') || ($product && $product->get_id() == get_option('_batllie_packaging_product_id', 0));
+            $pack_instance_id = $item->get_meta('_batllie_pack_instance_id');
+            $parent_grouped_id = $item->get_meta('_batllie_parent_grouped_id');
+
+            $line_data = array(
+                'item_id'           => $item_id,
+                'id'                => $item->get_product_id(),
+                'name'              => $item->get_name(),
+                'image'             => $image_url,
+                'quantity'          => $item->get_quantity(),
+                'total_num'         => floatval($item->get_total()),
+                'total'             => wc_price($item->get_total(), array('currency' => $order->get_currency())),
+                'meta'              => $meta_display,
+                'is_box'            => $is_extra_box,
+                'pack_instance_id'  => $pack_instance_id,
+                'parent_grouped_id' => $parent_grouped_id,
+                'pack_items'        => array(),
+                'box_total'         => '',
+                'box_units'         => 0,
+            );
+
+            if ($is_extra_box) {
+                $raw_boxes[$item_id] = $line_data;
+            } elseif (!empty($pack_instance_id) || !empty($parent_grouped_id)) {
+                $child_items[$item_id] = $line_data;
+            } else {
+                $raw_standalone[$item_id] = $line_data;
+            }
+        }
+
+        // Si hay cajas pero los alfajores no tenían metadatos de lote (ej: pedidos creados previamente),
+        // asociar los productos alfajores a la caja si hay 1 sola caja en la orden
+        if (!empty($raw_boxes) && empty($child_items) && !empty($raw_standalone)) {
+            if (count($raw_boxes) === 1) {
+                $child_items = $raw_standalone;
+                $raw_standalone = array();
+            }
+        }
+
+        // Asociar cada producto hijo a su caja correspondiente
+        foreach ($child_items as $c_id => $child) {
+            $assigned = false;
+            // 1. Coincidencia exacta por pack_instance_id
+            if (!empty($child['pack_instance_id'])) {
+                foreach ($raw_boxes as $b_id => &$box) {
+                    if (!empty($box['pack_instance_id']) && $box['pack_instance_id'] === $child['pack_instance_id']) {
+                        $box['pack_items'][] = $child;
+                        $assigned = true;
+                        break;
+                    }
+                }
+                unset($box);
             }
 
-            $items[] = array(
-                'id'       => $item->get_product_id(),
-                'name'     => $item->get_name(),
-                'image'    => $image_url,
-                'quantity' => $item->get_quantity(),
-                'total'    => wc_price($item->get_total(), array('currency' => $order->get_currency())),
-                'meta'     => $meta_display
-            );
+            // 2. Coincidencia por parent_grouped_id si hay una sola caja con ese parent
+            if (!$assigned && !empty($child['parent_grouped_id'])) {
+                foreach ($raw_boxes as $b_id => &$box) {
+                    if (!empty($box['parent_grouped_id']) && $box['parent_grouped_id'] == $child['parent_grouped_id']) {
+                        $box['pack_items'][] = $child;
+                        $assigned = true;
+                        break;
+                    }
+                }
+                unset($box);
+            }
+
+            // 3. Fallback: si hay 1 sola caja en la orden, asignar a esa caja
+            if (!$assigned && count($raw_boxes) === 1) {
+                $single_box_key = array_key_first($raw_boxes);
+                $raw_boxes[$single_box_key]['pack_items'][] = $child;
+                $assigned = true;
+            }
+
+            // Si no pudo asignarse a ninguna caja, queda como producto suelto
+            if (!$assigned) {
+                $raw_standalone[$c_id] = $child;
+            }
         }
+
+        // Calcular el precio total y unidades de cada caja
+        foreach ($raw_boxes as $b_id => &$box) {
+            $box_total_num = $box['total_num'];
+            $box_units = 0;
+            foreach ($box['pack_items'] as $sub) {
+                $box_total_num += $sub['total_num'];
+                $box_units += $sub['quantity'];
+            }
+            $box['box_total_num'] = $box_total_num;
+            $box['box_total']     = wc_price($box_total_num, array('currency' => $order->get_currency()));
+            $box['box_units']     = $box_units;
+        }
+        unset($box);
+
+        // Construir listado final: primero las cajas (con sus alfajores agrupados), luego productos sueltos
+        $items = array_merge(array_values($raw_boxes), array_values($raw_standalone));
 
         $date_created = $order->get_date_created();
         $time_diff = $date_created ? human_time_diff($date_created->getTimestamp(), current_time('timestamp')) : '';

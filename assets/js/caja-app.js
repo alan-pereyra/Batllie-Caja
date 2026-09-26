@@ -905,22 +905,69 @@
                 let itemsHtml = '';
                 if (order.items && order.items.length) {
                     order.items.forEach(item => {
-                        let metaHtml = '';
-                        if (item.meta && item.meta.length) {
-                            metaHtml = `<div class="caja-item-meta">${item.meta.join(', ')}</div>`;
-                        }
-                        let imgHtml = item.image ? `<img src="${item.image}" class="caja-item-thumb" alt="${item.name}" />` : '';
-                        itemsHtml += `
-                            <div class="caja-order-item">
-                                ${imgHtml}
-                                <span class="caja-item-qty">${item.quantity}x</span>
-                                <div class="caja-item-info">
-                                    <span class="caja-item-name">${item.name}</span>
-                                    ${metaHtml}
+                        if (item.is_box || (item.pack_items && item.pack_items.length > 0)) {
+                            // Renderizar tarjeta de Pack / Caja agrupada con sus productos anidados
+                            let subItemsHtml = '';
+                            if (item.pack_items && item.pack_items.length) {
+                                item.pack_items.forEach(sub => {
+                                    let subImg = sub.image ? `<img src="${sub.image}" class="caja-subitem-thumb" alt="${sub.name}" />` : '';
+                                    let subMeta = '';
+                                    if (sub.meta && sub.meta.length) {
+                                        subMeta = `<span class="caja-subitem-meta">(${sub.meta.join(', ')})</span>`;
+                                    }
+                                    subItemsHtml += `
+                                        <div class="caja-pack-subitem">
+                                            <span class="caja-subitem-tree">↳</span>
+                                            ${subImg}
+                                            <span class="caja-subitem-qty">${sub.quantity}x</span>
+                                            <span class="caja-subitem-name">${sub.name} ${subMeta}</span>
+                                            <span class="caja-subitem-price">${sub.total}</span>
+                                        </div>
+                                    `;
+                                });
+                            }
+
+                            let imgHtml = item.image ? `<img src="${item.image}" class="caja-pack-box-thumb" alt="${item.name}" />` : '';
+                            let unitsBadge = item.box_units ? `<span class="caja-pack-units-badge">${item.box_units} u.</span>` : '';
+                            let boxPrice = item.box_total || item.total;
+
+                            itemsHtml += `
+                                <div class="caja-pack-box-card">
+                                    <div class="caja-pack-box-header">
+                                        ${imgHtml}
+                                        <div class="caja-pack-box-title-wrap">
+                                            <div class="caja-pack-box-top-line">
+                                                <span class="caja-pack-box-badge">📦 PACK / CAJA</span>
+                                                ${unitsBadge}
+                                            </div>
+                                            <span class="caja-pack-box-name">${item.name}</span>
+                                        </div>
+                                        <span class="caja-pack-box-total">${boxPrice}</span>
+                                    </div>
+                                    <div class="caja-pack-box-items">
+                                        ${subItemsHtml}
+                                    </div>
                                 </div>
-                                <span class="caja-item-price">${item.total}</span>
-                            </div>
-                        `;
+                            `;
+                        } else {
+                            // Ítem estándar individual fuera de pack
+                            let metaHtml = '';
+                            if (item.meta && item.meta.length) {
+                                metaHtml = `<div class="caja-item-meta">${item.meta.join(', ')}</div>`;
+                            }
+                            let imgHtml = item.image ? `<img src="${item.image}" class="caja-item-thumb" alt="${item.name}" />` : '';
+                            itemsHtml += `
+                                <div class="caja-order-item">
+                                    ${imgHtml}
+                                    <span class="caja-item-qty">${item.quantity}x</span>
+                                    <div class="caja-item-info">
+                                        <span class="caja-item-name">${item.name}</span>
+                                        ${metaHtml}
+                                    </div>
+                                    <span class="caja-item-price">${item.total}</span>
+                                </div>
+                            `;
+                        }
                     });
                 }
 
