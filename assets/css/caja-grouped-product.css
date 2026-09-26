@@ -1,0 +1,334 @@
+/**
+ * Estilos para Selector de Cantidad Fija y Total Dinámico en Productos Agrupados
+ * Integrado con el diseño nativo de Batllié / Empralidad-master
+ */
+
+/* ==========================================================================
+   Estructura y Disposición del Formulario Agrupado
+   ========================================================================== */
+.woocommerce div.product .summary.entry-summary,
+.woocommerce div.product div.summary {
+    overflow: visible !important;
+}
+
+body.single-product .woocommerce div.product form.cart,
+.single .woocommerce div.product form.cart.grouped_form,
+.single .woocommerce div.product form.cart,
+.woocommerce div.product form.cart.grouped_form,
+.woocommerce div.product form.cart,
+form.cart.grouped_form {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    float: none !important;
+    clear: both !important;
+}
+
+body.single-product .woocommerce div.product form.cart table.group_table,
+.single .woocommerce div.product form.cart table.group_table,
+.woocommerce div.product form.cart table.group_table,
+.woocommerce table.woocommerce-grouped-product-list,
+form.cart.grouped_form table.woocommerce-grouped-product-list,
+table.woocommerce-grouped-product-list {
+    display: table !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    float: none !important;
+    clear: both !important;
+    margin-bottom: 20px !important;
+    border-collapse: separate !important;
+    border-spacing: 0 8px !important;
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list tr {
+    background: #ffffff;
+    border: 1px solid #e7ded0;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list td {
+    vertical-align: middle !important;
+    padding: 12px 14px !important;
+    border: none !important;
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list td:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+form.cart.grouped_form table.woocommerce-grouped-product-list td:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* ==========================================================================
+   Tarjeta de Progreso y Control de la Caja
+   ========================================================================== */
+.batllie-grouped-box-container {
+    background: #fdfbf7;
+    border: 1px solid #e7ded0;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0 20px 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    box-sizing: border-box !important;
+    font-family: inherit;
+    transition: all 0.3s ease;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    clear: both !important;
+    float: none !important;
+}
+
+/* Encabezado */
+.batllie-box-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.batllie-box-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.batllie-box-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.batllie-box-heading {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: 0.02em;
+}
+
+/* Badges de estado */
+.batllie-box-status-badge {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.25s ease;
+}
+
+.batllie-box-status-badge.badge-empty {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.batllie-box-status-badge.badge-incomplete {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.batllie-box-status-badge.badge-complete {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+/* Contador y Barra de Progreso */
+.batllie-box-progress-wrap {
+    margin-bottom: 12px;
+}
+
+.batllie-box-count-text {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    color: #334155;
+}
+
+.batllie-box-selected {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+}
+
+.batllie-box-divider {
+    font-size: 1.2rem;
+    color: #94a3b8;
+    margin: 0 2px;
+}
+
+.batllie-box-total {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.batllie-box-label {
+    font-size: 0.88rem;
+    color: #64748b;
+    margin-left: 4px;
+}
+
+/* Pista y Relleno de Progreso */
+.batllie-box-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.batllie-box-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #d97706, #f59e0b);
+    border-radius: 6px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.batllie-box-progress-fill.fill-complete {
+    background: linear-gradient(90deg, #059669, #10b981) !important;
+}
+
+/* Mensaje explicativo */
+.batllie-box-message {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    font-style: italic;
+}
+
+/* Fila de Resumen de Precio Total */
+.batllie-box-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    border-top: 1px dashed #d1c7b7;
+    margin-top: 10px;
+}
+
+.batllie-box-summary-label {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.batllie-box-summary-price {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.batllie-box-summary-price .woocommerce-Price-amount {
+    color: #0f172a !important;
+}
+
+/* Alerta interactiva (clic en botón bloqueado) */
+.batllie-box-alert {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 4px solid #e11d48;
+    color: #9f1239;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 14px;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    line-height: 1.4;
+}
+
+.batllie-alert-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.batllie-alert-text {
+    font-weight: 600;
+}
+
+/* Animación Shake para alertar al usuario */
+@keyframes batllieShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
+
+.batllie-shake {
+    animation: batllieShake 0.4s ease;
+    border-color: #f87171 !important;
+}
+
+/* Botones "+" bloqueados al alcanzar el máximo */
+.emp-qty-plus.batllie-plus-locked,
+.plus.batllie-plus-locked {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    pointer-events: auto !important; /* Permitir clic para disparar el mensaje informativo */
+    background: #f1f5f9 !important;
+}
+
+/* ==========================================================================
+   Botón Añadir al Carrito
+   ========================================================================== */
+body.single-product .woocommerce div.product form.cart button.single_add_to_cart_button,
+.single .woocommerce div.product form.cart button.single_add_to_cart_button,
+form.cart.grouped_form button.single_add_to_cart_button,
+.woocommerce div.product form.cart.grouped_form .button.single_add_to_cart_button {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+    float: none !important;
+    text-align: center !important;
+    padding: 15px 24px !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    border-radius: 8px !important;
+    margin-top: 5px !important;
+    cursor: pointer !important;
+    transition: all 0.25s ease !important;
+    box-sizing: border-box !important;
+}
+
+/* Estado inhabilitado del botón "Añadir al carrito" */
+button.single_add_to_cart_button.batllie-btn-disabled,
+.woocommerce div.product form.cart .button.batllie-btn-disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    background-color: #475569 !important;
+    border-color: #475569 !important;
+    color: #cbd5e1 !important;
+    box-shadow: none !important;
+    filter: grayscale(30%) !important;
+    position: relative !important;
+}
+
+button.single_add_to_cart_button.batllie-btn-disabled:hover,
+.woocommerce div.product form.cart .button.batllie-btn-disabled:hover {
+    background-color: #334155 !important;
+    border-color: #334155 !important;
+}
