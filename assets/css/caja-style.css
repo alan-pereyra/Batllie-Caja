@@ -2335,6 +2335,10 @@ body.batllie-caja-active .container {
     margin-bottom: 4px;
 }
 
+span#edit-grouped-selected-badge {
+    color: var(--emp-content-bg);
+}
+
 .caja-grouped-filter-row,
 .caja-grouped-filter-wrap {
     display: flex;
@@ -2394,6 +2398,8 @@ body.batllie-caja-active .container {
     align-items: center;
     gap: 10px;
     padding: 6px 8px;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.15s ease;
@@ -2410,6 +2416,7 @@ body.batllie-caja-active .container {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
+    margin: 0 !important;
 }
 
 .caja-child-thumb {
