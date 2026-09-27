@@ -1011,25 +1011,45 @@ class Batllie_Caja_Grouped {
             $fixed_price = self::get_fixed_price($pack_parent_id);
             $disp_mode   = self::get_fixed_price_display_mode($pack_parent_id);
 
-            if ($fixed_price > 0) {
-                // Hay precio fijo configurado para este producto agrupado
-                if ($pack_box_key && $disp_mode === 'box') {
-                    // Modo Caja: La caja lleva el precio fijo completo y los alfajores $0 (incluidos)
-                    if (isset($cart->cart_contents[$pack_box_key]['data'])) {
-                        $cart->cart_contents[$pack_box_key]['data']->set_price($fixed_price);
-                    }
-                    foreach ($pack_children as $c_key => $c_item) {
-                        if (isset($cart->cart_contents[$c_key]['data'])) {
-                            $cart->cart_contents[$c_key]['data']->set_price(0);
-                        }
-                    }
+            if ($pack_box_key) {
+                // Modo Caja Principal: La caja siempre lleva el precio total del pack
+                // (sea precio fijo configurado o la suma dinámica de los alfajores elegidos).
+                // Todos los alfajores incluidos van a precio 0 para que no figuren precios individuales.
+                $box_price = 0;
+                if ($fixed_price > 0) {
+                    $box_price = $fixed_price;
                 } else {
-                    // Modo Distribuido (o no hay caja de empaque):
-                    // Repartir el precio fijo equitativamente entre los alfajores
-                    if ($pack_box_key && isset($cart->cart_contents[$pack_box_key]['data'])) {
-                        $cart->cart_contents[$pack_box_key]['data']->set_price(0);
+                    // Precio dinámico: suma de los precios regulares de los alfajores seleccionados
+                    foreach ($pack_children as $c_key => $c_item) {
+                        $c_qty = !empty($c_item['quantity']) ? (int) $c_item['quantity'] : 1;
+                        $unit_price = 0;
+                        if (!empty($c_item['product_id'])) {
+                            $prod_obj = wc_get_product($c_item['product_id']);
+                            if ($prod_obj) {
+                                $unit_price = floatval($prod_obj->get_price());
+                            }
+                        }
+                        if ($unit_price <= 0 && isset($c_item['data']) && is_object($c_item['data'])) {
+                            $unit_price = floatval($c_item['data']->get_regular_price() ?: $c_item['data']->get_price());
+                        }
+                        $box_price += ($unit_price * $c_qty);
                     }
+                }
 
+                // 1. Asignar el importe total a la caja de empaque
+                if (isset($cart->cart_contents[$pack_box_key]['data'])) {
+                    $cart->cart_contents[$pack_box_key]['data']->set_price($box_price);
+                }
+
+                // 2. TODOS los productos hijos dentro de la caja pasan a precio $0
+                foreach ($pack_children as $c_key => $c_item) {
+                    if (isset($cart->cart_contents[$c_key]['data'])) {
+                        $cart->cart_contents[$c_key]['data']->set_price(0);
+                    }
+                }
+            } else {
+                // Modo Distribuido (si no hay caja física de empaque en el pack):
+                if ($fixed_price > 0) {
                     $total_units = 0;
                     foreach ($pack_children as $c_item) {
                         $total_units += !empty($c_item['quantity']) ? (int) $c_item['quantity'] : 0;
@@ -1059,11 +1079,6 @@ class Batllie_Caja_Grouped {
                             $cart->cart_contents[$first_key]['data']->set_price(round($adjusted_price, 2));
                         }
                     }
-                }
-            } else {
-                // Precio dinámico: La caja siempre es $0 y los alfajores mantienen su precio unitario normal
-                if ($pack_box_key && isset($cart->cart_contents[$pack_box_key]['data'])) {
-                    $cart->cart_contents[$pack_box_key]['data']->set_price(0);
                 }
             }
         }

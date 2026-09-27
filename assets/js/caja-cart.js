@@ -97,15 +97,13 @@
 
                         isChild = !isBox && (
                             rowText.includes('parte de') ||
-                            rowText.includes('incluido en la caja') ||
-                            (rowText.includes('ahorro') && (rowText.includes('0,00') || rowText.includes('0.00')))
+                            rowText.includes('incluido en la caja')
                         );
 
-                        // Fallback de contexto secuencial: si estamos dentro de una caja y el precio es $0 o tiene ahorro
+                        // Si estamos inmediatamente después de una caja y esta fila no es una nueva caja:
+                        // ¡Pertenece a la caja actual independientemente del producto que sea!
                         if (!isBox && !isChild && currentBoxPackId) {
-                            if (rowText.includes('0,00') || rowText.includes('0.00') || rowText.includes('ahorro')) {
-                                isChild = true;
-                            }
+                            isChild = true;
                         }
                     }
 
