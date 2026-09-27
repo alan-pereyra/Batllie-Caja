@@ -71,6 +71,9 @@ class Batllie_Caja_Grouped {
         // Clases CSS adicionales para identificar combos en el carrito
         add_filter('woocommerce_cart_item_class', array(__CLASS__, 'filter_cart_item_class'), 10, 3);
 
+        // Ocultar botón de eliminar en ítems hijos del combo (solo permitir eliminar en la caja principal)
+        add_filter('woocommerce_cart_item_remove_link', array(__CLASS__, 'filter_cart_item_remove_link'), 10, 2);
+
         // Encolar assets específicos de carrito y checkout
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_cart_assets'));
     }
@@ -949,6 +952,59 @@ class Batllie_Caja_Grouped {
                 }
             }
         }
+
+        // Reordenar cart_contents para que las cajas de empaque aparezcan primero que sus productos hijos
+        if (!empty($boxes_by_pack) && !empty($cart->cart_contents)) {
+            $sorted_cart  = array();
+            $handled_keys = array();
+
+            foreach ($cart->cart_contents as $k => $item) {
+                if (in_array($k, $handled_keys, true)) {
+                    continue;
+                }
+
+                $pack_id = !empty($item['batllie_pack_instance_id']) ? $item['batllie_pack_instance_id'] : '';
+
+                if (!empty($pack_id)) {
+                    // Buscar la caja de este pack
+                    $box_k = null;
+                    foreach ($boxes_by_pack as $bk => $bitem) {
+                        if (!empty($bitem['batllie_pack_instance_id']) && $bitem['batllie_pack_instance_id'] === $pack_id) {
+                            $box_k = $bk;
+                            break;
+                        }
+                    }
+
+                    // 1. Agregar la caja principal en primer lugar
+                    if ($box_k && isset($cart->cart_contents[$box_k]) && !in_array($box_k, $handled_keys, true)) {
+                        $sorted_cart[$box_k] = $cart->cart_contents[$box_k];
+                        $handled_keys[]      = $box_k;
+                    }
+
+                    // 2. Agregar los alfajores hijos inmediatamente después
+                    if (!empty($children_by_pack[$pack_id])) {
+                        foreach ($children_by_pack[$pack_id] as $ck => $citem) {
+                            if (isset($cart->cart_contents[$ck]) && !in_array($ck, $handled_keys, true)) {
+                                $sorted_cart[$ck] = $cart->cart_contents[$ck];
+                                $handled_keys[]   = $ck;
+                            }
+                        }
+                    }
+                } else {
+                    $sorted_cart[$k] = $item;
+                    $handled_keys[]  = $k;
+                }
+            }
+
+            // Asegurar que ningún ítem quede rezagado
+            foreach ($cart->cart_contents as $k => $item) {
+                if (!in_array($k, $handled_keys, true)) {
+                    $sorted_cart[$k] = $item;
+                }
+            }
+
+            $cart->cart_contents = $sorted_cart;
+        }
     }
 
     /**
@@ -1161,6 +1217,24 @@ class Batllie_Caja_Grouped {
             }
         }
         return $class;
+    }
+
+    /**
+     * Ocultar enlace de eliminación en ítems hijos cuando hay caja de empaque.
+     * El botón de eliminar solo debe mostrarse en la caja principal.
+     */
+    public static function filter_cart_item_remove_link($remove_link, $cart_item_key) {
+        if (!function_exists('WC') || !WC()->cart || !isset(WC()->cart->cart_contents[$cart_item_key])) {
+            return $remove_link;
+        }
+
+        $item = WC()->cart->cart_contents[$cart_item_key];
+        // Si es un ítem hijo de un combo y no es la caja, no mostrar botón de eliminar
+        if (!empty($item['batllie_parent_grouped_id']) && empty($item['batllie_extra_box'])) {
+            return '';
+        }
+
+        return $remove_link;
     }
 
     /**
