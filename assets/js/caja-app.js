@@ -1749,16 +1749,16 @@
                             <strong class="caja-prod-title">${p.name}</strong>
                             ${badgesHtml}
                         </td>
-                        <td><span class="caja-sku-badge">${p.sku}</span></td>
-                        <td><span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span></td>
-                        <td>
-                            <strong class="caja-prod-price">${p.price}</strong>
-                            ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
-                        </td>
                         <td>
                             <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
                             <small class="caja-stock-num">(${p.stock_quantity})</small>
                         </td>
+                        <td>
+                            <strong class="caja-prod-price">${p.price}</strong>
+                            ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
+                        </td>
+                        <td><span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span></td>
+                        <td><span class="caja-sku-badge">${p.sku}</span></td>
                         <td style="text-align: center; white-space: nowrap;">
                             <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary caja-btn-open-edit-prod" data-product-id="${p.id}" title="Modificar todos los datos del producto (Nombre, Precios, Categoría, SKU, Descripción)" style="margin-right: 4px; padding: 6px 10px;">
                                 <span>✏️ Modificar</span>

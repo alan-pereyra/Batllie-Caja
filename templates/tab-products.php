@@ -63,10 +63,10 @@ if (!defined('ABSPATH')) {
                 <tr>
                     <th style="width: 60px;"><?php _e('Foto', 'emp-caja'); ?></th>
                     <th><?php _e('Producto', 'emp-caja'); ?></th>
-                    <th><?php _e('SKU', 'emp-caja'); ?></th>
-                    <th><?php _e('Categoría', 'emp-caja'); ?></th>
-                    <th><?php _e('Precio', 'emp-caja'); ?></th>
                     <th><?php _e('Stock', 'emp-caja'); ?></th>
+                    <th><?php _e('Precio', 'emp-caja'); ?></th>
+                    <th><?php _e('Categoría', 'emp-caja'); ?></th>
+                    <th><?php _e('SKU', 'emp-caja'); ?></th>
                     <th style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
                 </tr>
             </thead>
