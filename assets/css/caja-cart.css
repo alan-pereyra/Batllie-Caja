@@ -169,9 +169,10 @@
 
 
 /* ==========================================================================
-   3. Ocultar estrictamente el botón de eliminar en productos hijos
+   3. Ocultar estrictamente el botón de eliminar y precios en productos hijos
    ========================================================================== */
 
+/* Ocultar botón eliminar */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__remove-link,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button--remove,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-link"],
@@ -190,6 +191,31 @@
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
+}
+
+/* Ocultar ABSOLUTAMENTE el precio y cualquier badge de ahorro o descuento en los productos hijos */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-price,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__prices,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-formatted-money-amount,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="product-price"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="item__prices"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="discount"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="saving"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="badge"],
+.wc-block-cart-item.batllie-is-combo-child .wc-block-components-product-price,
+.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__prices,
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-price,
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-subtotal {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
 }
 
 

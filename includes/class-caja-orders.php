@@ -459,13 +459,23 @@ class Batllie_Caja_Orders {
             $image_url = '';
             if ($product) {
                 $image_id = $product->get_image_id();
-                // Si es caja de empaque y no tiene imagen propia, usar la del pack agrupado padre
-                if (!$image_id && $item->get_meta('_batllie_extra_box') === 'yes') {
-                    $parent_grouped_id = $item->get_meta('_batllie_parent_grouped_id');
-                    if ($parent_grouped_id) {
-                        $parent_product = wc_get_product($parent_grouped_id);
-                        if ($parent_product && $parent_product->get_image_id()) {
-                            $image_id = $parent_product->get_image_id();
+                // Si es caja de empaque, usar la imagen específica de la caja configurada
+                if ($item->get_meta('_batllie_extra_box') === 'yes' || ($product && $product->get_id() == get_option('_batllie_packaging_product_id', 0))) {
+                    $box_img_meta = $item->get_meta('_batllie_box_image_id');
+                    if ($box_img_meta) {
+                        $image_id = $box_img_meta;
+                    } else {
+                        $parent_grouped_id = $item->get_meta('_batllie_parent_grouped_id');
+                        if ($parent_grouped_id) {
+                            $box_cfg_img = get_post_meta($parent_grouped_id, '_batllie_grouped_box_image_id', true);
+                            if ($box_cfg_img) {
+                                $image_id = $box_cfg_img;
+                            } elseif (!$image_id) {
+                                $parent_product = wc_get_product($parent_grouped_id);
+                                if ($parent_product && $parent_product->get_image_id()) {
+                                    $image_id = $parent_product->get_image_id();
+                                }
+                            }
                         }
                     }
                 }

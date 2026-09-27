@@ -74,6 +74,16 @@ class Batllie_Caja_Grouped {
         // Ocultar botón de eliminar en ítems hijos del combo (solo permitir eliminar en la caja principal)
         add_filter('woocommerce_cart_item_remove_link', array(__CLASS__, 'filter_cart_item_remove_link'), 10, 2);
 
+        // Ocultar precio en productos hijos (el precio solo debe figurar en la caja principal)
+        add_filter('woocommerce_cart_item_price', array(__CLASS__, 'filter_child_cart_item_price_display'), 20, 3);
+        add_filter('woocommerce_cart_item_subtotal', array(__CLASS__, 'filter_child_cart_item_price_display'), 20, 3);
+
+        // Configurar la imagen personalizada de la caja para Cart Blocks / Store API y carrito
+        add_filter('woocommerce_cart_item_product', array(__CLASS__, 'filter_cart_item_product_object'), 10, 2);
+
+        // Encolar assets de medios en wp-admin para selector de imagen de la caja
+        add_action('admin_enqueue_scripts', array(__CLASS__, 'enqueue_admin_media_assets'));
+
         // Encolar assets específicos de carrito y checkout
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_cart_assets'));
     }
@@ -364,7 +374,78 @@ class Batllie_Caja_Grouped {
             'value'       => $custom_price_from,
         ));
 
+        echo '<div style="margin: 14px 0 12px 0; border-top: 1px dashed #a7f3d0;"></div>';
+
+        $box_image_id  = get_post_meta($post_id, '_batllie_grouped_box_image_id', true);
+        $box_image_url = $box_image_id ? wp_get_attachment_image_url($box_image_id, 'medium') : '';
+
+        echo '<div class="form-field _batllie_grouped_box_image_field" style="margin-bottom:12px;">';
+        echo '<label style="display:block; font-weight:600; margin-bottom:6px; color:#374151;">' . esc_html__('Imagen de la Caja (Empaque)', 'emp-caja') . '</label>';
+        echo '<div style="display:flex; align-items:center; gap:16px;">';
+        echo '<div id="batllie-box-image-preview" style="width:70px; height:70px; border:2px dashed #cbd5e1; border-radius:8px; display:flex; align-items:center; justify-content:center; background:#f8fafc; overflow:hidden;">';
+        if ($box_image_url) {
+            echo '<img src="' . esc_url($box_image_url) . '" style="width:100%; height:100%; object-fit:cover;" />';
+        } else {
+            echo '<span style="font-size:24px; color:#94a3b8;">📦</span>';
+        }
         echo '</div>';
+        echo '<div>';
+        echo '<input type="hidden" id="_batllie_grouped_box_image_id" name="_batllie_grouped_box_image_id" value="' . esc_attr($box_image_id) . '" />';
+        echo '<button type="button" class="button button-secondary" id="batllie-upload-box-image-btn" style="margin-right:8px;">' . ($box_image_id ? esc_html__('Cambiar imagen', 'emp-caja') : esc_html__('Seleccionar imagen de la caja', 'emp-caja')) . '</button>';
+        echo '<button type="button" class="button button-link-delete" id="batllie-remove-box-image-btn" style="' . ($box_image_id ? '' : 'display:none;') . '">' . esc_html__('Quitar', 'emp-caja') . '</button>';
+        echo '<p class="description" style="margin-top:4px;">' . esc_html__('Imagen física de la caja que se usará en el carrito de la web y en la sección de Caja POS.', 'emp-caja') . '</p>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+
+        echo '</div>';
+        ?>
+        <script>
+        jQuery(document).ready(function($) {
+            var mediaUploader;
+            $('#batllie-upload-box-image-btn').on('click', function(e) {
+                e.preventDefault();
+                if (mediaUploader) {
+                    mediaUploader.open();
+                    return;
+                }
+                mediaUploader = wp.media({
+                    title: '<?php echo esc_js(__('Seleccionar Imagen de la Caja', 'emp-caja')); ?>',
+                    button: { text: '<?php echo esc_js(__('Usar esta imagen', 'emp-caja')); ?>' },
+                    multiple: false
+                });
+                mediaUploader.on('select', function() {
+                    var attachment = mediaUploader.state().get('selection').first().toJSON();
+                    $('#_batllie_grouped_box_image_id').val(attachment.id);
+                    var imgUrl = (attachment.sizes && attachment.sizes.medium) ? attachment.sizes.medium.url : attachment.url;
+                    $('#batllie-box-image-preview').html('<img src="' + imgUrl + '" style="width:100%; height:100%; object-fit:cover;" />');
+                    $('#batllie-remove-box-image-btn').show();
+                    $('#batllie-upload-box-image-btn').text('<?php echo esc_js(__('Cambiar imagen', 'emp-caja')); ?>');
+                });
+                mediaUploader.open();
+            });
+            $('#batllie-remove-box-image-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#_batllie_grouped_box_image_id').val('');
+                $('#batllie-box-image-preview').html('<span style="font-size:24px; color:#94a3b8;">📦</span>');
+                $(this).hide();
+                $('#batllie-upload-box-image-btn').text('<?php echo esc_js(__('Seleccionar imagen de la caja', 'emp-caja')); ?>');
+            });
+        });
+        </script>
+        <?php
+    }
+
+    /**
+     * Encolar media uploader de WordPress en la edición de productos para seleccionar imagen de la caja
+     */
+    public static function enqueue_admin_media_assets($hook) {
+        if (in_array($hook, array('post.php', 'post-new.php'), true)) {
+            $screen = get_current_screen();
+            if ($screen && $screen->post_type === 'product') {
+                wp_enqueue_media();
+            }
+        }
     }
 
     /**
@@ -414,6 +495,15 @@ class Batllie_Caja_Grouped {
                 update_post_meta($post_id, '_batllie_grouped_custom_price_from', wc_format_decimal($from_val));
             }
         }
+
+        if (isset($_POST['_batllie_grouped_box_image_id'])) {
+            $img_id = sanitize_text_field($_POST['_batllie_grouped_box_image_id']);
+            if ($img_id === '') {
+                delete_post_meta($post_id, '_batllie_grouped_box_image_id');
+            } else {
+                update_post_meta($post_id, '_batllie_grouped_box_image_id', absint($img_id));
+            }
+        }
     }
 
     /**
@@ -461,6 +551,15 @@ class Batllie_Caja_Grouped {
                 $product->delete_meta_data('_batllie_grouped_custom_price_from');
             } else {
                 $product->update_meta_data('_batllie_grouped_custom_price_from', wc_format_decimal($from_val));
+            }
+        }
+
+        if (isset($_POST['_batllie_grouped_box_image_id'])) {
+            $img_id = sanitize_text_field($_POST['_batllie_grouped_box_image_id']);
+            if ($img_id === '') {
+                $product->delete_meta_data('_batllie_grouped_box_image_id');
+            } else {
+                $product->update_meta_data('_batllie_grouped_box_image_id', absint($img_id));
             }
         }
     }
@@ -799,12 +898,28 @@ class Batllie_Caja_Grouped {
 
         $custom_name = self::get_extra_box_name($parent_id);
 
+        $box_image_id = get_post_meta($parent_id, '_batllie_grouped_box_image_id', true);
+        if (!$box_image_id) {
+            $parent_product = wc_get_product($parent_id);
+            if ($parent_product && $parent_product->get_image_id()) {
+                $box_image_id = $parent_product->get_image_id();
+            }
+        }
+
         $box_cart_data = array(
             'batllie_extra_box'         => true,
             'batllie_parent_grouped_id' => $parent_id,
             'batllie_pack_instance_id'  => $pack_instance_id,
             'batllie_box_custom_name'   => $custom_name,
+            'batllie_box_image_id'      => $box_image_id,
         );
+
+        if ($box_image_id && $packaging_product_id) {
+            $pkg_prod = wc_get_product($packaging_product_id);
+            if ($pkg_prod && !$pkg_prod->get_image_id()) {
+                set_post_thumbnail($packaging_product_id, $box_image_id);
+            }
+        }
 
         WC()->cart->add_to_cart($packaging_product_id, 1, 0, array(), $box_cart_data);
     }
@@ -1019,7 +1134,10 @@ class Batllie_Caja_Grouped {
             } else {
                 $badge = ' <span class="batllie-included-badge" style="display:inline-block; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:9999px; padding:2px 8px; margin-left:6px; vertical-align:middle;">' . esc_html__('Empaque incluido (Sin costo)', 'emp-caja') . '</span>';
             }
-            return esc_html($custom_name) . $badge;
+            $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
+            $marker  = '<span class="batllie-pack-marker batllie-box-marker" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+
+            return esc_html($custom_name) . $badge . $marker;
         }
         return $name;
     }
@@ -1028,10 +1146,19 @@ class Batllie_Caja_Grouped {
      * Usar la imagen de la caja del producto agrupado en el carrito en lugar de un placeholder
      */
     public static function filter_extra_box_thumbnail($thumbnail, $cart_item, $cart_item_key) {
-        if (!empty($cart_item['batllie_extra_box']) && !empty($cart_item['batllie_parent_grouped_id'])) {
-            $parent_product = wc_get_product($cart_item['batllie_parent_grouped_id']);
-            if ($parent_product && $parent_product->get_image_id()) {
-                return wp_get_attachment_image($parent_product->get_image_id(), 'woocommerce_thumbnail');
+        if (!empty($cart_item['batllie_extra_box'])) {
+            $img_id = !empty($cart_item['batllie_box_image_id']) ? $cart_item['batllie_box_image_id'] : 0;
+            if (!$img_id && !empty($cart_item['batllie_parent_grouped_id'])) {
+                $img_id = get_post_meta($cart_item['batllie_parent_grouped_id'], '_batllie_grouped_box_image_id', true);
+                if (!$img_id) {
+                    $parent_product = wc_get_product($cart_item['batllie_parent_grouped_id']);
+                    if ($parent_product && $parent_product->get_image_id()) {
+                        $img_id = $parent_product->get_image_id();
+                    }
+                }
+            }
+            if ($img_id) {
+                return wp_get_attachment_image($img_id, 'woocommerce_thumbnail');
             }
         }
         return $thumbnail;
@@ -1084,6 +1211,9 @@ class Batllie_Caja_Grouped {
             }
             if (!empty($values['batllie_pack_instance_id'])) {
                 $item->add_meta_data('_batllie_pack_instance_id', $values['batllie_pack_instance_id'], true);
+            }
+            if (!empty($values['batllie_box_image_id'])) {
+                $item->add_meta_data('_batllie_box_image_id', $values['batllie_box_image_id'], true);
             }
         } else {
             // Productos individuales que componen el pack / caja
@@ -1184,24 +1314,44 @@ class Batllie_Caja_Grouped {
 
         // Si es producto hijo de un pack
         if (!empty($cart_item['batllie_parent_grouped_id']) && empty($cart_item['batllie_extra_box'])) {
-            $parent = wc_get_product($cart_item['batllie_parent_grouped_id']);
+            $parent      = wc_get_product($cart_item['batllie_parent_grouped_id']);
             $parent_name = $parent ? $parent->get_name() : __('Combo / Caja', 'emp-caja');
+            $pack_id     = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
+            $marker      = '<span class="batllie-pack-marker batllie-child-marker" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
 
             $item_data[] = array(
                 'key'   => __('Parte de', 'emp-caja'),
-                'value' => esc_html($parent_name),
+                'value' => esc_html($parent_name) . $marker,
             );
-
-            // Si el precio de este producto es 0 porque el importe está cargado en la caja
-            if (isset($cart_item['data']) && floatval($cart_item['data']->get_price()) === 0.0) {
-                $item_data[] = array(
-                    'key'   => __('Precio', 'emp-caja'),
-                    'value' => __('Incluido en la caja', 'emp-caja'),
-                );
-            }
         }
 
         return $item_data;
+    }
+
+    /**
+     * Ocultar precio en productos hijos (el precio solo debe figurar en la caja principal)
+     */
+    public static function filter_child_cart_item_price_display($price_html, $cart_item, $cart_item_key) {
+        if (!empty($cart_item['batllie_parent_grouped_id']) && empty($cart_item['batllie_extra_box'])) {
+            return '';
+        }
+        return $price_html;
+    }
+
+    /**
+     * Configurar la imagen personalizada de la caja para Cart Blocks / Store API y carrito
+     */
+    public static function filter_cart_item_product_object($product, $cart_item) {
+        if (!empty($cart_item['batllie_extra_box'])) {
+            $img_id = !empty($cart_item['batllie_box_image_id']) ? $cart_item['batllie_box_image_id'] : 0;
+            if (!$img_id && !empty($cart_item['batllie_parent_grouped_id'])) {
+                $img_id = get_post_meta($cart_item['batllie_parent_grouped_id'], '_batllie_grouped_box_image_id', true);
+            }
+            if ($img_id && is_object($product) && method_exists($product, 'set_image_id')) {
+                $product->set_image_id($img_id);
+            }
+        }
+        return $product;
     }
 
     /**
