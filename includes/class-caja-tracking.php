@@ -419,6 +419,29 @@ class Batllie_Caja_Tracking {
         // Encolar estilos de seguimiento y Hub modal en todo el frontend
         wp_enqueue_style('batllie-caja-tracking-css');
 
+        // Inyectar paleta de colores de administración para el frontend (Hub modal, barra rápida, seguimiento)
+        $options = Batllie_Caja_Plugin::get_color_settings();
+        $custom_css = "
+        :root, #batllie-pedidos-modal, .batllie-order-tracking-card {
+            --caja-bg: {$options['bg_color']};
+            --caja-header-bg: {$options['header_bg']};
+            --caja-card-bg: {$options['card_bg']};
+            --caja-card-border: {$options['card_border']};
+            --caja-text: {$options['text_color']};
+            --caja-text-muted: {$options['text_muted']};
+            --caja-primary: {$options['primary_color']};
+            --caja-primary-hover: {$options['primary_hover']};
+            --caja-btn-text: {$options['btn_text']};
+            --caja-status-pending: {$options['status_pending']};
+            --caja-status-processing: {$options['status_processing']};
+            --caja-status-enviando: {$options['status_enviando']};
+            --caja-status-completed: {$options['status_completed']};
+            --caja-status-recibido-problema: {$options['status_recibido_problema']};
+            --caja-status-cancelled: {$options['status_cancelled']};
+            --caja-status-refunded: {$options['status_refunded']};
+        }";
+        wp_add_inline_style('batllie-caja-tracking-css', $custom_css);
+
         wp_register_script(
             'batllie-caja-tracking-js',
             EMP_CAJA_URL . 'assets/js/caja-tracking.js',
@@ -698,7 +721,24 @@ class Batllie_Caja_Tracking {
         $options = Batllie_Caja_Plugin::get_color_settings();
         $recent_orders = self::get_customer_recent_orders();
         ?>
-        <div id="batllie-pedidos-modal" class="batllie-pedidos-modal" style="display:none;" aria-hidden="true">
+        <div id="batllie-pedidos-modal" class="batllie-pedidos-modal" style="display:none;
+            --caja-bg: <?php echo esc_attr($options['bg_color']); ?>;
+            --caja-header-bg: <?php echo esc_attr($options['header_bg']); ?>;
+            --caja-card-bg: <?php echo esc_attr($options['card_bg']); ?>;
+            --caja-card-border: <?php echo esc_attr($options['card_border']); ?>;
+            --caja-text: <?php echo esc_attr($options['text_color']); ?>;
+            --caja-text-muted: <?php echo esc_attr($options['text_muted']); ?>;
+            --caja-primary: <?php echo esc_attr($options['primary_color']); ?>;
+            --caja-primary-hover: <?php echo esc_attr($options['primary_hover']); ?>;
+            --caja-btn-text: <?php echo esc_attr($options['btn_text']); ?>;
+            --caja-status-pending: <?php echo esc_attr($options['status_pending']); ?>;
+            --caja-status-processing: <?php echo esc_attr($options['status_processing']); ?>;
+            --caja-status-enviando: <?php echo esc_attr($options['status_enviando']); ?>;
+            --caja-status-completed: <?php echo esc_attr($options['status_completed']); ?>;
+            --caja-status-recibido-problema: <?php echo esc_attr($options['status_recibido_problema']); ?>;
+            --caja-status-cancelled: <?php echo esc_attr($options['status_cancelled']); ?>;
+            --caja-status-refunded: <?php echo esc_attr($options['status_refunded']); ?>;
+        " aria-hidden="true">
             <div class="batllie-pedidos-backdrop"></div>
             <div class="batllie-pedidos-dialog" role="dialog" aria-modal="true" aria-labelledby="batllie-pedidos-modal-title">
                 
@@ -727,6 +767,9 @@ class Batllie_Caja_Tracking {
                             <?php foreach ($recent_orders as $ord) : 
                                 $step = isset($ord['step']) ? intval($ord['step']) : 1;
                                 $pill_class = 'step-' . $step;
+                                if (!empty($ord['status'])) {
+                                    $pill_class .= ' status-' . esc_attr($ord['status']);
+                                }
                             ?>
                                 <div class="batllie-hub-order-card" data-order-id="<?php echo esc_attr($ord['id']); ?>">
                                     <div class="batllie-hub-card-header">

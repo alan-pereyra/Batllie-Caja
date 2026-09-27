@@ -78,7 +78,7 @@
     justify-content: center;
     gap: 7px;
     padding: 6px 16px;
-    background: rgba(16, 185, 129, 0.12);
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 12%, transparent);
     border: 1px solid var(--caja-primary, #10b981);
     color: var(--caja-primary, #10b981);
     border-radius: 9999px;
@@ -114,7 +114,7 @@
     left: 45px;
     right: 45px;
     height: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--caja-card-border, #334155) 50%, transparent);
     border-radius: 4px;
     z-index: 1;
 }
@@ -125,9 +125,9 @@
     top: 0;
     left: 0;
     height: 100%;
-    background: linear-gradient(90deg, var(--caja-primary, #10b981), #38bdf8);
+    background: linear-gradient(90deg, var(--caja-primary, #10b981), var(--caja-primary-hover, #059669));
     border-radius: 4px;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--caja-primary, #10b981) 50%, transparent);
     transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -201,14 +201,14 @@
 
 /* 1. Paso Completado */
 .batllie-tracking-step.is-completed .batllie-step-icon-wrap {
-    background: rgba(16, 185, 129, 0.15);
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 15%, transparent);
     border-color: var(--caja-primary, #10b981);
     color: var(--caja-primary, #10b981);
 }
 
 .batllie-tracking-step.is-completed .batllie-step-badge {
     background: var(--caja-primary, #10b981);
-    color: #ffffff;
+    color: var(--caja-btn-text, #ffffff);
 }
 
 .batllie-tracking-step.is-completed .batllie-step-text {
@@ -218,10 +218,10 @@
 
 /* 2. Paso Activo */
 .batllie-tracking-step.is-active .batllie-step-icon-wrap {
-    background: rgba(16, 185, 129, 0.22);
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 22%, transparent);
     border-color: var(--caja-primary, #10b981);
     color: var(--caja-primary, #10b981);
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--caja-primary, #10b981) 45%, transparent);
     animation: activeStepPulse 2.4s infinite ease-in-out;
 }
 
@@ -231,14 +231,14 @@
 
 .batllie-tracking-step.is-active .batllie-step-badge {
     background: var(--caja-primary, #10b981);
-    color: #ffffff;
+    color: var(--caja-btn-text, #ffffff);
     box-shadow: 0 0 10px var(--caja-primary, #10b981);
 }
 
 .batllie-tracking-step.is-active .batllie-step-text {
-    color: #ffffff;
+    color: var(--caja-text, #ffffff);
     font-weight: 700;
-    text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--caja-primary, #10b981) 50%, transparent);
 }
 
 /* 3. Paso Pendiente */
@@ -248,8 +248,8 @@
 
 /* Barra inferior informativa */
 .batllie-tracking-footer-bar {
-    background: rgba(0, 0, 0, 0.28);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--caja-header-bg, #1e293b);
+    border: 1px solid var(--caja-card-border, #334155);
     border-radius: 12px;
     padding: 12px 18px;
     display: flex;
@@ -295,12 +295,12 @@
 
 @keyframes activeStepPulse {
     0%, 100% {
-        box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+        box-shadow: 0 0 14px color-mix(in srgb, var(--caja-primary, #10b981) 35%, transparent);
         border-color: var(--caja-primary, #10b981);
     }
     50% {
-        box-shadow: 0 0 24px rgba(16, 185, 129, 0.7);
-        border-color: #38bdf8;
+        box-shadow: 0 0 24px color-mix(in srgb, var(--caja-primary, #10b981) 70%, transparent);
+        border-color: var(--caja-primary-hover, #059669);
     }
 }
 
@@ -678,8 +678,8 @@ td:has(.order-actions-button) {
    5. Selector Rápido Multi-Pedido (Barra Superior en Seguimiento)
    ========================================================================== */
 .batllie-tracking-switcher {
-    background: rgba(15, 23, 42, 0.55);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--caja-header-bg, #1e293b);
+    border-bottom: 1px solid var(--caja-card-border, #334155);
     margin: -24px -26px 20px -26px;
     padding: 12px 20px;
     display: flex;
@@ -725,7 +725,7 @@ td:has(.order-actions-button) {
 }
 
 .batllie-switcher-all-btn:hover {
-    background: rgba(16, 185, 129, 0.12);
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 12%, transparent);
     color: var(--caja-primary-hover, #059669);
 }
 
@@ -747,8 +747,8 @@ td:has(.order-actions-button) {
     align-items: center;
     gap: 7px;
     padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--caja-card-bg, #1e293b) 70%, var(--caja-bg, #0f172a));
+    border: 1px solid var(--caja-card-border, #334155);
     border-radius: 9999px;
     text-decoration: none !important;
     color: var(--caja-text, #f8fafc) !important;
@@ -759,15 +759,15 @@ td:has(.order-actions-button) {
 }
 
 .batllie-switcher-chip:hover {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: var(--caja-primary, #10b981);
+    background: color-mix(in srgb, var(--caja-card-bg, #1e293b) 88%, var(--caja-text, #ffffff));
     transform: translateY(-1px);
 }
 
 .batllie-switcher-chip.is-current {
-    background: rgba(16, 185, 129, 0.16) !important;
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 18%, var(--caja-card-bg, #1e293b)) !important;
     border-color: var(--caja-primary, #10b981) !important;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--caja-primary, #10b981) 25%, transparent);
 }
 
 .batllie-chip-dot {
@@ -778,18 +778,18 @@ td:has(.order-actions-button) {
     flex-shrink: 0;
 }
 
-.batllie-chip-dot.step-1 { background-color: var(--caja-status-processing, #38bdf8); }
-.batllie-chip-dot.step-2 { background-color: #fb923c; }
+.batllie-chip-dot.step-1 { background-color: var(--caja-status-processing, #3b82f6); }
+.batllie-chip-dot.step-2 { background-color: var(--caja-status-pending, #f59e0b); }
 .batllie-chip-dot.step-3 {
-    background-color: var(--caja-status-enviando, #fbbf24);
-    box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+    background-color: var(--caja-status-enviando, #8b5cf6);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--caja-status-enviando, #8b5cf6) 60%, transparent);
     animation: trackingPulse 1.8s infinite;
 }
 .batllie-chip-dot.step-4 { background-color: var(--caja-status-completed, #10b981); }
 
 .batllie-chip-num {
     font-weight: 700;
-    color: #ffffff;
+    color: var(--caja-text, #ffffff);
 }
 
 .batllie-chip-step-txt {
@@ -802,7 +802,7 @@ td:has(.order-actions-button) {
     font-weight: 700;
     text-transform: uppercase;
     background: var(--caja-primary, #10b981);
-    color: #ffffff;
+    color: var(--caja-btn-text, #ffffff);
     padding: 1px 6px;
     border-radius: 9999px;
     margin-left: 2px;
@@ -846,7 +846,7 @@ td:has(.order-actions-button) {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(15, 23, 42, 0.82);
+    background: color-mix(in srgb, var(--caja-bg, #0f172a) 85%, #000000);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
@@ -860,7 +860,7 @@ td:has(.order-actions-button) {
     background: var(--caja-card-bg, #1e293b);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: 20px;
-    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px color-mix(in srgb, var(--caja-card-border, #334155) 40%, transparent);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -880,8 +880,8 @@ td:has(.order-actions-button) {
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(15, 23, 42, 0.5);
+    border-bottom: 1px solid var(--caja-card-border, #334155);
+    background: var(--caja-header-bg, #1e293b);
 }
 
 .batllie-pedidos-title-wrap {
@@ -894,8 +894,8 @@ td:has(.order-actions-button) {
     width: 40px;
     height: 40px;
     border-radius: 12px;
-    background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--caja-primary, #10b981) 35%, transparent);
     color: var(--caja-primary, #10b981);
     display: flex;
     align-items: center;
@@ -918,8 +918,8 @@ td:has(.order-actions-button) {
 }
 
 .batllie-pedidos-close-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--caja-text, #ffffff) 6%, transparent);
+    border: 1px solid var(--caja-card-border, #334155);
     color: var(--caja-text-muted, #94a3b8);
     font-size: 22px;
     line-height: 1;
@@ -934,9 +934,9 @@ td:has(.order-actions-button) {
 }
 
 .batllie-pedidos-close-btn:hover {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    background: color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 15%, transparent);
+    border-color: color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 40%, transparent);
+    color: var(--caja-status-cancelled, #ef4444);
 }
 
 /* Cuerpo del Modal */
@@ -947,6 +947,7 @@ td:has(.order-actions-button) {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    background: var(--caja-card-bg, #1e293b);
 }
 
 .batllie-pedidos-list {
@@ -957,8 +958,8 @@ td:has(.order-actions-button) {
 
 /* Tarjeta individual de pedido en el Hub */
 .batllie-hub-order-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 40%, var(--caja-card-bg, #1e293b));
+    border: 1px solid var(--caja-card-border, #334155);
     border-radius: 14px;
     padding: 16px;
     display: flex;
@@ -969,8 +970,8 @@ td:has(.order-actions-button) {
 }
 
 .batllie-hub-order-card:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.16);
+    border-color: var(--caja-primary, #10b981);
+    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 25%, var(--caja-card-bg, #1e293b));
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
@@ -990,7 +991,7 @@ td:has(.order-actions-button) {
 .batllie-hub-order-number {
     font-size: 1.05rem;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--caja-text, #ffffff);
 }
 
 .batllie-hub-order-date {
@@ -1006,56 +1007,65 @@ td:has(.order-actions-button) {
     border-radius: 9999px;
     font-size: 0.74rem;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    border: 1px solid currentColor;
 }
 
 .batllie-hub-pill-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
+    background-color: currentColor;
 }
 
-.batllie-hub-status-pill.step-1 {
-    color: var(--caja-status-processing, #38bdf8);
-    border-color: rgba(56, 189, 248, 0.3);
-    background: rgba(56, 189, 248, 0.1);
-}
-.batllie-hub-status-pill.step-1 .batllie-hub-pill-dot { background-color: var(--caja-status-processing, #38bdf8); }
-
+/* Mapeo de estados del Hub con las variables de administración */
+.batllie-hub-status-pill.status-pending,
 .batllie-hub-status-pill.step-2 {
-    color: #fb923c;
-    border-color: rgba(251, 146, 60, 0.3);
-    background: rgba(251, 146, 60, 0.1);
+    color: var(--caja-status-pending, #f59e0b);
 }
-.batllie-hub-status-pill.step-2 .batllie-hub-pill-dot { background-color: #fb923c; }
 
+.batllie-hub-status-pill.status-processing,
+.batllie-hub-status-pill.step-1 {
+    color: var(--caja-status-processing, #3b82f6);
+}
+
+.batllie-hub-status-pill.status-enviando,
+.batllie-hub-status-pill.status-on-hold,
 .batllie-hub-status-pill.step-3 {
-    color: var(--caja-status-enviando, #fbbf24);
-    border-color: rgba(251, 191, 36, 0.3);
-    background: rgba(251, 191, 36, 0.1);
+    color: var(--caja-status-enviando, #8b5cf6);
 }
-.batllie-hub-status-pill.step-3 .batllie-hub-pill-dot { background-color: var(--caja-status-enviando, #fbbf24); }
 
+.batllie-hub-status-pill.status-completed,
 .batllie-hub-status-pill.step-4 {
     color: var(--caja-status-completed, #10b981);
-    border-color: rgba(16, 185, 129, 0.3);
-    background: rgba(16, 185, 129, 0.1);
 }
-.batllie-hub-status-pill.step-4 .batllie-hub-pill-dot { background-color: var(--caja-status-completed, #10b981); }
+
+.batllie-hub-status-pill.status-recibido-problema,
+.batllie-hub-status-pill.status-failed {
+    color: var(--caja-status-recibido-problema, #ea580c);
+}
+
+.batllie-hub-status-pill.status-cancelled {
+    color: var(--caja-status-cancelled, #ef4444);
+}
+
+.batllie-hub-status-pill.status-refunded {
+    color: var(--caja-status-refunded, #64748b);
+}
 
 .batllie-hub-card-body {
     display: flex;
     flex-direction: column;
     gap: 6px;
     padding: 8px 0;
-    border-top: 1px dashed rgba(255, 255, 255, 0.08);
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    border-top: 1px dashed var(--caja-card-border, rgba(255, 255, 255, 0.1));
+    border-bottom: 1px dashed var(--caja-card-border, rgba(255, 255, 255, 0.1));
 }
 
 .batllie-hub-items-text {
     font-size: 0.84rem;
-    color: #cbd5e1;
+    color: var(--caja-text, #cbd5e1);
+    opacity: 0.9;
     line-height: 1.35;
 }
 
@@ -1072,7 +1082,7 @@ td:has(.order-actions-button) {
 
 .batllie-hub-total-value {
     font-weight: 700;
-    color: #ffffff;
+    color: var(--caja-text, #ffffff);
 }
 
 .batllie-hub-track-btn {
@@ -1082,20 +1092,22 @@ td:has(.order-actions-button) {
     gap: 8px;
     width: 100%;
     padding: 10px 16px;
-    background: linear-gradient(135deg, var(--caja-primary, #10b981), var(--caja-primary-hover, #059669));
-    color: #ffffff !important;
+    background: var(--caja-primary, #10b981);
+    color: var(--caja-btn-text, #ffffff) !important;
     text-decoration: none !important;
     font-size: 0.88rem;
     font-weight: 600;
     border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--caja-primary, #10b981) 30%, transparent);
     transition: all 0.2s ease;
     box-sizing: border-box;
 }
 
 .batllie-hub-track-btn:hover {
+    background: var(--caja-primary-hover, #059669);
+    color: var(--caja-btn-text, #ffffff) !important;
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--caja-primary, #10b981) 45%, transparent);
     filter: brightness(1.06);
 }
 
@@ -1103,8 +1115,8 @@ td:has(.order-actions-button) {
 .batllie-pedidos-empty {
     text-align: center;
     padding: 24px 16px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px dashed rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 30%, transparent);
+    border: 1px dashed var(--caja-card-border, #334155);
     border-radius: 14px;
 }
 
@@ -1117,7 +1129,7 @@ td:has(.order-actions-button) {
     margin: 0 0 6px 0;
     font-size: 1rem;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--caja-text, #ffffff);
 }
 
 .batllie-pedidos-empty p {
@@ -1129,8 +1141,8 @@ td:has(.order-actions-button) {
 
 /* Caja de Búsqueda y Recuperación de pedidos */
 .batllie-pedidos-lookup-box {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 50%, var(--caja-card-bg, #1e293b));
+    border: 1px solid var(--caja-card-border, #334155);
     border-radius: 14px;
     padding: 14px;
     display: flex;
@@ -1169,10 +1181,10 @@ td:has(.order-actions-button) {
 
 .batllie-lookup-input {
     flex: 1;
-    background: rgba(255, 255, 255, 0.05) !important;
-    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: var(--caja-bg, #0f172a) !important;
+    border: 1px solid var(--caja-card-border, #334155) !important;
     border-radius: 8px !important;
-    color: #ffffff !important;
+    color: var(--caja-text, #ffffff) !important;
     padding: 8px 12px !important;
     font-size: 0.86rem !important;
     outline: none !important;
@@ -1181,13 +1193,13 @@ td:has(.order-actions-button) {
 
 .batllie-lookup-input:focus {
     border-color: var(--caja-primary, #10b981) !important;
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--caja-primary, #10b981) 25%, transparent) !important;
 }
 
 .batllie-lookup-submit-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #ffffff;
+    background: var(--caja-primary, #10b981);
+    border: 1px solid var(--caja-primary, #10b981);
+    color: var(--caja-btn-text, #ffffff);
     padding: 8px 14px;
     border-radius: 8px;
     font-size: 0.84rem;
@@ -1198,8 +1210,8 @@ td:has(.order-actions-button) {
 }
 
 .batllie-lookup-submit-btn:hover {
-    background: var(--caja-primary, #10b981);
-    border-color: var(--caja-primary, #10b981);
+    background: var(--caja-primary-hover, #059669);
+    border-color: var(--caja-primary-hover, #059669);
 }
 
 .batllie-lookup-msg {
@@ -1210,15 +1222,15 @@ td:has(.order-actions-button) {
 }
 
 .batllie-lookup-msg.is-success {
-    background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #10b981;
+    background: color-mix(in srgb, var(--caja-status-completed, #10b981) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--caja-status-completed, #10b981) 35%, transparent);
+    color: var(--caja-status-completed, #10b981);
 }
 
 .batllie-lookup-msg.is-error {
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    background: color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 35%, transparent);
+    color: var(--caja-status-cancelled, #ef4444);
 }
 
 

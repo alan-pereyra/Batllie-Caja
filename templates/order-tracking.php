@@ -34,7 +34,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 <!-- Variables dinámicas de color vinculadas a la configuración de la caja -->
 <style>
-#batllie-order-tracking-<?php echo esc_attr($order_id); ?> {
+:root, #batllie-order-tracking-<?php echo esc_attr($order_id); ?> {
     --caja-bg: <?php echo esc_attr($options['bg_color']); ?>;
     --caja-header-bg: <?php echo esc_attr($options['header_bg']); ?>;
     --caja-card-bg: <?php echo esc_attr($options['card_bg']); ?>;
@@ -43,9 +43,14 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
     --caja-text-muted: <?php echo esc_attr($options['text_muted']); ?>;
     --caja-primary: <?php echo esc_attr($options['primary_color']); ?>;
     --caja-primary-hover: <?php echo esc_attr($options['primary_hover']); ?>;
+    --caja-btn-text: <?php echo esc_attr($options['btn_text']); ?>;
+    --caja-status-pending: <?php echo esc_attr($options['status_pending']); ?>;
     --caja-status-processing: <?php echo esc_attr($options['status_processing']); ?>;
     --caja-status-enviando: <?php echo esc_attr($options['status_enviando']); ?>;
     --caja-status-completed: <?php echo esc_attr($options['status_completed']); ?>;
+    --caja-status-recibido-problema: <?php echo esc_attr($options['status_recibido_problema']); ?>;
+    --caja-status-cancelled: <?php echo esc_attr($options['status_cancelled']); ?>;
+    --caja-status-refunded: <?php echo esc_attr($options['status_refunded']); ?>;
 }
 </style>
 

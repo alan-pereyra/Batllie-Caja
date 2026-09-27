@@ -280,7 +280,7 @@
             var html = '';
             orders.forEach(function (ord) {
                 var step = parseInt(ord.step, 10) || 1;
-                var pillClass = 'step-' + step;
+                var pillClass = 'step-' + step + (ord.status ? ' status-' + ord.status : '');
                 var stepLabel = ord.step_label || 'En preparación';
                 var dateStr = ord.date || '';
                 var totalStr = ord.total || '';
