@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.5.4
+ * Version: 1.5.6
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.5.4');
+define('EMP_CAJA_VERSION', '1.5.6');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -141,6 +141,13 @@ class Batllie_Caja_Plugin {
      * Registrar estilos y scripts frontend
      */
     public function register_assets() {
+        if (function_exists('wp_enqueue_media')) {
+            global $post;
+            if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || strpos($post->post_content, 'batllie_caja') !== false)) {
+                wp_enqueue_media();
+            }
+        }
+
         wp_register_style(
             'batllie-caja-css',
             EMP_CAJA_URL . 'assets/css/caja-style.css',
@@ -172,6 +179,11 @@ class Batllie_Caja_Plugin {
         $atts = shortcode_atts(array(
             'isolated' => 'yes',
         ), $atts, 'batllie_caja');
+
+        // Encolar media uploader de WordPress para fotos de productos
+        if (function_exists('wp_enqueue_media')) {
+            wp_enqueue_media();
+        }
 
         // Encolar assets
         wp_enqueue_style('batllie-caja-css');
@@ -274,6 +286,7 @@ class Batllie_Caja_Plugin {
             'isUserLoggedIn' => is_user_logged_in(),
             'currentUser'    => wp_get_current_user()->display_name,
             'currencySymbol' => function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '$',
+            'placeholderImg' => function_exists('wc_placeholder_img_src') ? wc_placeholder_img_src('medium') : '',
             'i18n'           => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),

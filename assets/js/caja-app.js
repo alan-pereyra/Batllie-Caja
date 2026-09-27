@@ -393,6 +393,11 @@
             // Modal de Nuevo Producto
             $('#caja-btn-open-new-product').on('click', function() {
                 $('#caja-new-product-form')[0].reset();
+                $('#new-prod-image-id').val('');
+                $('#new-prod-thumb').hide().attr('src', '');
+                $('#new-prod-remove-img-btn').hide();
+                $('#new-prod-visibility').val('visible');
+                $('#new-prod-featured').prop('checked', false);
                 $('#caja-stock-qty-group').hide();
                 $('#caja-new-product-error').hide();
                 $('#caja-modal-new-product').fadeIn(200);
@@ -408,6 +413,77 @@
                 } else {
                     $('#caja-stock-qty-group').slideUp(150);
                 }
+            });
+
+            // Selección de Foto de Producto (Nuevo)
+            $('#new-prod-choose-img-btn').on('click', function(e) {
+                e.preventDefault();
+                self.openMediaUploader({
+                    title: 'Seleccionar Foto para el Nuevo Producto',
+                    buttonText: 'Usar esta foto',
+                    onSelect: function(media) {
+                        $('#new-prod-image-id').val(media.id);
+                        $('#new-prod-thumb').attr('src', media.url).show();
+                        $('#new-prod-remove-img-btn').show();
+                    }
+                });
+            });
+
+            $('#new-prod-remove-img-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#new-prod-image-id').val('');
+                $('#new-prod-thumb').hide().attr('src', '');
+                $(this).hide();
+            });
+
+            // Selección de Foto de Producto (Modificar)
+            $('#edit-prod-choose-img-btn').on('click', function(e) {
+                e.preventDefault();
+                self.openMediaUploader({
+                    title: 'Modificar Foto del Producto',
+                    buttonText: 'Asignar como foto de producto',
+                    onSelect: function(media) {
+                        $('#edit-prod-image-id').val(media.id);
+                        $('#edit-prod-thumb').attr('src', media.url).show();
+                        $('#edit-prod-remove-img-btn').show();
+                    }
+                });
+            });
+
+            $('#edit-prod-remove-img-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#edit-prod-image-id').val('0');
+                $('#edit-prod-thumb').hide().attr('src', '');
+                $(this).hide();
+            });
+
+            // Filtro y selección rápida en productos agrupados
+            $('#edit-grouped-search-filter').on('input', function() {
+                const query = ($(this).val() || '').toLowerCase().trim();
+                $('#edit-prod-children-list .caja-child-select-item').each(function() {
+                    const search = $(this).data('search') || '';
+                    if (!query || search.includes(query)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+
+            $('#btn-grouped-select-all').on('click', function(e) {
+                e.preventDefault();
+                $('#edit-prod-children-list .caja-child-select-item:visible .caja-child-chk').prop('checked', true);
+                self.updateGroupedSelectedCount();
+            });
+
+            $('#btn-grouped-deselect-all').on('click', function(e) {
+                e.preventDefault();
+                $('#edit-prod-children-list .caja-child-chk').prop('checked', false);
+                self.updateGroupedSelectedCount();
+            });
+
+            $(document).on('change', '#edit-prod-children-list .caja-child-chk', function() {
+                self.updateGroupedSelectedCount();
             });
 
             // Envío formulario nuevo producto
@@ -1612,6 +1688,21 @@
 
             let html = '';
             products.forEach(p => {
+                const isGrouped = p.product_type === 'grouped';
+                const isHidden = p.catalog_visibility === 'hidden';
+                const isFeatured = !!p.is_featured;
+
+                let badgesHtml = '';
+                if (isGrouped) {
+                    badgesHtml += ` <span class="caja-badge-grouped" title="Producto Agrupado (Caja / Pack)">📦 Agrupado</span>`;
+                }
+                if (isFeatured) {
+                    badgesHtml += ` <span class="caja-badge-featured" title="Producto Destacado">⭐ Destacado</span>`;
+                }
+                if (isHidden) {
+                    badgesHtml += ` <span class="caja-badge-hidden" title="Oculto para los clientes">🚫 Oculto</span>`;
+                }
+
                 html += `
                     <tr id="caja-prod-row-${p.id}">
                         <td>
@@ -1619,7 +1710,7 @@
                         </td>
                         <td>
                             <strong class="caja-prod-title">${p.name}</strong>
-                            ${p.description ? `<div class="caja-prod-desc">${p.description}</div>` : ''}
+                            ${badgesHtml}
                         </td>
                         <td><span class="caja-sku-badge">${p.sku}</span></td>
                         <td><span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span></td>
@@ -1706,12 +1797,95 @@
             this.renderProducts(filtered);
         },
 
+        openMediaUploader: function(options) {
+            if (typeof wp === 'undefined' || !wp.media) {
+                alert('La librería multimedia de WordPress no está disponible. Verifique que la página haya cargado completamente.');
+                return;
+            }
+
+            const frame = wp.media({
+                title: options.title || 'Seleccionar o Subir Imagen',
+                button: { text: options.buttonText || 'Usar esta foto' },
+                multiple: false,
+                library: { type: 'image' }
+            });
+
+            frame.on('select', function() {
+                const attachment = frame.state().get('selection').first().toJSON();
+                let url = attachment.url;
+                if (attachment.sizes && attachment.sizes.medium) {
+                    url = attachment.sizes.medium.url;
+                } else if (attachment.sizes && attachment.sizes.thumbnail) {
+                    url = attachment.sizes.thumbnail.url;
+                }
+                if (options.onSelect) {
+                    options.onSelect({
+                        id: attachment.id,
+                        url: url
+                    });
+                }
+            });
+
+            frame.open();
+        },
+
+        renderGroupedChildrenList: function(selectedIds, currentProductId) {
+            const self = this;
+            const $list = $('#edit-prod-children-list');
+            $list.empty();
+
+            selectedIds = Array.isArray(selectedIds) ? selectedIds.map(Number) : [];
+
+            // Solo productos simples o productos que no sean el actual ni agrupados
+            const candidates = (self.cachedProducts || []).filter(p => {
+                return p.id !== currentProductId && p.product_type !== 'grouped';
+            });
+
+            if (candidates.length === 0) {
+                $list.html('<div style="padding:10px; color:#94a3b8; font-size:0.85rem; text-align:center;">No hay productos simples disponibles en la tienda para asociar a esta agrupación.</div>');
+                $('#edit-grouped-selected-badge').text('0 seleccionados');
+                return;
+            }
+
+            let html = '';
+            candidates.forEach(cand => {
+                const isChecked = selectedIds.includes(Number(cand.id));
+                const thumb = cand.image_url || '';
+                const sku = cand.sku || 'S/N';
+                const normName = (cand.name || '').toLowerCase();
+                const normSku = (cand.sku || '').toLowerCase();
+
+                html += `
+                    <label class="caja-child-select-item" data-search="${normName} ${normSku}">
+                        <input type="checkbox" class="caja-child-chk" value="${cand.id}" ${isChecked ? 'checked' : ''} />
+                        ${thumb ? `<img src="${thumb}" alt="" class="caja-child-thumb" />` : ''}
+                        <div class="caja-child-info">
+                            <strong>${cand.name}</strong>
+                            <div class="caja-child-meta">
+                                <span>SKU: ${sku}</span>
+                                <span>${cand.price || ''}</span>
+                            </div>
+                        </div>
+                    </label>
+                `;
+            });
+
+            $list.html(html);
+            self.updateGroupedSelectedCount();
+        },
+
+        updateGroupedSelectedCount: function() {
+            const count = $('#edit-prod-children-list .caja-child-chk:checked').length;
+            $('#edit-grouped-selected-badge').text(`${count} seleccionado${count === 1 ? '' : 's'}`);
+        },
+
         openEditProductModal: function(productId) {
             const self = this;
             const p = self.cachedProducts.find(item => item.id === productId);
             if (!p) return;
 
             $('#edit-prod-id').val(p.id);
+            $('#edit-prod-type').val(p.product_type || 'simple');
             $('#edit-prod-name').val(p.name);
             $('#edit-prod-price').val(p.regular_price || p.price_raw || '');
             $('#edit-prod-sale-price').val(p.sale_price || '');
@@ -1720,6 +1894,35 @@
 
             const catId = (p.category_ids && p.category_ids.length > 0) ? p.category_ids[0] : 0;
             $('#edit-prod-category').val(catId);
+
+            // Visibilidad y Destacado
+            $('#edit-prod-visibility').val(p.catalog_visibility || 'visible');
+            $('#edit-prod-featured').prop('checked', !!p.is_featured);
+
+            // Foto del producto
+            $('#edit-prod-image-id').val(p.image_id ? p.image_id : '');
+            if (p.image_url) {
+                $('#edit-prod-thumb').attr('src', p.image_url).show();
+                if (p.image_id && p.image_id > 0) {
+                    $('#edit-prod-remove-img-btn').show();
+                } else {
+                    $('#edit-prod-remove-img-btn').hide();
+                }
+            } else {
+                $('#edit-prod-thumb').hide().attr('src', '');
+                $('#edit-prod-remove-img-btn').hide();
+            }
+
+            // Cartel y selector de productos si es Agrupado
+            if (p.product_type === 'grouped') {
+                $('#edit-prod-grouped-notice').slideDown(150);
+                $('#edit-prod-grouped-section').slideDown(150);
+                $('#edit-grouped-search-filter').val('');
+                self.renderGroupedChildrenList(p.children_ids || [], p.id);
+            } else {
+                $('#edit-prod-grouped-notice').hide();
+                $('#edit-prod-grouped-section').hide();
+            }
 
             if (p.manage_stock) {
                 $('#edit-prod-manage-stock').prop('checked', true);
@@ -1757,8 +1960,19 @@
                 sku: $('#edit-prod-sku').val(),
                 manage_stock: $('#edit-prod-manage-stock').is(':checked') ? 'yes' : 'no',
                 stock_quantity: $('#edit-prod-stock-qty').val(),
-                description: $('#edit-prod-desc').val()
+                description: $('#edit-prod-desc').val(),
+                image_id: $('#edit-prod-image-id').val(),
+                featured: $('#edit-prod-featured').is(':checked') ? 'yes' : 'no',
+                catalog_visibility: $('#edit-prod-visibility').val()
             };
+
+            if ($('#edit-prod-type').val() === 'grouped') {
+                const children = [];
+                $('#edit-prod-children-list .caja-child-chk:checked').each(function() {
+                    children.push(parseInt($(this).val()));
+                });
+                productData.children = children;
+            }
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -1913,7 +2127,10 @@
                 category_id: $('#new-prod-category').val(),
                 manage_stock: $('#new-prod-manage-stock').is(':checked') ? 'yes' : 'no',
                 stock_quantity: $('#new-prod-stock-qty').val(),
-                description: $('#new-prod-desc').val()
+                description: $('#new-prod-desc').val(),
+                image_id: $('#new-prod-image-id').val(),
+                featured: $('#new-prod-featured').is(':checked') ? 'yes' : 'no',
+                catalog_visibility: $('#new-prod-visibility').val()
             };
 
             $.ajax({
@@ -1930,6 +2147,11 @@
                         self.renderProducts(self.cachedProducts);
                         $('#caja-modal-new-product').fadeOut(150);
                         $form[0].reset();
+                        $('#new-prod-image-id').val('');
+                        $('#new-prod-thumb').hide().attr('src', '');
+                        $('#new-prod-remove-img-btn').hide();
+                        $('#new-prod-visibility').val('visible');
+                        $('#new-prod-featured').prop('checked', false);
                         self.showToast('¡Producto creado exitosamente en WooCommerce!');
                     } else {
                         $err.text(res.data && res.data.message ? res.data.message : 'Error al crear producto').fadeIn(150);

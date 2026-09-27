@@ -94,6 +94,28 @@ if (!defined('ABSPATH')) {
             <form id="caja-new-product-form" class="caja-modal-body">
                 <div id="caja-new-product-error" class="caja-alert caja-alert-danger" style="display:none;"></div>
 
+                <!-- Foto del Producto -->
+                <div class="caja-form-group caja-image-uploader-wrap">
+                    <label><?php _e('Foto del Producto', 'emp-caja'); ?></label>
+                    <div class="caja-image-preview-box">
+                        <img id="new-prod-thumb" src="" alt="Vista previa" class="caja-image-preview" style="display:none;" />
+                        <div class="caja-image-btn-group">
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="new-prod-choose-img-btn">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <span><?php _e('Elegir Foto (Galería WordPress)', 'emp-caja'); ?></span>
+                            </button>
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-danger" id="new-prod-remove-img-btn" style="display:none;">
+                                <span>🗑️ <?php _e('Quitar', 'emp-caja'); ?></span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="new-prod-image-id" name="image_id" value="" />
+                    </div>
+                </div>
+
                 <div class="caja-form-group">
                     <label for="new-prod-name"><?php _e('Nombre del Producto *', 'emp-caja'); ?></label>
                     <input type="text" id="new-prod-name" name="name" required placeholder="<?php esc_attr_e('Ej. Combo Hamburguesa Doble', 'emp-caja'); ?>" />
@@ -107,6 +129,24 @@ if (!defined('ABSPATH')) {
                     <div class="caja-form-group caja-col">
                         <label for="new-prod-sale-price"><?php _e('Precio de Oferta (Opcional)', 'emp-caja'); ?></label>
                         <input type="number" step="0.01" min="0" id="new-prod-sale-price" name="sale_price" placeholder="0.00" />
+                    </div>
+                </div>
+
+                <div class="caja-form-row">
+                    <div class="caja-form-group caja-col">
+                        <label for="new-prod-visibility"><strong><?php _e('Visibilidad en la Tienda / Web', 'emp-caja'); ?></strong></label>
+                        <select id="new-prod-visibility" name="catalog_visibility" class="caja-select">
+                            <option value="visible"><?php _e('👁️ Visible (Catálogo y Búsqueda)', 'emp-caja'); ?></option>
+                            <option value="hidden"><?php _e('🚫 Oculto (Los clientes NO pueden encontrarlo)', 'emp-caja'); ?></option>
+                            <option value="catalog"><?php _e('📁 Solo en Catálogo (Oculto del buscador)', 'emp-caja'); ?></option>
+                            <option value="search"><?php _e('🔍 Solo en Búsqueda (Oculto del catálogo)', 'emp-caja'); ?></option>
+                        </select>
+                    </div>
+                    <div class="caja-form-group caja-col caja-align-bottom">
+                        <label class="caja-checkbox-label">
+                            <input type="checkbox" id="new-prod-featured" name="featured" value="yes" />
+                            <span>⭐ <strong><?php _e('Producto Destacado', 'emp-caja'); ?></strong></span>
+                        </label>
                     </div>
                 </div>
 
@@ -292,7 +332,39 @@ if (!defined('ABSPATH')) {
 
             <form id="caja-edit-product-form" class="caja-modal-body">
                 <input type="hidden" id="edit-prod-id" name="id" value="" />
+                <input type="hidden" id="edit-prod-type" name="product_type" value="simple" />
                 <div id="caja-edit-product-error" class="caja-alert caja-alert-danger" style="display:none;"></div>
+
+                <!-- Cartel Informativo de Producto Agrupado -->
+                <div id="edit-prod-grouped-notice" class="caja-grouped-banner" style="display:none;">
+                    <div class="caja-grouped-banner-icon">📦</div>
+                    <div class="caja-grouped-banner-content">
+                        <strong><?php _e('Producto Agrupado (Caja / Contenedor)', 'emp-caja'); ?></strong>
+                        <p><?php _e('Este producto funciona como una caja principal que agrupa otros productos. Podés gestionar la imagen general de la caja y seleccionar qué productos incluye abajo.', 'emp-caja'); ?></p>
+                    </div>
+                </div>
+
+                <!-- Foto del Producto -->
+                <div class="caja-form-group caja-image-uploader-wrap">
+                    <label><strong><?php _e('Foto del Producto', 'emp-caja'); ?></strong></label>
+                    <div class="caja-image-preview-box">
+                        <img id="edit-prod-thumb" src="" alt="Vista previa" class="caja-image-preview" style="display:none;" />
+                        <div class="caja-image-btn-group">
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="edit-prod-choose-img-btn">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle; margin-right:4px;">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <span><?php _e('Elegir Foto (Galería WordPress)', 'emp-caja'); ?></span>
+                            </button>
+                            <button type="button" class="caja-btn caja-btn-sm caja-btn-danger" id="edit-prod-remove-img-btn" style="display:none;">
+                                <span>🗑️ <?php _e('Quitar Foto', 'emp-caja'); ?></span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="edit-prod-image-id" name="image_id" value="" />
+                    </div>
+                </div>
 
                 <div class="caja-form-group">
                     <label for="edit-prod-name"><?php _e('Nombre del Producto *', 'emp-caja'); ?></label>
@@ -307,6 +379,24 @@ if (!defined('ABSPATH')) {
                     <div class="caja-form-group caja-col">
                         <label for="edit-prod-sale-price"><?php _e('Precio Oferta (Opcional)', 'emp-caja'); ?></label>
                         <input type="number" step="0.01" min="0" id="edit-prod-sale-price" name="sale_price" placeholder="0.00" />
+                    </div>
+                </div>
+
+                <div class="caja-form-row">
+                    <div class="caja-form-group caja-col">
+                        <label for="edit-prod-visibility"><strong><?php _e('Visibilidad en la Tienda / Web', 'emp-caja'); ?></strong></label>
+                        <select id="edit-prod-visibility" name="catalog_visibility" class="caja-select">
+                            <option value="visible"><?php _e('👁️ Visible (Los clientes pueden encontrarlo)', 'emp-caja'); ?></option>
+                            <option value="hidden"><?php _e('🚫 Oculto (Los clientes NO pueden encontrarlo)', 'emp-caja'); ?></option>
+                            <option value="catalog"><?php _e('📁 Solo en Catálogo (Oculto de búsqueda)', 'emp-caja'); ?></option>
+                            <option value="search"><?php _e('🔍 Solo en Búsqueda (Oculto de catálogo)', 'emp-caja'); ?></option>
+                        </select>
+                    </div>
+                    <div class="caja-form-group caja-col caja-align-bottom">
+                        <label class="caja-checkbox-label">
+                            <input type="checkbox" id="edit-prod-featured" name="featured" value="yes" />
+                            <span>⭐ <strong><?php _e('Producto Destacado', 'emp-caja'); ?></strong></span>
+                        </label>
                     </div>
                 </div>
 
@@ -333,6 +423,27 @@ if (!defined('ABSPATH')) {
                 <div class="caja-form-group" id="caja-edit-stock-qty-group">
                     <label for="edit-prod-stock-qty"><?php _e('Cantidad en Stock', 'emp-caja'); ?></label>
                     <input type="number" min="0" id="edit-prod-stock-qty" name="stock_quantity" />
+                </div>
+
+                <!-- Sección de Selección de Productos para Productos Agrupados -->
+                <div class="caja-form-group caja-grouped-children-box" id="edit-prod-grouped-section" style="display:none;">
+                    <div class="caja-grouped-header-bar">
+                        <label><strong>📦 <?php _e('Productos incluidos en la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
+                        <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
+                    </div>
+                    <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
+                        <?php _e('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:', 'emp-caja'); ?>
+                    </p>
+                    <div class="caja-grouped-filter-row">
+                        <input type="text" id="edit-grouped-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar lista de productos..." />
+                        <div class="caja-grouped-btn-actions">
+                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary" id="btn-grouped-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
+                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary" id="btn-grouped-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                        </div>
+                    </div>
+                    <div class="caja-children-checklist-container" id="edit-prod-children-list">
+                        <!-- Generado dinámicamente -->
+                    </div>
                 </div>
 
                 <div class="caja-form-group">

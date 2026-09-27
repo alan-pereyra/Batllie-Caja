@@ -70,7 +70,21 @@ class Batllie_Caja_Products {
 
         // Imagen
         $image_id = $product->get_image_id();
+        if (!$image_id && $product->is_type('grouped')) {
+            $grouped_box_img = get_post_meta($product->get_id(), '_batllie_grouped_box_image_id', true);
+            if ($grouped_box_img) {
+                $image_id = absint($grouped_box_img);
+            }
+        }
         $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'medium') : wc_placeholder_img_src('medium');
+
+        $is_featured = $product->is_featured();
+        $catalog_visibility = $product->get_catalog_visibility();
+        $product_type = $product->get_type();
+        $children_ids = array();
+        if ($product->is_type('grouped')) {
+            $children_ids = array_map('intval', (array) $product->get_children());
+        }
 
         $manage_stock = $product->get_manage_stock();
         $stock_qty = $product->get_stock_quantity();
@@ -115,7 +129,12 @@ class Batllie_Caja_Products {
             'raw_sku'            => $product->get_sku(),
             'category_ids'       => $product->get_category_ids(),
             'raw_description'    => $product->get_short_description() ?: $product->get_description(),
+            'image_id'           => $image_id ? intval($image_id) : 0,
             'image_url'          => $image_url,
+            'is_featured'        => (bool) $is_featured,
+            'catalog_visibility' => $catalog_visibility,
+            'product_type'       => $product_type,
+            'children_ids'       => $children_ids,
             'description'        => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
     }
@@ -144,6 +163,9 @@ class Batllie_Caja_Products {
         $manage_stock = isset($data['manage_stock']) && $data['manage_stock'] === 'yes';
         $stock_qty    = isset($data['stock_quantity']) && $manage_stock ? intval($data['stock_quantity']) : null;
         $description  = isset($data['description']) ? wp_kses_post($data['description']) : '';
+        $image_id     = isset($data['image_id']) ? intval($data['image_id']) : 0;
+        $featured     = !empty($data['featured']) && ($data['featured'] === 'yes' || $data['featured'] === true || $data['featured'] === '1');
+        $visibility   = !empty($data['catalog_visibility']) ? sanitize_key($data['catalog_visibility']) : 'visible';
 
         // Crear producto simple WC
         $product = new WC_Product_Simple();
@@ -160,6 +182,16 @@ class Batllie_Caja_Products {
 
         if (!empty($sku)) {
             $product->set_sku($sku);
+        }
+
+        if ($image_id > 0) {
+            $product->set_image_id($image_id);
+        }
+
+        $product->set_featured($featured);
+
+        if (in_array($visibility, array('visible', 'catalog', 'search', 'hidden'), true)) {
+            $product->set_catalog_visibility($visibility);
         }
 
         if ($manage_stock) {
@@ -325,6 +357,35 @@ class Batllie_Caja_Products {
 
         if (isset($data['description'])) {
             $product->set_short_description(wp_kses_post($data['description']));
+        }
+
+        if (isset($data['image_id'])) {
+            $img_id = intval($data['image_id']);
+            $product->set_image_id($img_id > 0 ? $img_id : 0);
+            if ($product->is_type('grouped')) {
+                if ($img_id > 0) {
+                    update_post_meta($product_id, '_batllie_grouped_box_image_id', $img_id);
+                } else {
+                    delete_post_meta($product_id, '_batllie_grouped_box_image_id');
+                }
+            }
+        }
+
+        if (isset($data['featured'])) {
+            $is_feat = ($data['featured'] === 'yes' || $data['featured'] === true || $data['featured'] === '1');
+            $product->set_featured($is_feat);
+        }
+
+        if (isset($data['catalog_visibility'])) {
+            $vis = sanitize_key($data['catalog_visibility']);
+            if (in_array($vis, array('visible', 'catalog', 'search', 'hidden'), true)) {
+                $product->set_catalog_visibility($vis);
+            }
+        }
+
+        if ($product->is_type('grouped') && isset($data['children'])) {
+            $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
+            $product->set_children($children);
         }
 
         if (isset($data['manage_stock'])) {
