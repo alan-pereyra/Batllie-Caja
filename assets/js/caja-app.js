@@ -470,19 +470,52 @@
                 });
             });
 
+            // Cambio de modo de agrupación (Caja personalizable vs Combo predeterminado / fijo)
+            $('input[name="grouped_combo_mode"]').on('change', function() {
+                const mode = $(this).val();
+                $('.caja-radio-pill').removeClass('active');
+                $(this).closest('.caja-radio-pill').addClass('active');
+
+                if (mode === 'predefined') {
+                    $('#edit-prod-children-list .caja-child-qty-wrap').show();
+                    $('#edit-grouped-mode-hint').text('Definí qué productos componen este combo y cuántas unidades fijas incluye cada uno:');
+                } else {
+                    $('#edit-prod-children-list .caja-child-qty-wrap').hide();
+                    $('#edit-grouped-mode-hint').text('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:');
+                }
+                self.updateGroupedSelectedCount();
+            });
+
+            // Cambios de cantidad en productos del combo
+            $(document).on('input change', '#edit-prod-children-list .caja-child-qty-input', function() {
+                let v = parseInt($(this).val());
+                if (isNaN(v) || v < 1) {
+                    v = 1;
+                    $(this).val(1);
+                }
+                self.updateGroupedSelectedCount();
+            });
+
             $('#btn-grouped-select-all').on('click', function(e) {
                 e.preventDefault();
-                $('#edit-prod-children-list .caja-child-select-item:visible .caja-child-chk').prop('checked', true);
+                const $visibleItems = $('#edit-prod-children-list .caja-child-select-item:visible');
+                $visibleItems.find('.caja-child-chk').prop('checked', true);
+                $visibleItems.find('.caja-child-qty-input').prop('disabled', false);
                 self.updateGroupedSelectedCount();
             });
 
             $('#btn-grouped-deselect-all').on('click', function(e) {
                 e.preventDefault();
-                $('#edit-prod-children-list .caja-child-chk').prop('checked', false);
+                const $items = $('#edit-prod-children-list .caja-child-select-item');
+                $items.find('.caja-child-chk').prop('checked', false);
+                $items.find('.caja-child-qty-input').prop('disabled', true);
                 self.updateGroupedSelectedCount();
             });
 
             $(document).on('change', '#edit-prod-children-list .caja-child-chk', function() {
+                const isChecked = $(this).is(':checked');
+                const $item = $(this).closest('.caja-child-select-item');
+                $item.find('.caja-child-qty-input').prop('disabled', !isChecked);
                 self.updateGroupedSelectedCount();
             });
 
@@ -1694,7 +1727,11 @@
 
                 let badgesHtml = '';
                 if (isGrouped) {
-                    badgesHtml += ` <span class="caja-badge-grouped" title="Producto Agrupado (Caja / Pack)">📦 Agrupado</span>`;
+                    if (p.is_predefined) {
+                        badgesHtml += ` <span class="caja-badge-grouped" style="background:#059669;" title="Combo Predeterminado Fijo (Cantidades fijadas por la tienda)">🎁 Combo Fijo</span>`;
+                    } else {
+                        badgesHtml += ` <span class="caja-badge-grouped" title="Producto Agrupado (Caja Personalizable)">📦 Agrupado</span>`;
+                    }
                 }
                 if (isFeatured) {
                     badgesHtml += ` <span class="caja-badge-featured" title="Producto Destacado">⭐ Destacado</span>`;
@@ -1829,12 +1866,13 @@
             frame.open();
         },
 
-        renderGroupedChildrenList: function(selectedIds, currentProductId) {
+        renderGroupedChildrenList: function(selectedIds, currentProductId, predefinedQtys, isPredefined) {
             const self = this;
             const $list = $('#edit-prod-children-list');
             $list.empty();
 
             selectedIds = Array.isArray(selectedIds) ? selectedIds.map(Number) : [];
+            predefinedQtys = (predefinedQtys && typeof predefinedQtys === 'object') ? predefinedQtys : {};
 
             // Solo productos simples o productos que no sean el actual ni agrupados
             const candidates = (self.cachedProducts || []).filter(p => {
@@ -1850,23 +1888,31 @@
             let html = '';
             candidates.forEach(cand => {
                 const isChecked = selectedIds.includes(Number(cand.id));
+                const qty = predefinedQtys[cand.id] || 1;
                 const thumb = cand.image_url || '';
                 const sku = cand.sku || 'S/N';
                 const normName = (cand.name || '').toLowerCase();
                 const normSku = (cand.sku || '').toLowerCase();
 
                 html += `
-                    <label class="caja-child-select-item" data-search="${normName} ${normSku}">
-                        <input type="checkbox" class="caja-child-chk" value="${cand.id}" ${isChecked ? 'checked' : ''} />
-                        ${thumb ? `<img src="${thumb}" alt="" class="caja-child-thumb" />` : ''}
-                        <div class="caja-child-info">
-                            <strong>${cand.name}</strong>
-                            <div class="caja-child-meta">
-                                <span>SKU: ${sku}</span>
-                                <span>${cand.price || ''}</span>
+                    <div class="caja-child-select-item" data-search="${normName} ${normSku}" data-id="${cand.id}">
+                        <label class="caja-child-main-label">
+                            <input type="checkbox" class="caja-child-chk" value="${cand.id}" ${isChecked ? 'checked' : ''} />
+                            ${thumb ? `<img src="${thumb}" alt="" class="caja-child-thumb" />` : ''}
+                            <div class="caja-child-info">
+                                <strong>${cand.name}</strong>
+                                <div class="caja-child-meta">
+                                    <span>SKU: ${sku}</span>
+                                    <span>${cand.price || ''}</span>
+                                </div>
                             </div>
+                        </label>
+                        <div class="caja-child-qty-wrap" style="${isPredefined ? '' : 'display:none;'}">
+                            <span class="caja-child-qty-prefix">x</span>
+                            <input type="number" min="1" step="1" class="caja-child-qty-input" value="${qty}" ${isChecked ? '' : 'disabled'} title="Cantidad fija en el combo" />
+                            <span class="caja-child-qty-suffix">u.</span>
                         </div>
-                    </label>
+                    </div>
                 `;
             });
 
@@ -1875,8 +1921,21 @@
         },
 
         updateGroupedSelectedCount: function() {
-            const count = $('#edit-prod-children-list .caja-child-chk:checked').length;
-            $('#edit-grouped-selected-badge').text(`${count} seleccionado${count === 1 ? '' : 's'}`);
+            const isPredefined = $('input[name="grouped_combo_mode"]:checked').val() === 'predefined';
+            const $checked = $('#edit-prod-children-list .caja-child-chk:checked');
+            const count = $checked.length;
+
+            if (isPredefined) {
+                let totalUnits = 0;
+                $checked.each(function() {
+                    const $item = $(this).closest('.caja-child-select-item');
+                    const qty = parseInt($item.find('.caja-child-qty-input').val()) || 1;
+                    totalUnits += qty;
+                });
+                $('#edit-grouped-selected-badge').text(`${count} producto${count === 1 ? '' : 's'} (${totalUnits} u. en combo)`);
+            } else {
+                $('#edit-grouped-selected-badge').text(`${count} seleccionado${count === 1 ? '' : 's'}`);
+            }
         },
 
         openEditProductModal: function(productId) {
@@ -1918,7 +1977,21 @@
                 $('#edit-prod-grouped-notice').slideDown(150);
                 $('#edit-prod-grouped-section').slideDown(150);
                 $('#edit-grouped-search-filter').val('');
-                self.renderGroupedChildrenList(p.children_ids || [], p.id);
+
+                const isPredefined = !!p.is_predefined;
+                if (isPredefined) {
+                    $('#edit-grouped-mode-predefined').prop('checked', true);
+                    $('#label-grouped-mode-predefined').addClass('active');
+                    $('#label-grouped-mode-custom').removeClass('active');
+                    $('#edit-grouped-mode-hint').text('Definí qué productos componen este combo y cuántas unidades fijas incluye cada uno:');
+                } else {
+                    $('#edit-grouped-mode-custom').prop('checked', true);
+                    $('#label-grouped-mode-custom').addClass('active');
+                    $('#label-grouped-mode-predefined').removeClass('active');
+                    $('#edit-grouped-mode-hint').text('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:');
+                }
+
+                self.renderGroupedChildrenList(p.children_ids || [], p.id, p.predefined_quantities || {}, isPredefined);
             } else {
                 $('#edit-prod-grouped-notice').hide();
                 $('#edit-prod-grouped-section').hide();
@@ -1967,11 +2040,23 @@
             };
 
             if ($('#edit-prod-type').val() === 'grouped') {
+                const isPredefined = $('input[name="grouped_combo_mode"]:checked').val() === 'predefined';
                 const children = [];
+                const predefinedQtys = {};
+
                 $('#edit-prod-children-list .caja-child-chk:checked').each(function() {
-                    children.push(parseInt($(this).val()));
+                    const id = parseInt($(this).val());
+                    children.push(id);
+                    if (isPredefined) {
+                        const $item = $(this).closest('.caja-child-select-item');
+                        const qty = parseInt($item.find('.caja-child-qty-input').val()) || 1;
+                        predefinedQtys[id] = qty;
+                    }
                 });
+
                 productData.children = children;
+                productData.is_predefined = isPredefined ? 'yes' : 'no';
+                productData.predefined_quantities = predefinedQtys;
             }
 
             $.ajax({

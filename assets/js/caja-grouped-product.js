@@ -18,11 +18,13 @@
         }
 
         const config = window.batllieGroupedConfig || {};
+        const isPredefined = Boolean(config.isPredefined);
+        const predefinedQtys = config.predefinedQtys || {};
         const targetQty = parseInt($boxContainer.data('target-qty') || config.targetQty, 10) || 0;
         const isFixedPrice = Boolean(config.isFixedPrice);
         const fixedPrice = parseFloat(config.fixedPrice) || 0;
 
-        if (targetQty <= 0 && (!isFixedPrice || fixedPrice <= 0)) {
+        if (targetQty <= 0 && (!isFixedPrice || fixedPrice <= 0) && !isPredefined) {
             return;
         }
 
@@ -153,8 +155,8 @@
                 totalSelected += q;
             });
 
-            // Si por tipeo manual se superó el límite, recortar el exceso de forma lineal SIN recursión
-            if (totalSelected > targetQty) {
+            // Si por tipeo manual se superó el límite, recortar el exceso de forma lineal SIN recursión (solo si no es combo fijo)
+            if (!isPredefined && totalSelected > targetQty) {
                 let excess = totalSelected - targetQty;
                 // Primero reducir del input actualmente activo si es un input de cantidad
                 const active = document.activeElement;
@@ -202,6 +204,19 @@
             const $badge = $('#batllie-box-badge');
             const $msg = $('#batllie-box-message');
             const $totalDisplay = $('#batllie-box-total-price');
+
+            // Si es un combo predeterminado / fijo, el combo ya está 100% armado
+            if (isPredefined) {
+                $current.text(totalSelected);
+                $target.text(targetQty > 0 ? targetQty : totalSelected);
+                $fill.css('width', '100%').addClass('fill-complete');
+                $badge.removeClass('badge-empty badge-incomplete').addClass('badge-complete').text(i18n.boxComplete || '¡Combo completo!');
+                $msg.text(i18n.selectPrompt || 'Este combo incluye los productos seleccionados en las cantidades indicadas.');
+                $totalDisplay.html(formatMoney(totalPrice));
+                $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled');
+                $table.find('.emp-qty-plus, .plus, .emp-qty-minus, .minus').hide();
+                return;
+            }
 
             if (targetQty > 0) {
                 $current.text(totalSelected);
@@ -280,6 +295,11 @@
             e.stopImmediatePropagation();
             e.preventDefault();
 
+            // En combo fijo predeterminado, el cliente no puede alterar las cantidades
+            if (isPredefined) {
+                return;
+            }
+
             const container = btn.closest('.quantity');
             if (!container) return;
             const input = container.querySelector('input.qty');
@@ -333,6 +353,11 @@
 
         // Interceptar click en el botón de Añadir al Carrito
         $submitBtn.on('click', function (e) {
+            if (isPredefined) {
+                // Combo ya armado por la tienda con sus cantidades fijas predeterminadas
+                return true;
+            }
+
             let totalSelected = 0;
             $table.find('input.qty').each(function () {
                 totalSelected += parseInt($(this).val(), 10) || 0;
@@ -359,6 +384,28 @@
                 return false;
             }
         });
+
+        // Si es un combo predeterminado / fijo, poblar los inputs con sus cantidades predefinidas
+        if (isPredefined) {
+            $form.addClass('batllie-is-predefined-combo');
+            $table.find('input.qty').each(function () {
+                const $inp = $(this);
+                const childId = getChildId($inp);
+                const $row = $inp.closest('tr, .woocommerce-grouped-product-list-item');
+                const fixedQty = (childId && typeof predefinedQtys[childId] !== 'undefined') ? parseInt(predefinedQtys[childId], 10) : 0;
+
+                if (fixedQty > 0) {
+                    $inp.val(fixedQty).prop('readonly', true);
+                    const $labelTd = $row.find('.woocommerce-grouped-product-list-item__label');
+                    if ($labelTd.length && !$labelTd.find('.batllie-combo-qty-badge').length) {
+                        $labelTd.find('label, a').first().append(` <span class="batllie-combo-qty-badge">x${fixedQty} u.</span>`);
+                    }
+                } else {
+                    $inp.val(0);
+                    $row.hide();
+                }
+            });
+        }
 
         // Asegurar que todos los inputs tengan un 0 inicial limpio si vienen vacíos
         $table.find('input.qty').each(function () {

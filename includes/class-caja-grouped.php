@@ -246,10 +246,38 @@ class Batllie_Caja_Grouped {
     }
 
     /**
+     * Comprobar si un producto agrupado está configurado como un combo predeterminado / fijo
+     */
+    public static function is_predefined_combo($product) {
+        if (!is_a($product, 'WC_Product')) {
+            $product = wc_get_product($product);
+        }
+        if (!$product || !$product->is_type('grouped')) {
+            return false;
+        }
+        return get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
+    }
+
+    /**
+     * Obtener el mapa de cantidades predefinidas por producto hijo [child_id => qty]
+     */
+    public static function get_predefined_quantities($product) {
+        if (!is_a($product, 'WC_Product')) {
+            $product = wc_get_product($product);
+        }
+        if (!$product) {
+            return array();
+        }
+        $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
+        return is_array($qtys) ? $qtys : array();
+    }
+
+    /**
      * Obtener la cantidad requerida para un producto agrupado
-     * 1. Consulta post meta `_batllie_grouped_target_qty`
-     * 2. Si no está definido, detecta automáticamente del título
-     * 3. Si es un producto agrupado en Batllié, por defecto es una caja de 6 unidades
+     * 1. Si es combo predeterminado, suma de las cantidades de cada producto
+     * 2. Consulta post meta `_batllie_grouped_target_qty`
+     * 3. Si no está definido, detecta automáticamente del título
+     * 4. Si es un producto agrupado en Batllié, por defecto es una caja de 6 unidades
      */
     public static function get_target_qty($product) {
         if (!is_a($product, 'WC_Product')) {
@@ -257,6 +285,17 @@ class Batllie_Caja_Grouped {
         }
         if (!$product || !$product->is_type('grouped')) {
             return 0;
+        }
+
+        // Si es un combo predeterminado, la cantidad objetivo es la suma exacta de sus unidades
+        if (self::is_predefined_combo($product)) {
+            $predefined = self::get_predefined_quantities($product);
+            if (!empty($predefined)) {
+                $sum = array_sum(array_map('absint', $predefined));
+                if ($sum > 0) {
+                    return $sum;
+                }
+            }
         }
 
         $post_id = $product->get_id();
@@ -609,10 +648,14 @@ class Batllie_Caja_Grouped {
 
         // Localizar variables para JS
         $fixed_price = self::get_fixed_price($product);
+        $is_predefined = self::is_predefined_combo($product);
+        $predefined_qtys = self::get_predefined_quantities($product);
 
         wp_localize_script('batllie-caja-grouped-js', 'batllieGroupedConfig', array(
             'productId'       => $product->get_id(),
             'targetQty'       => $target_qty,
+            'isPredefined'    => $is_predefined,
+            'predefinedQtys'  => $predefined_qtys,
             'isFixedPrice'    => ($fixed_price > 0),
             'fixedPrice'      => $fixed_price,
             'childrenPrices'  => $children_prices,
@@ -620,16 +663,16 @@ class Batllie_Caja_Grouped {
             'decimalSep'      => wc_get_price_decimal_separator(),
             'thousandSep'     => wc_get_price_thousand_separator(),
             'i18n'            => array(
-                'boxEmpty'     => __('Caja vacía', 'emp-caja'),
+                'boxEmpty'     => $is_predefined ? __('Combo armado', 'emp-caja') : __('Caja vacía', 'emp-caja'),
                 'units'        => __('unidades', 'emp-caja'),
                 'unitSingular' => __('unidad', 'emp-caja'),
-                'boxComplete'  => __('¡Caja completa!', 'emp-caja'),
-                'selectPrompt' => $target_qty > 0 ? sprintf(__('Seleccioná %d unidades para armar tu caja.', 'emp-caja'), $target_qty) : __('Seleccioná los productos que deseas incluir.', 'emp-caja'),
+                'boxComplete'  => __('¡Combo completo!', 'emp-caja'),
+                'selectPrompt' => $is_predefined ? __('Este combo incluye los productos seleccionados en las cantidades indicadas.', 'emp-caja') : ($target_qty > 0 ? sprintf(__('Seleccioná %d unidades para armar tu caja.', 'emp-caja'), $target_qty) : __('Seleccioná los productos que deseas incluir.', 'emp-caja')),
                 'needMore'     => __('Te falta %d %s para completar tu caja de %d.', 'emp-caja'),
                 'exactWarning' => __('Debes incluir exactamente %d unidades para armar tu caja. Actualmente seleccionaste %d (te falta %d).', 'emp-caja'),
                 'exactExceed'  => __('Debes incluir exactamente %d unidades para armar tu caja. Actualmente seleccionaste %d.', 'emp-caja'),
                 'maxReached'   => sprintf(__('Ya alcanzaste el máximo de %d unidades para esta caja.', 'emp-caja'), $target_qty),
-                'totalLabel'   => __('Total de tu caja:', 'emp-caja'),
+                'totalLabel'   => $is_predefined ? __('Total del combo:', 'emp-caja') : __('Total de tu caja:', 'emp-caja'),
             ),
         ));
     }
@@ -645,22 +688,25 @@ class Batllie_Caja_Grouped {
 
         $target_qty = self::get_target_qty($product);
         $fixed_price = self::get_fixed_price($product);
+        $is_predefined = self::is_predefined_combo($product);
 
         if ($target_qty <= 0 && $fixed_price <= 0) {
             return;
         }
 
         $initial_price_html = $fixed_price > 0 ? wc_price($fixed_price) : wc_price(0);
+        $box_heading = $is_predefined ? __('Combo Batllié', 'emp-caja') : __('Armá tu caja', 'emp-caja');
+        $box_badge   = $is_predefined ? __('¡Combo listo!', 'emp-caja') : ($target_qty > 0 ? __('Caja vacía', 'emp-caja') : __('Personaliza tu selección', 'emp-caja'));
         ?>
-        <div class="batllie-grouped-box-container" id="batllie-grouped-box-container" data-target-qty="<?php echo esc_attr($target_qty); ?>" data-fixed-price="<?php echo esc_attr($fixed_price); ?>">
+        <div class="batllie-grouped-box-container" id="batllie-grouped-box-container" data-target-qty="<?php echo esc_attr($target_qty); ?>" data-fixed-price="<?php echo esc_attr($fixed_price); ?>" data-is-predefined="<?php echo $is_predefined ? '1' : '0'; ?>">
             <!-- Encabezado de Progreso de la Caja -->
             <div class="batllie-box-header">
                 <div class="batllie-box-title-wrap">
-                    <span class="batllie-box-icon">📦</span>
-                    <span class="batllie-box-heading"><?php _e('Armá tu caja', 'emp-caja'); ?></span>
+                    <span class="batllie-box-icon"><?php echo $is_predefined ? '🎁' : '📦'; ?></span>
+                    <span class="batllie-box-heading"><?php echo esc_html($box_heading); ?></span>
                 </div>
-                <div class="batllie-box-status-badge" id="batllie-box-badge">
-                    <?php echo $target_qty > 0 ? __('Caja vacía', 'emp-caja') : __('Personaliza tu selección', 'emp-caja'); ?>
+                <div class="batllie-box-status-badge <?php echo $is_predefined ? 'badge-complete' : ''; ?>" id="batllie-box-badge">
+                    <?php echo esc_html($box_badge); ?>
                 </div>
             </div>
 
@@ -668,25 +714,29 @@ class Batllie_Caja_Grouped {
             <!-- Contador y Barra de Progreso -->
             <div class="batllie-box-progress-wrap">
                 <div class="batllie-box-count-text">
-                    <span class="batllie-box-selected" id="batllie-box-current">0</span>
+                    <span class="batllie-box-selected" id="batllie-box-current"><?php echo $is_predefined ? esc_html($target_qty) : '0'; ?></span>
                     <span class="batllie-box-divider">/</span>
                     <span class="batllie-box-total" id="batllie-box-target"><?php echo esc_html($target_qty); ?></span>
-                    <span class="batllie-box-label"><?php _e('unidades elegidas', 'emp-caja'); ?></span>
+                    <span class="batllie-box-label"><?php echo $is_predefined ? __('unidades incluidas', 'emp-caja') : __('unidades elegidas', 'emp-caja'); ?></span>
                 </div>
                 <div class="batllie-box-progress-bar">
-                    <div class="batllie-box-progress-fill" id="batllie-box-progress-fill" style="width: 0%;"></div>
+                    <div class="batllie-box-progress-fill <?php echo $is_predefined ? 'fill-complete' : ''; ?>" id="batllie-box-progress-fill" style="width: <?php echo $is_predefined ? '100%' : '0%'; ?>;"></div>
                 </div>
             </div>
 
             <!-- Mensaje Dinámico de Estado -->
             <div class="batllie-box-message" id="batllie-box-message">
-                <?php printf(esc_html__('Seleccioná %d unidades para armar tu caja personalizada.', 'emp-caja'), $target_qty); ?>
+                <?php if ($is_predefined) : ?>
+                    <?php _e('🎁 Este combo incluye los productos detallados en las cantidades indicadas.', 'emp-caja'); ?>
+                <?php else : ?>
+                    <?php printf(esc_html__('Seleccioná %d unidades para armar tu caja personalizada.', 'emp-caja'), $target_qty); ?>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
 
             <!-- Resumen de Precio Total Dinámico o Fijo -->
             <div class="batllie-box-summary-row">
-                <span class="batllie-box-summary-label"><?php _e('Total de tu caja:', 'emp-caja'); ?></span>
+                <span class="batllie-box-summary-label"><?php echo $is_predefined ? __('Total del combo:', 'emp-caja') : __('Total de tu caja:', 'emp-caja'); ?></span>
                 <span class="batllie-box-summary-price" id="batllie-box-total-price">
                     <?php echo $initial_price_html; ?>
                 </span>
@@ -712,6 +762,21 @@ class Batllie_Caja_Grouped {
         $product_id = absint($_REQUEST['add-to-cart']);
         $product    = wc_get_product($product_id);
         if (!$product || !$product->is_type('grouped')) {
+            return;
+        }
+
+        // Si es un combo predeterminado, forzar las cantidades predefinidas
+        $is_predefined = self::is_predefined_combo($product);
+        $predefined_qtys = self::get_predefined_quantities($product);
+        if ($is_predefined && !empty($predefined_qtys)) {
+            if (!isset($_REQUEST['quantity']) || !is_array($_REQUEST['quantity'])) {
+                $_REQUEST['quantity'] = array();
+                $_POST['quantity'] = array();
+            }
+            foreach ($predefined_qtys as $child_id => $qty) {
+                $_REQUEST['quantity'][$child_id] = $qty;
+                $_POST['quantity'][$child_id] = $qty;
+            }
             return;
         }
 

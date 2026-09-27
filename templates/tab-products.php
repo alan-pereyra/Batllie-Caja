@@ -428,17 +428,39 @@ if (!defined('ABSPATH')) {
                 <!-- Sección de Selección de Productos para Productos Agrupados -->
                 <div class="caja-form-group caja-grouped-children-box" id="edit-prod-grouped-section" style="display:none;">
                     <div class="caja-grouped-header-bar">
-                        <label><strong>📦 <?php _e('Productos incluidos en la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
+                        <label><strong>📦 <?php _e('Configuración de la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
                         <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
                     </div>
-                    <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
+
+                    <!-- Selector de Modo de Agrupación: Personalizable vs Combo Predeterminado -->
+                    <div class="caja-grouped-mode-card">
+                        <span class="caja-mode-card-title"><?php _e('¿Cómo funciona esta caja / agrupación?', 'emp-caja'); ?></span>
+                        <div class="caja-grouped-mode-radios">
+                            <label class="caja-radio-pill active" id="label-grouped-mode-custom">
+                                <input type="radio" name="grouped_combo_mode" value="custom" id="edit-grouped-mode-custom" checked />
+                                <div class="caja-radio-pill-content">
+                                    <strong>📦 Caja personalizable</strong>
+                                    <small><?php _e('El cliente elige los productos y cantidades al armar la caja', 'emp-caja'); ?></small>
+                                </div>
+                            </label>
+                            <label class="caja-radio-pill" id="label-grouped-mode-predefined">
+                                <input type="radio" name="grouped_combo_mode" value="predefined" id="edit-grouped-mode-predefined" />
+                                <div class="caja-radio-pill-content">
+                                    <strong>🎁 Combo predeterminado / fijo</strong>
+                                    <small><?php _e('La tienda fija la cantidad de cada producto y el cliente compra el combo ya armado', 'emp-caja'); ?></small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <p class="caja-form-hint" id="edit-grouped-mode-hint" style="margin-top:2px; margin-bottom:8px;">
                         <?php _e('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:', 'emp-caja'); ?>
                     </p>
                     <div class="caja-grouped-filter-row">
                         <input type="text" id="edit-grouped-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar lista de productos..." />
                         <div class="caja-grouped-btn-actions">
-                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary" id="btn-grouped-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
-                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary" id="btn-grouped-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                            <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
+                            <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
                         </div>
                     </div>
                     <div class="caja-children-checklist-container" id="edit-prod-children-list">
