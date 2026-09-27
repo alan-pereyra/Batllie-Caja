@@ -1153,6 +1153,10 @@ class Batllie_Caja_Grouped {
             $marker  = '<span class="batllie-pack-marker batllie-box-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
 
             return esc_html($custom_name) . $badge . $marker;
+        } elseif (!empty($cart_item['batllie_parent_grouped_id'])) {
+            $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
+            $marker  = '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+            return $name . $marker;
         }
         return $name;
     }

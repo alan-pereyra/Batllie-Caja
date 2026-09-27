@@ -125,8 +125,10 @@
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-cart-item__remove-link,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [class*="remove-link"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [class*="remove-button"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [aria-label*="eliminar" i],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [aria-label*="remove" i],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box button[aria-label*="eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box button[aria-label*="Eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box button[aria-label*="remove"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box button[aria-label*="Remove"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box a.remove {
     display: inline-flex !important;
     visibility: visible !important;
@@ -208,8 +210,10 @@
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button--remove,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-link"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-button"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="eliminar" i],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="remove" i],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="remove"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Remove"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child a[class*="remove"],
 .wc-block-cart-items tr.batllie-is-combo-child td.wc-block-cart-item__quantity .wc-block-cart-item__remove-link,
 .wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__remove-link {

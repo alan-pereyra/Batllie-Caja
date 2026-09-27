@@ -75,95 +75,109 @@
             // =====================================================================
             // 2. WooCommerce Cart Block (Gutenberg / React)
             // =====================================================================
-            const $cartBlockRows = $('.wc-block-cart-items .wc-block-cart-items__row, .wc-block-cart__item, .wc-block-cart-item');
+            // =====================================================================
+            // 2. WooCommerce Cart Block (Gutenberg / React)
+            // =====================================================================
+            const $cartBlockRows = $('.wc-block-cart-items .wc-block-cart-items__row, .wc-block-cart-items tr.wc-block-cart-items__row, .wc-block-cart__item, .wc-block-cart-item');
             if ($cartBlockRows.length) {
                 let currentBoxPackId = null;
                 let autoPackCounter = 0;
 
                 $cartBlockRows.each(function () {
-                    const $row = $(this);
-                    const rowText = $row.text().toLowerCase();
+                    try {
+                        const $row = $(this);
+                        const rowText = $row.text().toLowerCase();
 
-                    const $boxMarker   = $row.find('.batllie-box-marker');
-                    const $childMarker = $row.find('.batllie-child-marker');
+                        const $boxMarker   = $row.find('.batllie-box-marker, [class*="batllie-box-marker"]');
+                        const $childMarker = $row.find('.batllie-child-marker, [class*="batllie-child-marker"]');
 
-                    let isBox   = $boxMarker.length > 0;
-                    let isChild = $childMarker.length > 0;
+                        let isBox   = $boxMarker.length > 0;
+                        let isChild = $childMarker.length > 0;
 
-                    if (!isBox && !isChild) {
-                        isBox = rowText.includes('caja de empaque') ||
-                                rowText.includes('empaque incluido') ||
-                                $row.hasClass('batllie-combo-box-item');
+                        if (!isBox && !isChild) {
+                            isBox = rowText.includes('caja de empaque') ||
+                                    rowText.includes('empaque incluido') ||
+                                    $row.hasClass('batllie-combo-box-item');
 
-                        isChild = !isBox && (
-                            rowText.includes('parte de') ||
-                            rowText.includes('incluido en la caja')
-                        );
+                            isChild = !isBox && (
+                                rowText.includes('parte de') ||
+                                rowText.includes('incluido en la caja')
+                            );
 
-                        // Si estamos inmediatamente después de una caja y esta fila no es una nueva caja:
-                        // ¡Pertenece a la caja actual independientemente del producto que sea!
-                        if (!isBox && !isChild && currentBoxPackId) {
-                            isChild = true;
-                        }
-                    }
-
-                    if (isBox) {
-                        let packId = getPackIdFromEl($boxMarker);
-                        if (!packId) {
-                            autoPackCounter++;
-                            packId = 'pack_auto_' + autoPackCounter;
-                        }
-                        currentBoxPackId = packId;
-
-                        $row.addClass('batllie-is-combo-box batllie-pack-' + packId)
-                            .removeClass('batllie-is-combo-child')
-                            .attr('data-batllie-pack-id', packId);
-
-                        // Bloquear stepper en la caja (solo mostrar la cantidad fija, ej: 1)
-                        $row.find('.wc-block-components-quantity-selector__button').hide();
-                        $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
-
-                        // Asegurar que el botón de eliminar de la caja sea visible y funcional
-                        const $trashBtn = $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"]');
-                        $trashBtn.show().css({'display': '', 'visibility': 'visible', 'pointer-events': 'auto'});
-                        if ($trashBtn.length && !$trashBtn.attr('data-batllie-processed')) {
-                            $trashBtn.attr('title', removeTitle).attr('aria-label', removeTitle);
-                            $trashBtn.attr('data-batllie-processed', 'true');
+                            // Si estamos inmediatamente después de una caja activa y esta fila no es una nueva caja:
+                            // Es un producto hijo de la caja actual
+                            if (!isBox && !isChild && currentBoxPackId) {
+                                // Verificar si es un producto hijo ($0,00 o parte del lote de la caja)
+                                isChild = true;
+                            }
                         }
 
-                    } else if (isChild) {
-                        let packId = getPackIdFromEl($childMarker) || currentBoxPackId || 'pack_item';
+                        if (isBox) {
+                            let packId = getPackIdFromEl($boxMarker);
+                            if (!packId) {
+                                autoPackCounter++;
+                                packId = 'pack_auto_' + autoPackCounter;
+                            }
+                            currentBoxPackId = packId;
 
-                        $row.addClass('batllie-is-combo-child batllie-pack-' + packId)
-                            .removeClass('batllie-is-combo-box')
-                            .attr('data-batllie-pack-id', packId);
+                            $row.addClass('batllie-is-combo-box batllie-pack-' + packId)
+                                .removeClass('batllie-is-combo-child')
+                                .attr('data-batllie-pack-id', packId);
 
-                        // Bloquear steppers en el producto hijo
-                        $row.find('.wc-block-components-quantity-selector__button').hide();
-                        $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
+                            // Bloquear stepper en la caja (solo mostrar la cantidad fija, ej: 1)
+                            $row.find('.wc-block-components-quantity-selector__button').hide();
+                            $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
 
-                        // Ocultar TOTALMENTE el botón de eliminar en los productos hijos
-                        $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], [aria-label*="eliminar" i], [aria-label*="remove" i], a.remove').hide().css({
-                            'display': 'none',
-                            'visibility': 'hidden',
-                            'pointer-events': 'none',
-                            'width': '0',
-                            'height': '0',
-                            'opacity': '0'
-                        });
+                            // Asegurar que el botón de eliminar de la caja sea visible y funcional
+                            const $trashBtn = $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], a.remove');
+                            $trashBtn.show().css({'display': '', 'visibility': 'visible', 'pointer-events': 'auto'});
+                            if ($trashBtn.length && !$trashBtn.attr('data-batllie-processed')) {
+                                $trashBtn.attr('title', removeTitle).attr('aria-label', removeTitle);
+                                $trashBtn.attr('data-batllie-processed', 'true');
+                            }
 
-                        // Ocultar TOTALMENTE el precio y cualquier badge de ahorro o descuento en los hijos
-                        $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-cart-item__total, .wc-block-components-formatted-money-amount, .wc-block-cart-item__total-price-and-sale-badge-wrapper, [class*="product-price"], [class*="item__prices"], [class*="discount"], [class*="saving"], [class*="sale-badge"], [class*="badge"]').hide().css({
-                            'display': 'none',
-                            'visibility': 'hidden',
-                            'opacity': '0',
-                            'height': '0',
-                            'overflow': 'hidden'
-                        });
+                            // Ocultar metadatos técnicos redundantes
+                            $row.find('.wc-block-components-product-details').hide();
 
-                    } else {
-                        // Producto normal independiente fuera de cualquier caja
-                        currentBoxPackId = null;
+                        } else if (isChild) {
+                            let packId = getPackIdFromEl($childMarker) || currentBoxPackId || 'pack_item';
+
+                            $row.addClass('batllie-is-combo-child batllie-pack-' + packId)
+                                .removeClass('batllie-is-combo-box')
+                                .attr('data-batllie-pack-id', packId);
+
+                            // Bloquear steppers en el producto hijo
+                            $row.find('.wc-block-components-quantity-selector__button').hide();
+                            $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
+
+                            // Ocultar TOTALMENTE el botón de eliminar en los productos hijos (selectores estándar seguros sin flag i)
+                            $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], a.remove, button[aria-label*="eliminar"], button[aria-label*="Eliminar"], button[aria-label*="remove"], button[aria-label*="Remove"]').hide().css({
+                                'display': 'none',
+                                'visibility': 'hidden',
+                                'pointer-events': 'none',
+                                'width': '0',
+                                'height': '0',
+                                'opacity': '0'
+                            });
+
+                            // Ocultar TOTALMENTE el precio y cualquier badge de ahorro o descuento en los hijos
+                            $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-cart-item__total, .wc-block-components-formatted-money-amount, .wc-block-cart-item__total-price-and-sale-badge-wrapper, [class*="product-price"], [class*="item__prices"], [class*="discount"], [class*="saving"], [class*="sale-badge"], [class*="badge"]').hide().css({
+                                'display': 'none',
+                                'visibility': 'hidden',
+                                'opacity': '0',
+                                'height': '0',
+                                'overflow': 'hidden'
+                            });
+
+                            // Ocultar metadatos técnicos redundantes
+                            $row.find('.wc-block-components-product-details').hide();
+
+                        } else {
+                            // Producto normal independiente fuera de cualquier caja
+                            currentBoxPackId = null;
+                        }
+                    } catch (rowError) {
+                        console.error('Error procesando fila de carrito:', rowError);
                     }
                 });
             }
