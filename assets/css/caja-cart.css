@@ -1,6 +1,6 @@
 /**
  * Estilos para productos en combo/cajas en el Carrito y Checkout
- * Compatible con WooCommerce Clásico y WooCommerce Cart Blocks
+ * Compatible con WooCommerce Clásico y WooCommerce Cart Blocks (Gutenberg / React)
  */
 
 /* ==========================================================================
@@ -60,7 +60,7 @@
     text-align: center;
 }
 
-/* Badges y precios */
+/* Badges y precios clásicos */
 .batllie-combo-price {
     font-weight: 700;
     color: #0f172a;
@@ -83,66 +83,75 @@
     margin-top: 4px;
 }
 
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-remove,
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item .product-remove a.remove {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-price,
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-subtotal {
+    display: none !important;
+    visibility: hidden !important;
+}
+
 
 /* ==========================================================================
    2. WooCommerce Cart Block (Gutenberg / React)
    ========================================================================== */
 
 /* Tarjeta Principal: Caja de Empaque */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box {
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box,
+.wc-block-cart-item.batllie-is-combo-box {
     border: 1.5px solid #10b981 !important;
     border-left: 5px solid #065f46 !important;
     background-color: #f0fdf4 !important;
     border-radius: 8px !important;
     padding: 16px !important;
-    margin-top: 12px !important;
+    margin-top: 14px !important;
     margin-bottom: 4px !important;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08) !important;
     position: relative;
     z-index: 2;
+    transition: all 0.2s ease;
 }
 
-/* Asegurar que la papelera de la caja principal esté visible y accesible */
+/* Ocultar metadatos técnicos redundantes ("Empaque: Caja Principal") en la caja */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-product-details {
+    display: none !important;
+}
+
+/* Asegurar que la papelera de la caja principal esté visible, accesible y con cursor activo */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-cart-item__remove-link,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [class*="remove"] {
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [class*="remove-link"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [class*="remove-button"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [aria-label*="eliminar" i],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box [aria-label*="remove" i],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box a.remove {
     display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     cursor: pointer !important;
+    width: auto !important;
+    height: auto !important;
 }
 
-/* Encabezado visual del submenú de contenido de la caja */
-.batllie-combo-submenu-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 10px 0 6px 24px;
-    padding: 6px 14px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #065f46;
-    background: #ecfdf5;
-    border-left: 3px solid #10b981;
-    border-radius: 0 6px 6px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    box-sizing: border-box;
+/* Asegurar que el precio total de la caja sea visible */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-cart-item__total,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-formatted-money-amount {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
-.batllie-combo-submenu-heading .batllie-tree-icon {
-    font-size: 16px;
-    color: #10b981;
-    font-weight: bold;
-    line-height: 1;
-}
-
-/* Submenú anidado: Productos agrupados (alfajores) */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child {
+/* Submenú anidado: Productos agrupados (alfajores) dentro de la caja */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child,
+.wc-block-cart-item.batllie-is-combo-child {
     border: 1px solid #e5e7eb !important;
-    border-left: 3px solid #10b981 !important;
-    margin-left: 24px !important;
-    width: calc(100% - 24px) !important;
+    border-left: 3.5px solid #10b981 !important;
+    margin-left: 20px !important;
+    width: calc(100% - 20px) !important;
     box-sizing: border-box !important;
     margin-bottom: 6px !important;
     padding: 12px 14px !important;
@@ -150,13 +159,34 @@
     border-radius: 0 8px 8px 0 !important;
     position: relative;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+    transition: all 0.2s ease;
 }
 
-/* Deshabilitar steppers en bloques */
+/* Conector de rama '↳' en el título del alfajor hijo */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-name::before,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__product a::before {
+    content: "↳ ";
+    color: #10b981;
+    font-weight: 700;
+    font-size: 15px;
+    margin-right: 4px;
+}
+
+/* Ocultar metadatos técnicos redundantes ("Parte de: ...") en el alfajor */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-details {
+    display: none !important;
+}
+
+/* Deshabilitar botones de cantidad (+ / -) en la caja y en los hijos */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-quantity-selector__button {
     display: none !important;
     pointer-events: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__input,
@@ -165,6 +195,7 @@
     border: none !important;
     background: transparent !important;
     font-weight: 700 !important;
+    text-align: center !important;
 }
 
 
@@ -172,7 +203,7 @@
    3. Ocultar estrictamente el botón de eliminar y precios en productos hijos
    ========================================================================== */
 
-/* Ocultar botón eliminar */
+/* Ocultar botón eliminar en productos hijos */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__remove-link,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button--remove,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-link"],
@@ -180,9 +211,8 @@
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="eliminar" i],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="remove" i],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child a[class*="remove"],
-.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__remove-link,
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-remove,
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item .product-remove a.remove {
+.wc-block-cart-items tr.batllie-is-combo-child td.wc-block-cart-item__quantity .wc-block-cart-item__remove-link,
+.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__remove-link {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -194,18 +224,19 @@
 }
 
 /* Ocultar ABSOLUTAMENTE el precio y cualquier badge de ahorro o descuento en los productos hijos */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-price,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__prices,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-formatted-money-amount,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total-price-and-sale-badge-wrapper,
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="product-price"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="item__prices"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="discount"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="saving"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="sale-badge"],
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="badge"],
 .wc-block-cart-item.batllie-is-combo-child .wc-block-components-product-price,
-.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__prices,
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-price,
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-subtotal {
+.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__prices {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -225,20 +256,15 @@
 
 @media (max-width: 600px) {
     .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child {
-        margin-left: 14px !important;
-        width: calc(100% - 14px) !important;
+        margin-left: 12px !important;
+        width: calc(100% - 12px) !important;
         padding: 10px 12px !important;
-    }
-    .batllie-combo-submenu-heading {
-        margin-left: 14px !important;
-        font-size: 12px !important;
-        padding: 4px 10px !important;
     }
 }
 
-/* Efecto al eliminar combo completo */
+/* Efecto al eliminar una caja/combo completo */
 .batllie-combo-delete-active {
-    opacity: 0.5;
-    pointer-events: none;
-    transition: opacity 0.3s;
+    opacity: 0.4 !important;
+    pointer-events: none !important;
+    transition: opacity 0.25s ease;
 }

@@ -1135,7 +1135,7 @@ class Batllie_Caja_Grouped {
                 $badge = ' <span class="batllie-included-badge" style="display:inline-block; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:9999px; padding:2px 8px; margin-left:6px; vertical-align:middle;">' . esc_html__('Empaque incluido (Sin costo)', 'emp-caja') . '</span>';
             }
             $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
-            $marker  = '<span class="batllie-pack-marker batllie-box-marker" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+            $marker  = '<span class="batllie-pack-marker batllie-box-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
 
             return esc_html($custom_name) . $badge . $marker;
         }
@@ -1312,12 +1312,22 @@ class Batllie_Caja_Grouped {
             $item_data = array();
         }
 
-        // Si es producto hijo de un pack
-        if (!empty($cart_item['batllie_parent_grouped_id']) && empty($cart_item['batllie_extra_box'])) {
+        // 1. Si es la caja física de empaque del pack
+        if (!empty($cart_item['batllie_extra_box'])) {
+            $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
+            $marker  = '<span class="batllie-pack-marker batllie-box-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+
+            $item_data[] = array(
+                'key'   => __('Empaque', 'emp-caja'),
+                'value' => __('Caja Principal', 'emp-caja') . $marker,
+            );
+        }
+        // 2. Si es producto hijo de un pack
+        elseif (!empty($cart_item['batllie_parent_grouped_id'])) {
             $parent      = wc_get_product($cart_item['batllie_parent_grouped_id']);
             $parent_name = $parent ? $parent->get_name() : __('Combo / Caja', 'emp-caja');
             $pack_id     = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
-            $marker      = '<span class="batllie-pack-marker batllie-child-marker" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+            $marker      = '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
 
             $item_data[] = array(
                 'key'   => __('Parte de', 'emp-caja'),

@@ -1,7 +1,7 @@
 /**
  * Batllie Caja - Comportamiento de Packs / Combos en el Carrito y Checkout
  * Compatible con Carrito Clásico y WooCommerce Cart Block (Gutenberg / React)
- * Soporta múltiples instancias de cajas simultáneas de forma independiente.
+ * Soporta múltiples instancias de cajas independientes simultáneas.
  */
 
 (function ($) {
@@ -11,6 +11,34 @@
     const i18n = config.i18n || {};
     const removeTitle = i18n.removeComboTooltip || 'Eliminar combo completo';
     let isProcessing = false;
+
+    /**
+     * Extraer ID de pack desde un elemento marcador HTML resistente a sanitización
+     */
+    function getPackIdFromEl($marker) {
+        if (!$marker || !$marker.length) return '';
+
+        // 1. Atributo title (permitido por el sanitizador de WooCommerce Blocks)
+        const title = $marker.attr('title') || '';
+        if (title.indexOf('pack_') === 0) {
+            return title;
+        }
+
+        // 2. Clase CSS batllie-pid-[packId] (permitido por el sanitizador de WooCommerce Blocks)
+        const classStr = $marker.attr('class') || '';
+        const match = classStr.match(/\bbatllie-pid-([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            return match[1];
+        }
+
+        // 3. Atributo data-pack-id (en entornos clásicos o sin sanitizador estricto)
+        const dataPack = $marker.attr('data-pack-id') || '';
+        if (dataPack) {
+            return dataPack;
+        }
+
+        return '';
+    }
 
     /**
      * Procesar filas y tarjetas de productos en el carrito
@@ -49,9 +77,8 @@
             // =====================================================================
             const $cartBlockRows = $('.wc-block-cart-items .wc-block-cart-items__row, .wc-block-cart__item, .wc-block-cart-item');
             if ($cartBlockRows.length) {
-                const packs = {}; // packId => { box: $el, children: [] }
-                const orphanBoxes = [];
-                const orphanChildren = [];
+                let currentBoxPackId = null;
+                let autoPackCounter = 0;
 
                 $cartBlockRows.each(function () {
                     const $row = $(this);
@@ -64,14 +91,37 @@
                     let isChild = $childMarker.length > 0;
 
                     if (!isBox && !isChild) {
-                        isBox   = rowText.includes('caja de empaque') || rowText.includes('empaque incluido');
-                        isChild = !isBox && (rowText.includes('parte de') || rowText.includes('incluido en la caja') || (rowText.includes('ahorro') && (rowText.includes('0,00') || rowText.includes('0.00'))));
+                        isBox = rowText.includes('caja de empaque') ||
+                                rowText.includes('empaque incluido') ||
+                                $row.hasClass('batllie-combo-box-item');
+
+                        isChild = !isBox && (
+                            rowText.includes('parte de') ||
+                            rowText.includes('incluido en la caja') ||
+                            (rowText.includes('ahorro') && (rowText.includes('0,00') || rowText.includes('0.00')))
+                        );
+
+                        // Fallback de contexto secuencial: si estamos dentro de una caja y el precio es $0 o tiene ahorro
+                        if (!isBox && !isChild && currentBoxPackId) {
+                            if (rowText.includes('0,00') || rowText.includes('0.00') || rowText.includes('ahorro')) {
+                                isChild = true;
+                            }
+                        }
                     }
 
                     if (isBox) {
-                        $row.addClass('batllie-is-combo-box').removeClass('batllie-is-combo-child');
+                        let packId = getPackIdFromEl($boxMarker);
+                        if (!packId) {
+                            autoPackCounter++;
+                            packId = 'pack_auto_' + autoPackCounter;
+                        }
+                        currentBoxPackId = packId;
 
-                        // Bloquear stepper
+                        $row.addClass('batllie-is-combo-box batllie-pack-' + packId)
+                            .removeClass('batllie-is-combo-child')
+                            .attr('data-batllie-pack-id', packId);
+
+                        // Bloquear stepper en la caja (solo mostrar la cantidad fija, ej: 1)
                         $row.find('.wc-block-components-quantity-selector__button').hide();
                         $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
 
@@ -83,21 +133,18 @@
                             $trashBtn.attr('data-batllie-processed', 'true');
                         }
 
-                        const packId = $boxMarker.attr('data-pack-id');
-                        if (packId) {
-                            if (!packs[packId]) packs[packId] = { box: null, children: [] };
-                            packs[packId].box = $row;
-                        } else {
-                            orphanBoxes.push($row);
-                        }
                     } else if (isChild) {
-                        $row.addClass('batllie-is-combo-child').removeClass('batllie-is-combo-box');
+                        let packId = getPackIdFromEl($childMarker) || currentBoxPackId || 'pack_item';
 
-                        // Bloquear stepper
+                        $row.addClass('batllie-is-combo-child batllie-pack-' + packId)
+                            .removeClass('batllie-is-combo-box')
+                            .attr('data-batllie-pack-id', packId);
+
+                        // Bloquear steppers en el producto hijo
                         $row.find('.wc-block-components-quantity-selector__button').hide();
                         $row.find('.wc-block-components-quantity-selector__input').prop('readonly', true).attr('tabindex', '-1');
 
-                        // Ocultar TOTALMENTE el botón de eliminar en los alfajores hijos
+                        // Ocultar TOTALMENTE el botón de eliminar en los productos hijos
                         $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], [aria-label*="eliminar" i], [aria-label*="remove" i], a.remove').hide().css({
                             'display': 'none',
                             'visibility': 'hidden',
@@ -108,7 +155,7 @@
                         });
 
                         // Ocultar TOTALMENTE el precio y cualquier badge de ahorro o descuento en los hijos
-                        $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-components-formatted-money-amount, [class*="product-price"], [class*="item__prices"], [class*="discount"], [class*="saving"], [class*="badge"]').hide().css({
+                        $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-cart-item__total, .wc-block-components-formatted-money-amount, .wc-block-cart-item__total-price-and-sale-badge-wrapper, [class*="product-price"], [class*="item__prices"], [class*="discount"], [class*="saving"], [class*="sale-badge"], [class*="badge"]').hide().css({
                             'display': 'none',
                             'visibility': 'hidden',
                             'opacity': '0',
@@ -116,88 +163,10 @@
                             'overflow': 'hidden'
                         });
 
-                        const packId = $childMarker.attr('data-pack-id');
-                        if (packId) {
-                            if (!packs[packId]) packs[packId] = { box: null, children: [] };
-                            packs[packId].children.push($row);
-                        } else {
-                            orphanChildren.push($row);
-                        }
+                    } else {
+                        // Producto normal independiente fuera de cualquier caja
+                        currentBoxPackId = null;
                     }
-                });
-
-                // Emparejar cajas y productos huérfanos sin marker por proximidad en el DOM
-                if (orphanBoxes.length > 0) {
-                    orphanBoxes.forEach(function ($box, idx) {
-                        const autoId = 'auto_pack_' + idx;
-                        packs[autoId] = { box: $box, children: [] };
-                    });
-
-                    orphanChildren.forEach(function ($ch) {
-                        let assigned = false;
-                        for (let i = orphanBoxes.length - 1; i >= 0; i--) {
-                            if ($ch.index() > orphanBoxes[i].index()) {
-                                packs['auto_pack_' + i].children.push($ch);
-                                assigned = true;
-                                break;
-                            }
-                        }
-                        if (!assigned && orphanBoxes.length > 0) {
-                            packs['auto_pack_0'].children.push($ch);
-                        }
-                    });
-                }
-
-                // Aplicar estructura y submenú por cada instancia de caja independiente
-                Object.keys(packs).forEach(function (pid) {
-                    const pack = packs[pid];
-                    if (!pack.box || !pack.children.length) return;
-
-                    const $box = pack.box;
-                    const $children = pack.children;
-
-                    // Si la caja está situada después de su primer hijo, moverla antes
-                    if ($box.index() > $children[0].index()) {
-                        $children[0].before($box);
-                    }
-
-                    // Inyectar o asegurar el encabezado del submenú para esta caja específica
-                    let $heading = $box.next('.batllie-combo-submenu-heading');
-                    if (!$heading.length || $heading.attr('data-for-pack') !== pid) {
-                        $heading = $(
-                            '<div class="batllie-combo-submenu-heading" data-for-pack="' + pid + '">' +
-                                '<span class="batllie-tree-icon">↳</span> ' +
-                                '<span class="batllie-heading-text">Contenido de la caja:</span>' +
-                            '</div>'
-                        );
-                        $box.after($heading);
-                    }
-
-                    // Colocar secuencialmente los hijos de esta caja después de su encabezado
-                    let $anchor = $heading;
-                    $children.forEach(function ($child) {
-                        if ($child.prev()[0] !== $anchor[0]) {
-                            $anchor.after($child);
-                        }
-                        $anchor = $child;
-
-                        // Re-asegurar que el botón de eliminar y los precios sigan ocultos
-                        $child.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], [aria-label*="eliminar" i], [aria-label*="remove" i], a.remove').hide().css({
-                            'display': 'none',
-                            'visibility': 'hidden',
-                            'pointer-events': 'none',
-                            'width': '0',
-                            'height': '0',
-                            'opacity': '0'
-                        });
-
-                        $child.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-components-formatted-money-amount, [class*="product-price"], [class*="item__prices"], [class*="discount"], [class*="saving"], [class*="badge"]').hide().css({
-                            'display': 'none',
-                            'visibility': 'hidden',
-                            'opacity': '0',
-                            'height': '0'
-                        });
-                    });
                 });
             }
         } finally {
@@ -209,7 +178,7 @@
         processCartItems();
 
         // Re-procesar tras eventos de actualización de carrito en WooCommerce clásico
-        $(document.body).on('updated_wc_div updated_cart_totals', function () {
+        $(document.body).on('updated_wc_div updated_cart_totals wc_fragments_refreshed', function () {
             processCartItems();
         });
 
@@ -220,15 +189,21 @@
                 let debounceTimer = null;
                 const observer = new MutationObserver(function () {
                     clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(processCartItems, 60);
+                    debounceTimer = setTimeout(processCartItems, 50);
                 });
                 observer.observe(targetNode, { childList: true, subtree: true });
             }
         }
 
-        // Efecto visual al hacer clic en eliminar el combo
+        // Efecto visual al hacer clic en eliminar una caja o combo específico
         $(document).on('click', '.batllie-combo-box-item a.remove, .batllie-is-combo-box [class*="remove"]', function () {
-            $('.batllie-combo-item, .batllie-is-combo-child, .batllie-is-combo-box').addClass('batllie-combo-delete-active');
+            const $boxRow = $(this).closest('.batllie-is-combo-box, .batllie-combo-box-item');
+            const packId = $boxRow.attr('data-batllie-pack-id');
+            if (packId) {
+                $('.batllie-pack-' + packId).addClass('batllie-combo-delete-active');
+            } else {
+                $boxRow.addClass('batllie-combo-delete-active');
+            }
         });
     });
 
