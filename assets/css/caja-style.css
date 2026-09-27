@@ -2335,12 +2335,35 @@ body.batllie-caja-active .container {
     margin-bottom: 4px;
 }
 
-.caja-grouped-filter-row {
+.caja-grouped-filter-row,
+.caja-grouped-filter-wrap {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+    width: 100%;
+}
+
+.caja-grouped-filter-row input,
+.caja-grouped-filter-wrap input {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.caja-grouped-btn-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.caja-grouped-btn-actions .caja-btn {
+    flex: 1 1 50%;
+    width: 50%;
+    justify-content: center;
+    text-align: center;
+    padding: 7px 10px !important;
+    font-size: 0.82rem !important;
+    box-sizing: border-box !important;
 }
 
 .caja-input-sm {
