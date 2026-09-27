@@ -2329,14 +2329,39 @@ body.batllie-caja-active .container {
 }
 
 .caja-grouped-header-bar {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.caja-grouped-header-title {
+    display: block;
+    width: 100%;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    color: var(--caja-text);
+    margin: 0 !important;
+}
+
+.caja-grouped-footer-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 4px;
+    justify-content: flex-end;
+    margin-top: 10px;
+    width: 100%;
 }
 
 span#edit-grouped-selected-badge {
-    color: var(--emp-content-bg);
+    display: inline-flex;
+    align-items: center;
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--emp-content-bg, #93c5fd) !important;
+    border: 1px solid rgba(59, 130, 246, 0.45);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 /* Selector de Modo de Agrupación */

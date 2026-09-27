@@ -428,8 +428,7 @@ if (!defined('ABSPATH')) {
                 <!-- Sección de Selección de Productos para Productos Agrupados -->
                 <div class="caja-form-group caja-grouped-children-box" id="edit-prod-grouped-section" style="display:none;">
                     <div class="caja-grouped-header-bar">
-                        <label><strong>📦 <?php _e('Configuración de la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
-                        <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
+                        <label class="caja-grouped-header-title"><strong>📦 <?php _e('Productos incluidos en la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
                     </div>
 
                     <!-- Selector de Modo de Agrupación: Personalizable vs Combo Predeterminado -->
@@ -465,6 +464,9 @@ if (!defined('ABSPATH')) {
                     </div>
                     <div class="caja-children-checklist-container" id="edit-prod-children-list">
                         <!-- Generado dinámicamente -->
+                    </div>
+                    <div class="caja-grouped-footer-bar">
+                        <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
                     </div>
                 </div>
 
