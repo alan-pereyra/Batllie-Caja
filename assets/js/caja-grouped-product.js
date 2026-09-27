@@ -18,8 +18,11 @@
         }
 
         const config = window.batllieGroupedConfig || {};
-        const targetQty = parseInt($boxContainer.data('target-qty') || config.targetQty, 10);
-        if (!targetQty || targetQty <= 0) {
+        const targetQty = parseInt($boxContainer.data('target-qty') || config.targetQty, 10) || 0;
+        const isFixedPrice = Boolean(config.isFixedPrice);
+        const fixedPrice = parseFloat(config.fixedPrice) || 0;
+
+        if (targetQty <= 0 && (!isFixedPrice || fixedPrice <= 0)) {
             return;
         }
 
@@ -179,14 +182,18 @@
                 });
             }
 
-            // Calcular precio total exacto
+            // Calcular precio total exacto (fijo o dinámico)
             let totalPrice = 0;
-            $inputs.each(function () {
-                const $inp = $(this);
-                const q = parseInt($inp.val(), 10) || 0;
-                const unitPrice = getUnitPrice($inp);
-                totalPrice += q * unitPrice;
-            });
+            if (isFixedPrice && fixedPrice > 0) {
+                totalPrice = fixedPrice;
+            } else {
+                $inputs.each(function () {
+                    const $inp = $(this);
+                    const q = parseInt($inp.val(), 10) || 0;
+                    const unitPrice = getUnitPrice($inp);
+                    totalPrice += q * unitPrice;
+                });
+            }
 
             // Elementos del DOM
             const $current = $('#batllie-box-current');
@@ -196,47 +203,64 @@
             const $msg = $('#batllie-box-message');
             const $totalDisplay = $('#batllie-box-total-price');
 
-            $current.text(totalSelected);
-            $target.text(targetQty);
+            if (targetQty > 0) {
+                $current.text(totalSelected);
+                $target.text(targetQty);
 
-            // Porcentaje barra de progreso
-            const pct = Math.min(100, Math.round((totalSelected / targetQty) * 100));
-            $fill.css('width', pct + '%');
+                // Porcentaje barra de progreso
+                const pct = Math.min(100, Math.round((totalSelected / targetQty) * 100));
+                $fill.css('width', pct + '%');
 
-            // Badge y Mensaje según estado
-            $badge.removeClass('badge-empty badge-incomplete badge-complete');
-            $fill.removeClass('fill-complete');
+                // Badge y Mensaje según estado
+                $badge.removeClass('badge-empty badge-incomplete badge-complete');
+                $fill.removeClass('fill-complete');
 
-            if (totalSelected === 0) {
-                $badge.addClass('badge-empty').text(i18n.boxEmpty || 'Caja vacía');
-                $msg.text(i18n.selectPrompt || `Seleccioná ${targetQty} unidades para armar tu caja.`);
-            } else if (totalSelected < targetQty) {
-                const diff = targetQty - totalSelected;
-                $badge.addClass('badge-incomplete').text(diff === 1 ? 'Falta 1 unidad' : `Faltan ${diff} unidades`);
-                $msg.text(`Te falta${diff === 1 ? ' 1 producto' : 'n ' + diff + ' productos'} para completar tu caja de ${targetQty}.`);
+                if (totalSelected === 0) {
+                    $badge.addClass('badge-empty').text(i18n.boxEmpty || 'Caja vacía');
+                    $msg.text(i18n.selectPrompt || `Seleccioná ${targetQty} unidades para armar tu caja.`);
+                } else if (totalSelected < targetQty) {
+                    const diff = targetQty - totalSelected;
+                    $badge.addClass('badge-incomplete').text(diff === 1 ? 'Falta 1 unidad' : `Faltan ${diff} unidades`);
+                    $msg.text(`Te falta${diff === 1 ? ' 1 producto' : 'n ' + diff + ' productos'} para completar tu caja de ${targetQty}.`);
+                } else {
+                    $badge.addClass('badge-complete').text(i18n.boxComplete || '¡Caja completa!');
+                    $fill.addClass('fill-complete');
+                    $msg.text(`¡Excelente! Tenés las ${targetQty} unidades seleccionadas. Ya podés añadirla al carrito.`);
+                    hideAlert();
+                }
             } else {
-                $badge.addClass('badge-complete').text(i18n.boxComplete || '¡Caja completa!');
-                $fill.addClass('fill-complete');
-                $msg.text(`¡Excelente! Tenés las ${targetQty} unidades seleccionadas. Ya podés añadirla al carrito.`);
-                hideAlert();
+                $badge.removeClass('badge-empty badge-incomplete badge-complete');
+                if (totalSelected === 0) {
+                    $badge.addClass('badge-empty').text('Sin unidades');
+                } else {
+                    $badge.addClass('badge-complete').text(`${totalSelected} seleccionada${totalSelected === 1 ? '' : 's'}`);
+                }
             }
 
-            // Precio total dinámico
+            // Precio total dinámico o fijo
             $totalDisplay.html(formatMoney(totalPrice));
 
             // Control de botones "+" de las filas
             const $plusButtons = $table.find('.emp-qty-plus, .plus');
-            if (totalSelected >= targetQty) {
+            if (targetQty > 0 && totalSelected >= targetQty) {
                 $plusButtons.addClass('batllie-plus-locked').attr('aria-disabled', 'true');
             } else {
                 $plusButtons.removeClass('batllie-plus-locked').removeAttr('aria-disabled');
             }
 
             // Control de botón "Añadir al carrito"
-            if (totalSelected === targetQty) {
-                $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled');
+            if (targetQty > 0) {
+                if (totalSelected === targetQty) {
+                    $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled');
+                } else {
+                    $submitBtn.addClass('batllie-btn-disabled').attr('aria-disabled', 'true');
+                }
             } else {
-                $submitBtn.addClass('batllie-btn-disabled').attr('aria-disabled', 'true');
+                if (totalSelected > 0) {
+                    $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled');
+                } else {
+                    $submitBtn.addClass('batllie-btn-disabled').attr('aria-disabled', 'true');
+                }
             }
         }
 
@@ -314,7 +338,7 @@
                 totalSelected += parseInt($(this).val(), 10) || 0;
             });
 
-            if (totalSelected !== targetQty) {
+            if (targetQty > 0 && totalSelected !== targetQty) {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -327,6 +351,11 @@
                 }
 
                 showAlert(message);
+                return false;
+            } else if (targetQty <= 0 && totalSelected <= 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                showAlert(`Debes seleccionar al menos una unidad para armar tu combo.`);
                 return false;
             }
         });

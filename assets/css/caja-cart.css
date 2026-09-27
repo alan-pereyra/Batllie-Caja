@@ -1,0 +1,112 @@
+/**
+ * Estilos para productos en combo/cajas en el Carrito y Checkout
+ * Compatible con WooCommerce Clásico y WooCommerce Cart Blocks
+ */
+
+/* Indicador visual de combo en carrito clásico */
+.woocommerce-cart-form table.cart tr.batllie-combo-item {
+    background-color: #fafaf9;
+}
+
+.woocommerce-cart-form table.cart tr.batllie-combo-box-item {
+    background-color: #f0fdf4 !important;
+    font-weight: 600;
+}
+
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-name {
+    padding-left: 28px !important;
+    position: relative;
+}
+
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-name::before {
+    content: "↳";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #10b981;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+/* Ocultar botones de incremento/decremento en ítems de combo */
+.batllie-combo-item .quantity input.qty::-webkit-inner-spin-button,
+.batllie-combo-item .quantity input.qty::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.batllie-combo-item .emp-qty-btn,
+.batllie-combo-item .plus,
+.batllie-combo-item .minus {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.batllie-combo-item .quantity input.qty {
+    pointer-events: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Badges y precios */
+.batllie-combo-price {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.batllie-free-price {
+    font-weight: 700;
+    color: #059669;
+}
+
+.batllie-included-in-box {
+    font-size: 12px;
+    font-weight: 600;
+    color: #059669;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 9999px;
+    padding: 2px 8px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* Soporte para WooCommerce Cart Block */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child {
+    border-left: 3px solid #10b981 !important;
+    padding-left: 12px !important;
+    background-color: rgba(16, 185, 129, 0.02) !important;
+    border-radius: 4px;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box {
+    border-left: 3px solid #065f46 !important;
+    padding-left: 12px !important;
+    background-color: #f0fdf4 !important;
+    border-radius: 4px;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-quantity-selector__button {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__input,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-quantity-selector__input {
+    pointer-events: none !important;
+    border: none !important;
+    background: transparent !important;
+    font-weight: 700 !important;
+}
+
+/* Tooltip visual en el botón de eliminar del combo */
+.batllie-combo-delete-active {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
