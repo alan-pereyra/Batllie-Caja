@@ -55,6 +55,39 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
      data-order-key="<?php echo esc_attr($order_key); ?>" 
      data-current-step="<?php echo esc_attr($current_step); ?>">
 
+    <!-- Barra de Selector Rápido Multi-Pedido (Opción 1) -->
+    <?php
+    $all_recent_orders = Batllie_Caja_Tracking::get_customer_recent_orders();
+    $has_multiple_orders = count($all_recent_orders) > 1;
+    ?>
+    <div class="batllie-tracking-switcher" id="batllie-orders-switcher" style="<?php echo $has_multiple_orders ? '' : 'display:none;'; ?>">
+        <div class="batllie-switcher-header">
+            <span class="batllie-switcher-title">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><polyline points="3.29 7 12 12 20.71 7"/></svg>
+                <?php _e('Tus pedidos recientes:', 'emp-caja'); ?>
+            </span>
+            <button type="button" class="batllie-switcher-all-btn batllie-open-hub-trigger" title="<?php esc_attr_e('Ver todos mis pedidos', 'emp-caja'); ?>">
+                <?php _e('Ver todos', 'emp-caja'); ?> (<span class="batllie-switcher-count"><?php echo count($all_recent_orders); ?></span>) &rarr;
+            </button>
+        </div>
+        <div class="batllie-switcher-chips-scroll">
+            <?php foreach ($all_recent_orders as $ord_item) : 
+                $is_current = (intval($ord_item['id']) === intval($order_id));
+                $chip_cls = $is_current ? 'is-current' : '';
+                $step_num = isset($ord_item['step']) ? intval($ord_item['step']) : 1;
+            ?>
+                <a href="<?php echo esc_url($ord_item['url']); ?>" class="batllie-switcher-chip <?php echo esc_attr($chip_cls); ?>" data-order-id="<?php echo esc_attr($ord_item['id']); ?>">
+                    <span class="batllie-chip-dot step-<?php echo esc_attr($step_num); ?>"></span>
+                    <strong class="batllie-chip-num">#<?php echo esc_html($ord_item['number']); ?></strong>
+                    <span class="batllie-chip-step-txt"><?php echo esc_html($ord_item['step_label']); ?></span>
+                    <?php if ($is_current) : ?>
+                        <span class="batllie-chip-current-badge"><?php _e('Actual', 'emp-caja'); ?></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
     <!-- Encabezado con título e indicadores en vivo -->
     <div class="batllie-tracking-header">
         <div class="batllie-tracking-title-group">

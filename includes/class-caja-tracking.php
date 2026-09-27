@@ -42,13 +42,16 @@ class Batllie_Caja_Tracking {
         add_filter('wp_nav_menu_items', array(__CLASS__, 'add_mis_pedidos_menu_item'), 10, 2);
         add_filter('wp_nav_menu', array(__CLASS__, 'filter_wp_nav_menu'), 10, 2);
 
-        // Redirección inteligente para la pantalla del pedido actual
+        // Redirección inteligente para la pantalla de pedidos
         add_action('template_redirect', array(__CLASS__, 'handle_mis_pedidos_redirect'));
 
         // Guardar cookies de pedido reciente al completar o visualizar pedido
         add_action('woocommerce_thankyou', array(__CLASS__, 'save_recent_order_cookie'), 1, 1);
         add_action('woocommerce_before_thankyou', array(__CLASS__, 'save_recent_order_cookie'), 1, 1);
         add_action('woocommerce_checkout_order_processed', array(__CLASS__, 'save_recent_order_cookie'), 10, 1);
+
+        // Modal "Mis Pedidos" (Hub de Pedidos) en el footer para todo el sitio
+        add_action('wp_footer', array(__CLASS__, 'render_hub_modal'));
 
         // Registrar Shortcode por si se desea incrustar en cualquier página personalizada
         add_shortcode('batllie_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
@@ -59,6 +62,12 @@ class Batllie_Caja_Tracking {
         // Endpoint AJAX en tiempo real (público y privado)
         add_action('wp_ajax_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
         add_action('wp_ajax_nopriv_emp_caja_get_order_live_status', array(__CLASS__, 'ajax_get_order_live_status'));
+
+        // Endpoints AJAX para Multi-Pedidos (público y privado)
+        add_action('wp_ajax_emp_caja_get_recent_orders', array(__CLASS__, 'ajax_get_recent_orders'));
+        add_action('wp_ajax_nopriv_emp_caja_get_recent_orders', array(__CLASS__, 'ajax_get_recent_orders'));
+        add_action('wp_ajax_emp_caja_lookup_order', array(__CLASS__, 'ajax_lookup_order'));
+        add_action('wp_ajax_nopriv_emp_caja_lookup_order', array(__CLASS__, 'ajax_lookup_order'));
     }
 
     /**
@@ -80,98 +89,236 @@ class Batllie_Caja_Tracking {
             }
         }
 
-        // 2. Si hay cookie de ID de pedido reciente
-        if (!empty($_COOKIE['batllie_recent_order_id'])) {
-            $order_id = intval($_COOKIE['batllie_recent_order_id']);
-            $order    = wc_get_order($order_id);
-            if ($order) {
-                if (!empty($_COOKIE['batllie_recent_order_key'])) {
-                    $order_key = sanitize_text_field(wp_unslash($_COOKIE['batllie_recent_order_key']));
-                    if ($order->get_order_key() === $order_key) {
-                        return $order->get_checkout_order_received_url();
+        // 2. Si hay lista multi-pedidos guardada
+        $recent = self::get_customer_recent_orders(1);
+        if (!empty($recent)) {
+            return $recent[0]['url'];
+        }
+
+        // 3. Fallback a endpoint inteligente
+        return home_url('/?batllie_mis_pedidos=1');
+    }
+
+    /**
+     * Formatear resumen de pedido para listados y selector rápido
+     */
+    public static function format_order_summary_data($order) {
+        if (!$order || !is_a($order, 'WC_Order')) {
+            return null;
+        }
+        $tracking = self::get_order_tracking_data($order);
+        if (!$tracking) {
+            return null;
+        }
+
+        $created = $order->get_date_created();
+        $date_formatted = '';
+        if ($created) {
+            $timestamp = $created->getTimestamp();
+            $is_today = (date('Y-m-d', $timestamp) === current_time('Y-m-d'));
+            $is_yesterday = (date('Y-m-d', $timestamp) === date('Y-m-d', current_time('timestamp') - DAY_IN_SECONDS));
+            if ($is_today) {
+                $date_formatted = sprintf(__('Hoy, %s hs', 'emp-caja'), $created->date_i18n('H:i'));
+            } elseif ($is_yesterday) {
+                $date_formatted = sprintf(__('Ayer, %s hs', 'emp-caja'), $created->date_i18n('H:i'));
+            } else {
+                $date_formatted = $created->date_i18n('d/m/Y H:i') . ' hs';
+            }
+        }
+
+        // Resumen breve de productos
+        $item_names = array();
+        foreach ($order->get_items() as $item) {
+            $qty = $item->get_quantity();
+            $item_names[] = ($qty > 1 ? $qty . 'x ' : '') . $item->get_name();
+            if (count($item_names) >= 3) {
+                break;
+            }
+        }
+        $total_items = count($order->get_items());
+        $items_summary = implode(', ', $item_names);
+        if ($total_items > 3) {
+            $items_summary .= sprintf(__(' y %d más...', 'emp-caja'), $total_items - 3);
+        }
+
+        return array(
+            'id'            => $order->get_id(),
+            'number'        => $order->get_order_number(),
+            'key'           => $order->get_order_key(),
+            'url'           => $order->get_checkout_order_received_url(),
+            'date'          => $date_formatted,
+            'total'         => $order->get_formatted_order_total(),
+            'status'        => $tracking['status'],
+            'step'          => $tracking['step'],
+            'step_label'    => $tracking['step_label'],
+            'is_paid'       => $tracking['is_paid'],
+            'is_active'     => !in_array($tracking['status'], array('completed', 'cancelled', 'refunded', 'failed')),
+            'items_summary' => $items_summary,
+        );
+    }
+
+    /**
+     * Obtener lista de pedidos recientes del cliente actual
+     */
+    public static function get_customer_recent_orders($limit = 10) {
+        $orders_data = array();
+        $seen_ids = array();
+
+        // 1. Si el usuario está autenticado, obtener sus pedidos de WooCommerce
+        if (is_user_logged_in() && function_exists('wc_get_orders')) {
+            $user_orders = wc_get_orders(array(
+                'customer' => get_current_user_id(),
+                'limit'    => $limit,
+                'orderby'  => 'date',
+                'order'    => 'DESC',
+            ));
+            if (!empty($user_orders)) {
+                foreach ($user_orders as $ord) {
+                    if ($ord && is_a($ord, 'WC_Order')) {
+                        $id = $ord->get_id();
+                        $seen_ids[$id] = true;
+                        $formatted = self::format_order_summary_data($ord);
+                        if ($formatted) {
+                            $orders_data[] = $formatted;
+                        }
                     }
-                } else {
-                    return $order->get_checkout_order_received_url();
                 }
             }
         }
 
-        // 3. Si el usuario está autenticado, buscar su último pedido
-        if (is_user_logged_in() && function_exists('wc_get_orders')) {
-            $orders = wc_get_orders(array(
-                'customer' => get_current_user_id(),
-                'limit'    => 1,
-                'orderby'  => 'date',
-                'order'    => 'DESC',
-            ));
-            if (!empty($orders)) {
-                return $orders[0]->get_checkout_order_received_url();
+        // 2. Revisar cookie multi-pedidos 'batllie_recent_orders'
+        if (!empty($_COOKIE['batllie_recent_orders'])) {
+            $cookie_raw = wp_unslash($_COOKIE['batllie_recent_orders']);
+            $cookie_list = json_decode($cookie_raw, true);
+            if (is_array($cookie_list)) {
+                foreach ($cookie_list as $entry) {
+                    $ord_id = isset($entry['id']) ? intval($entry['id']) : 0;
+                    $ord_key = isset($entry['key']) ? sanitize_text_field($entry['key']) : '';
+                    if ($ord_id && empty($seen_ids[$ord_id])) {
+                        $ord = wc_get_order($ord_id);
+                        if ($ord && is_a($ord, 'WC_Order')) {
+                            if (!is_user_logged_in() && !empty($ord_key) && $ord->get_order_key() !== $ord_key) {
+                                continue;
+                            }
+                            $seen_ids[$ord_id] = true;
+                            $formatted = self::format_order_summary_data($ord);
+                            if ($formatted) {
+                                $orders_data[] = $formatted;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Revisar cookie de pedido reciente único legacy 'batllie_recent_order_id'
+        if (!empty($_COOKIE['batllie_recent_order_id'])) {
+            $legacy_id = intval($_COOKIE['batllie_recent_order_id']);
+            if ($legacy_id && empty($seen_ids[$legacy_id])) {
+                $ord = wc_get_order($legacy_id);
+                if ($ord && is_a($ord, 'WC_Order')) {
+                    $legacy_key = !empty($_COOKIE['batllie_recent_order_key']) ? sanitize_text_field(wp_unslash($_COOKIE['batllie_recent_order_key'])) : '';
+                    if (!is_user_logged_in() && !empty($legacy_key) && $ord->get_order_key() !== $legacy_key) {
+                        // Ignorar si no coincide clave
+                    } else {
+                        $seen_ids[$legacy_id] = true;
+                        $formatted = self::format_order_summary_data($ord);
+                        if ($formatted) {
+                            $orders_data[] = $formatted;
+                        }
+                    }
+                }
             }
         }
 
         // 4. Si hay sesión activa de WooCommerce con pedido reciente
         if (function_exists('WC') && WC()->session) {
-            $order_id = WC()->session->get('order_awaiting_payment');
-            if (!$order_id) {
-                $order_id = WC()->session->get('last_order_id');
+            $session_id = WC()->session->get('order_awaiting_payment');
+            if (!$session_id) {
+                $session_id = WC()->session->get('last_order_id');
             }
-            if ($order_id) {
-                $order = wc_get_order($order_id);
-                if ($order) {
-                    return $order->get_checkout_order_received_url();
+            if ($session_id && empty($seen_ids[$session_id])) {
+                $ord = wc_get_order($session_id);
+                if ($ord && is_a($ord, 'WC_Order')) {
+                    $seen_ids[$session_id] = true;
+                    $formatted = self::format_order_summary_data($ord);
+                    if ($formatted) {
+                        $orders_data[] = $formatted;
+                    }
                 }
             }
         }
 
-        // 5. Fallback a endpoint de redirección inteligente
-        return home_url('/?batllie_mis_pedidos=1');
+        return array_slice($orders_data, 0, $limit);
     }
 
     /**
-     * Guardar cookies del pedido actual del cliente
+     * Guardar cookies del pedido actual del cliente (soporta historial multi-pedido)
      */
     public static function save_recent_order_cookie($order_id) {
         if (!$order_id) {
             return;
         }
         $order = wc_get_order($order_id);
-        if (!$order) {
+        if (!$order || !is_a($order, 'WC_Order')) {
             return;
         }
 
         $url = $order->get_checkout_order_received_url();
         $key = $order->get_order_key();
+        $expiry = time() + (60 * DAY_IN_SECONDS);
+
+        // Actualizar lista multi-pedido
+        $existing = array();
+        if (!empty($_COOKIE['batllie_recent_orders'])) {
+            $decoded = json_decode(wp_unslash($_COOKIE['batllie_recent_orders']), true);
+            if (is_array($decoded)) {
+                $existing = $decoded;
+            }
+        }
+
+        $updated = array(
+            array(
+                'id'  => $order->get_id(),
+                'num' => $order->get_order_number(),
+                'key' => $key,
+                'url' => $url,
+            )
+        );
+
+        foreach ($existing as $item) {
+            if (isset($item['id']) && intval($item['id']) !== intval($order_id)) {
+                $updated[] = $item;
+            }
+            if (count($updated) >= 10) {
+                break;
+            }
+        }
 
         if (!headers_sent()) {
-            $expiry = time() + (30 * DAY_IN_SECONDS);
             setcookie('batllie_recent_order_id', strval($order_id), $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
             setcookie('batllie_recent_order_key', $key, $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
             setcookie('batllie_recent_order_url', $url, $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
+            setcookie('batllie_recent_orders', wp_json_encode($updated), $expiry, COOKIEPATH, COOKIE_DOMAIN, is_ssl());
         }
     }
 
     /**
-     * Redirigir hacia la pantalla del pedido actual o mi cuenta
+     * Redirigir hacia la pantalla de pedidos inteligente
      */
     public static function handle_mis_pedidos_redirect() {
         if (isset($_GET['batllie_mis_pedidos'])) {
-            $order_url = self::get_customer_current_order_url();
-            if ($order_url && strpos($order_url, 'batllie_mis_pedidos') === false) {
-                wp_safe_redirect($order_url);
+            $recent_orders = self::get_customer_recent_orders();
+            $count = count($recent_orders);
+
+            if ($count === 1) {
+                // Solo tiene 1 pedido -> directo a la pantalla de seguimiento
+                wp_safe_redirect($recent_orders[0]['url']);
                 exit;
             }
 
-            if (is_user_logged_in() && function_exists('wc_get_account_endpoint_url')) {
-                wp_safe_redirect(wc_get_account_endpoint_url('orders'));
-                exit;
-            }
-
-            if (function_exists('wc_get_page_permalink')) {
-                wp_safe_redirect(wc_get_page_permalink('myaccount'));
-                exit;
-            }
-
-            wp_safe_redirect(home_url('/'));
+            // Si tiene 2 o más pedidos (o 0), redirigir a inicio con el parámetro para abrir el Hub Modal
+            wp_safe_redirect(add_query_arg('batllie_open_pedidos', '1', home_url('/')));
             exit;
         }
     }
@@ -269,6 +416,9 @@ class Batllie_Caja_Tracking {
             EMP_CAJA_VERSION
         );
 
+        // Encolar estilos de seguimiento y Hub modal en todo el frontend
+        wp_enqueue_style('batllie-caja-tracking-css');
+
         wp_register_script(
             'batllie-caja-tracking-js',
             EMP_CAJA_URL . 'assets/js/caja-tracking.js',
@@ -277,7 +427,7 @@ class Batllie_Caja_Tracking {
             true
         );
 
-        // Encolar script de navegación de pedidos en todo el frontend para sincronizar "Mis pedidos"
+        // Encolar script de navegación de pedidos en todo el frontend para sincronizar "Mis pedidos" y el Hub
         wp_enqueue_script(
             'batllie-caja-nav-menu',
             EMP_CAJA_URL . 'assets/js/caja-nav-menu.js',
@@ -286,11 +436,26 @@ class Batllie_Caja_Tracking {
             true
         );
 
+        $recent_orders = self::get_customer_recent_orders();
+
         wp_localize_script('batllie-caja-nav-menu', 'emp_caja_nav_params', array(
-            'my_orders_url' => self::get_customer_current_order_url(),
+            'ajax_url'            => admin_url('admin-ajax.php'),
+            'my_orders_url'       => self::get_customer_current_order_url(),
+            'recent_orders'       => $recent_orders,
+            'has_multiple_orders' => (count($recent_orders) > 1),
+            'auto_open'           => isset($_GET['batllie_open_pedidos']),
+            'i18n'                => array(
+                'mis_pedidos'     => __('Mis pedidos', 'emp-caja'),
+                'searching'       => __('Buscando pedido...', 'emp-caja'),
+                'order_not_found' => __('No encontramos un pedido con ese número. Verificá el número e intentá nuevamente.', 'emp-caja'),
+                'order_added'     => __('¡Pedido encontrado y agregado a tu lista!', 'emp-caja'),
+                'actual'          => __('Actual', 'emp-caja'),
+                'ver_todos'       => __('Ver todos', 'emp-caja'),
+                'ver_seguimiento' => __('⚡ Ver Seguimiento en Vivo', 'emp-caja'),
+            ),
         ));
 
-        // Cargar en checkout, orden recibida o ver pedido
+        // Cargar script de seguimiento en vivo en checkout, orden recibida o ver pedido
         if (is_checkout() || (function_exists('is_order_received_page') && is_order_received_page()) || (function_exists('is_wc_endpoint_url') && (is_wc_endpoint_url('order-received') || is_wc_endpoint_url('view-order')))) {
             self::enqueue_tracking_assets();
         }
@@ -472,4 +637,160 @@ class Batllie_Caja_Tracking {
             'show_receipt_pending' => $tracking['show_receipt_pending'],
         ));
     }
+
+    /**
+     * AJAX endpoint para obtener pedidos recientes del cliente actual
+     */
+    public static function ajax_get_recent_orders() {
+        $orders = self::get_customer_recent_orders();
+        wp_send_json_success(array(
+            'orders' => $orders,
+        ));
+    }
+
+    /**
+     * AJAX endpoint para buscar y agregar un pedido a la lista del cliente
+     */
+    public static function ajax_lookup_order() {
+        $order_num = isset($_POST['order_number']) ? sanitize_text_field(wp_unslash($_POST['order_number'])) : '';
+        $order_num = trim(str_replace('#', '', $order_num));
+
+        if (empty($order_num)) {
+            wp_send_json_error(array('message' => __('Por favor ingresá un número de pedido válido.', 'emp-caja')));
+        }
+
+        $order = null;
+        if (is_numeric($order_num)) {
+            $order = wc_get_order(intval($order_num));
+        }
+        if (!$order && function_exists('wc_get_orders')) {
+            $found = wc_get_orders(array(
+                'limit'        => 1,
+                'order_number' => $order_num,
+            ));
+            if (!empty($found)) {
+                $order = $found[0];
+            }
+        }
+
+        if (!$order || !is_a($order, 'WC_Order')) {
+            wp_send_json_error(array('message' => sprintf(__('No encontramos el pedido #%s. Verificá el número e intentá nuevamente.', 'emp-caja'), esc_html($order_num))));
+        }
+
+        // Guardar en cookies del cliente
+        self::save_recent_order_cookie($order->get_id());
+
+        $summary = self::format_order_summary_data($order);
+        wp_send_json_success(array(
+            'message' => sprintf(__('¡Pedido #%s agregado con éxito!', 'emp-caja'), esc_html($order->get_order_number())),
+            'order'   => $summary,
+        ));
+    }
+
+    /**
+     * Renderizar el Modal "Mis Pedidos" (Hub de Pedidos) en el footer de todas las páginas
+     */
+    public static function render_hub_modal() {
+        if (is_admin() || wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) {
+            return;
+        }
+
+        $options = Batllie_Caja_Plugin::get_color_settings();
+        $recent_orders = self::get_customer_recent_orders();
+        ?>
+        <div id="batllie-pedidos-modal" class="batllie-pedidos-modal" style="display:none;" aria-hidden="true">
+            <div class="batllie-pedidos-backdrop"></div>
+            <div class="batllie-pedidos-dialog" role="dialog" aria-modal="true" aria-labelledby="batllie-pedidos-modal-title">
+                
+                <!-- Encabezado del Modal -->
+                <div class="batllie-pedidos-dialog-header">
+                    <div class="batllie-pedidos-title-wrap">
+                        <div class="batllie-pedidos-icon-box">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                                <polyline points="3.29 7 12 12 20.71 7"/>
+                                <line x1="12" y1="22" x2="12" y2="12"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 id="batllie-pedidos-modal-title" class="batllie-pedidos-title"><?php _e('Mis Pedidos', 'emp-caja'); ?></h3>
+                            <p class="batllie-pedidos-subtitle"><?php _e('Seguí el estado de tus compras en tiempo real', 'emp-caja'); ?></p>
+                        </div>
+                    </div>
+                    <button type="button" class="batllie-pedidos-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+                </div>
+
+                <!-- Cuerpo del Modal: Lista de Pedidos -->
+                <div class="batllie-pedidos-dialog-body">
+                    <div class="batllie-pedidos-list" id="batllie-pedidos-list-container">
+                        <?php if (!empty($recent_orders)) : ?>
+                            <?php foreach ($recent_orders as $ord) : 
+                                $step = isset($ord['step']) ? intval($ord['step']) : 1;
+                                $pill_class = 'step-' . $step;
+                            ?>
+                                <div class="batllie-hub-order-card" data-order-id="<?php echo esc_attr($ord['id']); ?>">
+                                    <div class="batllie-hub-card-header">
+                                        <div class="batllie-hub-order-meta">
+                                            <span class="batllie-hub-order-number">#<?php echo esc_html($ord['number']); ?></span>
+                                            <span class="batllie-hub-order-date"><?php echo esc_html($ord['date']); ?></span>
+                                        </div>
+                                        <div class="batllie-hub-status-pill <?php echo esc_attr($pill_class); ?>">
+                                            <span class="batllie-hub-pill-dot"></span>
+                                            <span><?php echo esc_html($ord['step_label']); ?></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="batllie-hub-card-body">
+                                        <?php if (!empty($ord['items_summary'])) : ?>
+                                            <div class="batllie-hub-items-text"><?php echo esc_html($ord['items_summary']); ?></div>
+                                        <?php endif; ?>
+                                        <div class="batllie-hub-total-row">
+                                            <span class="batllie-hub-total-label"><?php _e('Total:', 'emp-caja'); ?></span>
+                                            <span class="batllie-hub-total-value"><?php echo wp_kses_post($ord['total']); ?></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="batllie-hub-card-actions">
+                                        <a href="<?php echo esc_url($ord['url']); ?>" class="batllie-hub-track-btn">
+                                            <span><?php _e('⚡ Ver Seguimiento en Vivo', 'emp-caja'); ?></span>
+                                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <div class="batllie-pedidos-empty">
+                                <div class="batllie-pedidos-empty-icon">🛍️</div>
+                                <h4><?php _e('No encontramos pedidos guardados', 'emp-caja'); ?></h4>
+                                <p><?php _e('Si realizaste un pedido recientemente, ingresá tu número a continuación para verlo aquí.', 'emp-caja'); ?></p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Buscador / Recuperador de pedidos -->
+                    <div class="batllie-pedidos-lookup-box">
+                        <div class="batllie-lookup-toggle">
+                            <span><?php _e('¿Tenés otro pedido?', 'emp-caja'); ?></span>
+                            <button type="button" class="batllie-lookup-toggle-btn" id="batllie-toggle-lookup-form">
+                                <?php _e('Agregar por número', 'emp-caja'); ?> &darr;
+                            </button>
+                        </div>
+                        <form class="batllie-lookup-form" id="batllie-lookup-order-form" style="display:none;">
+                            <div class="batllie-lookup-row">
+                                <input type="text" class="batllie-lookup-input" id="batllie-lookup-number-input" placeholder="<?php esc_attr_e('Ej: 184', 'emp-caja'); ?>" required>
+                                <button type="submit" class="batllie-lookup-submit-btn">
+                                    <span class="btn-txt"><?php _e('Buscar', 'emp-caja'); ?></span>
+                                    <span class="btn-spinner" style="display:none;">⏳</span>
+                                </button>
+                            </div>
+                            <div class="batllie-lookup-msg" id="batllie-lookup-feedback-msg" style="display:none;"></div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <?php
+    }
 }
+

@@ -109,6 +109,29 @@
                             var newLabel = response.data.step_label;
                             if (newStep !== currentStep) {
                                 updateUI(newStep, newLabel);
+
+                                // Sincronizar actualización con localStorage y chips del selector
+                                try {
+                                    var raw = localStorage.getItem('batllie_recent_orders');
+                                    if (raw) {
+                                        var orders = JSON.parse(raw);
+                                        if (Array.isArray(orders)) {
+                                            for (var i = 0; i < orders.length; i++) {
+                                                if (String(orders[i].id) === String(orderId)) {
+                                                    orders[i].step = newStep;
+                                                    orders[i].step_label = newLabel;
+                                                    break;
+                                                }
+                                            }
+                                            localStorage.setItem('batllie_recent_orders', JSON.stringify(orders));
+                                        }
+                                    }
+                                    var $chip = $('#batllie-orders-switcher .batllie-switcher-chip[data-order-id="' + orderId + '"]');
+                                    if ($chip.length) {
+                                        $chip.find('.batllie-chip-dot').attr('class', 'batllie-chip-dot step-' + newStep);
+                                        $chip.find('.batllie-chip-step-txt').text(newLabel);
+                                    }
+                                } catch (err) {}
                             }
 
                             // Si el pedido ya pasó a "pagado" desde la caja, ocultar y remover la sección de comprobante
