@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.5.0
+ * Version: 1.5.1
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.5.0');
+define('EMP_CAJA_VERSION', '1.5.1');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -56,6 +56,7 @@ class Batllie_Caja_Plugin {
         add_filter('wc_order_statuses', array('Batllie_Caja_Orders', 'add_custom_order_statuses'));
         add_action('template_redirect', array($this, 'hide_admin_bar_on_caja'));
         add_action('wp_enqueue_scripts', array($this, 'register_assets'));
+        add_action('wp_head', array($this, 'render_mobile_cart_redirect_script'), 1);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
 
         // Admin hooks
@@ -475,6 +476,65 @@ class Batllie_Caja_Plugin {
                 <?php submit_button(__('Guardar Cambios de Configuración', 'emp-caja')); ?>
             </form>
         </div>
+        <?php
+    }
+
+    /**
+     * Redirigir el botón de carrito en móvil directamente a la página de carrito (/carrito/)
+     * en lugar de abrir el menú lateral desplegable.
+     */
+    public function render_mobile_cart_redirect_script() {
+        if (is_admin()) {
+            return;
+        }
+
+        $cart_url = function_exists('wc_get_cart_url') ? wc_get_cart_url() : home_url('/carrito/');
+        ?>
+        <script>
+        (function() {
+            var cartUrl = <?php echo json_encode($cart_url); ?>;
+
+            // Sobrescribir función global showWoocommerceCart si el tema la invoca por onclick
+            window.showWoocommerceCart = function(e) {
+                if (e && e.preventDefault) e.preventDefault();
+                window.location.href = cartUrl;
+                return false;
+            };
+
+            function fixMobileCartButtons() {
+                var buttons = document.querySelectorAll('#btn-woocommerce-cart, a[onclick*="showWoocommerceCart"], .btn-woocommerce-cart');
+                buttons.forEach(function(btn) {
+                    btn.setAttribute('href', cartUrl);
+                    btn.removeAttribute('onclick');
+                });
+            }
+
+            // Interceptar clics y toques en fase de captura para máxima prioridad
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('#btn-woocommerce-cart, a[onclick*="showWoocommerceCart"], .btn-woocommerce-cart');
+                if (btn) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    window.location.href = cartUrl;
+                }
+            }, true);
+
+            document.addEventListener('touchstart', function(e) {
+                var btn = e.target.closest('#btn-woocommerce-cart, a[onclick*="showWoocommerceCart"], .btn-woocommerce-cart');
+                if (btn) {
+                    btn.setAttribute('href', cartUrl);
+                    btn.removeAttribute('onclick');
+                }
+            }, { passive: true });
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', fixMobileCartButtons);
+            } else {
+                fixMobileCartButtons();
+            }
+            window.addEventListener('load', fixMobileCartButtons);
+        })();
+        </script>
         <?php
     }
 }
