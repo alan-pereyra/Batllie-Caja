@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.7.0');
+define('EMP_CAJA_VERSION', '1.7.1');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -124,7 +124,7 @@ class Batllie_Caja_Plugin {
             'status_pending'            => '#f59e0b', // 1. Pendiente (ámbar)
             'status_processing'         => '#3b82f6', // 2. En preparación (azul)
             'status_enviando'           => '#8b5cf6', // 3. Enviando (violeta)
-            'status_completed'          => '#10b981', // 4. Recibido (verde)
+            'status_completed'          => '#10b981', // 4. Completado (verde)
             'status_recibido_problema'  => '#ea580c', // 5. Recibido con inconvenientes (naranja)
             'status_cancelled'          => '#ef4444', // 6. Cancelado (rojo)
             'status_refunded'           => '#64748b', // 7. Reembolzado (gris pizarra)
@@ -440,7 +440,7 @@ class Batllie_Caja_Plugin {
                         <td><input type="text" name="batllie_caja_options[status_enviando]" value="<?php echo esc_attr($options['status_enviando']); ?>" class="caja-color-field" /></td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php _e('4. Recibido', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('4. Completado', 'emp-caja'); ?></th>
                         <td><input type="text" name="batllie_caja_options[status_completed]" value="<?php echo esc_attr($options['status_completed']); ?>" class="caja-color-field" /></td>
                     </tr>
                     <tr>

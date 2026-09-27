@@ -1283,7 +1283,7 @@
                                         <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
                                         <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${(!isPayApproved && order.status === 'pending') ? 'disabled' : ''}>En preparación${(!isPayApproved && order.status === 'pending') ? ' (requiere pago)' : ''}</option>
                                         <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''}>Enviando</option>
-                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Recibido</option>
+                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completado</option>
                                         <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
                                         <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
                                         <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
