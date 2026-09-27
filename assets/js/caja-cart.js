@@ -75,9 +75,6 @@
             // =====================================================================
             // 2. WooCommerce Cart Block (Gutenberg / React)
             // =====================================================================
-            // =====================================================================
-            // 2. WooCommerce Cart Block (Gutenberg / React)
-            // =====================================================================
             const $cartBlockRows = $('.wc-block-cart-items .wc-block-cart-items__row, .wc-block-cart-items tr.wc-block-cart-items__row, .wc-block-cart__item, .wc-block-cart-item');
             if ($cartBlockRows.length) {
                 let currentBoxPackId = null;
@@ -97,19 +94,16 @@
                         if (!isBox && !isChild) {
                             isBox = rowText.includes('caja de empaque') ||
                                     rowText.includes('empaque incluido') ||
+                                    rowText.includes('caja principal') ||
                                     $row.hasClass('batllie-combo-box-item');
 
                             isChild = !isBox && (
                                 rowText.includes('parte de') ||
-                                rowText.includes('incluido en la caja')
+                                rowText.includes('part of') ||
+                                rowText.includes('incluido en la caja') ||
+                                rowText.includes('included in box') ||
+                                $row.hasClass('batllie-combo-child-item')
                             );
-
-                            // Si estamos inmediatamente después de una caja activa y esta fila no es una nueva caja:
-                            // Es un producto hijo de la caja actual
-                            if (!isBox && !isChild && currentBoxPackId) {
-                                // Verificar si es un producto hijo ($0,00 o parte del lote de la caja)
-                                isChild = true;
-                            }
                         }
 
                         if (isBox) {
@@ -175,6 +169,64 @@
                         } else {
                             // Producto normal independiente fuera de cualquier caja
                             currentBoxPackId = null;
+
+                            // Limpiar clases de combo si las tenía previamente
+                            $row.removeClass('batllie-is-combo-child batllie-is-combo-box batllie-combo-delete-active')
+                                .removeAttr('data-batllie-pack-id');
+                            $row.removeClass(function (index, className) {
+                                return (className.match(/\bbatllie-[^\s]+/g) || []).join(' ');
+                            });
+
+                            // Asegurar que el botón de eliminar esté visible y habilitado
+                            $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], a.remove, button[aria-label*="eliminar"], button[aria-label*="Eliminar"], button[aria-label*="remove"], button[aria-label*="Remove"]')
+                                .show()
+                                .css({
+                                    'display': '',
+                                    'visibility': 'visible',
+                                    'pointer-events': 'auto',
+                                    'width': '',
+                                    'height': '',
+                                    'opacity': ''
+                                });
+
+                            // Asegurar que los precios y totales estén visibles
+                            $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-cart-item__total, .wc-block-components-formatted-money-amount, .wc-block-cart-item__total-price-and-sale-badge-wrapper, [class*="product-price"], [class*="item__prices"]')
+                                .show()
+                                .css({
+                                    'display': '',
+                                    'visibility': 'visible',
+                                    'opacity': '',
+                                    'height': '',
+                                    'overflow': '',
+                                    'font-size': '',
+                                    'line-height': '',
+                                    'min-height': ''
+                                });
+
+                            // Asegurar que los botones de cantidad y el input sean editables
+                            $row.find('.wc-block-components-quantity-selector__button, .emp-qty-btn, .plus, .minus')
+                                .show()
+                                .css({
+                                    'display': '',
+                                    'pointer-events': '',
+                                    'visibility': '',
+                                    'width': '',
+                                    'height': '',
+                                    'margin': '',
+                                    'padding': ''
+                                });
+
+                            $row.find('.wc-block-components-quantity-selector__input, input.qty')
+                                .prop('readonly', false)
+                                .removeAttr('tabindex')
+                                .css({
+                                    'pointer-events': '',
+                                    'border': '',
+                                    'background': ''
+                                });
+
+                            // Restaurar visualización de detalles
+                            $row.find('.wc-block-components-product-details').show();
                         }
                     } catch (rowError) {
                         console.error('Error procesando fila de carrito:', rowError);
