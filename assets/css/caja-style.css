@@ -1765,16 +1765,52 @@ body.batllie-caja-active .container {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 15px;
     margin-bottom: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .caja-products-search {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    gap: 12px;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.caja-products-search .caja-search-box {
+    flex: 1 1 280px;
+    min-width: 180px;
+    max-width: 420px;
+    width: auto;
+}
+
+.caja-products-search .caja-select,
+.caja-products-search .caja-select-filter {
+    flex: 0 1 210px;
+    min-width: 170px;
+    width: auto;
+    height: 46px !important;
+    box-sizing: border-box !important;
+}
+
+.caja-products-search #caja-filter-product-stock {
+    flex: 0 1 225px;
+    min-width: 195px;
+}
+
+/* En PC el botón volver a pedidos no debe estar */
+.caja-products-toolbar .caja-btn-screen-switch {
+    display: none !important;
+}
+
+.caja-products-actions-group #caja-btn-open-new-product {
+    height: 46px;
+    white-space: nowrap;
+    box-sizing: border-box;
 }
 
 .caja-products-table-wrapper {
@@ -2990,6 +3026,7 @@ span#edit-grouped-selected-badge {
     .caja-products-toolbar {
         flex-direction: column !important;
         align-items: stretch !important;
+        flex-wrap: wrap !important;
         gap: 10px !important;
         width: 100% !important;
         box-sizing: border-box !important;
@@ -2998,6 +3035,7 @@ span#edit-grouped-selected-badge {
     .caja-products-search {
         flex-direction: column !important;
         align-items: stretch !important;
+        flex-wrap: wrap !important;
         width: 100% !important;
         gap: 8px !important;
         box-sizing: border-box !important;
@@ -3005,6 +3043,16 @@ span#edit-grouped-selected-badge {
 
     .caja-products-search .caja-search-box {
         width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 auto !important;
+    }
+
+    .caja-products-search .caja-select,
+    .caja-products-search .caja-select-filter,
+    .caja-products-search #caja-filter-product-stock {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 1 1 auto !important;
     }
 
     .caja-products-actions-group {
@@ -3018,6 +3066,10 @@ span#edit-grouped-selected-badge {
         width: 100% !important;
         box-sizing: border-box !important;
         justify-content: center !important;
+    }
+
+    .caja-products-toolbar .caja-btn-screen-switch {
+        display: inline-flex !important;
     }
 
     .caja-btn#caja-btn-open-new-product {

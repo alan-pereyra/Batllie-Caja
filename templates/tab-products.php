@@ -20,11 +20,11 @@ if (!defined('ABSPATH')) {
                 <input type="text" id="caja-search-products" placeholder="<?php esc_attr_e('Buscar producto por nombre o SKU...', 'emp-caja'); ?>" />
             </div>
 
-            <select id="caja-filter-product-cat" class="caja-select">
+            <select id="caja-filter-product-cat" class="caja-select caja-select-filter">
                 <option value=""><?php _e('Todas las categorías', 'emp-caja'); ?></option>
             </select>
 
-            <select id="caja-filter-product-stock" class="caja-select">
+            <select id="caja-filter-product-stock" class="caja-select caja-select-filter">
                 <option value=""><?php _e('Todos los niveles de stock', 'emp-caja'); ?></option>
                 <option value="instock"><?php _e('✅ En stock', 'emp-caja'); ?></option>
                 <option value="lowstock"><?php _e('⚠️ Stock bajo (≤ 5)', 'emp-caja'); ?></option>
