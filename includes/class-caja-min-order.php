@@ -98,9 +98,29 @@ class Batllie_Caja_Min_Order {
         $is_below  = (!$is_empty && $amount < $min);
         $missing   = max(0.0, $min - $amount);
         $pct       = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
-        $shop_url  = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/');
-        $cart_url  = function_exists('wc_get_cart_url') ? wc_get_cart_url() : home_url('/carrito/');
         $options   = Batllie_Caja_Plugin::get_color_settings();
+
+        // Inyectar variables de paleta configurable para frontend (Modal y Banner de Carrito)
+        $custom_css = "
+        :root, #batllie-min-order-backdrop, #batllie-min-order-modal, #batllie-min-order-cart-banner {
+            --caja-bg: {$options['bg_color']};
+            --caja-header-bg: {$options['header_bg']};
+            --caja-card-bg: {$options['card_bg']};
+            --caja-card-border: {$options['card_border']};
+            --caja-text: {$options['text_color']};
+            --caja-text-muted: {$options['text_muted']};
+            --caja-primary: {$options['primary_color']};
+            --caja-primary-hover: {$options['primary_hover']};
+            --caja-btn-text: {$options['btn_text']};
+            --caja-status-pending: {$options['status_pending']};
+            --caja-status-processing: {$options['status_processing']};
+            --caja-status-enviando: {$options['status_enviando']};
+            --caja-status-completed: {$options['status_completed']};
+            --caja-status-recibido-problema: {$options['status_recibido_problema']};
+            --caja-status-cancelled: {$options['status_cancelled']};
+            --caja-status-refunded: {$options['status_refunded']};
+        }";
+        wp_add_inline_style('batllie-caja-min-order-css', $custom_css);
 
         wp_localize_script('batllie-caja-min-order-js', 'batllieMinOrderConfig', array(
             'ajaxUrl'          => admin_url('admin-ajax.php'),
@@ -263,7 +283,19 @@ class Batllie_Caja_Min_Order {
         <div id="batllie-min-order-cart-banner" class="batllie-min-order-banner <?php echo $is_below ? 'is-below' : 'is-met'; ?>">
             <div class="batllie-min-banner-inner">
                 <div class="batllie-min-banner-icon">
-                    <?php echo $is_below ? '⚠️' : '🎉'; ?>
+                    <div class="batllie-min-banner-icon-box icon-warning">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div class="batllie-min-banner-icon-box icon-success">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
                 </div>
                 <div class="batllie-min-banner-content">
                     <?php if ($is_below): ?>
@@ -312,7 +344,13 @@ class Batllie_Caja_Min_Order {
                 <button type="button" class="batllie-min-modal-close" id="batllie-min-modal-close-btn" aria-label="<?php esc_attr_e('Cerrar aviso', 'emp-caja'); ?>">&times;</button>
                 
                 <div class="batllie-min-modal-header">
-                    <div class="batllie-min-modal-icon">⚠️</div>
+                    <div class="batllie-min-modal-icon-box">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
                     <h3 id="batllie-min-modal-title" class="batllie-min-modal-title"><?php _e('Monto Mínimo de Compra', 'emp-caja'); ?></h3>
                     <p class="batllie-min-modal-desc"><?php _e('Para poder finalizar tu compra y proceder al pago, tu pedido debe alcanzar el mínimo establecido por la tienda.', 'emp-caja'); ?></p>
                 </div>
@@ -338,13 +376,18 @@ class Batllie_Caja_Min_Order {
                     </div>
 
                     <p class="batllie-min-modal-tip">
-                        <span>💡</span> <?php _e('Agrega algún producto más a tu carrito para alcanzar el importe mínimo y poder ir a pagar.', 'emp-caja'); ?>
+                        <?php _e('💡 Agrega algún producto más a tu carrito para alcanzar el importe mínimo y poder ir a pagar.', 'emp-caja'); ?>
                     </p>
                 </div>
 
                 <div class="batllie-min-modal-footer">
                     <a href="<?php echo esc_url($shop_url); ?>" class="batllie-min-btn batllie-min-btn-shop">
-                        🛒 <?php _e('Seguir Comprando', 'emp-caja'); ?>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                        <span><?php _e('Seguir Comprando', 'emp-caja'); ?></span>
                     </a>
                     <button type="button" class="batllie-min-btn batllie-min-btn-dismiss" id="batllie-min-modal-dismiss-btn">
                         <?php _e('Volver al Carrito', 'emp-caja'); ?>

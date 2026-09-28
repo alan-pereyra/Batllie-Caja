@@ -129,13 +129,11 @@
                     if ($banner.length) {
                         if (data.is_below_min) {
                             $banner.removeClass('is-met').addClass('is-below');
-                            $banner.find('.batllie-min-banner-icon').text('⚠️');
                             $banner.find('.batllie-min-banner-title').html('Monto mínimo de compra: <strong class="batllie-min-val">' + data.min_formatted + '</strong>');
                             $banner.find('.batllie-banner-missing-text').html(data.missing_formatted);
                             $banner.find('.batllie-min-banner-progress-bar').css('width', data.percentage + '%');
                         } else {
                             $banner.removeClass('is-below').addClass('is-met');
-                            $banner.find('.batllie-min-banner-icon').text('🎉');
                             $banner.find('.batllie-min-banner-title').text((config.i18n && config.i18n.successTitle) || '¡Monto mínimo de compra alcanzado!');
                             $banner.find('.batllie-min-banner-subtitle').text((config.i18n && config.i18n.successSubtitle) || 'Ya puedes ir a pagar tu pedido sin inconvenientes.');
                             $banner.find('.batllie-min-banner-progress-bar').css('width', '100%');
