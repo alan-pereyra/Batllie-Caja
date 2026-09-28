@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.7.3
+ * Version: 1.7.4
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.7.3');
+define('EMP_CAJA_VERSION', '1.7.4');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -46,6 +46,9 @@ class Batllie_Caja_Plugin {
 
         // Inicializar módulo de productos agrupados / packs con cantidad fija y precio dinámico
         Batllie_Caja_Grouped::init();
+
+        // Inicializar módulo de monto mínimo de compra en la tienda
+        Batllie_Caja_Min_Order::init();
 
         // Hacer obligatorio el número de teléfono en WooCommerce checkout
         Batllie_Caja_Orders::make_phone_required_hooks();
@@ -77,6 +80,7 @@ class Batllie_Caja_Plugin {
         require_once EMP_CAJA_PATH . 'includes/class-caja-ajax.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-tracking.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-grouped.php';
+        require_once EMP_CAJA_PATH . 'includes/class-caja-min-order.php';
     }
 
     /**
@@ -130,7 +134,8 @@ class Batllie_Caja_Plugin {
             'status_refunded'           => '#64748b', // 7. Reembolzado (gris pizarra)
             'poll_interval'             => 10,        // Segundos de sondeo
             'sound_enabled'             => 'yes',     // Sonido activo por defecto
-            'force_isolated'            => 'yes'      // Ocultar cabeceras y pie del tema en la vista
+            'force_isolated'            => 'yes',     // Ocultar cabeceras y pie del tema en la vista
+            'min_purchase_amount'       => 0          // Monto mínimo de compra en la tienda (0 = desactivado)
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -355,9 +360,10 @@ class Batllie_Caja_Plugin {
             }
         }
 
-        $output['poll_interval']  = isset($input['poll_interval']) ? max(5, intval($input['poll_interval'])) : 10;
-        $output['sound_enabled']  = (isset($input['sound_enabled']) && $input['sound_enabled'] === 'yes') ? 'yes' : 'no';
-        $output['force_isolated'] = (isset($input['force_isolated']) && $input['force_isolated'] === 'yes') ? 'yes' : 'no';
+        $output['poll_interval']        = isset($input['poll_interval']) ? max(5, intval($input['poll_interval'])) : 10;
+        $output['sound_enabled']        = (isset($input['sound_enabled']) && $input['sound_enabled'] === 'yes') ? 'yes' : 'no';
+        $output['force_isolated']       = (isset($input['force_isolated']) && $input['force_isolated'] === 'yes') ? 'yes' : 'no';
+        $output['min_purchase_amount']  = isset($input['min_purchase_amount']) ? max(0, floatval(str_replace(',', '.', trim($input['min_purchase_amount'])))) : 0;
 
         return $output;
     }
@@ -482,6 +488,19 @@ class Batllie_Caja_Plugin {
                                 <input type="checkbox" name="batllie_caja_options[force_isolated]" value="yes" <?php checked($options['force_isolated'], 'yes'); ?> />
                                 <?php _e('Ocultar automáticamente menús, cabecera y pie de página del tema en la página de caja', 'emp-caja'); ?>
                             </label>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2><?php _e('🛒 Mínimo de Compra en la Tienda', 'emp-caja'); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php _e('Monto Mínimo de Compra ($)', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="number" step="any" min="0" name="batllie_caja_options[min_purchase_amount]" value="<?php echo esc_attr($options['min_purchase_amount'] ?? 0); ?>" class="regular-text" placeholder="0 (desactivado)" />
+                            <p class="description">
+                                <?php _e('Define el importe mínimo que debe sumar el carrito para que un cliente pueda ir a pagar. Si no alcanza este monto, el sistema le impedirá finalizar la compra y le indicará en una alerta y en el carrito exactamente cuánto le falta para llegar al mínimo. Coloca 0 o déjalo vacío para desactivar la restricción.', 'emp-caja'); ?>
+                            </p>
                         </td>
                     </tr>
                 </table>
