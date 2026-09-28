@@ -23,8 +23,6 @@ class Batllie_Caja_Min_Order {
 
         // Verificación de ítems en carrito / checkout (WooCommerce notices)
         add_action('woocommerce_check_cart_items', array(__CLASS__, 'validate_cart_items'));
-        add_action('woocommerce_cart_updated', array(__CLASS__, 'validate_cart_items'));
-        add_action('woocommerce_before_calculate_totals', array(__CLASS__, 'validate_cart_items'), 5);
 
         // Validación al enviar el pedido en checkout clásico
         add_action('woocommerce_after_checkout_validation', array(__CLASS__, 'validate_checkout_order'), 10, 2);

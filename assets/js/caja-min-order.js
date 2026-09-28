@@ -1,13 +1,10 @@
 /**
  * Batllie Caja - Control de Mínimo de Compra en el Frontend
- * Sincronización en tiempo real ante cualquier cambio en el carrito:
- * - Interceptación de Fetch de WooCommerce Blocks (Store API)
- * - Suscripción al Store de WordPress Data (@wordpress/data)
- * - Observación de mutaciones DOM y eventos jQuery clásicos
- * - Verificación en tiempo real al hacer clic en pagar (Checkout)
- * 
- * Regla: El cartel de aviso de monto mínimo NO se puede descartar manualmente
- * por el usuario; solo se elimina automáticamente cuando el carrito alcanza el monto mínimo.
+ * Sincronización en tiempo real sin recargar página:
+ * - Integración nativa con @wordpress/data para WooCommerce Blocks
+ * - Detección de cambios de subtotal y cálculo dinámico de faltante
+ * - Verificación antes de proceder al checkout
+ * - Cartel de aviso persistente (sin botón de cerrar) que se remueve automáticamente al alcanzar el mínimo
  */
 
 (function ($) {
@@ -18,6 +15,8 @@
     if (minAmount <= 0) {
         return; // Límite desactivado
     }
+
+    let lastKnownAmount = parseFloat(config.currentAmount) || 0;
 
     const CHECKOUT_SELECTORS = [
         'a.checkout-button',
@@ -80,29 +79,6 @@
     }
 
     /**
-     * Eliminar botones de descarte (✕) de notices relacionadas con el monto mínimo.
-     */
-    function removeNoticeDismissButtons() {
-        const notices = document.querySelectorAll(
-            '.wc-block-components-notice-banner, .woocommerce-error, .woocommerce-message, .woocommerce-NoticeGroup, [role="alert"]'
-        );
-
-        notices.forEach(function (notice) {
-            const text = (notice.textContent || '').toLowerCase();
-            if (text.includes('mínimo') || text.includes('minimo') || text.includes('faltan')) {
-                notice.classList.add('batllie-min-order-persistent-notice');
-                
-                const dismissButtons = notice.querySelectorAll(
-                    '.wc-block-components-notice-banner__dismiss-button, .notice-dismiss, .close, button.close, a.close, [aria-label*="dismiss" i], [aria-label*="descartar" i], [aria-label*="cerrar" i], [aria-label*="close" i]'
-                );
-                dismissButtons.forEach(function (btn) {
-                    btn.remove();
-                });
-            }
-        });
-    }
-
-    /**
      * Quitar el cartel de monto mínimo del DOM y de los stores de React (WooCommerce Blocks)
      */
     function removeMinOrderNoticeElements() {
@@ -143,7 +119,6 @@
                 const $notice = $(this);
                 $notice.addClass('batllie-min-order-persistent-notice');
                 $notice.show();
-                $notice.find('.wc-block-components-notice-banner__dismiss-button, .notice-dismiss, .close, [aria-label*="dismiss" i], [aria-label*="descartar" i], [aria-label*="cerrar" i]').remove();
 
                 const $content = $notice.find('.wc-block-components-notice-banner__content, p, span').first();
                 if ($content.length) {
@@ -189,12 +164,10 @@
 
         const isBelow = (currentAmount > 0 && currentAmount < minAmount);
         const missing = Math.max(0, Math.round((minAmount - currentAmount) * 100) / 100);
-        const pct = minAmount > 0 ? Math.min(100, Math.round((currentAmount / minAmount) * 100)) : 100;
 
         config.currentAmount = currentAmount;
         config.missingAmount = missing;
         config.isBelowMin = isBelow;
-        config.percentage = pct;
 
         const minFormatted = formatMoney(minAmount);
         const currentFormatted = formatMoney(currentAmount);
@@ -207,16 +180,12 @@
         $('.batllie-stat-min').html(minFormatted);
         $('.batllie-stat-current').html(currentFormatted);
         $('.batllie-stat-missing').html(missingFormatted);
-        $('.batllie-min-progress-bar').css('width', pct + '%');
 
         if (!isBelow) {
-            // ¡Monto alcanzado o carrito vacío! Cerrar modal si estaba abierto y quitar el cartel de aviso
             closeModal();
             removeMinOrderNoticeElements();
         } else {
-            // Por debajo del mínimo: actualizar textos de notices existentes
             updateNoticeTexts(minFormatted, missingFormatted);
-            removeNoticeDismissButtons();
         }
 
         // Actualizar banner si existe en la página de carrito
@@ -226,12 +195,10 @@
                 $banner.removeClass('is-met').addClass('is-below');
                 $banner.find('.batllie-min-banner-title').html('Monto mínimo de compra: <strong class="batllie-min-val">' + minFormatted + '</strong>');
                 $banner.find('.batllie-banner-missing-text').html(missingFormatted);
-                $banner.find('.batllie-min-banner-progress-bar').css('width', pct + '%');
             } else {
                 $banner.removeClass('is-below').addClass('is-met');
                 $banner.find('.batllie-min-banner-title').text((config.i18n && config.i18n.successTitle) || '¡Monto mínimo de compra alcanzado!');
                 $banner.find('.batllie-min-banner-subtitle').text((config.i18n && config.i18n.successSubtitle) || 'Ya puedes ir a pagar tu pedido sin inconvenientes.');
-                $banner.find('.batllie-min-banner-progress-bar').css('width', '100%');
             }
         }
     }
@@ -239,69 +206,23 @@
     /**
      * Leer el monto del carrito desde el Store de Gutenberg / WooCommerce Blocks
      */
-    function readWpDataCart() {
+    function checkWpCart() {
+        if (!window.wp || !window.wp.data || !window.wp.data.select) return;
         try {
-            if (window.wp && window.wp.data && window.wp.data.select) {
-                const cartStore = window.wp.data.select('wc/store/cart');
-                if (cartStore && typeof cartStore.getCartData === 'function') {
-                    const cartData = cartStore.getCartData();
-                    if (cartData && cartData.totals) {
-                        const raw = cartData.totals.total_items || cartData.totals.total_price || 0;
-                        const unit = cartData.totals.currency_minor_unit !== undefined ? cartData.totals.currency_minor_unit : 2;
-                        return parseFloat(raw) / Math.pow(10, unit);
-                    }
-                }
+            const cartStore = window.wp.data.select('wc/store/cart');
+            if (!cartStore || typeof cartStore.getCartData !== 'function') return;
+            const cartData = cartStore.getCartData();
+            if (!cartData || !cartData.totals) return;
+
+            const raw = cartData.totals.total_items || cartData.totals.total_price || 0;
+            const unit = cartData.totals.currency_minor_unit !== undefined ? cartData.totals.currency_minor_unit : 2;
+            const amt = parseFloat(raw) / Math.pow(10, unit);
+
+            if (amt !== lastKnownAmount) {
+                lastKnownAmount = amt;
+                applyCartState(amt);
             }
         } catch (e) {}
-        return null;
-    }
-
-    /**
-     * Leer el monto del carrito directamente del DOM como respaldo
-     */
-    function readDomCartTotal() {
-        const elements = document.querySelectorAll(
-            '.wp-block-woocommerce-cart-order-summary-subtotal-block .wc-block-formatted-money-amount, ' +
-            '.wc-block-components-totals-subtotal .wc-block-formatted-money-amount, ' +
-            '.cart-subtotal .woocommerce-Price-amount bdi, ' +
-            '.order-total .woocommerce-Price-amount bdi, ' +
-            '.wc-block-components-totals-item__value'
-        );
-        for (let i = 0; i < elements.length; i++) {
-            const text = elements[i].textContent || '';
-            const cleaned = text.replace(/[^0-9,\.]/g, '').trim();
-            if (cleaned) {
-                let val;
-                if (cleaned.includes(',')) {
-                    val = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-                } else {
-                    val = parseFloat(cleaned);
-                }
-                if (!isNaN(val) && val > 0) {
-                    return val;
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Refrescar el estado del carrito desde la mejor fuente disponible inmediatamente
-     */
-    function refreshCartState() {
-        const wpAmt = readWpDataCart();
-        if (wpAmt !== null) {
-            applyCartState(wpAmt);
-            return wpAmt;
-        }
-
-        const domAmt = readDomCartTotal();
-        if (domAmt !== null) {
-            applyCartState(domAmt);
-            return domAmt;
-        }
-
-        return null;
     }
 
     /**
@@ -309,8 +230,6 @@
      */
     let isSyncing = false;
     function syncMinOrderStatus() {
-        refreshCartState();
-
         if (isSyncing) return;
         isSyncing = true;
 
@@ -324,6 +243,7 @@
             },
             success: function (res) {
                 if (res && res.success && res.data) {
+                    lastKnownAmount = res.data.current_amount;
                     applyCartState(res.data.current_amount);
                 }
             },
@@ -334,34 +254,7 @@
     }
 
     // =========================================================================
-    // 1. Interceptar Fetch de WooCommerce Blocks (Store API en Tiempo Real)
-    // =========================================================================
-    if (window.fetch) {
-        const originalFetch = window.fetch;
-        window.fetch = function () {
-            const args = arguments;
-            const url = (args[0] && (typeof args[0] === 'string' ? args[0] : args[0].url)) || '';
-
-            return originalFetch.apply(this, args).then(function (response) {
-                if (url.indexOf('/wc/store/v1/cart') !== -1) {
-                    try {
-                        response.clone().json().then(function (cartData) {
-                            if (cartData && cartData.totals) {
-                                const raw = cartData.totals.total_items || cartData.totals.total_price || 0;
-                                const unit = cartData.totals.currency_minor_unit !== undefined ? cartData.totals.currency_minor_unit : 2;
-                                const currentAmt = parseFloat(raw) / Math.pow(10, unit);
-                                applyCartState(currentAmt);
-                            }
-                        }).catch(function () {});
-                    } catch (err) {}
-                }
-                return response;
-            });
-        };
-    }
-
-    // =========================================================================
-    // 2. Intercepción de Clics en Fase de Captura (Máxima Prioridad)
+    // Intercepción de Clics en Fase de Captura (Máxima Prioridad)
     // =========================================================================
     document.addEventListener('click', function (e) {
         // A. Bloquear intentos de descartar el cartel de monto mínimo
@@ -375,8 +268,6 @@
                 if (text.includes('mínimo') || text.includes('minimo') || text.includes('faltan')) {
                     e.preventDefault();
                     e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    dismissTrigger.remove();
                     return false;
                 }
             }
@@ -385,15 +276,15 @@
         // B. Interceptar clic en botón de checkout si está por debajo del mínimo
         const trigger = findCheckoutTrigger(e.target);
         if (trigger) {
-            // Re-evaluar estado del carrito en este milisegundo exacto
-            refreshCartState();
+            // Verificar estado en este instante
+            checkWpCart();
 
-            // Si el monto alcanza el mínimo, ¡permitir pagar sin trabas!
+            // Si el monto alcanza el mínimo, permitir avanzar normalmente
             if (!config.isBelowMin) {
                 return true;
             }
 
-            // SÓLO si realmente no alcanza el mínimo, bloquear y abrir modal informativo
+            // Si no alcanza el mínimo, bloquear y abrir modal informativo
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -409,31 +300,26 @@
 
             return false;
         }
-    }, true); // useCapture = true garantiza ejecución antes que cualquier otro handler
+    }, true);
 
     // =========================================================================
-    // 3. Inicialización y Observación de Cambios en el Carrito
+    // Inicialización y Observación de Cambios en el Carrito
     // =========================================================================
     $(document).ready(function () {
-        removeNoticeDismissButtons();
-
         // Aplicar estado inicial
         if (config.currentAmount !== undefined) {
             applyCartState(config.currentAmount);
-        } else {
-            refreshCartState();
         }
 
         // Suscripción al store de WordPress Data (@wordpress/data)
         if (window.wp && window.wp.data && window.wp.data.subscribe) {
             window.wp.data.subscribe(function () {
-                removeNoticeDismissButtons();
-                const amt = readWpDataCart();
-                if (amt !== null && amt !== config.currentAmount) {
-                    applyCartState(amt);
-                }
+                checkWpCart();
             });
         }
+
+        // Chequeo periódico suave (cada 700ms) para detectar cambios en el carrito de bloques
+        setInterval(checkWpCart, 700);
 
         // Eventos de cierre del modal
         $(document).on('click', '#batllie-min-modal-close-btn, #batllie-min-modal-dismiss-btn', function (e) {
@@ -455,23 +341,8 @@
 
         // Escuchar eventos de actualización de carrito en WooCommerce clásico
         $(document.body).on('updated_wc_div updated_cart_totals added_to_cart removed_from_cart wc_fragments_refreshed wc_fragments_loaded', function () {
-            removeNoticeDismissButtons();
             syncMinOrderStatus();
         });
-
-        // Escuchar cambios DOM para WooCommerce Blocks (Gutenberg / React)
-        if (window.MutationObserver) {
-            let debounceTimer = null;
-            const observer = new MutationObserver(function () {
-                removeNoticeDismissButtons();
-                refreshCartState();
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(syncMinOrderStatus, 180);
-            });
-
-            const targetNode = document.querySelector('.woocommerce-cart, .wc-block-cart, .wp-block-woocommerce-cart, form.woocommerce-cart-form') || document.body;
-            observer.observe(targetNode, { childList: true, subtree: true });
-        }
     });
 
 })(jQuery);
