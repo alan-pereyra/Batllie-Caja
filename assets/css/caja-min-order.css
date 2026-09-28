@@ -1,6 +1,7 @@
 /**
  * Batllie Caja - Estilos para Mínimo de Compra en Carrito y Modal de Pago
  * Diseño 100% homogéneo con el panel de Caja y controlable desde la administración.
+ * Estilo totalmente plano (sin box-shadows, sin bordes claros excepto en el botón "Volver al Carrito").
  */
 
 /* ==========================================================================
@@ -36,7 +37,7 @@
 }
 
 /* ==========================================================================
-   1. Banner Informativo en Página del Carrito
+   1. Banner Informativo en Página del Carrito (Plano, sin box-shadows ni bordes)
    ========================================================================== */
 
 .batllie-min-order-banner {
@@ -48,22 +49,23 @@
     overflow: hidden;
     font-family: inherit;
     box-sizing: border-box;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    box-shadow: none !important;
+    border: none !important;
 }
 
 /* Estado: Por debajo del mínimo requerido */
 .batllie-min-order-banner.is-below {
     background: color-mix(in srgb, var(--caja-status-pending, #f59e0b) 12%, var(--caja-card-bg, #1e293b));
-    border: 1px solid color-mix(in srgb, var(--caja-status-pending, #f59e0b) 45%, var(--caja-card-border, #334155));
-    border-left: 5px solid var(--caja-status-pending, #f59e0b);
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-text, #f8fafc);
 }
 
 /* Estado: Mínimo alcanzado */
 .batllie-min-order-banner.is-met {
     background: color-mix(in srgb, var(--caja-status-completed, #10b981) 12%, var(--caja-card-bg, #1e293b));
-    border: 1px solid color-mix(in srgb, var(--caja-status-completed, #10b981) 45%, var(--caja-card-border, #334155));
-    border-left: 5px solid var(--caja-status-completed, #10b981);
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-text, #f8fafc);
 }
 
@@ -85,12 +87,15 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .batllie-min-order-banner.is-below .icon-warning {
     display: flex;
     background: color-mix(in srgb, var(--caja-status-pending, #f59e0b) 20%, transparent);
-    border: 1px solid color-mix(in srgb, var(--caja-status-pending, #f59e0b) 50%, transparent);
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-status-pending, #f59e0b);
 }
 
@@ -105,7 +110,8 @@
 .batllie-min-order-banner.is-met .icon-success {
     display: flex;
     background: color-mix(in srgb, var(--caja-status-completed, #10b981) 20%, transparent);
-    border: 1px solid color-mix(in srgb, var(--caja-status-completed, #10b981) 50%, transparent);
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-status-completed, #10b981);
 }
 
@@ -139,8 +145,9 @@
 /* Barra de Progreso en el Banner */
 .batllie-min-banner-progress-wrap {
     height: 8px;
-    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 80%, transparent);
-    border: 1px solid var(--caja-card-border, #334155);
+    background: rgba(0, 0, 0, 0.22);
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 9999px;
     overflow: hidden;
     width: 100%;
@@ -148,7 +155,7 @@
 
 .batllie-min-order-banner.is-below .batllie-min-banner-progress-bar {
     background: linear-gradient(90deg, var(--caja-status-pending, #f59e0b), var(--caja-status-cancelled, #ef4444));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--caja-status-pending, #f59e0b) 40%, transparent);
+    box-shadow: none !important;
     height: 100%;
     border-radius: 9999px;
     transition: width 0.4s ease;
@@ -156,7 +163,7 @@
 
 .batllie-min-order-banner.is-met .batllie-min-banner-progress-bar {
     background: linear-gradient(90deg, var(--caja-primary, #10b981), var(--caja-primary-hover, #059669));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--caja-primary, #10b981) 40%, transparent);
+    box-shadow: none !important;
     height: 100%;
     border-radius: 9999px;
     transition: width 0.4s ease;
@@ -192,7 +199,7 @@
 
 
 /* ==========================================================================
-   3. Modal Emergente "Monto Mínimo de Compra" (Estilo Homogéneo Batllie Caja)
+   3. Modal Emergente "Monto Mínimo de Compra" (Totalmente Plano, sin Sombras ni Bordes Claros)
    ========================================================================== */
 
 .batllie-min-order-backdrop {
@@ -209,19 +216,21 @@
     box-sizing: border-box;
     opacity: 0;
     transition: opacity 0.25s ease;
+    box-shadow: none !important;
 }
 
 .batllie-min-order-backdrop.is-visible {
     opacity: 1;
 }
 
+/* Tarjeta del Modal: Plano, sin bordes y sin sombras */
 .batllie-min-order-modal {
     background: var(--caja-card-bg, #1e293b);
-    border: 1px solid var(--caja-card-border, #334155);
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 16px;
     max-width: 460px;
     width: 100%;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px color-mix(in srgb, var(--caja-text, #ffffff) 6%, transparent);
     color: var(--caja-text, #f8fafc);
     position: relative;
     overflow: hidden;
@@ -235,20 +244,21 @@
     transform: scale(1);
 }
 
-/* Botón cerrar X */
+/* Botón cerrar X: Totalmente plano, sin bordes */
 .batllie-min-modal-close {
     position: absolute;
     top: 16px;
     right: 16px;
-    background: color-mix(in srgb, var(--caja-text, #ffffff) 8%, transparent);
-    border: 1px solid var(--caja-card-border, #334155);
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 50%;
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1;
     color: var(--caja-text-muted, #94a3b8);
     cursor: pointer;
@@ -257,17 +267,19 @@
 }
 
 .batllie-min-modal-close:hover {
-    background: color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 20%, transparent);
-    border-color: color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 45%, transparent);
-    color: var(--caja-status-cancelled, #ef4444);
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--caja-text, #ffffff) !important;
     transform: scale(1.06);
 }
 
-/* Encabezado del Modal */
+/* Encabezado del Modal: Plano, sin línea divisoria inferior */
 .batllie-min-modal-header {
-    background: var(--caja-header-bg, #0f172a);
-    border-bottom: 1px solid var(--caja-card-border, #334155);
-    padding: 24px 22px 18px;
+    background: var(--caja-card-bg, #1e293b);
+    border-bottom: none !important;
+    box-shadow: none !important;
+    padding: 24px 22px 14px;
     text-align: center;
 }
 
@@ -276,19 +288,13 @@
     height: 52px;
     border-radius: 14px;
     background: color-mix(in srgb, var(--caja-status-pending, #f59e0b) 16%, transparent);
-    border: 1px solid color-mix(in srgb, var(--caja-status-pending, #f59e0b) 40%, transparent);
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-status-pending, #f59e0b);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 12px auto;
-    box-shadow: 0 0 16px color-mix(in srgb, var(--caja-status-pending, #f59e0b) 25%, transparent);
-    animation: batlliePulsePending 2s infinite ease-in-out;
-}
-
-@keyframes batlliePulsePending {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
 }
 
 .batllie-min-modal-title {
@@ -307,25 +313,27 @@
     line-height: 1.45;
 }
 
-/* Cuerpo del Modal */
+/* Cuerpo del Modal: Plano */
 .batllie-min-modal-body {
-    padding: 20px 22px 16px;
+    padding: 14px 22px 16px;
     background: var(--caja-card-bg, #1e293b);
+    box-shadow: none !important;
 }
 
+/* Contenedor de estadísticas: Sin borde exterior (plano) */
 .batllie-min-modal-stats {
-    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 60%, var(--caja-card-bg, #1e293b));
-    border: 1px solid var(--caja-card-border, #334155);
-    border-radius: 12px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 8px 4px 14px 4px;
+    margin-bottom: 14px;
 }
 
 .batllie-min-stat-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     margin-bottom: 10px;
     color: var(--caja-text-muted, #94a3b8);
 }
@@ -340,10 +348,11 @@
     color: var(--caja-text, #ffffff);
 }
 
+/* Línea de puntos entre "Tu carrito actual" y "Te faltan para llegar" (Preservada a pedido) */
 .batllie-min-stat-row.batllie-stat-missing-row {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px dashed var(--caja-card-border, #334155);
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--caja-card-border, rgba(255, 255, 255, 0.22)) !important;
     margin-bottom: 0;
 }
 
@@ -357,14 +366,15 @@
     font-size: 1.4rem;
     font-weight: 800;
     color: var(--caja-status-cancelled, #ef4444);
-    text-shadow: 0 0 12px color-mix(in srgb, var(--caja-status-cancelled, #ef4444) 30%, transparent);
+    text-shadow: none !important;
 }
 
-/* Barra de Progreso en el Modal */
+/* Barra de Progreso en el Modal: Plano, sin bordes ni sombras */
 .batllie-min-progress-wrap {
-    height: 9px;
-    background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 80%, transparent);
-    border: 1px solid var(--caja-card-border, #334155);
+    height: 8px;
+    background: rgba(0, 0, 0, 0.22);
+    border: none !important;
+    box-shadow: none !important;
     border-radius: 9999px;
     overflow: hidden;
     margin-bottom: 14px;
@@ -373,7 +383,8 @@
 .batllie-min-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, var(--caja-status-pending, #f59e0b), var(--caja-status-cancelled, #ef4444));
-    box-shadow: 0 0 10px color-mix(in srgb, var(--caja-status-pending, #f59e0b) 40%, transparent);
+    box-shadow: none !important;
+    border: none !important;
     border-radius: 9999px;
     transition: width 0.4s ease;
 }
@@ -386,13 +397,14 @@
     text-align: center;
 }
 
-/* Pie del Modal */
+/* Pie del Modal: Plano, sin línea divisoria superior */
 .batllie-min-modal-footer {
     display: flex;
     gap: 12px;
-    padding: 16px 22px 18px;
-    background: var(--caja-header-bg, #0f172a);
-    border-top: 1px solid var(--caja-card-border, #334155);
+    padding: 12px 22px 20px;
+    background: var(--caja-card-bg, #1e293b);
+    border-top: none !important;
+    box-shadow: none !important;
 }
 
 .batllie-min-btn {
@@ -410,35 +422,38 @@
     transition: all 0.2s ease;
     border: none;
     box-sizing: border-box;
+    box-shadow: none !important;
 }
 
-/* Botón Primario ("Seguir Comprando") - Idéntico a .caja-btn-primary */
+/* Botón Primario ("Seguir Comprando"): Totalmente plano, sin bordes ni sombras */
 .batllie-min-btn-shop {
     background: var(--caja-primary, #10b981) !important;
     color: var(--caja-btn-text, #ffffff) !important;
-    border: 1px solid var(--caja-primary, #10b981) !important;
-    box-shadow: 0 4px 14px color-mix(in srgb, var(--caja-primary, #10b981) 30%, transparent) !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .batllie-min-btn-shop:hover {
     background: var(--caja-primary-hover, #059669) !important;
-    border-color: var(--caja-primary-hover, #059669) !important;
+    border: none !important;
+    box-shadow: none !important;
     color: var(--caja-btn-text, #ffffff) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 6px 18px color-mix(in srgb, var(--caja-primary, #10b981) 45%, transparent) !important;
 }
 
-/* Botón Secundario ("Volver al Carrito") - Idéntico a .caja-btn-secondary */
+/* Botón Secundario ("Volver al Carrito"): ÚNICO botón con borde conservado */
 .batllie-min-btn-dismiss {
-    background: color-mix(in srgb, var(--caja-text, #ffffff) 8%, transparent) !important;
+    background: transparent !important;
     color: var(--caja-text, #f8fafc) !important;
-    border: 1px solid var(--caja-card-border, #334155) !important;
+    border: 1px solid var(--caja-card-border, rgba(255, 255, 255, 0.22)) !important;
+    box-shadow: none !important;
 }
 
 .batllie-min-btn-dismiss:hover {
-    background: color-mix(in srgb, var(--caja-text, #ffffff) 14%, transparent) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
     border-color: var(--caja-text-muted, #94a3b8) !important;
     color: var(--caja-text, #ffffff) !important;
+    box-shadow: none !important;
 }
 
 /* Adaptación Responsiva */
@@ -448,13 +463,13 @@
         border-radius: 14px;
     }
     .batllie-min-modal-header {
-        padding: 20px 16px 14px;
+        padding: 20px 16px 12px;
     }
     .batllie-min-modal-body {
-        padding: 16px;
+        padding: 12px 16px 14px;
     }
     .batllie-min-modal-footer {
         flex-direction: column;
-        padding: 14px 16px 16px;
+        padding: 10px 16px 18px;
     }
 }
