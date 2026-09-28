@@ -66,7 +66,6 @@ if (!defined('ABSPATH')) {
                     <th><?php _e('Stock', 'emp-caja'); ?></th>
                     <th><?php _e('Precio', 'emp-caja'); ?></th>
                     <th><?php _e('Categoría', 'emp-caja'); ?></th>
-                    <th><?php _e('SKU', 'emp-caja'); ?></th>
                     <th style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
                 </tr>
             </thead>
@@ -214,7 +213,7 @@ if (!defined('ABSPATH')) {
                     <div class="caja-stock-prod-info">
                         <strong id="stock-modal-prod-title"></strong>
                         <div class="caja-stock-prod-meta">
-                            <span class="caja-sku-badge" id="stock-modal-sku"></span>
+                            <span class="caja-sku-badge" id="stock-modal-sku" style="display:none !important;"></span>
                             <span class="caja-cat-badge" id="stock-modal-cat"></span>
                         </div>
                     </div>

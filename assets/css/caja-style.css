@@ -1867,12 +1867,7 @@ body.batllie-caja-active .container {
 }
 
 .caja-sku-badge {
-    font-family: monospace;
-    background: rgba(15, 23, 42, 0.6);
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    color: var(--caja-text-muted);
+    display: none !important;
 }
 
 .caja-cat-badge {

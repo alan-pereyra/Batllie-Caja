@@ -1758,7 +1758,6 @@
                             ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
                         </td>
                         <td><span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span></td>
-                        <td><span class="caja-sku-badge">${p.sku}</span></td>
                         <td style="text-align: center; white-space: nowrap;">
                             <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary caja-btn-open-edit-prod" data-product-id="${p.id}" title="Modificar todos los datos del producto (Nombre, Precios, Categoría, SKU, Descripción)" style="margin-right: 4px; padding: 6px 10px;">
                                 <span>✏️ Modificar</span>
@@ -1902,7 +1901,6 @@
                             <div class="caja-child-info">
                                 <strong>${cand.name}</strong>
                                 <div class="caja-child-meta">
-                                    <span>SKU: ${sku}</span>
                                     <span>${cand.price || ''}</span>
                                 </div>
                             </div>
