@@ -412,6 +412,9 @@ class Batllie_Caja_Min_Order {
      * Endpoint AJAX para consultar estado del mínimo de compra en tiempo real
      */
     public static function ajax_get_min_order_status() {
+        if (function_exists('WC') && WC()->cart) {
+            WC()->cart->calculate_totals();
+        }
         $min      = self::get_min_purchase_amount();
         $amount   = self::get_cart_amount();
         $is_empty = (!WC() || !WC()->cart || WC()->cart->is_empty());
