@@ -23,6 +23,8 @@ class Batllie_Caja_Min_Order {
 
         // Verificación de ítems en carrito / checkout (WooCommerce notices)
         add_action('woocommerce_check_cart_items', array(__CLASS__, 'validate_cart_items'));
+        add_action('woocommerce_cart_updated', array(__CLASS__, 'validate_cart_items'));
+        add_action('woocommerce_before_calculate_totals', array(__CLASS__, 'validate_cart_items'), 5);
 
         // Validación al enviar el pedido en checkout clásico
         add_action('woocommerce_after_checkout_validation', array(__CLASS__, 'validate_checkout_order'), 10, 2);
@@ -189,11 +191,35 @@ class Batllie_Caja_Min_Order {
     }
 
     /**
+     * Limpiar notices de monto mínimo de compra en la sesión de WooCommerce
+     */
+    public static function clear_min_order_notices() {
+        if (!function_exists('wc_get_notices') || !function_exists('wc_set_notices')) {
+            return;
+        }
+
+        $all_notices = wc_get_notices();
+        if (!empty($all_notices['error'])) {
+            $filtered = array();
+            foreach ($all_notices['error'] as $notice) {
+                $text = is_array($notice) ? ($notice['notice'] ?? '') : (string)$notice;
+                // Si contiene la frase de monto mínimo, omitirla de la cola
+                if (stripos($text, 'mínimo') === false && stripos($text, 'minimo') === false && stripos($text, 'faltan') === false) {
+                    $filtered[] = $notice;
+                }
+            }
+            $all_notices['error'] = $filtered;
+            wc_set_notices($all_notices);
+        }
+    }
+
+    /**
      * Validar ítems en el carrito al cargar o refrescar la página
      */
     public static function validate_cart_items() {
         $min = self::get_min_purchase_amount();
         if ($min <= 0 || !WC()->cart || WC()->cart->is_empty()) {
+            self::clear_min_order_notices();
             return;
         }
 
@@ -206,9 +232,12 @@ class Batllie_Caja_Min_Order {
                 '<strong>' . wc_price($missing) . '</strong>'
             );
 
-            if (!wc_has_notice($msg, 'error')) {
-                wc_add_notice($msg, 'error');
-            }
+            // Limpiar notice anterior para actualizar importe faltante sin duplicar
+            self::clear_min_order_notices();
+            wc_add_notice($msg, 'error');
+        } else {
+            // SE LLEGÓ AL MÍNIMO: El cartel de error se quita inmediatamente
+            self::clear_min_order_notices();
         }
     }
 
@@ -408,6 +437,10 @@ class Batllie_Caja_Min_Order {
         $is_below = (!$is_empty && $min > 0 && $amount < $min);
         $missing  = max(0.0, $min - $amount);
         $pct      = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
+
+        if (!$is_below) {
+            self::clear_min_order_notices();
+        }
 
         wp_send_json_success(array(
             'min_amount'        => $min,

@@ -4,6 +4,38 @@
  */
 
 /* ==========================================================================
+   0. Cartel No Descartable: Ocultar botón (✕) para que no se pueda quitar
+   ========================================================================== */
+
+.wc-block-components-notice-banner__dismiss-button,
+.wc-block-components-notice-banner button[aria-label*="dismiss" i],
+.wc-block-components-notice-banner button[aria-label*="descartar" i],
+.wc-block-components-notice-banner button[aria-label*="cerrar" i],
+.wc-block-components-notice-banner button[aria-label*="close" i],
+.woocommerce-error .notice-dismiss,
+.woocommerce-error .close,
+.woocommerce-error button.close,
+.woocommerce-error a.close,
+.woocommerce-NoticeGroup .notice-dismiss,
+.woocommerce-NoticeGroup .close,
+.batllie-min-order-persistent-notice .wc-block-components-notice-banner__dismiss-button,
+.batllie-min-order-persistent-notice button[class*="dismiss"],
+.batllie-min-order-persistent-notice [class*="dismiss"],
+.batllie-min-order-persistent-notice [class*="close"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
+
+/* ==========================================================================
    1. Banner Informativo en Página del Carrito
    ========================================================================== */
 
