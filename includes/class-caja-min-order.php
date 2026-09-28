@@ -101,7 +101,7 @@ class Batllie_Caja_Min_Order {
         $missing   = max(0.0, $min - $amount);
         $pct       = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
         $options   = Batllie_Caja_Plugin::get_color_settings();
-        $shop_url  = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/');
+        $shop_url  = home_url('/');
         $cart_url  = function_exists('wc_get_cart_url') ? wc_get_cart_url() : home_url('/carrito/');
 
         // Inyectar variables de paleta configurable para frontend (Modal y Banner de Carrito)
@@ -367,7 +367,7 @@ class Batllie_Caja_Min_Order {
 
         $amount   = self::get_cart_amount();
         $missing  = max(0.0, $min - $amount);
-        $shop_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/');
+        $shop_url = home_url('/');
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">
             <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Monto Mínimo de Compra', 'emp-caja'); ?>">
