@@ -101,6 +101,8 @@ class Batllie_Caja_Min_Order {
         $missing   = max(0.0, $min - $amount);
         $pct       = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
         $options   = Batllie_Caja_Plugin::get_color_settings();
+        $shop_url  = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/');
+        $cart_url  = function_exists('wc_get_cart_url') ? wc_get_cart_url() : home_url('/carrito/');
 
         // Inyectar variables de paleta configurable para frontend (Modal y Banner de Carrito)
         $custom_css = "
