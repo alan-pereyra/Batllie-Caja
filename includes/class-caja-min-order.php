@@ -146,7 +146,7 @@ class Batllie_Caja_Min_Order {
                 'modalDesc'       => __('Para poder finalizar tu compra y proceder al pago, el pedido debe alcanzar el monto mínimo requerido.', 'emp-caja'),
                 'requiredLabel'   => __('Mínimo requerido:', 'emp-caja'),
                 'currentLabel'    => __('Tu carrito actual:', 'emp-caja'),
-                'missingLabel'    => __('Te faltan para el mínimo:', 'emp-caja'),
+                'missingLabel'    => __('Faltan agregar:', 'emp-caja'),
                 'tip'             => __('Agrega más productos a tu carrito para alcanzar el mínimo y completar tu compra.', 'emp-caja'),
                 'btnKeepShopping' => __('Seguir Comprando', 'emp-caja'),
                 'btnClose'        => __('Volver al Carrito', 'emp-caja'),
@@ -367,25 +367,12 @@ class Batllie_Caja_Min_Order {
 
         $amount   = self::get_cart_amount();
         $missing  = max(0.0, $min - $amount);
-        $pct      = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
         $shop_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('shop') : home_url('/');
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">
-            <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-labelledby="batllie-min-modal-title">
+            <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Monto Mínimo de Compra', 'emp-caja'); ?>">
                 <button type="button" class="batllie-min-modal-close" id="batllie-min-modal-close-btn" aria-label="<?php esc_attr_e('Cerrar aviso', 'emp-caja'); ?>">&times;</button>
                 
-                <div class="batllie-min-modal-header">
-                    <div class="batllie-min-modal-icon-box">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                    </div>
-                    <h3 id="batllie-min-modal-title" class="batllie-min-modal-title"><?php _e('Monto Mínimo de Compra', 'emp-caja'); ?></h3>
-                    <p class="batllie-min-modal-desc"><?php _e('Para poder finalizar tu compra y proceder al pago, tu pedido debe alcanzar el mínimo establecido por la tienda.', 'emp-caja'); ?></p>
-                </div>
-
                 <div class="batllie-min-modal-body">
                     <div class="batllie-min-modal-stats">
                         <div class="batllie-min-stat-row">
@@ -397,18 +384,10 @@ class Batllie_Caja_Min_Order {
                             <span class="batllie-stat-val batllie-stat-current"><?php echo wc_price($amount); ?></span>
                         </div>
                         <div class="batllie-min-stat-row batllie-stat-missing-row">
-                            <span class="batllie-stat-label"><?php _e('Te faltan para llegar:', 'emp-caja'); ?></span>
+                            <span class="batllie-stat-label"><?php _e('Faltan agregar:', 'emp-caja'); ?></span>
                             <span class="batllie-stat-val batllie-stat-missing"><?php echo wc_price($missing); ?></span>
                         </div>
                     </div>
-
-                    <div class="batllie-min-progress-wrap">
-                        <div class="batllie-min-progress-bar" style="width: <?php echo esc_attr($pct); ?>%;"></div>
-                    </div>
-
-                    <p class="batllie-min-modal-tip">
-                        <?php _e('💡 Agrega algún producto más a tu carrito para alcanzar el importe mínimo y poder ir a pagar.', 'emp-caja'); ?>
-                    </p>
                 </div>
 
                 <div class="batllie-min-modal-footer">
