@@ -101,30 +101,7 @@
                 const text = ($(this).text() || '').toLowerCase();
                 return text.includes('mínimo') || text.includes('minimo') || text.includes('faltan') || $(this).hasClass('batllie-min-order-persistent-notice');
             })
-            .slideUp(250, function () {
-                $(this).remove();
-            });
-    }
-
-    /**
-     * Actualizar el cartel de error con los montos actualizados mientras siga por debajo del mínimo
-     */
-    function updateNoticeTexts(minFormatted, missingFormatted) {
-        $('.wc-block-components-notice-banner, .woocommerce-error, .batllie-min-order-persistent-notice')
-            .filter(function () {
-                const text = ($(this).text() || '').toLowerCase();
-                return text.includes('mínimo') || text.includes('minimo') || text.includes('faltan') || $(this).hasClass('batllie-min-order-persistent-notice');
-            })
-            .each(function () {
-                const $notice = $(this);
-                $notice.addClass('batllie-min-order-persistent-notice');
-                $notice.show();
-
-                const $content = $notice.find('.wc-block-components-notice-banner__content, p, span').first();
-                if ($content.length) {
-                    $content.html('El monto mínimo de compra es de <strong>' + minFormatted + '</strong>. Te faltan <strong>' + missingFormatted + '</strong> para llegar al mínimo y poder ir a pagar.');
-                }
-            });
+            .remove();
     }
 
     /**
@@ -183,10 +160,8 @@
 
         if (!isBelow) {
             closeModal();
-            removeMinOrderNoticeElements();
-        } else {
-            updateNoticeTexts(minFormatted, missingFormatted);
         }
+        removeMinOrderNoticeElements();
 
         // Actualizar banner si existe en la página de carrito
         const $banner = $('#batllie-min-order-cart-banner');
@@ -305,7 +280,13 @@
     // =========================================================================
     // Inicialización y Observación de Cambios en el Carrito
     // =========================================================================
+    removeMinOrderNoticeElements();
     $(document).ready(function () {
+        removeMinOrderNoticeElements();
+        $(document).ajaxComplete(function () {
+            removeMinOrderNoticeElements();
+        });
+
         // Aplicar estado inicial
         if (config.currentAmount !== undefined) {
             applyCartState(config.currentAmount);

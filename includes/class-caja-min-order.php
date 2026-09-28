@@ -18,10 +18,25 @@ class Batllie_Caja_Min_Order {
         // Encolar assets frontend (CSS y JS)
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_assets'));
 
-        // Redirección si intentan ingresar a la URL de checkout directamente sin cumplir el mínimo
-        add_action('template_redirect', array(__CLASS__, 'redirect_checkout_if_below_min'));
+        // Limpiar notices de monto mínimo almacenados previamente en la sesión de WooCommerce
+        add_action('init', array(__CLASS__, 'clear_min_order_notices'), 1);
+        add_action('wp', array(__CLASS__, 'clear_min_order_notices'), 1);
+        add_action('woocommerce_init', array(__CLASS__, 'clear_min_order_notices'), 1);
+        add_action('woocommerce_before_shop_loop', array(__CLASS__, 'clear_min_order_notices'), 1);
+        add_action('woocommerce_before_cart', array(__CLASS__, 'clear_min_order_notices'), 1);
+        add_action('woocommerce_before_single_product', array(__CLASS__, 'clear_min_order_notices'), 1);
 
-        // Verificación de ítems en carrito / checkout (WooCommerce notices)
+        // Suprimir cualquier intento de registrar notice de monto mínimo a nivel global en WooCommerce
+        add_filter('woocommerce_add_error', array(__CLASS__, 'filter_woocommerce_notices'), 999);
+        add_filter('woocommerce_add_notice', array(__CLASS__, 'filter_woocommerce_notices'), 999);
+
+        // Ocultar avisos de error en catálogo y páginas del tema Empralidad
+        add_action('wp_head', array(__CLASS__, 'render_hide_notices_css'), 999);
+
+        // Redirección si intentan ingresar a la URL de checkout directamente sin cumplir el mínimo
+        add_action('template_redirect', array(__CLASS__, 'redirect_checkout_if_below_min'), 10);
+
+        // Verificación de ítems en carrito / checkout (mantiene limpia la cola de avisos)
         add_action('woocommerce_check_cart_items', array(__CLASS__, 'validate_cart_items'));
 
         // Validación al enviar el pedido en checkout clásico
@@ -124,6 +139,22 @@ class Batllie_Caja_Min_Order {
         }";
         wp_add_inline_style('batllie-caja-min-order-css', $custom_css);
 
+        $hide_notices_css = "
+        /* Ocultar avisos de error en catálogo y páginas del tema Empralidad */
+        body:not(.woocommerce-checkout) .woocommerce-notices-wrapper .woocommerce-error,
+        article.woo-page-margin .woocommerce-notices-wrapper,
+        body.home .woocommerce-notices-wrapper,
+        body.post-type-archive-product .woocommerce-notices-wrapper,
+        body.tax-product_cat .woocommerce-notices-wrapper,
+        body.tax-product_tag .woocommerce-notices-wrapper,
+        body.woocommerce-shop .woocommerce-notices-wrapper {
+            display: none !important;
+        }";
+        wp_add_inline_style('batllie-caja-min-order-css', $hide_notices_css);
+        if (wp_style_is('emp_styles', 'registered') || wp_style_is('emp_styles', 'enqueued')) {
+            wp_add_inline_style('emp_styles', $hide_notices_css);
+        }
+
         wp_localize_script('batllie-caja-min-order-js', 'batllieMinOrderConfig', array(
             'ajaxUrl'          => admin_url('admin-ajax.php'),
             'nonce'            => wp_create_nonce('batllie_caja_nonce'),
@@ -174,17 +205,7 @@ class Batllie_Caja_Min_Order {
 
         $amount = self::get_cart_amount();
         if ($amount < $min) {
-            $missing = $min - $amount;
-            $msg = sprintf(
-                __('El monto mínimo de compra es de %s. Te faltan %s para llegar al mínimo y poder ir a pagar.', 'emp-caja'),
-                '<strong>' . wc_price($min) . '</strong>',
-                '<strong>' . wc_price($missing) . '</strong>'
-            );
-
-            if (!wc_has_notice($msg, 'error')) {
-                wc_add_notice($msg, 'error');
-            }
-
+            self::clear_min_order_notices();
             wp_safe_redirect(wc_get_cart_url());
             exit;
         }
@@ -199,46 +220,68 @@ class Batllie_Caja_Min_Order {
         }
 
         $all_notices = wc_get_notices();
-        if (!empty($all_notices['error'])) {
-            $filtered = array();
-            foreach ($all_notices['error'] as $notice) {
-                $text = is_array($notice) ? ($notice['notice'] ?? '') : (string)$notice;
-                // Si contiene la frase de monto mínimo, omitirla de la cola
-                if (stripos($text, 'mínimo') === false && stripos($text, 'minimo') === false && stripos($text, 'faltan') === false) {
-                    $filtered[] = $notice;
+        if (empty($all_notices)) {
+            return;
+        }
+
+        $modified = false;
+        foreach (array('error', 'notice', 'success') as $type) {
+            if (!empty($all_notices[$type])) {
+                $filtered = array();
+                foreach ($all_notices[$type] as $notice) {
+                    $text = is_array($notice) ? ($notice['notice'] ?? '') : (string)$notice;
+                    // Si contiene la frase de monto mínimo, omitirla de la cola
+                    if (stripos($text, 'mínimo') === false && stripos($text, 'minimo') === false && stripos($text, 'faltan') === false) {
+                        $filtered[] = $notice;
+                    } else {
+                        $modified = true;
+                    }
                 }
+                $all_notices[$type] = $filtered;
             }
-            $all_notices['error'] = $filtered;
+        }
+
+        if ($modified) {
             wc_set_notices($all_notices);
         }
+    }
+
+    /**
+     * Filtro para anular cualquier intento de registrar notice de monto mínimo a nivel global en WooCommerce
+     */
+    public static function filter_woocommerce_notices($message) {
+        if (!is_string($message)) {
+            return $message;
+        }
+        if (stripos($message, 'mínimo') !== false || stripos($message, 'minimo') !== false || stripos($message, 'faltan') !== false) {
+            return false;
+        }
+        return $message;
+    }
+
+    /**
+     * Inyectar estilos en el encabezado para ocultar avisos de error en catálogo y páginas del tema Empralidad
+     */
+    public static function render_hide_notices_css() {
+        echo "<style id='batllie-hide-woo-notices'>
+        body:not(.woocommerce-checkout) .woocommerce-notices-wrapper .woocommerce-error,
+        article.woo-page-margin .woocommerce-notices-wrapper,
+        body.home .woocommerce-notices-wrapper,
+        body.post-type-archive-product .woocommerce-notices-wrapper,
+        body.tax-product_cat .woocommerce-notices-wrapper,
+        body.tax-product_tag .woocommerce-notices-wrapper,
+        body.woocommerce-shop .woocommerce-notices-wrapper {
+            display: none !important;
+        }
+        </style>\n";
     }
 
     /**
      * Validar ítems en el carrito al cargar o refrescar la página
      */
     public static function validate_cart_items() {
-        $min = self::get_min_purchase_amount();
-        if ($min <= 0 || !WC()->cart || WC()->cart->is_empty()) {
-            self::clear_min_order_notices();
-            return;
-        }
-
-        $amount = self::get_cart_amount();
-        if ($amount < $min) {
-            $missing = $min - $amount;
-            $msg = sprintf(
-                __('El monto mínimo de compra es de %s. Te faltan %s para llegar al mínimo y poder ir a pagar.', 'emp-caja'),
-                '<strong>' . wc_price($min) . '</strong>',
-                '<strong>' . wc_price($missing) . '</strong>'
-            );
-
-            // Limpiar notice anterior para actualizar importe faltante sin duplicar
-            self::clear_min_order_notices();
-            wc_add_notice($msg, 'error');
-        } else {
-            // SE LLEGÓ AL MÍNIMO: El cartel de error se quita inmediatamente
-            self::clear_min_order_notices();
-        }
+        // En lugar de imprimir avisos rojos en el catálogo o carrito, aseguramos que la sesión quede limpia
+        self::clear_min_order_notices();
     }
 
     /**

@@ -5,6 +5,19 @@
  */
 
 /* ==========================================================================
+   -1. Ocultar avisos de error en catálogo y páginas del tema Empralidad
+   ========================================================================== */
+body:not(.woocommerce-checkout) .woocommerce-notices-wrapper .woocommerce-error,
+article.woo-page-margin .woocommerce-notices-wrapper,
+body.home .woocommerce-notices-wrapper,
+body.post-type-archive-product .woocommerce-notices-wrapper,
+body.tax-product_cat .woocommerce-notices-wrapper,
+body.tax-product_tag .woocommerce-notices-wrapper,
+body.woocommerce-shop .woocommerce-notices-wrapper {
+    display: none !important;
+}
+
+/* ==========================================================================
    0. Cartel No Descartable: Ocultar botón (✕) para que no se pueda quitar
    ========================================================================== */
 
