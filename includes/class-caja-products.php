@@ -217,8 +217,15 @@ class Batllie_Caja_Products {
         $featured     = !empty($data['featured']) && ($data['featured'] === 'yes' || $data['featured'] === true || $data['featured'] === '1');
         $visibility   = !empty($data['catalog_visibility']) ? sanitize_key($data['catalog_visibility']) : 'visible';
 
-        // Crear producto simple WC
-        $product = new WC_Product_Simple();
+        // Crear producto según tipo seleccionado (simple, grouped, variable)
+        $type = isset($data['product_type']) ? sanitize_key($data['product_type']) : 'simple';
+        if ($type === 'grouped') {
+            $product = new WC_Product_Grouped();
+        } elseif ($type === 'variable') {
+            $product = new WC_Product_Variable();
+        } else {
+            $product = new WC_Product_Simple();
+        }
         $product->set_name($name);
         $product->set_status('publish');
         $product->set_regular_price($regular_price);
@@ -385,6 +392,21 @@ class Batllie_Caja_Products {
         $product = wc_get_product($product_id);
         if (!$product) {
             return new WP_Error('not_found', __('Producto no encontrado.', 'emp-caja'));
+        }
+
+        if (isset($data['product_type'])) {
+            $allowed_types = array('simple', 'grouped', 'variable');
+            $new_type = sanitize_key($data['product_type']);
+            if (in_array($new_type, $allowed_types, true)) {
+                wp_set_object_terms($product_id, $new_type, 'product_type');
+                clean_post_cache($product_id);
+                if (function_exists('wc_delete_product_transients')) {
+                    wc_delete_product_transients($product_id);
+                }
+                wp_cache_delete($product_id, 'posts');
+                wp_cache_delete($product_id, 'post_meta');
+                $product = wc_get_product($product_id);
+            }
         }
 
         if (isset($data['name']) && !empty(trim($data['name']))) {

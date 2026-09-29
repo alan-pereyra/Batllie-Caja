@@ -423,6 +423,8 @@
             // Modal de Nuevo Producto
             $('#caja-btn-open-new-product').on('click', function() {
                 $('#caja-new-product-form')[0].reset();
+                $('#new-prod-type').val('simple');
+                $('#new-prod-box-role-group').show();
                 $('#new-prod-image-id').val('');
                 $('#new-prod-thumb').hide().attr('src', '');
                 $('#new-prod-remove-img-btn').hide();
@@ -431,7 +433,22 @@
                 $('#new-prod-box-role').val('none').data('prev-val', 'none');
                 $('#caja-stock-qty-group').hide();
                 $('#caja-new-product-error').hide();
+                if (self.cachedCategories && self.cachedCategories.length > 0) {
+                    self.populateCategorySelects();
+                } else {
+                    self.loadCategories();
+                }
                 $('#caja-modal-new-product').fadeIn(200);
+            });
+
+            $('#new-prod-type').on('change', function() {
+                const type = $(this).val();
+                if (type === 'simple') {
+                    $('#new-prod-box-role-group').slideDown(150);
+                } else {
+                    $('#new-prod-box-role-group').slideUp(150);
+                    $('#new-prod-box-role').val('none');
+                }
             });
 
             $('#caja-modal-close-btn, #caja-modal-cancel-btn').on('click', function() {
@@ -2019,9 +2036,40 @@
             });
         },
 
-        loadCategories: function() {
+        populateCategorySelects: function() {
             const self = this;
-            if (self.categoriesLoaded) return;
+            if (!self.cachedCategories || !self.cachedCategories.length) return;
+
+            const $filter = $('#caja-filter-product-cat');
+            const $newSelect = $('#new-prod-category');
+            const $editSelect = $('#edit-prod-category');
+
+            const currentFilterVal = $filter.val();
+            const currentNewVal = $newSelect.val();
+            const currentEditVal = $editSelect.val();
+
+            $filter.find('option:not(:first)').remove();
+            $newSelect.find('option:not(:first)').remove();
+            $editSelect.find('option:not(:first)').remove();
+
+            self.cachedCategories.forEach(cat => {
+                $filter.append(`<option value="${cat.id}" data-slug="${cat.slug}">${cat.name}</option>`);
+                $newSelect.append(`<option value="${cat.id}">${cat.name}</option>`);
+                $editSelect.append(`<option value="${cat.id}">${cat.name}</option>`);
+            });
+
+            if (currentFilterVal) $filter.val(currentFilterVal);
+            if (currentNewVal) $newSelect.val(currentNewVal);
+            if (currentEditVal) $editSelect.val(currentEditVal);
+        },
+
+        loadCategories: function(callback) {
+            const self = this;
+            if (self.categoriesLoaded && self.cachedCategories) {
+                self.populateCategorySelects();
+                if (typeof callback === 'function') callback(self.cachedCategories);
+                return;
+            }
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -2033,13 +2081,9 @@
                 success: function(res) {
                     if (res.success && res.data && res.data.categories) {
                         self.categoriesLoaded = true;
-                        const $filter = $('#caja-filter-product-cat');
-                        const $select = $('#new-prod-category');
-
-                        res.data.categories.forEach(cat => {
-                            $filter.append(`<option value="${cat.id}" data-slug="${cat.slug}">${cat.name}</option>`);
-                            $select.append(`<option value="${cat.id}">${cat.name}</option>`);
-                        });
+                        self.cachedCategories = res.data.categories;
+                        self.populateCategorySelects();
+                        if (typeof callback === 'function') callback(self.cachedCategories);
                     }
                 }
             });
@@ -2339,7 +2383,8 @@
             if (!p) return;
 
             $('#edit-prod-id').val(p.id);
-            $('#edit-prod-type').val(p.product_type || 'simple');
+            const initialType = p.product_type || 'simple';
+            $('#edit-prod-type').val(initialType);
             $('#edit-prod-name').val(p.name);
             $('#edit-prod-price').val(p.regular_price || p.price_raw || '');
             $('#edit-prod-sale-price').val(p.sale_price || '');
@@ -2347,7 +2392,14 @@
             $('#edit-prod-desc').val(p.raw_description || '');
 
             const catId = (p.category_ids && p.category_ids.length > 0) ? p.category_ids[0] : 0;
-            $('#edit-prod-category').val(catId);
+            if (self.cachedCategories && self.cachedCategories.length > 0) {
+                self.populateCategorySelects();
+                $('#edit-prod-category').val(catId);
+            } else {
+                self.loadCategories(function() {
+                    $('#edit-prod-category').val(catId);
+                });
+            }
 
             // Visibilidad y Destacado
             $('#edit-prod-visibility').val(p.catalog_visibility || 'visible');
@@ -2367,36 +2419,49 @@
                 $('#edit-prod-remove-img-btn').hide();
             }
 
-            // Cartel y selector de productos si es Agrupado
-            if (p.product_type === 'grouped') {
-                $('#edit-prod-box-role-group').hide();
-                $('#edit-prod-grouped-notice').slideDown(150);
-                $('#edit-prod-grouped-section').slideDown(150);
-                $('#edit-grouped-search-filter').val('');
+            // Manejo dinámico según Tipo de Producto (simple, grouped, variable)
+            function updateEditProductTypeUI(type) {
+                if (type === 'grouped') {
+                    $('#edit-prod-box-role-group').slideUp(150);
+                    $('#edit-prod-grouped-notice').slideDown(150);
+                    $('#edit-prod-grouped-section').slideDown(150);
+                    $('#edit-grouped-search-filter').val('');
 
-                const isPredefined = !!p.is_predefined;
-                if (isPredefined) {
-                    $('#edit-grouped-mode-predefined').prop('checked', true);
-                    $('#label-grouped-mode-predefined').addClass('active');
-                    $('#label-grouped-mode-custom').removeClass('active');
-                    $('#edit-grouped-mode-hint').text('Definí qué productos componen este combo y cuántas unidades fijas incluye cada uno:');
+                    const isPredefined = !!p.is_predefined;
+                    if (isPredefined) {
+                        $('#edit-grouped-mode-predefined').prop('checked', true);
+                        $('#label-grouped-mode-predefined').addClass('active');
+                        $('#label-grouped-mode-custom').removeClass('active');
+                        $('#edit-grouped-mode-hint').text('Definí qué productos componen este combo y cuántas unidades fijas incluye cada uno:');
+                    } else {
+                        $('#edit-grouped-mode-custom').prop('checked', true);
+                        $('#label-grouped-mode-custom').addClass('active');
+                        $('#label-grouped-mode-predefined').removeClass('active');
+                        $('#edit-grouped-mode-hint').text('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:');
+                    }
+
+                    self.renderGroupedChildrenList(p.children_ids || [], p.id, p.predefined_quantities || {}, isPredefined);
+                    self.populatePackagingBoxSelect(p.packaging_box_product_id);
+                } else if (type === 'variable') {
+                    $('#edit-prod-grouped-notice').slideUp(150);
+                    $('#edit-prod-grouped-section').slideUp(150);
+                    $('#edit-prod-box-role-group').slideUp(150);
                 } else {
-                    $('#edit-grouped-mode-custom').prop('checked', true);
-                    $('#label-grouped-mode-custom').addClass('active');
-                    $('#label-grouped-mode-predefined').removeClass('active');
-                    $('#edit-grouped-mode-hint').text('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:');
+                    // simple
+                    $('#edit-prod-grouped-notice').slideUp(150);
+                    $('#edit-prod-grouped-section').slideUp(150);
+                    $('#edit-prod-box-role-group').slideDown(150);
+
+                    const currentBoxRole = p.official_box_role || 'none';
+                    $('#edit-prod-box-role').val(currentBoxRole).data('prev-val', currentBoxRole);
                 }
-
-                self.renderGroupedChildrenList(p.children_ids || [], p.id, p.predefined_quantities || {}, isPredefined);
-                self.populatePackagingBoxSelect(p.packaging_box_product_id);
-            } else {
-                $('#edit-prod-grouped-notice').hide();
-                $('#edit-prod-grouped-section').hide();
-                $('#edit-prod-box-role-group').show();
-
-                const currentBoxRole = p.official_box_role || 'none';
-                $('#edit-prod-box-role').val(currentBoxRole).data('prev-val', currentBoxRole);
             }
+
+            updateEditProductTypeUI(initialType);
+
+            $('#edit-prod-type').off('change').on('change', function() {
+                updateEditProductTypeUI($(this).val());
+            });
 
             if (p.manage_stock) {
                 $('#edit-prod-manage-stock').prop('checked', true);
@@ -2433,8 +2498,10 @@
             $btn.find('.caja-btn-spinner').show();
             $btn.find('.caja-btn-text').text('Guardando cambios...');
 
-            const isGrouped = $('#edit-prod-type').val() === 'grouped';
+            const selectedType = $('#edit-prod-type').val() || 'simple';
+            const isGrouped = selectedType === 'grouped';
             const productData = {
+                product_type: selectedType,
                 name: $('#edit-prod-name').val(),
                 regular_price: $('#edit-prod-price').val(),
                 sale_price: $('#edit-prod-sale-price').val(),
@@ -2446,7 +2513,7 @@
                 image_id: $('#edit-prod-image-id').val(),
                 featured: $('#edit-prod-featured').is(':checked') ? 'yes' : 'no',
                 catalog_visibility: $('#edit-prod-visibility').val(),
-                official_box_role: isGrouped ? 'none' : ($('#edit-prod-box-role').val() || 'none')
+                official_box_role: (selectedType === 'simple') ? ($('#edit-prod-box-role').val() || 'none') : 'none'
             };
 
             if (isGrouped) {
@@ -2651,7 +2718,9 @@
             $btn.prop('disabled', true);
             $btn.find('.caja-btn-spinner').show();
 
+            const selectedType = $('#new-prod-type').val() || 'simple';
             const productData = {
+                product_type: selectedType,
                 name: $('#new-prod-name').val(),
                 regular_price: $('#new-prod-price').val(),
                 sale_price: $('#new-prod-sale-price').val(),
@@ -2663,7 +2732,7 @@
                 image_id: $('#new-prod-image-id').val(),
                 featured: $('#new-prod-featured').is(':checked') ? 'yes' : 'no',
                 catalog_visibility: $('#new-prod-visibility').val(),
-                official_box_role: $('#new-prod-box-role').val() || 'none'
+                official_box_role: (selectedType === 'simple') ? ($('#new-prod-box-role').val() || 'none') : 'none'
             };
 
             $.ajax({
