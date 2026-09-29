@@ -3166,6 +3166,35 @@ span#edit-grouped-selected-badge {
     margin: 0;
 }
 
+/* Tarjeta de felicitación dentro de la tarjeta de caja específica */
+.caja-box-felicitacion-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(5, 150, 105, 0.08) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 10px 0 2px 0;
+    transition: all 0.25s ease;
+}
+
+.caja-box-felicitacion-card.is-included {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.30) 0%, rgba(5, 150, 105, 0.20) 100%);
+    border-color: #10b981;
+}
+
+.caja-box-felicitacion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.caja-box-felicitacion-desc {
+    font-size: 0.8rem;
+    color: var(--caja-text, #ffffff);
+    font-weight: 500;
+}
+
 .caja-courtesy-banner {
     background: rgba(245, 158, 11, 0.12);
     border: 1px solid rgba(245, 158, 11, 0.3);

@@ -148,7 +148,7 @@
             $(document).on('change', '.caja-felicitacion-checkbox', function() {
                 const orderId = $(this).data('order-id');
                 const isChecked = $(this).is(':checked');
-                const $card = $(this).closest('.caja-felicitacion-card');
+                const $card = $(this).closest('.caja-felicitacion-card, .caja-box-felicitacion-card');
 
                 $.ajax({
                     url: batllieCajaData.ajaxUrl,
@@ -1104,10 +1104,140 @@
                 return out;
             }
 
+            function groupLooseAlfajoresIntoBoxes(itemsList, order) {
+                if (!Array.isArray(itemsList) || !itemsList.length) return [];
+                const boxes = [];
+                const looseAlfajores = [];
+                const otherItems = [];
+
+                itemsList.forEach(rawItem => {
+                    if (rawItem.is_box || (rawItem.pack_items && rawItem.pack_items.length > 0)) {
+                        boxes.push(rawItem);
+                    } else {
+                        const name = (rawItem.name || '').toLowerCase();
+                        const isAlf = name.includes('alfajor') || name.includes('batllie');
+                        if (isAlf) {
+                            looseAlfajores.push(rawItem);
+                        } else {
+                            otherItems.push(rawItem);
+                        }
+                    }
+                });
+
+                if (!looseAlfajores.length) {
+                    return boxes.concat(otherItems);
+                }
+
+                // Consolidar ítems sueltos duplicados
+                const consolidatedLoose = consolidateItemsForDisplay(looseAlfajores);
+                let totalLooseUnits = 0;
+                consolidatedLoose.forEach(it => {
+                    totalLooseUnits += parseInt(it.quantity, 10) || 1;
+                });
+
+                const hasCourtesy = Boolean(order && order.has_courtesy_box);
+                const hasDecision = Boolean(order && order.decision_correcta);
+
+                if (totalLooseUnits < 6 && !hasCourtesy) {
+                    return boxes.concat(consolidatedLoose, otherItems);
+                }
+
+                // Armar cajas automáticas de alfajores sueltos
+                const autoBoxes = [];
+                let pool = consolidatedLoose.map(it => Object.assign({}, it));
+                let poolIdx = 0;
+
+                const defaultImg = (boxes.length && boxes[0].image) ? boxes[0].image : '';
+
+                // Determinamos capacidades a llenar (Prioridad 12 unidades)
+                const caps = [];
+                let uLeft = totalLooseUnits;
+                while (uLeft >= 12) {
+                    caps.push({ cap: 12, courtesy: false });
+                    uLeft -= 12;
+                }
+                if (uLeft >= 6) {
+                    caps.push({ cap: 6, courtesy: false });
+                    uLeft -= 6;
+                }
+                if (uLeft > 0 && hasCourtesy) {
+                    caps.push({ cap: uLeft, courtesy: true });
+                    uLeft = 0;
+                }
+
+                caps.forEach((spec, idx) => {
+                    let needed = spec.cap;
+                    const boxItems = [];
+                    let boxTotalNum = 0;
+
+                    while (needed > 0 && poolIdx < pool.length) {
+                        const cur = pool[poolIdx];
+                        const curQty = parseInt(cur.quantity, 10) || 1;
+                        const curPrice = parseMoneyVal(cur.total, cur.total_num);
+                        const unitPrice = curQty > 0 ? (curPrice / curQty) : 0;
+
+                        if (curQty <= needed) {
+                            boxItems.push(cur);
+                            boxTotalNum += curPrice;
+                            needed -= curQty;
+                            poolIdx++;
+                        } else {
+                            const takeQty = needed;
+                            const takePrice = takeQty * unitPrice;
+                            const sub = Object.assign({}, cur, {
+                                quantity: takeQty,
+                                total_num: takePrice,
+                                total: formatMoneyAr(takePrice)
+                            });
+                            boxItems.push(sub);
+                            boxTotalNum += takePrice;
+
+                            pool[poolIdx].quantity = curQty - takeQty;
+                            pool[poolIdx].total_num = curPrice - takePrice;
+                            pool[poolIdx].total = formatMoneyAr(curPrice - takePrice);
+
+                            needed = 0;
+                        }
+                    }
+
+                    const isTargetFelicitacion = (hasDecision && idx === (caps.length - 1));
+                    const boxName = spec.courtesy ? 'Caja de Cortesía Batllié' : ('Caja ' + spec.cap + ' unidades');
+                    const boxBadge = spec.courtesy ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA';
+
+                    autoBoxes.push({
+                        item_id: 'client_box_' + (idx + 1),
+                        id: 0,
+                        name: boxName,
+                        image: defaultImg,
+                        quantity: 1,
+                        is_box: true,
+                        is_auto_box: true,
+                        box_badge: boxBadge,
+                        box_units: spec.cap,
+                        box_total: formatMoneyAr(boxTotalNum),
+                        box_total_num: boxTotalNum,
+                        has_decision_correcta: isTargetFelicitacion,
+                        has_courtesy: spec.courtesy,
+                        pack_items: boxItems
+                    });
+                });
+
+                const remainingLoose = [];
+                while (poolIdx < pool.length) {
+                    if (pool[poolIdx].quantity > 0) {
+                        remainingLoose.push(pool[poolIdx]);
+                    }
+                    poolIdx++;
+                }
+
+                return boxes.concat(autoBoxes, remainingLoose, otherItems);
+            }
+
             orders.forEach(order => {
                 let itemsHtml = '';
+                let renderedBoxFelicitacion = false;
                 if (order.items && order.items.length) {
-                    const displayItems = consolidateItemsForDisplay(order.items);
+                    const displayItems = groupLooseAlfajoresIntoBoxes(order.items, order);
                     displayItems.forEach(item => {
                         if (item.is_box || (item.pack_items && item.pack_items.length > 0)) {
                             // Renderizar tarjeta de Pack / Caja agrupada con sus productos anidados
@@ -1131,6 +1261,24 @@
                                 });
                             }
 
+                            let boxFelicitacionHtml = '';
+                            if (item.has_decision_correcta) {
+                                renderedBoxFelicitacion = true;
+                                boxFelicitacionHtml = `
+                                    <div class="caja-box-felicitacion-card ${order.tarjeta_incluida ? 'is-included' : ''}">
+                                        <div class="caja-box-felicitacion-header">
+                                            <span class="caja-felicitacion-badge">💌 ¡DECISIÓN CORRECTA!</span>
+                                            <span class="caja-box-felicitacion-desc">Esta caja completó el empaque con alfajores extra.</span>
+                                        </div>
+                                        <label class="caja-felicitacion-toggle-label">
+                                            <input type="checkbox" class="caja-felicitacion-checkbox" data-order-id="${order.id}" ${order.tarjeta_incluida ? 'checked' : ''} />
+                                            <span>Incluir tarjeta de felicitación en esta caja</span>
+                                        </label>
+                                    </div>
+                                `;
+                            }
+
+                            let badgeText = item.box_badge || (item.has_courtesy ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA');
                             let imgHtml = item.image ? `<img src="${item.image}" class="caja-pack-box-thumb" alt="${item.name}" />` : '';
                             let unitsBadge = item.box_units ? `<span class="caja-pack-units-badge">${item.box_units} u.</span>` : '';
                             let boxPrice = item.box_total || item.total;
@@ -1141,7 +1289,7 @@
                                         ${imgHtml}
                                         <div class="caja-pack-box-title-wrap">
                                             <div class="caja-pack-box-top-line">
-                                                <span class="caja-pack-box-badge">📦 PACK / CAJA</span>
+                                                <span class="caja-pack-box-badge">${badgeText}</span>
                                                 ${unitsBadge}
                                             </div>
                                             <span class="caja-pack-box-name">${item.name}</span>
@@ -1151,6 +1299,7 @@
                                     <div class="caja-pack-box-items">
                                         ${subItemsHtml}
                                     </div>
+                                    ${boxFelicitacionHtml}
                                 </div>
                             `;
                         } else {
@@ -1437,9 +1586,7 @@
                         </div>
 
                         <div class="caja-order-items-list">
-                            ${packingHtml}
-                            ${felicitacionHtml}
-                            ${courtesyHtml}
+                            ${(!renderedBoxFelicitacion && felicitacionHtml) ? felicitacionHtml : ''}
                             ${itemsHtml}
                         </div>
 

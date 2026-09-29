@@ -496,34 +496,57 @@ class Batllie_Caja_Packing {
         $box_6    = !empty($boxes['box_6']) ? intval($boxes['box_6']) : 0;
         $courtesy = !empty($boxes['courtesy']) ? intval($boxes['courtesy']) : ($has_courtesy_meta ? 1 : 0);
 
-        // Si no hay cajas guardadas, calcular retroactivamente a partir de los ítems del pedido
-        $total_alfajores = 0;
+        // Si no hay cajas guardadas, calcular retroactivamente separando packs de alfajores sueltos
+        $boxes_from_packs_12 = 0;
+        $boxes_from_packs_6  = 0;
+        $loose_alfajores     = 0;
+        $total_alfajores     = 0;
+
         foreach ($order->get_items() as $item) {
             $product_id = $item->get_product_id();
             $item_name  = mb_strtolower($item->get_name(), 'UTF-8');
             $qty        = $item->get_quantity();
 
-            $is_alf = self::is_alfajor_product($product_id) || (strpos($item_name, 'alfajor') !== false) || (strpos($item_name, 'batllie') !== false);
-            if ($is_alf) {
+            $is_extra_box = (method_exists($item, 'get_meta') && $item->get_meta('_batllie_extra_box') === 'yes');
+            $is_pack_parent = $is_extra_box || 
+                              (strpos($item_name, 'caja x') !== false) || 
+                              (strpos($item_name, 'caja ') !== false && (strpos($item_name, 'unidades') !== false || strpos($item_name, 'unidad') !== false));
+            $is_pack_child = method_exists($item, 'get_meta') && (!empty($item->get_meta('_batllie_parent_grouped_id')) || !empty($item->get_meta('_batllie_pack_instance_id')));
+
+            if ($is_pack_parent) {
+                if (strpos($item_name, '12') !== false) {
+                    $boxes_from_packs_12 += $qty;
+                } else {
+                    $boxes_from_packs_6 += $qty;
+                }
+            } elseif ($is_pack_child) {
                 $total_alfajores += $qty;
+            } else {
+                $is_alf = self::is_alfajor_product($product_id) || (strpos($item_name, 'alfajor') !== false) || (strpos($item_name, 'batllie') !== false);
+                if ($is_alf) {
+                    $loose_alfajores += $qty;
+                    $total_alfajores += $qty;
+                }
             }
         }
 
-        if ($box_12 === 0 && $box_6 === 0 && $total_alfajores > 0) {
-            // Algoritmo con Prioridad Cajas de 12
-            if ($total_alfajores >= 12) {
-                $box_12 = floor($total_alfajores / 12);
-                $rem = $total_alfajores % 12;
+        if ($box_12 === 0 && $box_6 === 0) {
+            $box_12 = $boxes_from_packs_12;
+            $box_6  = $boxes_from_packs_6;
+
+            if ($loose_alfajores >= 12) {
+                $box_12 += floor($loose_alfajores / 12);
+                $rem = $loose_alfajores % 12;
                 if ($rem >= 6) {
-                    $box_6 = floor($rem / 6);
+                    $box_6 += floor($rem / 6);
                     $rem = $rem % 6;
                 }
                 if ($rem > 0 && ($has_courtesy_meta || $courtesy > 0)) {
                     $courtesy = 1;
                 }
-            } elseif ($total_alfajores >= 6) {
-                $box_6 = floor($total_alfajores / 6);
-                $rem = $total_alfajores % 6;
+            } elseif ($loose_alfajores >= 6) {
+                $box_6 += floor($loose_alfajores / 6);
+                $rem = $loose_alfajores % 6;
                 if ($rem > 0 && ($has_courtesy_meta || $courtesy > 0)) {
                     $courtesy = 1;
                 }
