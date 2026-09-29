@@ -425,6 +425,7 @@
                 $('#new-prod-remove-img-btn').hide();
                 $('#new-prod-visibility').val('visible');
                 $('#new-prod-featured').prop('checked', false);
+                $('#new-prod-box-role').val('none').data('prev-val', 'none');
                 $('#caja-stock-qty-group').hide();
                 $('#caja-new-product-error').hide();
                 $('#caja-modal-new-product').fadeIn(200);
@@ -574,6 +575,38 @@
             $('#caja-edit-product-form').on('submit', function(e) {
                 e.preventDefault();
                 self.handleUpdateProduct($(this));
+            });
+
+            // Confirmación al reemplazar una caja oficial existente
+            $('#new-prod-box-role, #edit-prod-box-role').on('change', function() {
+                const newRole = $(this).val();
+                const prevRole = $(this).data('prev-val') || 'none';
+                const isEdit = $(this).attr('id') === 'edit-prod-box-role';
+                const currentProdId = isEdit ? (parseInt($('#edit-prod-id').val()) || 0) : 0;
+
+                if (newRole === 'box_6') {
+                    const existingId = parseInt(self.config.officialBox6Id) || 0;
+                    if (existingId > 0 && existingId !== currentProdId) {
+                        const existingName = self.config.officialBox6Name || `ID ${existingId}`;
+                        const confirmed = window.confirm(`¿Está seguro de reemplazar el producto que se estaba considerando para las cajas de seis?\n\nActualmente asignado: "${existingName}".\nAl confirmar, este producto pasará a ser la nueva caja oficial para descontar inventario.`);
+                        if (!confirmed) {
+                            $(this).val(prevRole);
+                            return;
+                        }
+                    }
+                } else if (newRole === 'box_12') {
+                    const existingId = parseInt(self.config.officialBox12Id) || 0;
+                    if (existingId > 0 && existingId !== currentProdId) {
+                        const existingName = self.config.officialBox12Name || `ID ${existingId}`;
+                        const confirmed = window.confirm(`¿Está seguro de reemplazar el producto que se estaba considerando para las cajas de doce?\n\nActualmente asignado: "${existingName}".\nAl confirmar, este producto pasará a ser la nueva caja oficial para descontar inventario.`);
+                        if (!confirmed) {
+                            $(this).val(prevRole);
+                            return;
+                        }
+                    }
+                }
+
+                $(this).data('prev-val', newRole);
             });
 
             // Soporte para botón atrás/adelante en el historial del navegador
@@ -2058,6 +2091,10 @@
                 if (isHidden) {
                     badgesHtml += ` <span class="caja-badge-hidden" title="Oculto para los clientes">🚫 Oculto</span>`;
                 }
+                if (p.is_official_box) {
+                    const boxRoleLabel = p.official_box_role === 'box_6' ? '6u' : (p.official_box_role === 'box_12' ? '12u' : '');
+                    badgesHtml += ` <span class="caja-badge-official-box" title="Caja oficial de empaque utilizada para descontar stock en los pedidos">📦 Caja Oficial ${boxRoleLabel}</span>`;
+                }
 
                 html += `
                     <tr id="caja-prod-row-${p.id}">
@@ -2255,6 +2292,32 @@
             }
         },
 
+        populatePackagingBoxSelect: function(selectedId) {
+            const self = this;
+            const $select = $('#edit-prod-packaging-box');
+            $select.empty();
+
+            $select.append('<option value="0">⚙️ Detección automática (según unidades)</option>');
+
+            const candidates = self.config.boxCandidates || [];
+            candidates.forEach(cand => {
+                let label = cand.name;
+                if (Number(cand.id) === Number(self.config.officialBox6Id)) {
+                    label += ' ★ (Oficial 6u)';
+                } else if (Number(cand.id) === Number(self.config.officialBox12Id)) {
+                    label += ' ★ (Oficial 12u)';
+                }
+                const isSel = Number(cand.id) === Number(selectedId);
+                $select.append(`<option value="${cand.id}" ${isSel ? 'selected' : ''}>${label}</option>`);
+            });
+
+            if (selectedId && Number(selectedId) > 0) {
+                $select.val(String(selectedId));
+            } else {
+                $select.val('0');
+            }
+        },
+
         openEditProductModal: function(productId) {
             const self = this;
             const p = self.cachedProducts.find(item => item.id === productId);
@@ -2291,6 +2354,7 @@
 
             // Cartel y selector de productos si es Agrupado
             if (p.product_type === 'grouped') {
+                $('#edit-prod-box-role-group').hide();
                 $('#edit-prod-grouped-notice').slideDown(150);
                 $('#edit-prod-grouped-section').slideDown(150);
                 $('#edit-grouped-search-filter').val('');
@@ -2309,9 +2373,14 @@
                 }
 
                 self.renderGroupedChildrenList(p.children_ids || [], p.id, p.predefined_quantities || {}, isPredefined);
+                self.populatePackagingBoxSelect(p.packaging_box_product_id);
             } else {
                 $('#edit-prod-grouped-notice').hide();
                 $('#edit-prod-grouped-section').hide();
+                $('#edit-prod-box-role-group').show();
+
+                const currentBoxRole = p.official_box_role || 'none';
+                $('#edit-prod-box-role').val(currentBoxRole).data('prev-val', currentBoxRole);
             }
 
             if (p.manage_stock) {
@@ -2342,6 +2411,7 @@
             $btn.find('.caja-btn-spinner').show();
             $btn.find('.caja-btn-text').text('Guardando cambios...');
 
+            const isGrouped = $('#edit-prod-type').val() === 'grouped';
             const productData = {
                 name: $('#edit-prod-name').val(),
                 regular_price: $('#edit-prod-price').val(),
@@ -2353,10 +2423,12 @@
                 description: $('#edit-prod-desc').val(),
                 image_id: $('#edit-prod-image-id').val(),
                 featured: $('#edit-prod-featured').is(':checked') ? 'yes' : 'no',
-                catalog_visibility: $('#edit-prod-visibility').val()
+                catalog_visibility: $('#edit-prod-visibility').val(),
+                official_box_role: isGrouped ? 'none' : ($('#edit-prod-box-role').val() || 'none')
             };
 
-            if ($('#edit-prod-type').val() === 'grouped') {
+            if (isGrouped) {
+                productData.packaging_box_product_id = $('#edit-prod-packaging-box').val() || 0;
                 const isPredefined = $('input[name="grouped_combo_mode"]:checked').val() === 'predefined';
                 const children = [];
                 const predefinedQtys = {};
@@ -2392,6 +2464,41 @@
                         if (idx !== -1) {
                             self.cachedProducts[idx] = updated;
                         }
+
+                        // Actualizar referencias en tiempo real de cajas oficiales
+                        if (updated.official_box_role === 'box_6') {
+                            self.config.officialBox6Id = updated.id;
+                            self.config.officialBox6Name = updated.name;
+                            self.cachedProducts.forEach(prod => {
+                                if (prod.id !== updated.id && prod.official_box_role === 'box_6') {
+                                    prod.official_box_role = 'none';
+                                    prod.is_official_box = false;
+                                }
+                            });
+                        } else if (self.config.officialBox6Id === updated.id && updated.official_box_role !== 'box_6') {
+                            self.config.officialBox6Id = 0;
+                            self.config.officialBox6Name = '';
+                        }
+
+                        if (updated.official_box_role === 'box_12') {
+                            self.config.officialBox12Id = updated.id;
+                            self.config.officialBox12Name = updated.name;
+                            self.cachedProducts.forEach(prod => {
+                                if (prod.id !== updated.id && prod.official_box_role === 'box_12') {
+                                    prod.official_box_role = 'none';
+                                    prod.is_official_box = false;
+                                }
+                            });
+                        } else if (self.config.officialBox12Id === updated.id && updated.official_box_role !== 'box_12') {
+                            self.config.officialBox12Id = 0;
+                            self.config.officialBox12Name = '';
+                        }
+
+                        // Mantener lista de cajas candidatas
+                        if (self.config.boxCandidates && !self.config.boxCandidates.some(c => c.id === updated.id)) {
+                            self.config.boxCandidates.push({ id: updated.id, name: updated.name });
+                        }
+
                         self.filterProductsInDom();
                         $('#caja-modal-edit-product').fadeOut(150);
                         self.showToast(`✅ Producto "${updated.name}" modificado con éxito`);
@@ -2532,7 +2639,8 @@
                 description: $('#new-prod-desc').val(),
                 image_id: $('#new-prod-image-id').val(),
                 featured: $('#new-prod-featured').is(':checked') ? 'yes' : 'no',
-                catalog_visibility: $('#new-prod-visibility').val()
+                catalog_visibility: $('#new-prod-visibility').val(),
+                official_box_role: $('#new-prod-box-role').val() || 'none'
             };
 
             $.ajax({
@@ -2545,7 +2653,34 @@
                 },
                 success: function(res) {
                     if (res.success && res.data && res.data.product) {
-                        self.cachedProducts.unshift(res.data.product);
+                        const newProd = res.data.product;
+
+                        // Actualizar referencias si se definió como caja oficial
+                        if (newProd.official_box_role === 'box_6') {
+                            self.config.officialBox6Id = newProd.id;
+                            self.config.officialBox6Name = newProd.name;
+                            self.cachedProducts.forEach(prod => {
+                                if (prod.id !== newProd.id && prod.official_box_role === 'box_6') {
+                                    prod.official_box_role = 'none';
+                                    prod.is_official_box = false;
+                                }
+                            });
+                        } else if (newProd.official_box_role === 'box_12') {
+                            self.config.officialBox12Id = newProd.id;
+                            self.config.officialBox12Name = newProd.name;
+                            self.cachedProducts.forEach(prod => {
+                                if (prod.id !== newProd.id && prod.official_box_role === 'box_12') {
+                                    prod.official_box_role = 'none';
+                                    prod.is_official_box = false;
+                                }
+                            });
+                        }
+
+                        if (self.config.boxCandidates && !self.config.boxCandidates.some(c => c.id === newProd.id)) {
+                            self.config.boxCandidates.push({ id: newProd.id, name: newProd.name });
+                        }
+
+                        self.cachedProducts.unshift(newProd);
                         self.renderProducts(self.cachedProducts);
                         $('#caja-modal-new-product').fadeOut(150);
                         $form[0].reset();
@@ -2554,6 +2689,7 @@
                         $('#new-prod-remove-img-btn').hide();
                         $('#new-prod-visibility').val('visible');
                         $('#new-prod-featured').prop('checked', false);
+                        $('#new-prod-box-role').val('none').data('prev-val', 'none');
                         self.showToast('¡Producto creado exitosamente en WooCommerce!');
                     } else {
                         $err.text(res.data && res.data.message ? res.data.message : 'Error al crear producto').fadeIn(150);

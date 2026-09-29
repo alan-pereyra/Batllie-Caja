@@ -41,6 +41,29 @@ class Batllie_Caja_Products {
             $formatted[] = self::format_product($product);
         }
 
+        // Asegurar que las cajas de empaque oficiales siempre aparezcan en la lista del POS para control de stock
+        if (empty($search) && empty($category) && class_exists('Batllie_Caja_Packing')) {
+            $official_ids = array_filter(array(
+                Batllie_Caja_Packing::get_official_box_id(6),
+                Batllie_Caja_Packing::get_official_box_id(12),
+            ));
+            foreach ($official_ids as $box_id) {
+                $already_present = false;
+                foreach ($formatted as $item) {
+                    if ($item['id'] === $box_id) {
+                        $already_present = true;
+                        break;
+                    }
+                }
+                if (!$already_present) {
+                    $box_prod = wc_get_product($box_id);
+                    if ($box_prod && $box_prod->exists() && $box_prod->get_status() !== 'trash') {
+                        array_unshift($formatted, self::format_product($box_prod));
+                    }
+                }
+            }
+        }
+
         return $formatted;
     }
 
@@ -114,37 +137,43 @@ class Batllie_Caja_Products {
             $stock_label = $product->is_in_stock() ? __('Ilimitado', 'emp-caja') : __('Sin stock', 'emp-caja');
         }
 
+        $box_role = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_product_box_role($product->get_id()) : '';
+        $packaging_box_id = get_post_meta($product->get_id(), '_batllie_packaging_box_product_id', true);
+
         return array(
-            'id'                     => $product->get_id(),
-            'name'                   => $product->get_name(),
-            'sku'                    => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
-            'price'                  => wc_price($product->get_price()),
-            'price_raw'              => (float) $product->get_price(),
-            'regular_price'          => $product->get_regular_price(),
-            'sale_price'             => $product->get_sale_price(),
-            'is_on_sale'             => $product->is_on_sale(),
-            'categories'             => implode(', ', $category_names),
-            'category_ids'           => !empty($category_ids) ? $category_ids : $product->get_category_ids(),
-            'category_slugs'         => $category_slugs,
-            'stock_status'           => $product->get_stock_status(),
-            'manage_stock'           => $manage_stock,
-            'stock_quantity_raw'     => $stock_qty !== null ? intval($stock_qty) : null,
-            'stock_quantity'         => $stock_qty !== null ? intval($stock_qty) : __('Ilimitado', 'emp-caja'),
-            'is_low_stock'           => $is_low_stock,
-            'stock_badge'            => $stock_badge,
-            'stock_label'            => $stock_label,
-            'raw_sku'                => $product->get_sku(),
-            'category_ids'           => $product->get_category_ids(),
-            'raw_description'        => $product->get_short_description() ?: $product->get_description(),
-            'image_id'               => $image_id ? intval($image_id) : 0,
-            'image_url'              => $image_url,
-            'is_featured'            => (bool) $is_featured,
-            'catalog_visibility'     => $catalog_visibility,
-            'product_type'           => $product_type,
-            'children_ids'           => $children_ids,
-            'is_predefined'          => $is_predefined,
-            'predefined_quantities'  => $predefined_quantities,
-            'description'            => wp_trim_words(strip_tags($product->get_short_description()), 15)
+            'id'                       => $product->get_id(),
+            'name'                     => $product->get_name(),
+            'sku'                      => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
+            'price'                    => wc_price($product->get_price()),
+            'price_raw'                => (float) $product->get_price(),
+            'regular_price'            => $product->get_regular_price(),
+            'sale_price'               => $product->get_sale_price(),
+            'is_on_sale'               => $product->is_on_sale(),
+            'categories'               => implode(', ', $category_names),
+            'category_ids'             => !empty($category_ids) ? $category_ids : $product->get_category_ids(),
+            'category_slugs'           => $category_slugs,
+            'stock_status'             => $product->get_stock_status(),
+            'manage_stock'             => $manage_stock,
+            'stock_quantity_raw'       => $stock_qty !== null ? intval($stock_qty) : null,
+            'stock_quantity'           => $stock_qty !== null ? intval($stock_qty) : __('Ilimitado', 'emp-caja'),
+            'is_low_stock'             => $is_low_stock,
+            'stock_badge'              => $stock_badge,
+            'stock_label'              => $stock_label,
+            'raw_sku'                  => $product->get_sku(),
+            'category_ids'             => $product->get_category_ids(),
+            'raw_description'          => $product->get_short_description() ?: $product->get_description(),
+            'image_id'                 => $image_id ? intval($image_id) : 0,
+            'image_url'                => $image_url,
+            'is_featured'              => (bool) $is_featured,
+            'catalog_visibility'       => $catalog_visibility,
+            'product_type'             => $product_type,
+            'children_ids'             => $children_ids,
+            'is_predefined'            => $is_predefined,
+            'predefined_quantities'    => $predefined_quantities,
+            'official_box_role'        => $box_role,
+            'is_official_box'          => !empty($box_role),
+            'packaging_box_product_id' => $packaging_box_id ?: 0,
+            'description'              => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
     }
 
@@ -225,6 +254,15 @@ class Batllie_Caja_Products {
 
         if (!$product_id) {
             return new WP_Error('save_error', __('No se pudo guardar el producto en WooCommerce.', 'emp-caja'));
+        }
+
+        if (!empty($data['official_box_role']) && class_exists('Batllie_Caja_Packing')) {
+            $role = sanitize_key($data['official_box_role']);
+            if ($role === 'box_6') {
+                Batllie_Caja_Packing::set_official_box_id(6, $product_id);
+            } elseif ($role === 'box_12') {
+                Batllie_Caja_Packing::set_official_box_id(12, $product_id);
+            }
         }
 
         return self::format_product($product);
@@ -418,6 +456,28 @@ class Batllie_Caja_Products {
             if (isset($data['children'])) {
                 $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
                 $product->set_children($children);
+            }
+
+            if (isset($data['packaging_box_product_id'])) {
+                $p_box = sanitize_text_field($data['packaging_box_product_id']);
+                update_post_meta($product_id, '_batllie_packaging_box_product_id', $p_box);
+            }
+        }
+
+        if (isset($data['official_box_role']) && class_exists('Batllie_Caja_Packing')) {
+            $role = sanitize_key($data['official_box_role']);
+            if ($role === 'box_6') {
+                Batllie_Caja_Packing::set_official_box_id(6, $product_id);
+            } elseif ($role === 'box_12') {
+                Batllie_Caja_Packing::set_official_box_id(12, $product_id);
+            } elseif ($role === 'none') {
+                if (Batllie_Caja_Packing::get_official_box_id(6) === $product_id) {
+                    delete_option(Batllie_Caja_Packing::OPTION_BOX_6_ID);
+                }
+                if (Batllie_Caja_Packing::get_official_box_id(12) === $product_id) {
+                    delete_option(Batllie_Caja_Packing::OPTION_BOX_12_ID);
+                }
+                delete_post_meta($product_id, '_batllie_is_official_box');
             }
         }
 

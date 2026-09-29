@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.12
+ * Version: 1.8.13
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.12');
+define('EMP_CAJA_VERSION', '1.8.13');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -296,9 +296,14 @@ class Batllie_Caja_Plugin {
             'soundEnabled'   => ($options['sound_enabled'] === 'yes'),
             'isUserLoggedIn' => is_user_logged_in(),
             'currentUser'    => wp_get_current_user()->display_name,
-            'currencySymbol' => function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '$',
-            'placeholderImg' => function_exists('wc_placeholder_img_src') ? wc_placeholder_img_src('medium') : '',
-            'i18n'           => array(
+            'currencySymbol'   => function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '$',
+            'placeholderImg'   => function_exists('wc_placeholder_img_src') ? wc_placeholder_img_src('medium') : '',
+            'officialBox6Id'   => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0,
+            'officialBox6Name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(6) : '',
+            'officialBox12Id'  => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0,
+            'officialBox12Name'=> class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(12) : '',
+            'boxCandidates'    => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array(),
+            'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
                 'soundOff'         => __('Sonido: SILENCIADO', 'emp-caja'),
@@ -373,6 +378,12 @@ class Batllie_Caja_Plugin {
         $output['packing_priority']     = (isset($input['packing_priority']) && $input['packing_priority'] === '6') ? '6' : '12';
         $output['packing_stock_sync']   = (isset($input['packing_stock_sync']) && $input['packing_stock_sync'] === 'no') ? 'no' : 'yes';
 
+        if (isset($input['box_6_product_id']) && class_exists('Batllie_Caja_Packing') && intval($input['box_6_product_id']) > 0) {
+            Batllie_Caja_Packing::set_official_box_id(6, intval($input['box_6_product_id']));
+        }
+        if (isset($input['box_12_product_id']) && class_exists('Batllie_Caja_Packing') && intval($input['box_12_product_id']) > 0) {
+            Batllie_Caja_Packing::set_official_box_id(12, intval($input['box_12_product_id']));
+        }
         if (isset($input['stock_box_6']) && class_exists('Batllie_Caja_Packing')) {
             Batllie_Caja_Packing::set_box_stock(6, intval($input['stock_box_6']));
         }
@@ -534,15 +545,46 @@ class Batllie_Caja_Plugin {
                             </p>
                         </td>
                     </tr>
+                    <?php 
+                    $candidates = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array();
+                    $b6_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+                    $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+                    ?>
                     <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Batllié x 6 unidades', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('Producto: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
+                        <td>
+                            <select name="batllie_caja_options[box_6_product_id]" style="max-width: 350px;">
+                                <?php foreach ($candidates as $cand): ?>
+                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'] == $b6_id); ?>>
+                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 6 unidades.', 'emp-caja'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
                         <td>
                             <input type="number" min="0" name="batllie_caja_options[stock_box_6]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(6) : 0); ?>" class="small-text" /> 
                             <span><?php _e('cajas físicas de 6 disponibles en depósito.', 'emp-caja'); ?></span>
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Batllié x 12 unidades', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('Producto: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
+                        <td>
+                            <select name="batllie_caja_options[box_12_product_id]" style="max-width: 350px;">
+                                <?php foreach ($candidates as $cand): ?>
+                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'] == $b12_id); ?>>
+                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 12 unidades.', 'emp-caja'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
                         <td>
                             <input type="number" min="0" name="batllie_caja_options[stock_box_12]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(12) : 0); ?>" class="small-text" /> 
                             <span><?php _e('cajas físicas de 12 disponibles en depósito.', 'emp-caja'); ?></span>

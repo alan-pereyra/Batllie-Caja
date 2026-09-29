@@ -175,6 +175,16 @@ if (!defined('ABSPATH')) {
                 </div>
 
                 <div class="caja-form-group">
+                    <label for="new-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
+                    <select id="new-prod-box-role" name="official_box_role" class="caja-select">
+                        <option value="none"><?php _e('⚪ Producto estándar normal', 'emp-caja'); ?></option>
+                        <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
+                        <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                    </select>
+                    <small class="caja-form-hint"><?php _e('Al seleccionarlo como caja oficial, el stock de empaque de los pedidos se descontará de este producto.', 'emp-caja'); ?></small>
+                </div>
+
+                <div class="caja-form-group">
                     <label for="new-prod-desc"><?php _e('Descripción Corta / Ingredientes', 'emp-caja'); ?></label>
                     <textarea id="new-prod-desc" name="description" rows="3" placeholder="<?php esc_attr_e('Detalles del producto...', 'emp-caja'); ?>"></textarea>
                 </div>
@@ -424,6 +434,16 @@ if (!defined('ABSPATH')) {
                     <input type="number" min="0" id="edit-prod-stock-qty" name="stock_quantity" />
                 </div>
 
+                <div class="caja-form-group" id="edit-prod-box-role-group">
+                    <label for="edit-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
+                    <select id="edit-prod-box-role" name="official_box_role" class="caja-select">
+                        <option value="none"><?php _e('⚪ Producto estándar normal', 'emp-caja'); ?></option>
+                        <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
+                        <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                    </select>
+                    <small class="caja-form-hint"><?php _e('Al seleccionarlo como caja oficial, el stock de empaque de los pedidos se descontará de este producto.', 'emp-caja'); ?></small>
+                </div>
+
                 <!-- Sección de Selección de Productos para Productos Agrupados -->
                 <div class="caja-form-group caja-grouped-children-box" id="edit-prod-grouped-section" style="display:none;">
                     <div class="caja-grouped-header-bar">
@@ -466,6 +486,13 @@ if (!defined('ABSPATH')) {
                     </div>
                     <div class="caja-grouped-footer-bar">
                         <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
+                    </div>
+
+                    <!-- Selector de Caja física asociada al Producto Agrupado -->
+                    <div class="caja-form-group caja-grouped-box-select-row" style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.12);">
+                        <label for="edit-prod-packaging-box"><strong>📦 <?php _e('Caja física de empaque que descuenta stock al vender este pack:', 'emp-caja'); ?></strong></label>
+                        <select id="edit-prod-packaging-box" name="packaging_box_product_id" class="caja-select"></select>
+                        <small class="caja-form-hint"><?php _e('Cada vez que un cliente compre este producto agrupado, se descontará 1 unidad del inventario físico de esta caja seleccionada.', 'emp-caja'); ?></small>
                     </div>
                 </div>
 

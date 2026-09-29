@@ -2674,6 +2674,19 @@ span#edit-grouped-selected-badge {
     vertical-align: middle;
 }
 
+.caja-badge-official-box {
+    background: rgba(14, 165, 233, 0.22);
+    color: #38bdf8;
+    border: 1px solid rgba(14, 165, 233, 0.45);
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    margin-left: 6px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
 /* ==========================================================================
    Toast, Estados de Carga y Animaciones
    ========================================================================== */

@@ -29,6 +29,16 @@ class Batllie_Caja_Packing {
 
         // Descontar stock de cajas de empaque al procesar un pedido
         add_action('woocommerce_checkout_order_processed', array(__CLASS__, 'handle_order_box_stock_deduction'), 20, 3);
+        add_action('woocommerce_order_status_processing', array(__CLASS__, 'handle_order_box_stock_deduction_on_status'), 20, 1);
+        add_action('woocommerce_order_status_completed', array(__CLASS__, 'handle_order_box_stock_deduction_on_status'), 20, 1);
+        add_action('woocommerce_order_status_cancelled', array(__CLASS__, 'handle_order_box_stock_restoration'), 20, 1);
+        add_action('woocommerce_order_status_refunded', array(__CLASS__, 'handle_order_box_stock_restoration'), 20, 1);
+
+        // Meta Box en WooCommerce Admin para configurar producto de caja y caja asociada a agrupados
+        if (is_admin()) {
+            add_action('add_meta_boxes', array(__CLASS__, 'register_wc_product_meta_box'));
+            add_action('save_post_product', array(__CLASS__, 'save_wc_product_meta_box'), 10, 2);
+        }
 
         // Endpoint AJAX para consultar estado del empaque en frontend (Carrito y Checkout)
         add_action('wp_ajax_emp_caja_get_packing_status', array(__CLASS__, 'ajax_get_packing_status'));
@@ -62,6 +72,7 @@ class Batllie_Caja_Packing {
         if ($saved_id) {
             $p = wc_get_product($saved_id);
             if ($p && $p->exists() && $p->get_status() !== 'trash') {
+                update_post_meta($saved_id, '_batllie_is_official_box', 'box_' . $capacity);
                 return (int) $saved_id;
             }
         }
@@ -71,6 +82,7 @@ class Batllie_Caja_Packing {
         $existing = get_page_by_path($slug, OBJECT, 'product');
         if ($existing && $existing->post_status !== 'trash') {
             update_option($opt_key, $existing->ID);
+            update_post_meta($existing->ID, '_batllie_is_official_box', 'box_' . $capacity);
             return (int) $existing->ID;
         }
 
@@ -97,10 +109,292 @@ class Batllie_Caja_Packing {
         if ($new_id) {
             update_option($opt_key, $new_id);
             update_post_meta($new_id, '_batllie_box_capacity', $capacity);
+            update_post_meta($new_id, '_batllie_is_official_box', 'box_' . $capacity);
             return (int) $new_id;
         }
 
         return 0;
+    }
+
+    /**
+     * Obtener el ID del producto de WooCommerce asignado como Caja Oficial
+     */
+    public static function get_official_box_id($capacity) {
+        $capacity = ($capacity == 12) ? 12 : 6;
+        $opt_key  = ($capacity == 12) ? self::OPTION_BOX_12_ID : self::OPTION_BOX_6_ID;
+        $saved_id = (int) get_option($opt_key, 0);
+
+        if ($saved_id && function_exists('wc_get_product')) {
+            $p = wc_get_product($saved_id);
+            if ($p && $p->exists() && $p->get_status() !== 'trash') {
+                return $saved_id;
+            }
+        }
+
+        return (int) self::get_or_create_box_product($capacity);
+    }
+
+    /**
+     * Obtener el nombre del producto asignado como Caja Oficial
+     */
+    public static function get_official_box_name($capacity) {
+        $id = self::get_official_box_id($capacity);
+        if ($id && function_exists('wc_get_product')) {
+            $p = wc_get_product($id);
+            if ($p) {
+                return $p->get_name();
+            }
+        }
+        return sprintf(__('Caja Batllié x %d unidades', 'emp-caja'), $capacity);
+    }
+
+    /**
+     * Asignar un producto de WooCommerce como la Caja Oficial activa
+     */
+    public static function set_official_box_id($capacity, $product_id) {
+        $capacity = ($capacity == 12) ? 12 : 6;
+        $opt_key  = ($capacity == 12) ? self::OPTION_BOX_12_ID : self::OPTION_BOX_6_ID;
+        $product_id = (int) $product_id;
+
+        $old_id = (int) get_option($opt_key, 0);
+        if ($old_id && $old_id !== $product_id) {
+            delete_post_meta($old_id, '_batllie_is_official_box');
+        }
+
+        update_option($opt_key, $product_id);
+
+        if ($product_id > 0 && function_exists('wc_get_product')) {
+            update_post_meta($product_id, '_batllie_is_official_box', 'box_' . $capacity);
+            update_post_meta($product_id, '_batllie_box_capacity', $capacity);
+
+            // Asegurar que gestione stock en WooCommerce
+            $p = wc_get_product($product_id);
+            if ($p) {
+                if (!$p->get_manage_stock()) {
+                    $p->set_manage_stock(true);
+                    if ($p->get_stock_quantity() === null) {
+                        $p->set_stock_quantity(0);
+                    }
+                    $p->save();
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Obtener el rol de caja oficial de un producto ('box_6', 'box_12' o '')
+     */
+    public static function get_product_box_role($product_id) {
+        $product_id = (int) $product_id;
+        if (!$product_id) return '';
+        $box_6_id = (int) get_option(self::OPTION_BOX_6_ID, 0);
+        if ($product_id === $box_6_id) return 'box_6';
+        $box_12_id = (int) get_option(self::OPTION_BOX_12_ID, 0);
+        if ($product_id === $box_12_id) return 'box_12';
+
+        $meta = get_post_meta($product_id, '_batllie_is_official_box', true);
+        return in_array($meta, array('box_6', 'box_12'), true) ? $meta : '';
+    }
+
+    /**
+     * Obtener el producto de caja asignado a un producto agrupado
+     */
+    public static function get_box_product_for_grouped($grouped_id, $capacity_hint = 6) {
+        $grouped_id = (int) $grouped_id;
+        if ($grouped_id > 0) {
+            $assigned = get_post_meta($grouped_id, '_batllie_packaging_box_product_id', true);
+            if (!empty($assigned) && is_numeric($assigned) && (int)$assigned > 0) {
+                $p = wc_get_product((int)$assigned);
+                if ($p && $p->exists() && $p->get_status() !== 'trash') {
+                    return (int)$assigned;
+                }
+            } elseif ($assigned === 'box_12') {
+                return self::get_official_box_id(12);
+            } elseif ($assigned === 'box_6') {
+                return self::get_official_box_id(6);
+            }
+        }
+
+        if ($grouped_id > 0 && function_exists('wc_get_product')) {
+            $gp = wc_get_product($grouped_id);
+            if ($gp) {
+                $gname = mb_strtolower($gp->get_name(), 'UTF-8');
+                if (strpos($gname, '12') !== false) {
+                    return self::get_official_box_id(12);
+                } elseif (strpos($gname, '6') !== false) {
+                    return self::get_official_box_id(6);
+                }
+            }
+        }
+
+        return self::get_official_box_id($capacity_hint);
+    }
+
+    /**
+     * Obtener todos los productos candidatos a ser cajas de empaque
+     */
+    public static function get_all_box_candidates() {
+        if (!function_exists('wc_get_products')) return array();
+
+        $products = wc_get_products(array(
+            'status' => 'publish',
+            'limit'  => -1,
+            'return' => 'objects',
+        ));
+
+        $candidates = array();
+        $b6_id  = self::get_official_box_id(6);
+        $b12_id = self::get_official_box_id(12);
+
+        foreach ($products as $p) {
+            if ($p->is_type('grouped')) continue;
+            $pid = $p->get_id();
+            $pname = $p->get_name();
+            $lower = mb_strtolower($pname, 'UTF-8');
+
+            $is_cand = ($pid === $b6_id || $pid === $b12_id || strpos($lower, 'caja') !== false || strpos($lower, 'empaque') !== false || strpos($lower, 'pack') !== false);
+            if ($is_cand) {
+                $role = '';
+                if ($pid === $b6_id) $role = ' (Caja Oficial 6u)';
+                elseif ($pid === $b12_id) $role = ' (Caja Oficial 12u)';
+
+                $candidates[] = array(
+                    'id'    => $pid,
+                    'name'  => $pname . $role,
+                    'stock' => $p->get_stock_quantity() !== null ? (int)$p->get_stock_quantity() : __('Ilimitado', 'emp-caja'),
+                );
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Registrar Meta Box de Empaque y Stock en la edición de productos de WooCommerce
+     */
+    public static function register_wc_product_meta_box() {
+        add_meta_box(
+            'batllie_caja_product_packing_mb',
+            __('📦 Empaque y Control de Stock Batllié', 'emp-caja'),
+            array(__CLASS__, 'render_wc_product_meta_box'),
+            'product',
+            'side',
+            'default'
+        );
+    }
+
+    /**
+     * Renderizar Meta Box de Empaque y Stock en WooCommerce
+     */
+    public static function render_wc_product_meta_box($post) {
+        wp_nonce_field('batllie_caja_product_packing_action', 'batllie_caja_product_packing_nonce');
+        $product = wc_get_product($post->ID);
+        $is_grouped = $product && $product->is_type('grouped');
+
+        $b6_id   = self::get_official_box_id(6);
+        $b6_name = self::get_official_box_name(6);
+        $b12_id  = self::get_official_box_id(12);
+        $b12_name = self::get_official_box_name(12);
+
+        $current_role = self::get_product_box_role($post->ID);
+        $assigned_box = get_post_meta($post->ID, '_batllie_packaging_box_product_id', true);
+        $candidates   = self::get_all_box_candidates();
+
+        ?>
+        <div class="batllie-packing-mb-wrap" style="font-size:13px;">
+            <?php if ($is_grouped): ?>
+                <p><strong><?php _e('Caja física de empaque asociada:', 'emp-caja'); ?></strong></p>
+                <select name="_batllie_packaging_box_product_id" style="width:100%; max-width:100%;">
+                    <option value="0" <?php selected(!$assigned_box || $assigned_box === '0' || $assigned_box === 'auto'); ?>><?php _e('⚡ Automático (Detectar según unidades 6 o 12)', 'emp-caja'); ?></option>
+                    <option value="<?php echo esc_attr($b6_id); ?>" <?php selected($assigned_box == $b6_id || $assigned_box === 'box_6'); ?>><?php echo esc_html(sprintf(__('📦 Caja Oficial 6u (%s)', 'emp-caja'), $b6_name)); ?></option>
+                    <option value="<?php echo esc_attr($b12_id); ?>" <?php selected($assigned_box == $b12_id || $assigned_box === 'box_12'); ?>><?php echo esc_html(sprintf(__('📦 Caja Oficial 12u (%s)', 'emp-caja'), $b12_name)); ?></option>
+                    <?php foreach ($candidates as $cand): ?>
+                        <?php if ($cand['id'] != $b6_id && $cand['id'] != $b12_id): ?>
+                            <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($assigned_box == $cand['id']); ?>><?php echo esc_html($cand['name'] . ' (' . $cand['stock'] . ' disp.)'); ?></option>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </select>
+                <p class="description" style="margin-top:6px; color:#666;">
+                    <?php _e('Al comprar este producto agrupado, se descontará del inventario físico 1 unidad de esta caja seleccionada.', 'emp-caja'); ?>
+                </p>
+            <?php else: ?>
+                <p><strong><?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></p>
+                <select name="_batllie_official_box_role" id="_batllie_official_box_role" data-prev-val="<?php echo esc_attr($current_role ?: 'none'); ?>" style="width:100%; max-width:100%;">
+                    <option value="none" <?php selected(empty($current_role) || $current_role === 'none'); ?>><?php _e('⚪ Producto estándar normal', 'emp-caja'); ?></option>
+                    <option value="box_6" <?php selected($current_role === 'box_6'); ?>><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
+                    <option value="box_12" <?php selected($current_role === 'box_12'); ?>><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                </select>
+                <p class="description" style="margin-top:6px; color:#666;">
+                    <?php _e('Si se asigna como caja oficial, el sistema descontará el stock físico de este producto para los pedidos que agrupen alfajores.', 'emp-caja'); ?>
+                </p>
+                <script type="text/javascript">
+                jQuery(function($){
+                    $('#_batllie_official_box_role').on('change', function(){
+                        var val = $(this).val();
+                        var prevVal = $(this).data('prev-val') || 'none';
+                        var currentId = <?php echo (int) $post->ID; ?>;
+                        var b6Id = <?php echo (int) $b6_id; ?>;
+                        var b12Id = <?php echo (int) $b12_id; ?>;
+
+                        if (val === 'box_6' && b6Id && b6Id !== currentId) {
+                            var confirmed = confirm("¿Está seguro de reemplazar el producto que se estaba considerando para las cajas de seis?\n\nActualmente la caja oficial es: \"<?php echo esc_js($b6_name); ?>\".\n\nSi confirma, a partir de ahora este producto será tomado como referencia para el empaque y control de stock de las cajas de 6 unidades.");
+                            if (!confirmed) {
+                                $(this).val(prevVal);
+                                return;
+                            }
+                        } else if (val === 'box_12' && b12Id && b12Id !== currentId) {
+                            var confirmed = confirm("¿Está seguro de reemplazar el producto que se estaba considerando para las cajas de doce?\n\nActualmente la caja oficial es: \"<?php echo esc_js($b12_name); ?>\".\n\nSi confirma, a partir de ahora este producto será tomado como referencia para el empaque y control de stock de las cajas de 12 unidades.");
+                            if (!confirmed) {
+                                $(this).val(prevVal);
+                                return;
+                            }
+                        }
+                        $(this).data('prev-val', val);
+                    });
+                });
+                </script>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * Guardar Meta Box de Empaque en WooCommerce
+     */
+    public static function save_wc_product_meta_box($post_id, $post) {
+        if (!isset($_POST['batllie_caja_product_packing_nonce']) || !wp_verify_nonce($_POST['batllie_caja_product_packing_nonce'], 'batllie_caja_product_packing_action')) {
+            return;
+        }
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        if (isset($_POST['_batllie_packaging_box_product_id'])) {
+            $p_box = sanitize_text_field($_POST['_batllie_packaging_box_product_id']);
+            update_post_meta($post_id, '_batllie_packaging_box_product_id', $p_box);
+        }
+
+        if (isset($_POST['_batllie_official_box_role'])) {
+            $role = sanitize_key($_POST['_batllie_official_box_role']);
+            if ($role === 'box_6') {
+                self::set_official_box_id(6, $post_id);
+            } elseif ($role === 'box_12') {
+                self::set_official_box_id(12, $post_id);
+            } elseif ($role === 'none') {
+                if (self::get_official_box_id(6) === $post_id) {
+                    delete_option(self::OPTION_BOX_6_ID);
+                }
+                if (self::get_official_box_id(12) === $post_id) {
+                    delete_option(self::OPTION_BOX_12_ID);
+                }
+                delete_post_meta($post_id, '_batllie_is_official_box');
+            }
+        }
     }
 
     /**
@@ -115,7 +409,7 @@ class Batllie_Caja_Packing {
      * Obtener stock disponible de una caja física
      */
     public static function get_box_stock($capacity) {
-        $id = self::get_or_create_box_product($capacity);
+        $id = self::get_official_box_id($capacity);
         if (!$id) return 0;
         $product = wc_get_product($id);
         if (!$product) return 0;
@@ -126,7 +420,7 @@ class Batllie_Caja_Packing {
      * Actualizar stock de una caja física
      */
     public static function set_box_stock($capacity, $quantity) {
-        $id = self::get_or_create_box_product($capacity);
+        $id = self::get_official_box_id($capacity);
         if (!$id) return false;
         $product = wc_get_product($id);
         if (!$product) return false;
@@ -793,41 +1087,168 @@ class Batllie_Caja_Packing {
     }
 
     /**
-     * Descontar stock de cajas físicas y registrar metadatos de "Decisión Correcta" al crear el pedido
+     * Acciones al cambiar estado del pedido para descontar stock de empaque si no se descontó en checkout
      */
-    public static function handle_order_box_stock_deduction($order_id, $data, $order) {
-        if (!$order_id || !$order) return;
+    public static function handle_order_box_stock_deduction_on_status($order_id) {
+        self::handle_order_box_stock_deduction($order_id);
+    }
 
-        // Analizar productos del pedido
-        $analysis = self::analyze_cart();
-        $boxes = $analysis['boxes'];
+    /**
+     * Restaurar stock de cajas de empaque si el pedido es cancelado o reembolsado
+     */
+    public static function handle_order_box_stock_restoration($order_id) {
+        if (!$order_id) return;
+        $order = wc_get_order($order_id);
+        if (!$order) return;
 
-        // 1. Descontar stock de Cajas de 12 físicas
-        if (!empty($boxes['box_12']) && $boxes['box_12'] > 0) {
-            $box_12_id = self::get_or_create_box_product(12);
-            if ($box_12_id) {
-                $p12 = wc_get_product($box_12_id);
-                if ($p12 && $p12->managing_stock()) {
-                    wc_update_product_stock($p12, $boxes['box_12'], 'decrease');
+        if ($order->get_meta('_batllie_box_stock_deducted') !== 'yes') {
+            return;
+        }
+
+        $details = $order->get_meta('_batllie_box_stock_deducted_details');
+        if (!empty($details) && is_array($details)) {
+            foreach ($details as $box_id => $qty) {
+                if ($qty <= 0) continue;
+                $bp = wc_get_product($box_id);
+                if ($bp && $bp->managing_stock()) {
+                    wc_update_product_stock($bp, $qty, 'increase');
                 }
             }
         }
 
-        // 2. Descontar stock de Cajas de 6 físicas (incluyendo cajas de cortesía concedidas)
-        $qty_box_6 = (!empty($boxes['box_6']) ? $boxes['box_6'] : 0) + (!empty($boxes['courtesy']) ? $boxes['courtesy'] : 0);
-        if ($qty_box_6 > 0) {
-            $box_6_id = self::get_or_create_box_product(6);
-            if ($box_6_id) {
-                $p6 = wc_get_product($box_6_id);
-                if ($p6 && $p6->managing_stock()) {
-                    wc_update_product_stock($p6, $qty_box_6, 'decrease');
+        $order->update_meta_data('_batllie_box_stock_deducted', 'restored');
+        if (class_exists('Batllie_Caja_Orders')) {
+            Batllie_Caja_Orders::add_timeline_event(
+                $order,
+                __('Stock de cajas físicas devuelto al inventario por cancelación o reembolso.', 'emp-caja'),
+                '↩️',
+                'system'
+            );
+        }
+        $order->save();
+    }
+
+    /**
+     * Descontar stock de cajas físicas y registrar metadatos de "Decisión Correcta" al crear o procesar el pedido.
+     * Descuenta tanto las cajas de packs agrupados como las cajas formadas por alfajores sueltos.
+     */
+    public static function handle_order_box_stock_deduction($order_id, $data = null, $order = null) {
+        if (!$order && $order_id) {
+            $order = wc_get_order($order_id);
+        }
+        if (!$order) return;
+
+        // Evitar doble descuento si ya fue procesado
+        if ($order->get_meta('_batllie_box_stock_deducted') === 'yes') {
+            return;
+        }
+
+        $b6_id  = self::get_official_box_id(6);
+        $b12_id = self::get_official_box_id(12);
+
+        $box_stock_to_deduct = array(); // [ product_id => qty ]
+        $pack_groups         = array(); // [ instance_key => [ 'parent_id' => X, 'units' => Y ] ]
+        $loose_alfajores     = 0;
+        $total_alfajores     = 0;
+
+        foreach ($order->get_items() as $item_id => $item) {
+            $qty = $item->get_quantity();
+            $item_name = mb_strtolower($item->get_name(), 'UTF-8');
+            $prod_id = $item->get_product_id();
+
+            $is_extra_box = ($item->get_meta('_batllie_extra_box') === 'yes');
+            $is_pack_parent = $is_extra_box || 
+                              (strpos($item_name, 'caja x') !== false) || 
+                              (strpos($item_name, 'caja ') !== false && (strpos($item_name, 'unidades') !== false || strpos($item_name, 'unidad') !== false));
+            $parent_grouped_id = (int) $item->get_meta('_batllie_parent_grouped_id');
+            $pack_instance_id  = $item->get_meta('_batllie_pack_instance_id');
+
+            if ($parent_grouped_id || $pack_instance_id) {
+                $instance_key = $pack_instance_id ?: ('p_' . $parent_grouped_id);
+                if (!isset($pack_groups[$instance_key])) {
+                    $pack_groups[$instance_key] = array(
+                        'parent_id' => $parent_grouped_id,
+                        'units'     => 0,
+                    );
+                }
+                $pack_groups[$instance_key]['units'] += $qty;
+                $total_alfajores += $qty;
+            } elseif ($is_pack_parent) {
+                // El ítem padre de la caja está como línea de pedido
+                $cap = (strpos($item_name, '12') !== false) ? 12 : 6;
+                $box_prod_id = self::get_box_product_for_grouped($prod_id, $cap);
+                if (!isset($box_stock_to_deduct[$box_prod_id])) {
+                    $box_stock_to_deduct[$box_prod_id] = 0;
+                }
+                $box_stock_to_deduct[$box_prod_id] += $qty;
+            } else {
+                $is_alf = self::is_alfajor_product($prod_id) || (strpos($item_name, 'alfajor') !== false) || (strpos($item_name, 'batllie') !== false);
+                if ($is_alf) {
+                    $loose_alfajores += $qty;
+                    $total_alfajores += $qty;
                 }
             }
         }
 
-        // 3. Determinar si califica para "Decisión Correcta"
-        // Califica si el cliente completó todas sus cajas (status == all_boxed o no le quedaron sueltos fuera de caja)
-        // O si añadió algún ítem vía el botón de upsell
+        // Si los packs agrupados fueron agregados como sub-ítems
+        foreach ($pack_groups as $p) {
+            $cap = ($p['units'] >= 12) ? 12 : 6;
+            $box_prod_id = self::get_box_product_for_grouped($p['parent_id'], $cap);
+            $boxes_needed = ($cap === 12) ? max(1, floor($p['units'] / 12)) : max(1, floor($p['units'] / 6));
+            if (!isset($box_stock_to_deduct[$box_prod_id])) {
+                $box_stock_to_deduct[$box_prod_id] = 0;
+            }
+            $box_stock_to_deduct[$box_prod_id] += $boxes_needed;
+        }
+
+        // 2. Empaquetar alfajores sueltos y asignar a las cajas oficiales
+        $has_courtesy_meta = ($order->get_meta('_batllie_has_courtesy_box') === 'yes');
+        if ($loose_alfajores > 0) {
+            $u_left = $loose_alfajores;
+            $loose_b12 = 0;
+            $loose_b6  = 0;
+
+            while ($u_left >= 12) {
+                $loose_b12++;
+                $u_left -= 12;
+            }
+            if ($u_left >= 6) {
+                $loose_b6++;
+                $u_left -= 6;
+            }
+            if ($u_left > 0 && $has_courtesy_meta) {
+                $loose_b6++; // La caja de cortesía utiliza la caja física de 6
+                $u_left = 0;
+            }
+
+            if ($loose_b12 > 0) {
+                if (!isset($box_stock_to_deduct[$b12_id])) {
+                    $box_stock_to_deduct[$b12_id] = 0;
+                }
+                $box_stock_to_deduct[$b12_id] += $loose_b12;
+            }
+            if ($loose_b6 > 0) {
+                if (!isset($box_stock_to_deduct[$b6_id])) {
+                    $box_stock_to_deduct[$b6_id] = 0;
+                }
+                $box_stock_to_deduct[$b6_id] += $loose_b6;
+            }
+        }
+
+        // 3. Ejecutar descuento de stock para cada producto de caja física
+        $deductions_log = array();
+        foreach ($box_stock_to_deduct as $box_id => $qty) {
+            if ($qty <= 0) continue;
+            $bp = wc_get_product($box_id);
+            if ($bp) {
+                if ($bp->managing_stock()) {
+                    wc_update_product_stock($bp, $qty, 'decrease');
+                }
+                $deductions_log[] = "{$qty}x {$bp->get_name()}";
+            }
+        }
+
+        // 4. Determinar si califica para "Decisión Correcta"
         $has_upsell_add = false;
         foreach ($order->get_items() as $item) {
             if ($item->get_meta('_batllie_added_via_upsell') === 'yes') {
@@ -836,12 +1257,21 @@ class Batllie_Caja_Packing {
             }
         }
 
-        $decision_correcta = ($has_upsell_add || ($analysis['has_prior_box'] && $analysis['status'] === 'all_boxed'));
+        $decision_correcta = $has_upsell_add || ($loose_alfajores > 0 && ($loose_alfajores % 6 === 0));
 
-        $order->update_meta_data('_batllie_boxes_used', $boxes);
-        $order->update_meta_data('_batllie_has_courtesy_box', (!empty($boxes['courtesy']) && $boxes['courtesy'] > 0) ? 'yes' : 'no');
+        $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
+        $order->update_meta_data('_batllie_box_stock_deducted_details', $box_stock_to_deduct);
         $order->update_meta_data('_batllie_decision_correcta', $decision_correcta ? 'yes' : 'no');
-        $order->update_meta_data('_batllie_tarjeta_incluida', 'no');
+
+        if (!empty($deductions_log) && class_exists('Batllie_Caja_Orders')) {
+            Batllie_Caja_Orders::add_timeline_event(
+                $order,
+                sprintf(__('Stock de empaque descontado: %s', 'emp-caja'), implode(', ', $deductions_log)),
+                '📦',
+                'system'
+            );
+        }
+
         $order->save();
     }
 }
