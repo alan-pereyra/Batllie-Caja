@@ -448,15 +448,30 @@ class Batllie_Caja_Min_Order {
                             <p id="batllie-packing-subtitle" class="batllie-packing-subtitle"><?php echo esc_html($packing['message'] ?? ''); ?></p>
                         </div>
 
+                        <!-- Barra de Resumen de Totales y Cajas Armadas -->
+                        <div id="batllie-packing-summary-wrap">
+                            <div class="batllie-packing-summary-bar">
+                                <span class="batllie-summary-total">Total: <strong id="batllie-summary-total-count"><?php echo esc_html($packing['total_alfajores'] ?? 0); ?> alfajores</strong></span>
+                                <span class="batllie-summary-boxed" id="batllie-summary-boxed-badge" style="<?php echo !empty($packing['completed_boxes_text']) ? '' : 'display:none;'; ?>">
+                                    📦 <span id="batllie-summary-boxed-text"><?php echo esc_html($packing['completed_boxes_text'] ?? ''); ?></span> ✅
+                                </span>
+                            </div>
+                        </div>
+
                         <!-- Barra de Progreso Gamificada con colores de marca -->
                         <div class="batllie-packing-progress-container" id="batllie-packing-progress-container">
                             <div class="batllie-packing-progress-meta">
-                                <span class="batllie-packing-meta-label"><?php _e('Caja en armado:', 'emp-caja'); ?></span>
+                                <span class="batllie-packing-meta-label">
+                                    <?php 
+                                    $box_num = $packing['current_box_num'] ?? 1;
+                                    echo esc_html(($box_num > 1) ? sprintf(__('%dª Caja en armado:', 'emp-caja'), $box_num) : __('Caja en armado:', 'emp-caja')); 
+                                    ?>
+                                </span>
                                 <span id="batllie-packing-count" class="batllie-packing-count">
                                     <?php 
-                                    $rem = (!empty($packing['loose_alfajores']) ? ($packing['loose_alfajores'] % 6) : 0);
-                                    if ($rem === 0 && !empty($packing['loose_alfajores'])) $rem = 6;
-                                    echo esc_html(sprintf(__('%d de 6 alfajores', 'emp-caja'), $rem)); 
+                                    $cur_units = $packing['current_box_units'] ?? 0;
+                                    $cur_cap   = $packing['current_box_capacity'] ?? 6;
+                                    echo esc_html(sprintf(__('%d de %d alfajores', 'emp-caja'), $cur_units, $cur_cap)); 
                                     ?>
                                 </span>
                             </div>

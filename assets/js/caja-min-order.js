@@ -1,8 +1,9 @@
 /**
  * Batllie Caja - Control de Mínimo de Compra y Empaque de Alfajores en el Frontend
- * Sincronización en tiempo real sin recargar página:
- * - Integración nativa con @wordpress/data para WooCommerce Blocks
- * - Motor de empaque (Packing Engine) con barra de progreso gamificada
+ * Sincronización reactiva en tiempo real sin recargar página:
+ * - Detección instantánea de cambios de cantidad en WooCommerce Blocks y clásico (0ms lag)
+ * - Motor de empaque client-side en espejo con el servidor (sin desincronización)
+ * - Desglose detallado: Total de alfajores, cajas cerradas completas y caja en armado
  * - Adición de sabores en 1 clic desde el modal/carrito vía AJAX
  * - Concesión de Caja de Cortesía o bloqueo imperativo si faltan 1-2 unidades
  * - Cartel de aviso persistente que se remueve automáticamente al alcanzar el mínimo
@@ -13,13 +14,16 @@
 
     const config = window.batllieMinOrderConfig || {};
     const minAmount = parseFloat(config.minAmount) || 0;
-    const hasPacking = Boolean(config.packing && config.packing.has_alfajores);
+    const hasInitialPacking = Boolean(config.packing && config.packing.has_alfajores);
 
-    if (minAmount <= 0 && !hasPacking) {
+    if (minAmount <= 0 && !hasInitialPacking) {
         return; // Sin restricciones activas
     }
 
     let lastKnownAmount = parseFloat(config.currentAmount) || 0;
+    const alfajorIdSet = new Set((config.availableAlfajores || []).map(function (a) {
+        return parseInt(a.id, 10);
+    }));
 
     const CHECKOUT_SELECTORS = [
         'a.checkout-button',
@@ -47,6 +51,27 @@
     }
 
     /**
+     * Comprobar si un ítem representa un alfajor
+     */
+    function isAlfajorItem(item) {
+        if (!item) return false;
+        const id = parseInt(item.id || item.product_id, 10);
+        if (id && alfajorIdSet.has(id)) return true;
+
+        const name = (item.name || item.title || '').toLowerCase();
+        if (name.includes('alfajor')) return true;
+
+        if (Array.isArray(item.categories)) {
+            for (let i = 0; i < item.categories.length; i++) {
+                const c = item.categories[i];
+                const cText = ((c.name || '') + ' ' + (c.slug || '')).toLowerCase();
+                if (cText.includes('alfajor')) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Comprobar si un elemento es o está contenido en un botón de checkout
      */
     function findCheckoutTrigger(element) {
@@ -63,6 +88,244 @@
             }
         }
         return null;
+    }
+
+    /**
+     * Leer el estado actual del carrito (desde React store de Blocks o DOM) en tiempo real
+     */
+    function getCartStateNow() {
+        let totalAlfajores = 0;
+        let looseAlfajores = 0;
+        let hasGroupedPack = false;
+        let cartTotal = 0;
+        let foundItems = false;
+
+        // 1. Store de Gutenberg / WooCommerce Blocks
+        if (window.wp && window.wp.data && window.wp.data.select) {
+            try {
+                const cartStore = window.wp.data.select('wc/store/cart');
+                if (cartStore && typeof cartStore.getCartData === 'function') {
+                    const data = cartStore.getCartData();
+                    if (data) {
+                        if (data.totals) {
+                            const raw = data.totals.total_items || data.totals.total_price || 0;
+                            const unit = data.totals.currency_minor_unit !== undefined ? data.totals.currency_minor_unit : 2;
+                            cartTotal = parseFloat(raw) / Math.pow(10, unit);
+                        }
+                        if (Array.isArray(data.items) && data.items.length > 0) {
+                            foundItems = true;
+                            data.items.forEach(function (item) {
+                                if (isAlfajorItem(item)) {
+                                    const q = parseInt(item.quantity, 10) || 0;
+                                    const isPack = Array.isArray(item.item_data) && item.item_data.some(function (d) {
+                                        return d.key === 'batllie_parent_grouped_id' || d.key === '_batllie_pack_instance_id';
+                                    });
+                                    if (isPack) {
+                                        hasGroupedPack = true;
+                                    } else {
+                                        looseAlfajores += q;
+                                    }
+                                    totalAlfajores += q;
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // 2. Inspección del DOM si Blocks aún no cargó sus datos
+        if (!foundItems) {
+            let domTotalAlfajores = 0;
+            let domFound = false;
+
+            $('.wc-block-cart-items__row, .wc-block-components-cart-line-item, tr.cart_item').each(function () {
+                const $row = $(this);
+                const text = $row.text().toLowerCase();
+                if (text.includes('alfajor')) {
+                    domFound = true;
+                    let q = 0;
+                    const $input = $row.find('input.wc-block-components-quantity-selector__input, input.qty, input[type="number"]');
+                    if ($input.length) {
+                        q = parseInt($input.val(), 10) || 0;
+                    } else {
+                        const $qtyBadge = $row.find('.wc-block-components-cart-line-item__quantity, .product-quantity');
+                        const match = ($qtyBadge.text() || '').match(/\d+/);
+                        if (match) q = parseInt(match[0], 10) || 0;
+                    }
+                    domTotalAlfajores += q;
+                }
+            });
+
+            if (domFound) {
+                foundItems = true;
+                totalAlfajores = domTotalAlfajores;
+                looseAlfajores = domTotalAlfajores;
+            }
+        }
+
+        // 3. Fallback a configuración de PHP si el carrito no tiene cambios
+        if (!foundItems && config.packing) {
+            totalAlfajores = config.packing.total_alfajores || 0;
+            looseAlfajores = config.packing.loose_alfajores || 0;
+            hasGroupedPack = Boolean(config.packing.has_prior_box && (totalAlfajores > looseAlfajores));
+        }
+
+        return {
+            totalAlfajores: totalAlfajores,
+            looseAlfajores: looseAlfajores,
+            hasGroupedPack: hasGroupedPack,
+            cartTotal: (cartTotal > 0) ? cartTotal : (parseFloat(config.currentAmount) || 0)
+        };
+    }
+
+    /**
+     * Motor de Empaque en el Frontend (cálculo en 0ms sin desincronización)
+     */
+    function analyzePackingClientSide(totalAlfajores, looseCount, hasGroupedPack) {
+        if (totalAlfajores <= 0) {
+            return {
+                has_alfajores: false,
+                total_alfajores: 0,
+                loose_alfajores: 0,
+                has_prior_box: false,
+                completed_boxes_6: 0,
+                completed_boxes_12: 0,
+                completed_boxes_text: '',
+                current_box_num: 1,
+                current_box_units: 0,
+                current_box_capacity: 6,
+                status: 'empty',
+                is_blocked: false,
+                courtesy_allowed: false,
+                missing_units: 0,
+                missing_for_12: 0,
+                message: '',
+                boxes: { box_12: 0, box_6: 0, courtesy: 0 }
+            };
+        }
+
+        const has_prior_box = Boolean(hasGroupedPack || totalAlfajores >= 6);
+        let status = 'ok';
+        let is_blocked = false;
+        let courtesy_allowed = false;
+        let missing_units = 0;
+        let missing_for_12 = 0;
+        let message = '';
+        const boxes = { box_12: 0, box_6: 0, courtesy: 0 };
+        let completed_boxes_6 = 0;
+        let completed_boxes_12 = 0;
+        let completed_boxes_text = '';
+        let current_box_num = 1;
+        let current_box_units = 0;
+        let current_box_capacity = 6;
+
+        if (!has_prior_box) {
+            // Caso 1: Menos de 1 caja completa (1 a 5 alfajores en total)
+            status = 'no_prior_box';
+            courtesy_allowed = false;
+            missing_units = 6 - totalAlfajores;
+            missing_for_12 = 12 - totalAlfajores;
+            current_box_num = 1;
+            current_box_units = totalAlfajores;
+            current_box_capacity = 6;
+            is_blocked = false; // No bloquea si cumple mínimo de tienda con otros productos
+            message = 'Tenés ' + totalAlfajores + ' alfajor(es) en tu carrito. Sumando solo ' + missing_units + ' más, recibís tu primera Caja Oficial Batllié.';
+        } else {
+            // Caso 2: Al menos 1 caja completa previa
+            if (looseCount === 0) {
+                status = 'all_boxed';
+                is_blocked = false;
+                courtesy_allowed = false;
+                current_box_units = 6;
+                current_box_capacity = 6;
+                message = '¡Tus cajas están completas! Viví la experiencia completa Batllié.';
+            } else {
+                const c12 = Math.floor(looseCount / 12);
+                const rem = looseCount % 12;
+                boxes.box_12 = c12;
+                completed_boxes_12 = c12;
+
+                if (rem === 0) {
+                    status = 'all_boxed';
+                    is_blocked = false;
+                    current_box_units = 12;
+                    current_box_capacity = 12;
+                    completed_boxes_text = (c12 > 1) ? (c12 + ' Cajas x 12 armadas') : '1 Caja x 12 armada';
+                    message = '¡Tus alfajores forman ' + (c12 > 1 ? c12 + ' cajas completas' : '1 caja completa') + ' de 12 unidades!';
+                } else if (rem === 6) {
+                    boxes.box_6 = 1;
+                    completed_boxes_6 = 1;
+                    status = 'all_boxed';
+                    is_blocked = false;
+                    current_box_units = 6;
+                    current_box_capacity = 6;
+                    completed_boxes_text = (c12 > 0 ? (c12 + ' Caja x 12 + ') : '') + '1 Caja x 6 armada';
+                    message = '¡Tus alfajores forman cajas completas!';
+                } else {
+                    let extra = 0;
+                    if (rem > 6) {
+                        boxes.box_6 = 1;
+                        completed_boxes_6 = 1;
+                        extra = rem - 6; // Entre 1 y 5
+                    } else {
+                        extra = rem;
+                    }
+
+                    current_box_units = extra;
+                    current_box_capacity = 6;
+                    const totalCompleted = completed_boxes_12 + completed_boxes_6;
+                    current_box_num = totalCompleted + 1;
+
+                    if (completed_boxes_12 > 0 && completed_boxes_6 > 0) {
+                        completed_boxes_text = completed_boxes_12 + ' Caja x 12 y ' + completed_boxes_6 + ' Caja x 6 ya completas';
+                    } else if (completed_boxes_12 > 0) {
+                        completed_boxes_text = completed_boxes_12 + (completed_boxes_12 > 1 ? ' Cajas x 12' : ' Caja x 12') + ' ya completa';
+                    } else if (completed_boxes_6 > 0) {
+                        completed_boxes_text = completed_boxes_6 + (completed_boxes_6 > 1 ? ' Cajas x 6' : ' Caja x 6') + ' ya completa';
+                    }
+
+                    const missing_to_6 = 6 - extra;
+                    missing_units = missing_to_6;
+                    missing_for_12 = 12 - extra;
+
+                    if (missing_to_6 < 3) {
+                        // Faltan 1 o 2 unidades -> BLOQUEO IMPERATIVO
+                        status = 'imperative_missing';
+                        is_blocked = true;
+                        courtesy_allowed = false;
+                        message = 'Tenés ' + totalAlfajores + ' alfajores en total (' + completed_boxes_text + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6 alfajores. Agregá ' + (missing_to_6 === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
+                    } else {
+                        // Faltan 3 o más -> CORTESÍA DISPONIBLE
+                        status = 'courtesy_available';
+                        is_blocked = false;
+                        courtesy_allowed = true;
+                        boxes.courtesy = 1;
+                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + completed_boxes_text + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                    }
+                }
+            }
+        }
+
+        return {
+            has_alfajores: true,
+            total_alfajores: totalAlfajores,
+            loose_alfajores: looseCount,
+            has_prior_box: has_prior_box,
+            completed_boxes_6: completed_boxes_6,
+            completed_boxes_12: completed_boxes_12,
+            completed_boxes_text: completed_boxes_text,
+            current_box_num: current_box_num,
+            current_box_units: current_box_units,
+            current_box_capacity: current_box_capacity,
+            status: status,
+            is_blocked: is_blocked,
+            courtesy_allowed: courtesy_allowed,
+            missing_units: missing_units,
+            missing_for_12: missing_for_12,
+            message: message,
+            boxes: boxes
+        };
     }
 
     /**
@@ -94,7 +357,7 @@
     }
 
     /**
-     * Quitar el cartel de monto mínimo del DOM y de los stores de React (WooCommerce Blocks)
+     * Quitar avisos de monto mínimo de WooCommerce
      */
     function removeMinOrderNoticeElements() {
         if (window.wp && window.wp.data && window.wp.data.dispatch && window.wp.data.select) {
@@ -120,7 +383,7 @@
     }
 
     /**
-     * Abrir modal emergente de aviso
+     * Abrir modal emergente
      */
     function openModal() {
         const $backdrop = $('#batllie-min-order-backdrop');
@@ -135,7 +398,7 @@
     }
 
     /**
-     * Cerrar modal emergente de aviso
+     * Cerrar modal emergente
      */
     function closeModal() {
         const $backdrop = $('#batllie-min-order-backdrop');
@@ -146,18 +409,6 @@
             $backdrop.css('display', 'none');
             $('body').css('overflow', '');
         }, 260);
-    }
-
-    /**
-     * Ejecutar efecto de sacudida en el banner si existe
-     */
-    function triggerShakeBanner() {
-        const banner = document.getElementById('batllie-min-order-cart-banner');
-        if (banner) {
-            banner.classList.remove('batllie-shake');
-            void banner.offsetWidth;
-            banner.classList.add('batllie-shake');
-        }
     }
 
     /**
@@ -173,39 +424,47 @@
         const $sec = $('#batllie-modal-packing-section');
         $sec.show();
 
-        const units = parseInt(packing.loose_alfajores, 10) || 0;
-        let rem = units % 6;
-        if (rem === 0 && units > 0) {
-            rem = 6;
+        // 1. Resumen de totales y cajas armadas
+        $('#batllie-summary-total-count').text(packing.total_alfajores + ' alfajores');
+        const $boxedBadge = $('#batllie-summary-boxed-badge');
+        const $boxedText = $('#batllie-summary-boxed-text');
+        if (packing.completed_boxes_text) {
+            $boxedText.text(packing.completed_boxes_text);
+            $boxedBadge.show();
+        } else {
+            $boxedBadge.hide();
         }
-        const pct = (rem > 0) ? Math.min(100, Math.round((rem / 6) * 100)) : 0;
 
-        $('#batllie-packing-count').text(rem + ' de 6 alfajores');
+        // 2. Barra de progreso de la caja actual
+        const curUnits = packing.current_box_units || 0;
+        const curCap = packing.current_box_capacity || 6;
+        const pct = Math.min(100, Math.round((curUnits / curCap) * 100));
+
+        const boxLabel = (packing.current_box_num > 1) ? (packing.current_box_num + 'ª Caja en armado:') : 'Caja en armado:';
+        $('.batllie-packing-meta-label').text(boxLabel);
+        $('#batllie-packing-count').text(curUnits + ' de ' + curCap + ' alfajores');
         $('#batllie-packing-bar-fill').css('width', pct + '%');
 
+        // 3. Títulos, Mensajes y Badges
         if (packing.status === 'all_boxed') {
             $('#batllie-packing-title').text('¡Caja Completa!');
-            $('#batllie-packing-subtitle').text('Tus alfajores viajan en caja cerrada oficial Batllié.');
-            $('#batllie-packing-badge').text('¡Caja al 100%! 💌');
-            $('#batllie-packing-badge').removeClass('is-missing').addClass('is-complete');
+            $('#batllie-packing-subtitle').text(packing.message || 'Tus alfajores viajan en caja cerrada oficial Batllié.');
+            $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
         } else if (packing.is_blocked) {
             $('#batllie-packing-title').text('Completá tu Caja para Despachar');
-            $('#batllie-packing-subtitle').text(packing.message || ('Estás a solo ' + packing.missing_units + ' alfajor(es) de completar tu caja.'));
-            $('#batllie-packing-badge').text('Faltan solo ' + packing.missing_units + ' para completar');
-            $('#batllie-packing-badge').removeClass('is-complete').addClass('is-missing');
+            $('#batllie-packing-subtitle').text(packing.message);
+            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
             $('#batllie-btn-accept-courtesy').hide();
         } else if (packing.status === 'courtesy_available') {
             $('#batllie-packing-title').text('¡Mejorá tu Experiencia Batllié!');
-            $('#batllie-packing-subtitle').text(packing.message || 'Sumá los alfajores restantes para cerrar tu caja o avanzá con nuestra Caja de Cortesía de regalo.');
-            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar');
-            $('#batllie-packing-badge').removeClass('is-complete').addClass('is-missing');
+            $('#batllie-packing-subtitle').text(packing.message);
+            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
             $('#batllie-btn-accept-courtesy').show();
         } else if (packing.status === 'no_prior_box') {
             $('#batllie-packing-title').text('Comenzá tu Experiencia Batllié');
-            $('#batllie-packing-subtitle').text(packing.message || ('Sumá solo ' + packing.missing_units + ' alfajor(es) más para recibir tu primera caja oficial.'));
-            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6');
-            $('#batllie-packing-badge').removeClass('is-complete').addClass('is-missing');
+            $('#batllie-packing-subtitle').text(packing.message);
+            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6').removeClass('is-complete').addClass('is-missing');
             $('#batllie-btn-accept-courtesy').hide();
         }
 
@@ -229,10 +488,8 @@
         const currentFormatted = formatMoney(currentAmount);
         const missingFormatted = formatMoney(missing);
 
-        // Actualizar botones de pago
         updateCheckoutButtons();
 
-        // Actualizar datos dentro del modal
         $('.batllie-stat-min').html(minFormatted);
         $('.batllie-stat-current').html(currentFormatted);
         $('.batllie-stat-missing').html(missingFormatted);
@@ -264,30 +521,27 @@
     }
 
     /**
-     * Leer el monto del carrito desde el Store de Gutenberg / WooCommerce Blocks
+     * Comprobación en vivo del carrito (0ms lag)
      */
-    function checkWpCart() {
-        if (!window.wp || !window.wp.data || !window.wp.data.select) return;
-        try {
-            const cartStore = window.wp.data.select('wc/store/cart');
-            if (!cartStore || typeof cartStore.getCartData !== 'function') return;
-            const cartData = cartStore.getCartData();
-            if (!cartData || !cartData.totals) return;
+    function checkCartStateLive() {
+        const state = getCartStateNow();
+        const packing = analyzePackingClientSide(state.totalAlfajores, state.looseAlfajores, state.hasGroupedPack);
 
-            const raw = cartData.totals.total_items || cartData.totals.total_price || 0;
-            const unit = cartData.totals.currency_minor_unit !== undefined ? cartData.totals.currency_minor_unit : 2;
-            const amt = parseFloat(raw) / Math.pow(10, unit);
+        updatePackingUI(packing);
 
-            if (amt !== lastKnownAmount) {
-                lastKnownAmount = amt;
-                applyCartState(amt);
-                syncMinOrderStatus();
-            }
-        } catch (e) {}
+        if (state.cartTotal !== lastKnownAmount) {
+            lastKnownAmount = state.cartTotal;
+            applyCartState(state.cartTotal);
+            syncMinOrderStatus();
+        } else {
+            applyCartState(lastKnownAmount);
+        }
+
+        return { state: state, packing: packing };
     }
 
     /**
-     * Sincronizar estado del mínimo de compra y empaque vía AJAX
+     * Sincronizar estado del mínimo de compra y empaque vía AJAX con el servidor
      */
     let isSyncing = false;
     function syncMinOrderStatus() {
@@ -337,14 +591,15 @@
             }
         }
 
-        // B. Interceptar clic en botón de checkout
+        // B. Interceptar clic en botón de checkout con verificación reactiva EN VIVO
         const trigger = findCheckoutTrigger(e.target);
         if (trigger) {
-            checkWpCart();
-
+            // Evaluar el carrito en vivo en este milisegundo exacto
+            const live = checkCartStateLive();
+            const packing = live.packing;
             const isBelowMin = (minAmount > 0 && config.isBelowMin);
-            const isPackingBlocked = Boolean(config.packing && config.packing.is_blocked);
-            const isCourtesyAvailable = Boolean(config.packing && config.packing.status === 'courtesy_available');
+            const isPackingBlocked = Boolean(packing && packing.is_blocked);
+            const isCourtesyAvailable = Boolean(packing && packing.status === 'courtesy_available');
             const hasAcceptedCourtesy = (sessionStorage.getItem('batllie_courtesy_accepted') === '1');
 
             // Caso 1: Bloqueo por Monto Mínimo
@@ -354,15 +609,14 @@
                 e.stopImmediatePropagation();
 
                 $('#batllie-modal-min-stats').show();
-                if (config.packing && config.packing.has_alfajores && config.packing.status !== 'all_boxed') {
-                    updatePackingUI(config.packing);
+                if (packing && packing.has_alfajores && packing.status !== 'all_boxed') {
+                    updatePackingUI(packing);
                     $('#batllie-modal-packing-section').show();
                 } else {
                     $('#batllie-modal-packing-section').hide();
                 }
 
                 openModal();
-                triggerShakeBanner();
                 return false;
             }
 
@@ -373,13 +627,10 @@
                 e.stopImmediatePropagation();
 
                 $('#batllie-modal-min-stats').hide();
-                if (config.packing) {
-                    updatePackingUI(config.packing);
-                }
+                updatePackingUI(packing);
                 $('#batllie-modal-packing-section').show();
 
                 openModal();
-                triggerShakeBanner();
                 return false;
             }
 
@@ -390,22 +641,20 @@
                 e.stopImmediatePropagation();
 
                 $('#batllie-modal-min-stats').hide();
-                if (config.packing) {
-                    updatePackingUI(config.packing);
-                }
+                updatePackingUI(packing);
                 $('#batllie-modal-packing-section').show();
 
                 openModal();
                 return false;
             }
 
-            // Si no hay bloqueo, permitir avanzar normalmente
+            // Si cajas completas (ej: 12 alfajores, 6 alfajores) y monto mínimo superado: ¡AVANZAR!
             return true;
         }
     }, true);
 
     // =========================================================================
-    // Inicialización y Observación de Cambios en el Carrito
+    // Inicialización y Observación Reactiva de Cambios en el Carrito
     // =========================================================================
     removeMinOrderNoticeElements();
     $(document).ready(function () {
@@ -414,23 +663,29 @@
             removeMinOrderNoticeElements();
         });
 
-        // Aplicar estado inicial
-        if (config.currentAmount !== undefined) {
-            applyCartState(config.currentAmount);
-        }
-        if (config.packing) {
-            updatePackingUI(config.packing);
-        }
+        // Verificación inicial inmediata
+        checkCartStateLive();
 
         // Suscripción al store de WordPress Data (@wordpress/data)
         if (window.wp && window.wp.data && window.wp.data.subscribe) {
             window.wp.data.subscribe(function () {
-                checkWpCart();
+                checkCartStateLive();
             });
         }
 
-        // Chequeo periódico suave (cada 700ms) para detectar cambios en el carrito de bloques
-        setInterval(checkWpCart, 700);
+        // Detección inmediata en inputs y botones del carrito
+        $(document).on('input change blur keyup', '.wc-block-components-quantity-selector__input, input.qty, input[type="number"]', function () {
+            checkCartStateLive();
+        });
+
+        $(document).on('click', '.wc-block-components-quantity-selector__button, button.plus, button.minus, .wc-block-cart-item__remove-link', function () {
+            setTimeout(checkCartStateLive, 30);
+            setTimeout(checkCartStateLive, 250);
+            setTimeout(checkCartStateLive, 600);
+        });
+
+        // Chequeo periódico suave (cada 400ms) para garantizar sincronía total
+        setInterval(checkCartStateLive, 400);
 
         // Evento: Agregar alfajor rápido en 1 clic (+1)
         $(document).on('click', '.batllie-flavor-add-btn', function (e) {
@@ -463,11 +718,9 @@
                             applyCartState(res.data.current_amount);
                         }
 
-                        // Notificar a WooCommerce de la adición
                         $(document.body).trigger('wc_fragment_refresh');
                         $(document.body).trigger('added_to_cart');
 
-                        // Si hay Store de Gutenberg / WooCommerce Blocks, refrescar
                         if (window.wp && window.wp.data && window.wp.data.dispatch) {
                             try {
                                 const cartStore = window.wp.data.dispatch('wc/store/cart');
@@ -477,7 +730,8 @@
                             } catch (err) {}
                         }
 
-                        // Si ahora está completa la caja y no está por debajo del mínimo, auto-cerrar
+                        checkCartStateLive();
+
                         if (res.data.analysis && res.data.analysis.status === 'all_boxed' && !res.data.is_below_min) {
                             setTimeout(function () {
                                 closeModal();
@@ -529,8 +783,8 @@
             }
         });
 
-        // Escuchar eventos de actualización de carrito en WooCommerce clásico
         $(document.body).on('updated_wc_div updated_cart_totals added_to_cart removed_from_cart wc_fragments_refreshed wc_fragments_loaded', function () {
+            checkCartStateLive();
             syncMinOrderStatus();
         });
     });

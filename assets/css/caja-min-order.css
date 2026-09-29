@@ -446,6 +446,40 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     line-height: 1.4;
 }
 
+/* Barra de Resumen de Totales y Cajas Completas */
+.batllie-packing-summary-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 9px;
+    padding: 7px 12px;
+    margin: 10px 0 12px 0;
+    font-size: 0.82rem;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.batllie-summary-total {
+    color: var(--caja-text, #f8fafc);
+}
+
+.batllie-summary-total strong {
+    color: var(--caja-primary, #10b981);
+    font-weight: 700;
+}
+
+.batllie-summary-boxed {
+    color: var(--caja-status-completed, #10b981);
+    font-weight: 600;
+    background: rgba(16, 185, 129, 0.14);
+    padding: 3px 8px;
+    border-radius: 6px;
+    line-height: 1.2;
+}
+
 /* Tarjeta de Progreso de la Caja */
 .batllie-packing-progress-container {
     background: rgba(0, 0, 0, 0.22);

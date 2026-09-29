@@ -359,26 +359,66 @@ class Batllie_Caja_Packing {
                     $missing_units = $missing_to_6;
                     $missing_for_12 = 12 - $extra;
 
-                    // REGLA CLAVE: ¿Faltan MENOS de 3 unidades (faltan 1 o 2)?
-                    if ($missing_to_6 < 3) {
-                        // Faltan 1 o 2 alfajores: BLOQUEO IMPERATIVO
-                        $status           = 'imperative_missing';
-                        $is_blocked       = true;
-                        $courtesy_allowed = false;
-                        $message_type     = 'imperative';
-                        $message          = sprintf(
-                            __('Estás a solo %d alfajor(es) de completar tu caja. Agregalos a continuación para poder despachar tu pedido en caja cerrada.', 'emp-caja'),
-                            $missing_to_6
+                $completed_boxes_desc = array();
+                $b12_count = $boxes_from_packs['box_12'] + $boxes_from_loose['box_12'];
+                $b6_count  = $boxes_from_packs['box_6'] + $boxes_from_loose['box_6'];
+
+                if ($b12_count > 0) {
+                    $completed_boxes_desc[] = sprintf(_n('%d Caja x 12', '%d Cajas x 12', $b12_count, 'emp-caja'), $b12_count);
+                }
+                if ($b6_count > 0) {
+                    $completed_boxes_desc[] = sprintf(_n('%d Caja x 6', '%d Cajas x 6', $b6_count, 'emp-caja'), $b6_count);
+                }
+                $completed_boxes_text = !empty($completed_boxes_desc) ? (implode(' y ', $completed_boxes_desc) . __(' ya armada', 'emp-caja')) : '';
+                $current_box_num = ($b12_count + $b6_count) + 1;
+                $current_box_units = $extra;
+                $current_box_capacity = 6;
+
+                // REGLA CLAVE: ¿Faltan MENOS de 3 unidades (faltan 1 o 2)?
+                if ($missing_to_6 < 3) {
+                    // Faltan 1 o 2 alfajores: BLOQUEO IMPERATIVO
+                    $status           = 'imperative_missing';
+                    $is_blocked       = true;
+                    $courtesy_allowed = false;
+                    $message_type     = 'imperative';
+
+                    if (!empty($completed_boxes_text)) {
+                        $message = sprintf(
+                            __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6 alfajores. Agregá %s para poder despachar todo en caja cerrada.', 'emp-caja'),
+                            $total_alfajores,
+                            $completed_boxes_text,
+                            $current_box_num,
+                            $extra,
+                            ($missing_to_6 === 1 ? __('el alfajor faltante', 'emp-caja') : sprintf(__('los %d alfajores faltantes', 'emp-caja'), $missing_to_6))
                         );
                     } else {
-                        // Faltan 3 o más unidades (ej: sobran 3, faltan 3):
-                        // SE PERMITE AVANZAR Y SE OFRECE CAJA DE CORTESÍA SI NO AGREGA
-                        $status           = 'courtesy_available';
-                        $is_blocked       = false;
-                        $courtesy_allowed = true;
-                        $boxes_from_loose['courtesy'] = 1;
-                        $message_type     = 'upsell';
-                        $message          = sprintf(
+                        $message = sprintf(
+                            __('Tenés %d alfajores en total. Estás a solo %d alfajor(es) de completar tu caja para poder despachar tu pedido.', 'emp-caja'),
+                            $total_alfajores,
+                            $missing_to_6
+                        );
+                    }
+                } else {
+                    // Faltan 3 o más unidades (ej: sobran 3, faltan 3):
+                    // SE PERMITE AVANZAR Y SE OFRECE CAJA DE CORTESÍA SI NO AGREGA
+                    $status           = 'courtesy_available';
+                    $is_blocked       = false;
+                    $courtesy_allowed = true;
+                    $boxes_from_loose['courtesy'] = 1;
+                    $message_type     = 'upsell';
+
+                    if (!empty($completed_boxes_text)) {
+                        $message = sprintf(
+                            __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6. Con solo %d más completás tu caja (o +%d para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
+                            $total_alfajores,
+                            $completed_boxes_text,
+                            $current_box_num,
+                            $extra,
+                            $missing_to_6,
+                            $missing_for_12
+                        );
+                    } else {
+                        $message = sprintf(
                             __('Tu pedido está excelente, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu caja (o +%d para la Caja Premium de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
                             $missing_to_6,
                             $missing_for_12
@@ -387,6 +427,7 @@ class Batllie_Caja_Packing {
                 }
             }
         }
+    }
 
         $total_boxes = array(
             'box_12'   => $boxes_from_packs['box_12'] + $boxes_from_loose['box_12'],
@@ -394,22 +435,47 @@ class Batllie_Caja_Packing {
             'courtesy' => $boxes_from_loose['courtesy'],
         );
 
+        $completed_boxes_desc = array();
+        if ($total_boxes['box_12'] > 0) {
+            $completed_boxes_desc[] = sprintf(_n('%d Caja x 12', '%d Cajas x 12', $total_boxes['box_12'], 'emp-caja'), $total_boxes['box_12']);
+        }
+        if ($total_boxes['box_6'] > 0) {
+            $completed_boxes_desc[] = sprintf(_n('%d Caja x 6', '%d Cajas x 6', $total_boxes['box_6'], 'emp-caja'), $total_boxes['box_6']);
+        }
+        $completed_boxes_text = !empty($completed_boxes_desc) ? (implode(' y ', $completed_boxes_desc) . __(' ya armada', 'emp-caja')) : '';
+
+        if (!isset($current_box_num)) {
+            $current_box_num = ($total_boxes['box_12'] + $total_boxes['box_6']) + 1;
+        }
+        if (!isset($current_box_units)) {
+            $current_box_units = ($status === 'all_boxed') ? 6 : ($total_alfajores % 6 ?: 6);
+        }
+        if (!isset($current_box_capacity)) {
+            $current_box_capacity = 6;
+        }
+
         return array(
-            'has_alfajores'       => ($total_alfajores > 0),
-            'total_alfajores'     => $total_alfajores,
-            'loose_alfajores'     => $loose_count,
-            'has_prior_box'       => $has_prior_box,
-            'status'              => $status,
-            'is_blocked'          => $is_blocked,
-            'courtesy_allowed'    => $courtesy_allowed,
-            'missing_units'       => $missing_units,
-            'missing_for_12'      => $missing_for_12,
-            'message_type'        => $message_type,
-            'message'             => $message,
-            'boxes'               => $total_boxes,
-            'stock_box_6'         => self::get_box_stock(6),
-            'stock_box_12'        => self::get_box_stock(12),
-            'available_alfajores' => self::get_available_alfajores_for_upsell(),
+            'has_alfajores'        => ($total_alfajores > 0),
+            'total_alfajores'      => $total_alfajores,
+            'loose_alfajores'      => $loose_count,
+            'has_prior_box'        => $has_prior_box,
+            'completed_boxes_6'    => $total_boxes['box_6'],
+            'completed_boxes_12'   => $total_boxes['box_12'],
+            'completed_boxes_text' => $completed_boxes_text,
+            'current_box_num'      => $current_box_num,
+            'current_box_units'    => $current_box_units,
+            'current_box_capacity' => $current_box_capacity,
+            'status'               => $status,
+            'is_blocked'           => $is_blocked,
+            'courtesy_allowed'     => $courtesy_allowed,
+            'missing_units'        => $missing_units,
+            'missing_for_12'       => $missing_for_12,
+            'message_type'         => $message_type,
+            'message'              => $message,
+            'boxes'                => $total_boxes,
+            'stock_box_6'          => self::get_box_stock(6),
+            'stock_box_12'         => self::get_box_stock(12),
+            'available_alfajores'  => self::get_available_alfajores_for_upsell(),
         );
     }
 
