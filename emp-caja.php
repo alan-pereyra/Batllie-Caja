@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.4
+ * Version: 1.8.5
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.4');
+define('EMP_CAJA_VERSION', '1.8.5');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -49,6 +49,9 @@ class Batllie_Caja_Plugin {
 
         // Inicializar módulo de monto mínimo de compra en la tienda
         Batllie_Caja_Min_Order::init();
+
+        // Inicializar motor de empaque de alfajores, stock de cajas y cortesía
+        Batllie_Caja_Packing::init();
 
         // Hacer obligatorio el número de teléfono en WooCommerce checkout
         Batllie_Caja_Orders::make_phone_required_hooks();
@@ -81,6 +84,7 @@ class Batllie_Caja_Plugin {
         require_once EMP_CAJA_PATH . 'includes/class-caja-tracking.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-grouped.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-min-order.php';
+        require_once EMP_CAJA_PATH . 'includes/class-caja-packing.php';
     }
 
     /**
@@ -135,7 +139,9 @@ class Batllie_Caja_Plugin {
             'poll_interval'             => 10,        // Segundos de sondeo
             'sound_enabled'             => 'yes',     // Sonido activo por defecto
             'force_isolated'            => 'yes',     // Ocultar cabeceras y pie del tema en la vista
-            'min_purchase_amount'       => 0          // Monto mínimo de compra en la tienda (0 = desactivado)
+            'min_purchase_amount'       => 0,         // Monto mínimo de compra en la tienda (0 = desactivado)
+            'packing_priority'          => '12',      // Prioridad de empaque ('12' = Cajas de 12 primero, '6' = Cajas de 6)
+            'packing_stock_sync'        => 'yes',     // Descontar automáticamente el stock de cajas de empaque
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -364,6 +370,15 @@ class Batllie_Caja_Plugin {
         $output['sound_enabled']        = (isset($input['sound_enabled']) && $input['sound_enabled'] === 'yes') ? 'yes' : 'no';
         $output['force_isolated']       = (isset($input['force_isolated']) && $input['force_isolated'] === 'yes') ? 'yes' : 'no';
         $output['min_purchase_amount']  = isset($input['min_purchase_amount']) ? max(0, floatval(str_replace(',', '.', trim($input['min_purchase_amount'])))) : 0;
+        $output['packing_priority']     = (isset($input['packing_priority']) && $input['packing_priority'] === '6') ? '6' : '12';
+        $output['packing_stock_sync']   = (isset($input['packing_stock_sync']) && $input['packing_stock_sync'] === 'no') ? 'no' : 'yes';
+
+        if (isset($input['stock_box_6']) && class_exists('Batllie_Caja_Packing')) {
+            Batllie_Caja_Packing::set_box_stock(6, intval($input['stock_box_6']));
+        }
+        if (isset($input['stock_box_12']) && class_exists('Batllie_Caja_Packing')) {
+            Batllie_Caja_Packing::set_box_stock(12, intval($input['stock_box_12']));
+        }
 
         return $output;
     }
@@ -501,6 +516,36 @@ class Batllie_Caja_Plugin {
                             <p class="description">
                                 <?php _e('Define el importe mínimo que debe sumar el carrito para que un cliente pueda ir a pagar. Si no alcanza este monto, el sistema le impedirá finalizar la compra y le indicará en una alerta y en el carrito exactamente cuánto le falta para llegar al mínimo. Coloca 0 o déjalo vacío para desactivar la restricción.', 'emp-caja'); ?>
                             </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h2><?php _e('📦 Control de Stock de Cajas y Empaque de Alfajores', 'emp-caja'); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><?php _e('Prioridad de Llenado de Cajas', 'emp-caja'); ?></th>
+                        <td>
+                            <select name="batllie_caja_options[packing_priority]">
+                                <option value="12" <?php selected($options['packing_priority'] ?? '12', '12'); ?>><?php _e('Priorizar Cajas de 12 primero (Experiencia Premium, recomendada)', 'emp-caja'); ?></option>
+                                <option value="6" <?php selected($options['packing_priority'] ?? '12', '6'); ?>><?php _e('Priorizar Cajas de 6 primero', 'emp-caja'); ?></option>
+                            </select>
+                            <p class="description">
+                                <?php _e('Define cómo se agrupan los alfajores sueltos en el carrito. Si se eligen 15 alfajores con prioridad 12, se formará 1 Caja de 12 y quedarán 3 alfajores sueltos.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Stock disponible: Caja Batllié x 6 unidades', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="number" min="0" name="batllie_caja_options[stock_box_6]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(6) : 0); ?>" class="small-text" /> 
+                            <span><?php _e('cajas físicas de 6 disponibles en depósito.', 'emp-caja'); ?></span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Stock disponible: Caja Batllié x 12 unidades', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="number" min="0" name="batllie_caja_options[stock_box_12]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(12) : 0); ?>" class="small-text" /> 
+                            <span><?php _e('cajas físicas de 12 disponibles en depósito.', 'emp-caja'); ?></span>
                         </td>
                     </tr>
                 </table>

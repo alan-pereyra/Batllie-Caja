@@ -144,6 +144,33 @@
                 self.applyFilters();
             });
 
+            // Toggle de tarjeta de felicitación por Decisión Correcta
+            $(document).on('change', '.caja-felicitacion-checkbox', function() {
+                const orderId = $(this).data('order-id');
+                const isChecked = $(this).is(':checked');
+                const $card = $(this).closest('.caja-felicitacion-card');
+
+                $.ajax({
+                    url: batllieCajaData.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'emp_caja_toggle_tarjeta',
+                        security: batllieCajaData.nonce,
+                        order_id: orderId,
+                        incluida: isChecked ? 'yes' : 'no'
+                    },
+                    success: function(res) {
+                        if (res && res.success) {
+                            if (isChecked) {
+                                $card.addClass('is-included');
+                            } else {
+                                $card.removeClass('is-included');
+                            }
+                        }
+                    }
+                });
+            });
+
             // Cambio de estado de pago personalizado
             $(document).on('change', '.caja-payment-select', function() {
                 const orderId = $(this).data('order-id');
@@ -1242,6 +1269,31 @@
                     showShippingBox = false;
                 }
 
+                let felicitacionHtml = '';
+                if (order.decision_correcta) {
+                    felicitacionHtml = `
+                        <div class="caja-felicitacion-card ${order.tarjeta_incluida ? 'is-included' : ''}">
+                            <div class="caja-felicitacion-header">
+                                <span class="caja-felicitacion-badge">💌 ¡DECISIÓN CORRECTA!</span>
+                                <span class="caja-felicitacion-desc">El cliente completó su caja de alfajores.</span>
+                            </div>
+                            <label class="caja-felicitacion-toggle-label">
+                                <input type="checkbox" class="caja-felicitacion-checkbox" data-order-id="${order.id}" ${order.tarjeta_incluida ? 'checked' : ''} />
+                                <span>Incluir tarjeta de felicitación en el paquete</span>
+                            </label>
+                        </div>
+                    `;
+                }
+
+                let courtesyHtml = '';
+                if (order.has_courtesy_box) {
+                    courtesyHtml = `
+                        <div class="caja-courtesy-banner">
+                            🎁 <strong>Incluye Caja de Cortesía Batllié</strong> (Agrupación concedida).
+                        </div>
+                    `;
+                }
+
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
                         <div class="caja-card-header">
@@ -1268,6 +1320,8 @@
                         </div>
 
                         <div class="caja-order-items-list">
+                            ${felicitacionHtml}
+                            ${courtesyHtml}
                             ${itemsHtml}
                         </div>
 

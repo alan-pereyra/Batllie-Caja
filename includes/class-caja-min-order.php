@@ -89,8 +89,11 @@ class Batllie_Caja_Min_Order {
      */
     public static function enqueue_assets() {
         $min = self::get_min_purchase_amount();
-        if ($min <= 0) {
-            return;
+        $packing = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
+        if ($min <= 0 && (empty($packing) || empty($packing['has_alfajores']))) {
+            if (!function_exists('is_cart') || (!is_cart() && !is_checkout())) {
+                return;
+            }
         }
 
         wp_enqueue_style(
@@ -170,6 +173,8 @@ class Batllie_Caja_Min_Order {
             'shopUrl'          => $shop_url,
             'cartUrl'          => $cart_url,
             'primaryColor'     => $options['primary_color'] ?? '#10b981',
+            'packing'          => $packing,
+            'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),
             'i18n'             => array(
                 'modalTitle'      => __('Monto Mínimo de Compra', 'emp-caja'),
                 'modalDesc'       => __('Para poder finalizar tu compra y proceder al pago, el pedido debe alcanzar el monto mínimo requerido.', 'emp-caja'),
@@ -401,21 +406,27 @@ class Batllie_Caja_Min_Order {
      * Renderizar el modal popup en el footer para feedback inmediato al hacer clic en pagar
      */
     public static function render_min_order_modal() {
-        $min = self::get_min_purchase_amount();
-        if ($min <= 0) {
+        $min     = self::get_min_purchase_amount();
+        $packing = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
+
+        // Si no hay monto mínimo y tampoco hay alfajores en el carrito, no renderizar
+        if ($min <= 0 && (empty($packing) || empty($packing['has_alfajores']))) {
             return;
         }
 
-        $amount   = self::get_cart_amount();
-        $missing  = max(0.0, $min - $amount);
-        $shop_url = home_url('/');
+        $amount    = self::get_cart_amount();
+        $missing   = max(0.0, $min - $amount);
+        $is_below  = ($min > 0 && $amount < $min);
+        $shop_url  = home_url('/');
+        $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array();
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">
-            <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Monto Mínimo de Compra', 'emp-caja'); ?>">
+            <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Información de tu Pedido', 'emp-caja'); ?>">
                 <button type="button" class="batllie-min-modal-close" id="batllie-min-modal-close-btn" aria-label="<?php esc_attr_e('Cerrar aviso', 'emp-caja'); ?>">&times;</button>
                 
                 <div class="batllie-min-modal-body">
-                    <div class="batllie-min-modal-stats">
+                    <!-- Sección A: Estadísticas de Monto Mínimo (3 datos planos) -->
+                    <div id="batllie-modal-min-stats" class="batllie-min-modal-stats" style="<?php echo $is_below ? '' : 'display:none;'; ?>">
                         <div class="batllie-min-stat-row">
                             <span class="batllie-stat-label"><?php _e('Mínimo requerido:', 'emp-caja'); ?></span>
                             <span class="batllie-stat-val batllie-stat-min"><?php echo wc_price($min); ?></span>
@@ -429,10 +440,83 @@ class Batllie_Caja_Min_Order {
                             <span class="batllie-stat-val batllie-stat-missing"><?php echo wc_price($missing); ?></span>
                         </div>
                     </div>
+
+                    <!-- Sección B: Motor de Empaque, Barra de Progreso y Gustos 1-Click -->
+                    <div id="batllie-modal-packing-section" class="batllie-modal-packing-section" style="<?php echo (!empty($packing['has_alfajores']) && $packing['status'] !== 'all_boxed') ? '' : 'display:none;'; ?>">
+                        <div class="batllie-packing-header">
+                            <h3 id="batllie-packing-title" class="batllie-packing-title"><?php echo esc_html($packing['is_blocked'] ? __('Completá tu Caja para Despachar', 'emp-caja') : __('¡Mejorá tu Experiencia Batllié!', 'emp-caja')); ?></h3>
+                            <p id="batllie-packing-subtitle" class="batllie-packing-subtitle"><?php echo esc_html($packing['message'] ?? ''); ?></p>
+                        </div>
+
+                        <!-- Barra de Progreso Gamificada con colores de marca -->
+                        <div class="batllie-packing-progress-container" id="batllie-packing-progress-container">
+                            <div class="batllie-packing-progress-meta">
+                                <span class="batllie-packing-meta-label"><?php _e('Caja en armado:', 'emp-caja'); ?></span>
+                                <span id="batllie-packing-count" class="batllie-packing-count">
+                                    <?php 
+                                    $rem = (!empty($packing['loose_alfajores']) ? ($packing['loose_alfajores'] % 6) : 0);
+                                    if ($rem === 0 && !empty($packing['loose_alfajores'])) $rem = 6;
+                                    echo esc_html(sprintf(__('%d de 6 alfajores', 'emp-caja'), $rem)); 
+                                    ?>
+                                </span>
+                            </div>
+                            <div class="batllie-packing-bar-wrap">
+                                <?php 
+                                $pct_box = ($rem > 0) ? min(100, round(($rem / 6) * 100)) : 0;
+                                ?>
+                                <div id="batllie-packing-bar-fill" class="batllie-packing-bar-fill" style="width: <?php echo esc_attr($pct_box); ?>%;"></div>
+                            </div>
+                            <div class="batllie-packing-progress-status">
+                                <span id="batllie-packing-badge" class="batllie-packing-badge">
+                                    <?php 
+                                    if (!empty($packing['missing_units'])) {
+                                        echo esc_html(sprintf(__('Faltan solo %d para completar', 'emp-caja'), $packing['missing_units']));
+                                    }
+                                    ?>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Selector Rápido de Gustos en 1-Clic -->
+                        <?php if (!empty($alfajores)): ?>
+                            <div class="batllie-packing-flavors-head">
+                                <span><?php _e('Sumá un alfajor con 1 clic:', 'emp-caja'); ?></span>
+                            </div>
+                            <div id="batllie-packing-flavors-grid" class="batllie-packing-flavors-grid">
+                                <?php foreach ($alfajores as $alf): ?>
+                                    <div class="batllie-flavor-chip" data-id="<?php echo esc_attr($alf['id']); ?>">
+                                        <?php if (!empty($alf['image'])): ?>
+                                            <img src="<?php echo esc_url($alf['image']); ?>" alt="<?php echo esc_attr($alf['clean_name']); ?>" class="batllie-flavor-thumb" />
+                                        <?php endif; ?>
+                                        <div class="batllie-flavor-info">
+                                            <span class="batllie-flavor-name"><?php echo esc_html($alf['clean_name']); ?></span>
+                                            <span class="batllie-flavor-price"><?php echo $alf['price_fmt']; ?></span>
+                                        </div>
+                                        <button type="button" class="batllie-flavor-add-btn" data-id="<?php echo esc_attr($alf['id']); ?>" aria-label="<?php echo esc_attr(sprintf(__('Agregar %s', 'emp-caja'), $alf['clean_name'])); ?>">
+                                            <span class="btn-icon">+</span>
+                                            <span class="btn-txt">1</span>
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
                 <div class="batllie-min-modal-footer">
-                    <a href="<?php echo esc_url($shop_url); ?>" class="batllie-min-btn batllie-min-btn-shop">
+                    <!-- Botón para aceptar Caja de Cortesía (cuando corresponde) -->
+                    <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!empty($packing['courtesy_allowed'])) ? '' : 'display:none;'; ?>">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
+                            <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                            <rect x="2" y="7" width="20" height="5"></rect>
+                            <line x1="12" y1="22" x2="12" y2="7"></line>
+                            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                        </svg>
+                        <span><?php _e('Continuar con Caja de Cortesía de Regalo', 'emp-caja'); ?></span>
+                    </button>
+
+                    <a href="<?php echo esc_url($shop_url); ?>" class="batllie-min-btn batllie-min-btn-shop" id="batllie-min-modal-shop-btn">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
                             <circle cx="9" cy="21" r="1"></circle>
                             <circle cx="20" cy="21" r="1"></circle>
@@ -450,7 +534,7 @@ class Batllie_Caja_Min_Order {
     }
 
     /**
-     * Endpoint AJAX para consultar estado del mínimo de compra en tiempo real
+     * Endpoint AJAX para consultar estado del mínimo de compra y empaque en tiempo real
      */
     public static function ajax_get_min_order_status() {
         if (function_exists('WC') && WC()->cart) {
@@ -462,21 +546,24 @@ class Batllie_Caja_Min_Order {
         $is_below = (!$is_empty && $min > 0 && $amount < $min);
         $missing  = max(0.0, $min - $amount);
         $pct      = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
+        $packing  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
 
         if (!$is_below) {
             self::clear_min_order_notices();
         }
 
         wp_send_json_success(array(
-            'min_amount'        => $min,
-            'current_amount'    => $amount,
-            'missing_amount'    => $missing,
-            'is_below_min'      => $is_below,
-            'is_empty'          => $is_empty,
-            'min_formatted'     => wc_price($min),
-            'current_formatted' => wc_price($amount),
-            'missing_formatted' => wc_price($missing),
-            'percentage'        => $pct,
+            'min_amount'         => $min,
+            'current_amount'     => $amount,
+            'missing_amount'     => $missing,
+            'is_below_min'       => $is_below,
+            'is_empty'           => $is_empty,
+            'min_formatted'      => wc_price($min),
+            'current_formatted'  => wc_price($amount),
+            'missing_formatted'  => wc_price($missing),
+            'percentage'         => $pct,
+            'packing'            => $packing,
+            'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),
         ));
     }
 }

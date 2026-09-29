@@ -3099,3 +3099,83 @@ span#edit-grouped-selected-badge {
     }
 }
 
+/* ==========================================================================
+   Gestión de Empaque de Alfajores, Decisión Correcta y Tarjeta de Felicitación
+   ========================================================================== */
+.caja-felicitacion-card {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.08) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 10px 0 14px 0;
+    transition: all 0.25s ease;
+}
+
+.caja-felicitacion-card.is-included {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(5, 150, 105, 0.18) 100%);
+    border-color: #10b981;
+}
+
+.caja-felicitacion-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.caja-felicitacion-badge {
+    background: #10b981;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.caja-felicitacion-desc {
+    font-size: 0.82rem;
+    color: var(--caja-text, #ffffff);
+    font-weight: 500;
+}
+
+.caja-felicitacion-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #34d399;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    width: fit-content;
+}
+
+.caja-felicitacion-toggle-label input[type="checkbox"] {
+    accent-color: #10b981;
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.caja-courtesy-banner {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 8px 0 12px 0;
+    font-size: 0.8rem;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
