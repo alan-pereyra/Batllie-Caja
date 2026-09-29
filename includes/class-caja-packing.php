@@ -140,6 +140,7 @@ class Batllie_Caja_Packing {
      */
     public static function is_alfajor_product($product_id) {
         if (!$product_id) return false;
+        if (!function_exists('wc_get_product')) return false;
         $product = wc_get_product($product_id);
         if (!$product) return false;
 
@@ -508,7 +509,7 @@ class Batllie_Caja_Packing {
             }
         }
 
-        if ($box_12 === 0 && $box_6 === 0 && $courtesy === 0 && $total_alfajores > 0) {
+        if ($box_12 === 0 && $box_6 === 0 && $total_alfajores > 0) {
             // Algoritmo con Prioridad Cajas de 12
             if ($total_alfajores >= 12) {
                 $box_12 = floor($total_alfajores / 12);
@@ -517,16 +518,16 @@ class Batllie_Caja_Packing {
                     $box_6 = floor($rem / 6);
                     $rem = $rem % 6;
                 }
-                if ($rem > 0 && $has_courtesy_meta) {
+                if ($rem > 0 && ($has_courtesy_meta || $courtesy > 0)) {
                     $courtesy = 1;
                 }
             } elseif ($total_alfajores >= 6) {
                 $box_6 = floor($total_alfajores / 6);
                 $rem = $total_alfajores % 6;
-                if ($rem > 0 && $has_courtesy_meta) {
+                if ($rem > 0 && ($has_courtesy_meta || $courtesy > 0)) {
                     $courtesy = 1;
                 }
-            } elseif ($has_courtesy_meta) {
+            } elseif ($has_courtesy_meta || $courtesy > 0) {
                 $courtesy = 1;
             }
         }
