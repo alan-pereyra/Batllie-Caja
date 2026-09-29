@@ -172,6 +172,7 @@ class Batllie_Caja_Min_Order {
             'percentage'       => $pct,
             'shopUrl'          => $shop_url,
             'cartUrl'          => $cart_url,
+            'checkoutUrl'      => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
             'primaryColor'     => $options['primary_color'] ?? '#10b981',
             'packing'          => $packing,
             'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),

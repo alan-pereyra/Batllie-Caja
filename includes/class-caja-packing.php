@@ -524,6 +524,7 @@ class Batllie_Caja_Packing {
                 'current_formatted' => wc_price($amount),
                 'missing_formatted' => wc_price($missing),
                 'cart_url'          => wc_get_cart_url(),
+                'checkout_url'      => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
             ));
         }
 

@@ -4,7 +4,8 @@
  * - Detección instantánea de cambios de cantidad en WooCommerce Blocks y clásico (0ms lag)
  * - Motor de empaque client-side en espejo con el servidor (sin desincronización)
  * - Desglose detallado: Total de alfajores, cajas cerradas completas y caja en armado
- * - Adición de sabores en 1 clic desde el modal/carrito vía AJAX
+ * - Adición de sabores en 1 clic desde el modal sin recarga de página y con soporte multi-click continuo
+ * - Redirección automática inmediata a finalizar compra al completar la caja requerida
  * - Concesión de Caja de Cortesía o bloqueo imperativo si faltan 1-2 unidades
  * - Cartel de aviso persistente que se remueve automáticamente al alcanzar el mínimo
  */
@@ -24,6 +25,12 @@
     const alfajorIdSet = new Set((config.availableAlfajores || []).map(function (a) {
         return parseInt(a.id, 10);
     }));
+
+    let isModalOpen = false;
+    let modalAddedAlfajores = 0;
+    let redirectingToCheckout = false;
+    let quickAddQueue = [];
+    let isProcessingQuickAdd = false;
 
     const CHECKOUT_SELECTORS = [
         'a.checkout-button',
@@ -91,59 +98,27 @@
     }
 
     /**
-     * Leer el estado actual del carrito (desde React store de Blocks o DOM) en tiempo real
+     * Leer el estado actual del carrito en tiempo real (0ms lag)
+     * Prioriza inputs del DOM que el cliente está manipulando, luego Store API de Blocks
      */
     function getCartStateNow() {
         let totalAlfajores = 0;
         let looseAlfajores = 0;
         let hasGroupedPack = false;
         let cartTotal = 0;
-        let foundItems = false;
+        let foundDomItems = false;
+        let domTotalAlfajores = 0;
+        let domLooseAlfajores = 0;
+        let domHasGroupedPack = false;
 
-        // 1. Store de Gutenberg / WooCommerce Blocks
-        if (window.wp && window.wp.data && window.wp.data.select) {
-            try {
-                const cartStore = window.wp.data.select('wc/store/cart');
-                if (cartStore && typeof cartStore.getCartData === 'function') {
-                    const data = cartStore.getCartData();
-                    if (data) {
-                        if (data.totals) {
-                            const raw = data.totals.total_items || data.totals.total_price || 0;
-                            const unit = data.totals.currency_minor_unit !== undefined ? data.totals.currency_minor_unit : 2;
-                            cartTotal = parseFloat(raw) / Math.pow(10, unit);
-                        }
-                        if (Array.isArray(data.items) && data.items.length > 0) {
-                            foundItems = true;
-                            data.items.forEach(function (item) {
-                                if (isAlfajorItem(item)) {
-                                    const q = parseInt(item.quantity, 10) || 0;
-                                    const isPack = Array.isArray(item.item_data) && item.item_data.some(function (d) {
-                                        return d.key === 'batllie_parent_grouped_id' || d.key === '_batllie_pack_instance_id';
-                                    });
-                                    if (isPack) {
-                                        hasGroupedPack = true;
-                                    } else {
-                                        looseAlfajores += q;
-                                    }
-                                    totalAlfajores += q;
-                                }
-                            });
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        // 2. Inspección del DOM si Blocks aún no cargó sus datos
-        if (!foundItems) {
-            let domTotalAlfajores = 0;
-            let domFound = false;
-
-            $('.wc-block-cart-items__row, .wc-block-components-cart-line-item, tr.cart_item').each(function () {
+        // 1. Inspección prioritaria del DOM si hay filas de carrito visibles (reflejo en 0ms de lo que el usuario ve)
+        const $cartRows = $('.wc-block-cart-items__row, .wc-block-components-cart-line-item, tr.cart_item');
+        if ($cartRows.length > 0) {
+            $cartRows.each(function () {
                 const $row = $(this);
-                const text = $row.text().toLowerCase();
+                const text = ($row.text() || '').toLowerCase();
                 if (text.includes('alfajor')) {
-                    domFound = true;
+                    foundDomItems = true;
                     let q = 0;
                     const $input = $row.find('input.wc-block-components-quantity-selector__input, input.qty, input[type="number"]');
                     if ($input.length) {
@@ -153,29 +128,89 @@
                         const match = ($qtyBadge.text() || '').match(/\d+/);
                         if (match) q = parseInt(match[0], 10) || 0;
                     }
+
+                    const isPack = $row.hasClass('batllie-pack-child') || 
+                                   $row.attr('data-batllie-pack') || 
+                                   text.includes('combo') || 
+                                   text.includes('caja x');
+
+                    if (isPack) {
+                        domHasGroupedPack = true;
+                    } else {
+                        domLooseAlfajores += q;
+                    }
                     domTotalAlfajores += q;
                 }
             });
-
-            if (domFound) {
-                foundItems = true;
-                totalAlfajores = domTotalAlfajores;
-                looseAlfajores = domTotalAlfajores;
-            }
         }
 
-        // 3. Fallback a configuración de PHP si el carrito no tiene cambios
-        if (!foundItems && config.packing) {
-            totalAlfajores = config.packing.total_alfajores || 0;
-            looseAlfajores = config.packing.loose_alfajores || 0;
+        if (foundDomItems) {
+            totalAlfajores = domTotalAlfajores;
+            looseAlfajores = domLooseAlfajores;
+            hasGroupedPack = domHasGroupedPack;
+        } else if (window.wp && window.wp.data && window.wp.data.select) {
+            // 2. Store de Gutenberg / WooCommerce Blocks si el DOM no tiene filas hidratadas
+            try {
+                const cartStore = window.wp.data.select('wc/store/cart');
+                if (cartStore && typeof cartStore.getCartData === 'function') {
+                    const data = cartStore.getCartData();
+                    if (data && Array.isArray(data.items) && data.items.length > 0) {
+                        data.items.forEach(function (item) {
+                            if (isAlfajorItem(item)) {
+                                const q = parseInt(item.quantity, 10) || 0;
+                                const isPack = Array.isArray(item.item_data) && item.item_data.some(function (d) {
+                                    return d.key === 'batllie_parent_grouped_id' || d.key === '_batllie_pack_instance_id';
+                                });
+                                if (isPack) {
+                                    hasGroupedPack = true;
+                                } else {
+                                    looseAlfajores += q;
+                                }
+                                totalAlfajores += q;
+                            }
+                        });
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Sumar adiciones realizadas dentro del modal activo
+        if (modalAddedAlfajores > 0) {
+            totalAlfajores += modalAddedAlfajores;
+            looseAlfajores += modalAddedAlfajores;
+        }
+
+        // 3. Fallback a configuración de PHP si no se encontraron ítems
+        if (totalAlfajores === 0 && config.packing) {
+            totalAlfajores = (config.packing.total_alfajores || 0) + modalAddedAlfajores;
+            looseAlfajores = (config.packing.loose_alfajores || 0) + modalAddedAlfajores;
             hasGroupedPack = Boolean(config.packing.has_prior_box && (totalAlfajores > looseAlfajores));
+        }
+
+        // Obtener monto total del carrito
+        if (window.wp && window.wp.data && window.wp.data.select) {
+            try {
+                const cartStore = window.wp.data.select('wc/store/cart');
+                if (cartStore && typeof cartStore.getCartData === 'function') {
+                    const data = cartStore.getCartData();
+                    if (data && data.totals) {
+                        const raw = data.totals.total_items || data.totals.total_price || 0;
+                        const unit = data.totals.currency_minor_unit !== undefined ? data.totals.currency_minor_unit : 2;
+                        cartTotal = parseFloat(raw) / Math.pow(10, unit);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        if (cartTotal <= 0) {
+            cartTotal = parseFloat(config.currentAmount) || 0;
         }
 
         return {
             totalAlfajores: totalAlfajores,
             looseAlfajores: looseAlfajores,
             hasGroupedPack: hasGroupedPack,
-            cartTotal: (cartTotal > 0) ? cartTotal : (parseFloat(config.currentAmount) || 0)
+            cartTotal: cartTotal
         };
     }
 
@@ -294,14 +329,14 @@
                         status = 'imperative_missing';
                         is_blocked = true;
                         courtesy_allowed = false;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores en total (' + completed_boxes_text + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6 alfajores. Agregá ' + (missing_to_6 === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
+                        message = 'Tenés ' + totalAlfajores + ' alfajores en total (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6 alfajores. Agregá ' + (missing_to_6 === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
                     } else {
                         // Faltan 3 o más -> CORTESÍA DISPONIBLE
                         status = 'courtesy_available';
                         is_blocked = false;
                         courtesy_allowed = true;
                         boxes.courtesy = 1;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + completed_boxes_text + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
                     }
                 }
             }
@@ -389,6 +424,7 @@
         const $backdrop = $('#batllie-min-order-backdrop');
         if (!$backdrop.length) return;
 
+        isModalOpen = true;
         $backdrop.css('display', 'flex');
         setTimeout(function () {
             $backdrop.addClass('is-visible');
@@ -404,6 +440,7 @@
         const $backdrop = $('#batllie-min-order-backdrop');
         if (!$backdrop.length) return;
 
+        isModalOpen = false;
         $backdrop.removeClass('is-visible');
         setTimeout(function () {
             $backdrop.css('display', 'none');
@@ -496,9 +533,6 @@
 
         if (!isBelow) {
             $('#batllie-modal-min-stats').hide();
-            if (!isCheckoutBlocked()) {
-                closeModal();
-            }
         } else {
             $('#batllie-modal-min-stats').show();
         }
@@ -524,6 +558,13 @@
      * Comprobación en vivo del carrito (0ms lag)
      */
     function checkCartStateLive() {
+        if (redirectingToCheckout) return;
+        if (isProcessingQuickAdd || quickAddQueue.length > 0) return;
+
+        // Si el modal está abierto y se agregaron productos adentro, la UI del modal
+        // es conducida por las respuestas del servidor y no debe ser sobreescrita por scraping de fondo
+        if (isModalOpen && modalAddedAlfajores > 0) return;
+
         const state = getCartStateNow();
         const packing = analyzePackingClientSide(state.totalAlfajores, state.looseAlfajores, state.hasGroupedPack);
 
@@ -545,7 +586,7 @@
      */
     let isSyncing = false;
     function syncMinOrderStatus() {
-        if (isSyncing) return;
+        if (isSyncing || redirectingToCheckout) return;
         isSyncing = true;
 
         $.ajax({
@@ -559,7 +600,7 @@
             success: function (res) {
                 if (res && res.success && res.data) {
                     lastKnownAmount = res.data.current_amount;
-                    if (res.data.packing) {
+                    if (res.data.packing && (!isModalOpen || modalAddedAlfajores === 0)) {
                         updatePackingUI(res.data.packing);
                     }
                     applyCartState(res.data.current_amount);
@@ -569,6 +610,149 @@
                 isSyncing = false;
             }
         });
+    }
+
+    /**
+     * Paso optimista inmediato en 0ms al tocar un alfajor en el modal
+     */
+    function optimisticQuickAddStep() {
+        const curPacking = config.packing || {};
+        let curUnits = (curPacking.current_box_units || 0) + 1;
+        let totalAlf = (curPacking.total_alfajores || 0) + 1;
+        let missingUnits = Math.max(0, (curPacking.missing_units || 1) - 1);
+        const cap = curPacking.current_box_capacity || 6;
+
+        let status = curPacking.status;
+        let isBlocked = curPacking.is_blocked;
+        let message = curPacking.message;
+
+        if (curUnits >= cap || missingUnits === 0) {
+            status = 'all_boxed';
+            isBlocked = false;
+            curUnits = cap;
+            missingUnits = 0;
+            message = '¡Tus cajas están completas! Viví la experiencia completa Batllié.';
+        } else if (missingUnits < 3) {
+            status = 'imperative_missing';
+            isBlocked = true;
+            message = 'Tenés ' + totalAlf + ' alfajores en total. Tu ' + (curPacking.current_box_num > 1 ? curPacking.current_box_num + 'ª caja' : 'caja') + ' tiene ' + curUnits + ' de 6 alfajores. Agregá ' + (missingUnits === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
+        }
+
+        const optimisticPacking = Object.assign({}, curPacking, {
+            has_alfajores: true,
+            total_alfajores: totalAlf,
+            current_box_units: curUnits,
+            missing_units: missingUnits,
+            status: status,
+            is_blocked: isBlocked,
+            message: message
+        });
+
+        config.packing = optimisticPacking;
+        updatePackingUI(optimisticPacking);
+    }
+
+    /**
+     * Ejecutor de cola secuencial para adición rápida de alfajores (+1)
+     * Soporta múltiples clics rápidos sin perder ningún toque ni recargar la página
+     */
+    function processQuickAddQueue() {
+        if (isProcessingQuickAdd || quickAddQueue.length === 0) return;
+        isProcessingQuickAdd = true;
+
+        const task = quickAddQueue.shift();
+
+        $.ajax({
+            url: config.ajaxUrl,
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'emp_caja_quick_add_alfajor',
+                product_id: task.productId,
+                quantity: 1,
+                security: config.nonce
+            },
+            success: function (res) {
+                if (res && res.success && res.data) {
+                    if (res.data.current_amount !== undefined) {
+                        lastKnownAmount = res.data.current_amount;
+                        applyCartState(res.data.current_amount);
+                    }
+
+                    // Notificar a Blocks silenciosamente sin gatillar recarga de página
+                    if (window.wp && window.wp.data && window.wp.data.dispatch) {
+                        try {
+                            const cartStore = window.wp.data.dispatch('wc/store/cart');
+                            if (cartStore && typeof cartStore.invalidateResolutionForStore === 'function') {
+                                cartStore.invalidateResolutionForStore();
+                            }
+                        } catch (err) {}
+                    }
+
+                    // Cuando se vacía la cola, aplicar el análisis final autorizado del servidor
+                    if (quickAddQueue.length === 0) {
+                        if (res.data.analysis) {
+                            config.packing = res.data.analysis;
+                            updatePackingUI(res.data.analysis);
+                        }
+
+                        const analysis = res.data.analysis;
+                        const isAllBoxed = analysis && (analysis.status === 'all_boxed' || analysis.missing_units === 0);
+                        const isMinMet = !res.data.is_below_min;
+
+                        // Si el usuario intentaba finalizar compra y completó su caja: ¡REDIRECCIÓN DIRECTA A CHECKOUT!
+                        if (isAllBoxed && isMinMet && window.batllieIntendedCheckout) {
+                            redirectingToCheckout = true;
+                            $('#batllie-packing-title').text('¡Caja Completa! 🎉');
+                            $('#batllie-packing-subtitle').text('Tus cajas están listas. Redirigiendo a finalizar compra...');
+                            $('#batllie-packing-badge').text('¡Listo! Redirigiendo... 💌').removeClass('is-missing').addClass('is-complete');
+                            $('.batllie-flavor-add-btn').prop('disabled', true).css('opacity', '0.6');
+
+                            const targetUrl = res.data.checkout_url || window.batllieCheckoutUrl || config.checkoutUrl || (config.shopUrl + 'finalizar-compra/');
+
+                            setTimeout(function () {
+                                closeModal();
+                                window.location.href = targetUrl;
+                            }, 550);
+                        }
+                    }
+                }
+            },
+            error: function () {
+                modalAddedAlfajores = Math.max(0, modalAddedAlfajores - 1);
+            },
+            complete: function () {
+                isProcessingQuickAdd = false;
+                if (task.$btn) {
+                    task.$btn.removeClass('is-loading');
+                }
+                if (quickAddQueue.length > 0) {
+                    processQuickAddQueue();
+                }
+            }
+        });
+    }
+
+    /**
+     * Encolar clic rápido en sabor (+1)
+     */
+    function enqueueQuickAdd(productId, $btn) {
+        if (redirectingToCheckout) return;
+
+        // Feedback táctil instantáneo en el botón
+        $btn.removeClass('is-pulsing');
+        if ($btn[0]) void $btn[0].offsetWidth;
+        $btn.addClass('is-pulsing is-loading');
+
+        modalAddedAlfajores++;
+        optimisticQuickAddStep();
+
+        quickAddQueue.push({
+            productId: productId,
+            $btn: $btn
+        });
+
+        processQuickAddQueue();
     }
 
     // =========================================================================
@@ -594,6 +778,10 @@
         // B. Interceptar clic en botón de checkout con verificación reactiva EN VIVO
         const trigger = findCheckoutTrigger(e.target);
         if (trigger) {
+            // Guardar que la intención explícita del usuario es Finalizar Compra
+            window.batllieIntendedCheckout = true;
+            window.batllieCheckoutUrl = $(trigger).attr('href') || config.checkoutUrl || (config.shopUrl + 'finalizar-compra/');
+
             // Evaluar el carrito en vivo en este milisegundo exacto
             const live = checkCartStateLive();
             const packing = live.packing;
@@ -648,7 +836,8 @@
                 return false;
             }
 
-            // Si cajas completas (ej: 12 alfajores, 6 alfajores) y monto mínimo superado: ¡AVANZAR!
+            // Si cajas completas y monto mínimo superado: ¡AVANZAR DIRECTAMENTE!
+            window.batllieIntendedCheckout = false;
             return true;
         }
     }, true);
@@ -684,106 +873,62 @@
             setTimeout(checkCartStateLive, 600);
         });
 
-        // Chequeo periódico suave (cada 400ms) para garantizar sincronía total
+        // Chequeo periódico suave (cada 400ms) para mantener sincronía sin colisionar
         setInterval(checkCartStateLive, 400);
 
-        // Evento: Agregar alfajor rápido en 1 clic (+1)
+        // Evento: Agregar alfajor rápido en 1 clic (+1) con cola multi-click sin recargas
         $(document).on('click', '.batllie-flavor-add-btn', function (e) {
             e.preventDefault();
             e.stopPropagation();
 
             const $btn = $(this);
             const productId = $btn.data('id');
-            if (!productId || $btn.hasClass('is-loading')) return;
+            if (!productId || redirectingToCheckout) return;
 
-            $btn.addClass('is-loading');
-
-            $.ajax({
-                url: config.ajaxUrl,
-                type: 'POST',
-                dataType: 'json',
-                data: {
-                    action: 'emp_caja_quick_add_alfajor',
-                    product_id: productId,
-                    quantity: 1,
-                    security: config.nonce
-                },
-                success: function (res) {
-                    if (res && res.success && res.data) {
-                        if (res.data.analysis) {
-                            updatePackingUI(res.data.analysis);
-                        }
-                        if (res.data.current_amount !== undefined) {
-                            lastKnownAmount = res.data.current_amount;
-                            applyCartState(res.data.current_amount);
-                        }
-
-                        $(document.body).trigger('wc_fragment_refresh');
-                        $(document.body).trigger('added_to_cart');
-
-                        if (window.wp && window.wp.data && window.wp.data.dispatch) {
-                            try {
-                                const cartStore = window.wp.data.dispatch('wc/store/cart');
-                                if (cartStore && typeof cartStore.invalidateResolutionForStore === 'function') {
-                                    cartStore.invalidateResolutionForStore();
-                                }
-                            } catch (err) {}
-                        }
-
-                        checkCartStateLive();
-
-                        if (res.data.analysis && res.data.analysis.status === 'all_boxed' && !res.data.is_below_min) {
-                            setTimeout(function () {
-                                closeModal();
-                            }, 1200);
-                        }
-                    }
-                },
-                error: function () {
-                    alert('No se pudo agregar el alfajor al pedido. Por favor intentalo nuevamente.');
-                },
-                complete: function () {
-                    $btn.removeClass('is-loading');
-                }
-            });
+            enqueueQuickAdd(productId, $btn);
         });
 
-        // Evento: Aceptar Caja de Cortesía y avanzar al checkout
+        // Evento: Aceptar Caja de Cortesía y avanzar directamente al checkout
         $(document).on('click', '#batllie-btn-accept-courtesy', function (e) {
             e.preventDefault();
             sessionStorage.setItem('batllie_courtesy_accepted', '1');
             closeModal();
 
-            const $firstCheckout = $(CHECKOUT_SELECTORS).first();
-            if ($firstCheckout.length) {
-                const href = $firstCheckout.attr('href');
-                if (href && href !== '#' && href.indexOf('javascript') === -1) {
-                    window.location.href = href;
-                } else {
-                    $firstCheckout[0].click();
-                }
-            }
+            const targetUrl = window.batllieCheckoutUrl || config.checkoutUrl || (config.shopUrl + 'finalizar-compra/');
+            window.location.href = targetUrl;
         });
 
-        // Eventos de cierre del modal
+        // Eventos de cierre del modal: si se agregaron ítems y decide volver al carrito, recargamos
         $(document).on('click', '#batllie-min-modal-close-btn, #batllie-min-modal-dismiss-btn', function (e) {
             e.preventDefault();
+            window.batllieIntendedCheckout = false;
             closeModal();
+            if (modalAddedAlfajores > 0) {
+                window.location.reload();
+            }
         });
 
         $(document).on('click', '#batllie-min-order-backdrop', function (e) {
             if (e.target === this) {
+                window.batllieIntendedCheckout = false;
                 closeModal();
+                if (modalAddedAlfajores > 0) {
+                    window.location.reload();
+                }
             }
         });
 
         $(document).on('keydown', function (e) {
             if (e.key === 'Escape' || e.keyCode === 27) {
+                window.batllieIntendedCheckout = false;
                 closeModal();
+                if (modalAddedAlfajores > 0) {
+                    window.location.reload();
+                }
             }
         });
 
-        $(document.body).on('updated_wc_div updated_cart_totals added_to_cart removed_from_cart wc_fragments_refreshed wc_fragments_loaded', function () {
+        $(document.body).on('updated_wc_div updated_cart_totals removed_from_cart wc_fragments_refreshed wc_fragments_loaded', function () {
             checkCartStateLive();
             syncMinOrderStatus();
         });

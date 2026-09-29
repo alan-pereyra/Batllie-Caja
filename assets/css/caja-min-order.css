@@ -650,9 +650,22 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     transform: scale(1.06);
 }
 
+.batllie-flavor-add-btn:active {
+    transform: scale(0.92);
+}
+
+.batllie-flavor-add-btn.is-pulsing {
+    animation: batllieFlavorPulse 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes batllieFlavorPulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+
 .batllie-flavor-add-btn.is-loading {
-    opacity: 0.5;
-    pointer-events: none;
+    opacity: 0.8;
 }
 
 /* Adaptación Responsiva */
