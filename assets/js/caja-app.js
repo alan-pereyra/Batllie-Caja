@@ -2109,25 +2109,27 @@
                 }
 
                 html += `
-                    <tr id="caja-prod-row-${p.id}">
-                        <td>
+                    <tr id="caja-prod-row-${p.id}" class="caja-prod-row">
+                        <td class="caja-td-foto caja-td-thumb caja-td-imagen" style="padding: 14px 0;">
                             <img src="${p.image_url}" alt="${p.name}" class="caja-prod-thumb" />
                         </td>
-                        <td>
+                        <td class="caja-td-producto caja-td-name caja-td-title">
                             <strong class="caja-prod-title">${p.name}</strong>
                             ${badgesHtml}
                         </td>
-                        <td>
+                        <td class="caja-td-stock">
                             <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
                             <small class="caja-stock-num">(${p.stock_quantity})</small>
                             ${p.is_dynamic_stock ? `<div style="font-size:0.75rem; color:#059669; font-weight:600; margin-top:2px;" title="${p.bottleneck_item ? 'Limitado por: ' + p.bottleneck_item : ''}">⚡ Dinámico</div>` : ''}
                         </td>
-                        <td>
+                        <td class="caja-td-precio caja-td-price">
                             <strong class="caja-prod-price">${p.price}</strong>
                             ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
                         </td>
-                        <td><span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span></td>
-                        <td style="text-align: center; white-space: nowrap;">
+                        <td class="caja-td-categoria caja-td-category caja-td-cat">
+                            <span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span>
+                        </td>
+                        <td class="caja-td-acciones caja-td-actions" style="text-align: center; white-space: nowrap;">
                             <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary caja-btn-open-edit-prod" data-product-id="${p.id}" title="Modificar todos los datos del producto (Nombre, Precios, Categoría, SKU, Descripción)" style="margin-right: 4px; padding: 6px 10px;">
                                 <span>✏️ Modificar</span>
                             </button>

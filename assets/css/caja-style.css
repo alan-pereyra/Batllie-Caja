@@ -1842,6 +1842,37 @@ body.batllie-caja-active .container {
     vertical-align: middle;
 }
 
+.caja-table td.caja-td-foto,
+.caja-table td.caja-td-thumb,
+.caja-table td.caja-td-imagen {
+    padding: 14px 0 !important;
+    text-align: center;
+}
+
+.caja-table td.caja-td-producto,
+.caja-table td.caja-td-name {
+    /* Personalización columna producto */
+}
+
+.caja-table td.caja-td-stock {
+    /* Personalización columna stock */
+}
+
+.caja-table td.caja-td-precio,
+.caja-table td.caja-td-price {
+    /* Personalización columna precio */
+}
+
+.caja-table td.caja-td-categoria,
+.caja-table td.caja-td-category {
+    /* Personalización columna categoría */
+}
+
+.caja-table td.caja-td-acciones,
+.caja-table td.caja-td-actions {
+    /* Personalización columna acciones */
+}
+
 .caja-table tr:hover td {
     background: rgba(255, 255, 255, 0.02);
 }

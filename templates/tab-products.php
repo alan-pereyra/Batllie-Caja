@@ -61,12 +61,12 @@ if (!defined('ABSPATH')) {
         <table class="caja-table">
             <thead>
                 <tr>
-                    <th style="width: 60px;"><?php _e('Foto', 'emp-caja'); ?></th>
-                    <th><?php _e('Producto', 'emp-caja'); ?></th>
-                    <th><?php _e('Stock', 'emp-caja'); ?></th>
-                    <th><?php _e('Precio', 'emp-caja'); ?></th>
-                    <th><?php _e('Categoría', 'emp-caja'); ?></th>
-                    <th style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
+                    <th class="caja-th-foto caja-th-thumb caja-th-imagen" style="width: 60px;"><?php _e('Foto', 'emp-caja'); ?></th>
+                    <th class="caja-th-producto caja-th-name caja-th-title"><?php _e('Producto', 'emp-caja'); ?></th>
+                    <th class="caja-th-stock"><?php _e('Stock', 'emp-caja'); ?></th>
+                    <th class="caja-th-precio caja-th-price"><?php _e('Precio', 'emp-caja'); ?></th>
+                    <th class="caja-th-categoria caja-th-category caja-th-cat"><?php _e('Categoría', 'emp-caja'); ?></th>
+                    <th class="caja-th-acciones caja-th-actions" style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
                 </tr>
             </thead>
             <tbody id="caja-products-tbody">
