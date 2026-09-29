@@ -144,18 +144,21 @@
                 self.applyFilters();
             });
 
-            // Toggle de tarjeta de felicitación por Decisión Correcta
+            // Toggle de tarjeta de felicitación por Decisión Correcta / Aumentó su pedido
             $(document).on('change', '.caja-felicitacion-checkbox', function() {
                 const orderId = $(this).data('order-id');
                 const isChecked = $(this).is(':checked');
                 const $card = $(this).closest('.caja-felicitacion-card, .caja-box-felicitacion-card');
 
+                const ajaxUrl = (self.config && self.config.ajaxUrl) || (window.batllieCajaConfig && window.batllieCajaConfig.ajaxUrl) || '';
+                const nonce = (self.config && self.config.nonce) || (window.batllieCajaConfig && window.batllieCajaConfig.nonce) || '';
+
                 $.ajax({
-                    url: batllieCajaData.ajaxUrl,
+                    url: ajaxUrl,
                     type: 'POST',
                     data: {
                         action: 'emp_caja_toggle_tarjeta',
-                        security: batllieCajaData.nonce,
+                        security: nonce,
                         order_id: orderId,
                         incluida: isChecked ? 'yes' : 'no'
                     },
@@ -1294,18 +1297,23 @@
                                 });
                             }
 
+                            let isAumento = Boolean(item.has_aumento_pedido || item.has_decision_correcta);
                             let boxFelicitacionHtml = '';
-                            if (item.has_decision_correcta) {
+                            if (isAumento) {
                                 renderedBoxFelicitacion = true;
                                 boxFelicitacionHtml = `
-                                    <div class="caja-box-felicitacion-card ${order.tarjeta_incluida ? 'is-included' : ''}">
+                                    <div class="caja-box-felicitacion-card caja-box-aumento-card ${order.tarjeta_incluida ? 'is-included' : ''}">
                                         <div class="caja-box-felicitacion-header">
-                                            <span class="caja-felicitacion-badge">💌 ¡DECISIÓN CORRECTA!</span>
-                                            <span class="caja-box-felicitacion-desc">Esta caja completó el empaque con alfajores extra.</span>
+                                            <span class="caja-felicitacion-badge" style="background:#059669; color:#fff; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:5px; display:inline-flex; align-items:center; gap:4px;">
+                                                🚀 ¡AUMENTÓ SU PEDIDO!
+                                            </span>
+                                            <span class="caja-box-felicitacion-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; margin-top:3px; display:block;">
+                                                El cliente iba a pedir menos unidades, pero agregó alfajores extra por recomendación de la web para completar esta caja.
+                                            </span>
                                         </div>
-                                        <label class="caja-felicitacion-toggle-label">
+                                        <label class="caja-felicitacion-toggle-label" style="margin-top:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
                                             <input type="checkbox" class="caja-felicitacion-checkbox" data-order-id="${order.id}" ${order.tarjeta_incluida ? 'checked' : ''} />
-                                            <span>Incluir tarjeta de felicitación en esta caja</span>
+                                            <span style="font-size:0.82rem; font-weight:600;">Incluir tarjeta de felicitación en esta caja</span>
                                         </label>
                                     </div>
                                 `;
@@ -1314,6 +1322,7 @@
                             let badgeText = item.box_badge || (item.has_courtesy ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA');
                             let imgHtml = item.image ? `<img src="${item.image}" class="caja-pack-box-thumb" alt="${item.name}" />` : '';
                             let unitsBadge = item.box_units ? `<span class="caja-pack-units-badge">${item.box_units} u.</span>` : '';
+                            let aumentoBadge = isAumento ? `<span class="caja-pack-units-badge caja-badge-aumento-pill" style="background:#059669; color:#fff; font-weight:700;">🚀 Aumentó su pedido</span>` : '';
                             let boxPrice = item.box_total || item.total;
 
                             itemsHtml += `
@@ -1324,6 +1333,7 @@
                                             <div class="caja-pack-box-top-line">
                                                 <span class="caja-pack-box-badge">${badgeText}</span>
                                                 ${unitsBadge}
+                                                ${aumentoBadge}
                                             </div>
                                             <span class="caja-pack-box-name">${item.name}</span>
                                         </div>
@@ -1520,16 +1530,20 @@
                 }
 
                 let felicitacionHtml = '';
-                if (order.decision_correcta) {
+                if (order.aumento_pedido || order.decision_correcta) {
                     felicitacionHtml = `
-                        <div class="caja-felicitacion-card ${order.tarjeta_incluida ? 'is-included' : ''}">
+                        <div class="caja-felicitacion-card caja-box-aumento-card ${order.tarjeta_incluida ? 'is-included' : ''}">
                             <div class="caja-felicitacion-header">
-                                <span class="caja-felicitacion-badge">💌 ¡DECISIÓN CORRECTA!</span>
-                                <span class="caja-felicitacion-desc">El cliente completó su caja de alfajores.</span>
+                                <span class="caja-felicitacion-badge" style="background:#059669; color:#fff; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:5px; display:inline-flex; align-items:center; gap:4px;">
+                                    🚀 ¡AUMENTÓ SU PEDIDO!
+                                </span>
+                                <span class="caja-felicitacion-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; margin-top:3px; display:block;">
+                                    El cliente iba a pedir menos unidades, pero agregó alfajores extra por recomendación de la web.
+                                </span>
                             </div>
-                            <label class="caja-felicitacion-toggle-label">
+                            <label class="caja-felicitacion-toggle-label" style="margin-top:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
                                 <input type="checkbox" class="caja-felicitacion-checkbox" data-order-id="${order.id}" ${order.tarjeta_incluida ? 'checked' : ''} />
-                                <span>Incluir tarjeta de felicitación en el paquete</span>
+                                <span style="font-size:0.82rem; font-weight:600;">Incluir tarjeta de felicitación en el paquete</span>
                             </label>
                         </div>
                     `;

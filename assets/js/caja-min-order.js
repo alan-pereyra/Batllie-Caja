@@ -432,6 +432,10 @@
         if (!$backdrop.length) return;
 
         isModalOpen = true;
+        try {
+            document.cookie = "batllie_had_incomplete_box=yes; path=/; max-age=86400";
+        } catch (e) {}
+
         if (config.packing) {
             updatePackingUI(config.packing);
         }
@@ -837,6 +841,11 @@
      */
     function enqueueQuickAdd(productId, $btn) {
         if (redirectingToCheckout) return;
+
+        try {
+            document.cookie = "batllie_had_incomplete_box=yes; path=/; max-age=86400";
+            document.cookie = "batllie_aumento_pedido=yes; path=/; max-age=86400";
+        } catch (e) {}
 
         // Feedback táctil instantáneo en el botón
         $btn.removeClass('is-pulsing');

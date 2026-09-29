@@ -3265,4 +3265,40 @@ span#edit-grouped-selected-badge {
     font-weight: 500;
 }
 
+/* Badge y tarjeta destacados de 'Aumentó su pedido' */
+.caja-badge-aumento-pill {
+    background: #059669 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    padding: 2px 7px !important;
+    border-radius: 4px !important;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.caja-box-aumento-card {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.18) 0%, rgba(4, 120, 87, 0.10) 100%) !important;
+    border: 1px solid rgba(16, 185, 129, 0.5) !important;
+}
+
+.caja-box-aumento-card.is-included {
+    background: linear-gradient(135deg, rgba(5, 150, 105, 0.32) 0%, rgba(4, 120, 87, 0.22) 100%) !important;
+    border-color: #10b981 !important;
+}
+
+.caja-box-aumento-card .caja-felicitacion-badge {
+    background: #059669 !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 0.75rem !important;
+    padding: 3px 8px !important;
+    border-radius: 5px !important;
+    letter-spacing: 0.03em;
+}
+
+
 

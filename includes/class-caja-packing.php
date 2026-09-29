@@ -29,6 +29,8 @@ class Batllie_Caja_Packing {
 
         // Descontar stock de cajas de empaque al procesar un pedido
         add_action('woocommerce_checkout_order_processed', array(__CLASS__, 'handle_order_box_stock_deduction'), 20, 3);
+        add_action('woocommerce_store_api_checkout_order_processed', array(__CLASS__, 'handle_order_box_stock_deduction'), 20, 1);
+        add_action('woocommerce_new_order', array(__CLASS__, 'handle_order_box_stock_deduction'), 20, 1);
         add_action('woocommerce_order_status_processing', array(__CLASS__, 'handle_order_box_stock_deduction_on_status'), 20, 1);
         add_action('woocommerce_order_status_completed', array(__CLASS__, 'handle_order_box_stock_deduction_on_status'), 20, 1);
         add_action('woocommerce_order_status_cancelled', array(__CLASS__, 'handle_order_box_stock_restoration'), 20, 1);
@@ -774,6 +776,28 @@ class Batllie_Caja_Packing {
             $current_box_capacity = 6;
         }
 
+        // Seguimiento de aumento de pedido: Si tuvo caja incompleta y luego la completó
+        if ($missing_units > 0) {
+            if (function_exists('WC') && WC()->session) {
+                WC()->session->set('batllie_had_incomplete_box', 'yes');
+            }
+            if (!headers_sent()) {
+                setcookie('batllie_had_incomplete_box', 'yes', time() + 86400, '/');
+            }
+        } elseif ($status === 'all_boxed' && $loose_count >= 6) {
+            $had_incomplete = (isset($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes') ||
+                              (function_exists('WC') && WC()->session && WC()->session->get('batllie_had_incomplete_box') === 'yes');
+            if ($had_incomplete) {
+                if (function_exists('WC') && WC()->session) {
+                    WC()->session->set('batllie_aumento_pedido', 'yes');
+                    WC()->session->set('batllie_decision_correcta', 'yes');
+                }
+                if (!headers_sent()) {
+                    setcookie('batllie_aumento_pedido', 'yes', time() + 86400, '/');
+                }
+            }
+        }
+
         return array(
             'has_alfajores'        => ($total_alfajores > 0),
             'total_alfajores'      => $total_alfajores,
@@ -1011,6 +1035,14 @@ class Batllie_Caja_Packing {
             ));
             WC()->cart->calculate_totals();
 
+            if (function_exists('WC') && WC()->session) {
+                WC()->session->set('batllie_aumento_pedido', 'yes');
+                WC()->session->set('batllie_decision_correcta', 'yes');
+            }
+            if (!headers_sent()) {
+                setcookie('batllie_aumento_pedido', 'yes', time() + 86400, '/');
+            }
+
             // Re-analizar carrito tras la adición
             $analysis = self::analyze_cart();
             $min      = class_exists('Batllie_Caja_Min_Order') ? Batllie_Caja_Min_Order::get_min_purchase_amount() : 0.0;
@@ -1108,6 +1140,16 @@ class Batllie_Caja_Packing {
                     400
                 );
             }
+        }
+
+        $had_incomplete = (isset($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes') ||
+                          (function_exists('WC') && WC()->session && WC()->session->get('batllie_had_incomplete_box') === 'yes');
+        $increased_order = (isset($_COOKIE['batllie_aumento_pedido']) && $_COOKIE['batllie_aumento_pedido'] === 'yes') ||
+                           (function_exists('WC') && WC()->session && WC()->session->get('batllie_aumento_pedido') === 'yes');
+
+        if ($order && ($increased_order || $had_incomplete)) {
+            $order->update_meta_data('_batllie_aumento_pedido', 'yes');
+            $order->update_meta_data('_batllie_decision_correcta', 'yes');
         }
     }
 
@@ -1282,17 +1324,35 @@ class Batllie_Caja_Packing {
             }
         }
 
-        $decision_correcta = $has_upsell_add || ($loose_alfajores > 0 && ($loose_alfajores % 6 === 0));
+        $session_aumento = false;
+        if (function_exists('WC') && WC()->session) {
+            $session_aumento = (WC()->session->get('batllie_aumento_pedido') === 'yes') || (WC()->session->get('batllie_had_incomplete_box') === 'yes');
+        }
+        $cookie_aumento = (!empty($_COOKIE['batllie_aumento_pedido']) && $_COOKIE['batllie_aumento_pedido'] === 'yes') ||
+                          (!empty($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes');
+        $order_had_aumento = ($order->get_meta('_batllie_aumento_pedido') === 'yes');
+
+        $decision_correcta = $has_upsell_add || $session_aumento || $cookie_aumento || $order_had_aumento || ($loose_alfajores > 0 && ($loose_alfajores % 6 === 0));
 
         $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
         $order->update_meta_data('_batllie_box_stock_deducted_details', $box_stock_to_deduct);
         $order->update_meta_data('_batllie_decision_correcta', $decision_correcta ? 'yes' : 'no');
+        $order->update_meta_data('_batllie_aumento_pedido', $decision_correcta ? 'yes' : 'no');
 
         if (!empty($deductions_log) && class_exists('Batllie_Caja_Orders')) {
             Batllie_Caja_Orders::add_timeline_event(
                 $order,
                 sprintf(__('Stock de empaque descontado: %s', 'emp-caja'), implode(', ', $deductions_log)),
                 '📦',
+                'system'
+            );
+        }
+
+        if ($decision_correcta && class_exists('Batllie_Caja_Orders')) {
+            Batllie_Caja_Orders::add_timeline_event(
+                $order,
+                __('🚀 ¡El cliente aumentó su pedido! Agregó alfajores extra para completar su caja por sugerencia de la web.', 'emp-caja'),
+                '🚀',
                 'system'
             );
         }

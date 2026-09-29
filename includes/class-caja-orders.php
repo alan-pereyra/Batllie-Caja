@@ -622,6 +622,7 @@ class Batllie_Caja_Orders {
                 'box_total'             => $formatted_box_total,
                 'box_total_num'         => $box_total_num,
                 'has_decision_correcta' => $is_target_felicitacion,
+                'has_aumento_pedido'    => $is_target_felicitacion,
                 'has_courtesy'          => $b_spec['is_courtesy'],
                 'pack_items'            => $box_items,
             );
@@ -795,10 +796,15 @@ class Batllie_Caja_Orders {
         }
         unset($box);
 
+        // Si no se descontó el stock de empaque todavía, procesarlo ahora para asegurar sincronización y metadatos
+        if ($order->get_meta('_batllie_box_stock_deducted') !== 'yes' && class_exists('Batllie_Caja_Packing')) {
+            Batllie_Caja_Packing::handle_order_box_stock_deduction($order->get_id(), array(), $order);
+        }
+
         // Obtener imagen de caja representativa para las cajas automáticas
         $default_box_img = !empty($raw_boxes) ? reset($raw_boxes)['image'] : self::get_default_box_image_url();
         $has_courtesy    = ($order->get_meta('_batllie_has_courtesy_box') === 'yes');
-        $has_decision    = ($order->get_meta('_batllie_decision_correcta') === 'yes');
+        $has_decision    = ($order->get_meta('_batllie_decision_correcta') === 'yes') || ($order->get_meta('_batllie_aumento_pedido') === 'yes');
 
         // Empaquetar alfajores sueltos en cajas automáticas homogéneas (Caja 6, Caja 12, Cortesía)
         $packaged_loose = self::auto_package_loose_alfajores($raw_standalone, $order->get_currency(), $has_courtesy, $has_decision, $default_box_img);
@@ -912,7 +918,8 @@ class Batllie_Caja_Orders {
             'total_raw'       => (float) $order->get_total(),
             'items'           => $items,
             'items_count'     => $order->get_item_count(),
-            'decision_correcta'    => ($order->get_meta('_batllie_decision_correcta') === 'yes'),
+            'decision_correcta'    => ($order->get_meta('_batllie_decision_correcta') === 'yes' || $order->get_meta('_batllie_aumento_pedido') === 'yes'),
+            'aumento_pedido'       => ($order->get_meta('_batllie_aumento_pedido') === 'yes' || $order->get_meta('_batllie_decision_correcta') === 'yes'),
             'tarjeta_incluida'     => ($order->get_meta('_batllie_tarjeta_incluida') === 'yes'),
             'has_courtesy_box'     => ($order->get_meta('_batllie_has_courtesy_box') === 'yes'),
             'boxes_used'           => $order->get_meta('_batllie_boxes_used'),
