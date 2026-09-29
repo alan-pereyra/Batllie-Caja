@@ -690,6 +690,7 @@ class Batllie_Caja_Orders {
             'tarjeta_incluida'     => ($order->get_meta('_batllie_tarjeta_incluida') === 'yes'),
             'has_courtesy_box'     => ($order->get_meta('_batllie_has_courtesy_box') === 'yes'),
             'boxes_used'           => $order->get_meta('_batllie_boxes_used'),
+            'packing_summary'      => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_order_boxes_summary($order) : null,
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
             'order_date_formatted' => $order_date_formatted,

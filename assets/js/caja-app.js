@@ -1294,6 +1294,55 @@
                     `;
                 }
 
+                let packingHtml = '';
+                let pkg = order.packing_summary;
+
+                // Fallback reactivo del lado cliente si no viene packing_summary desde el servidor
+                if (!pkg || !pkg.has_boxes) {
+                    let totalAlf = 0;
+                    if (Array.isArray(order.items)) {
+                        order.items.forEach(function (it) {
+                            const name = (it.name || '').toLowerCase();
+                            if (name.includes('alfajor') || name.includes('batllie') || name.includes('suizo') || name.includes('chocolate') || name.includes('negro') || name.includes('blanco')) {
+                                totalAlf += parseInt(it.quantity, 10) || 0;
+                            }
+                        });
+                    }
+
+                    if (totalAlf > 0) {
+                        let b12 = Math.floor(totalAlf / 12);
+                        let rem = totalAlf % 12;
+                        let b6 = 0;
+                        if (rem >= 6) {
+                            b6 = Math.floor(rem / 6);
+                            rem = rem % 6;
+                        }
+                        let court = order.has_courtesy_box ? 1 : 0;
+                        let parts = [];
+                        if (b12 > 0) parts.push(b12 > 1 ? (b12 + ' Cajas x 12') : '1 Caja x 12');
+                        if (b6 > 0) parts.push(b6 > 1 ? (b6 + ' Cajas x 6') : '1 Caja x 6');
+                        if (court > 0) parts.push('🎁 Caja de Cortesía');
+                        if (rem > 0 && court === 0) parts.push(rem + ' suelto' + (rem > 1 ? 's' : ''));
+
+                        pkg = {
+                            has_boxes: (parts.length > 0 || totalAlf > 0),
+                            total_alfajores: totalAlf,
+                            summary_text: parts.join(' + ')
+                        };
+                    }
+                }
+
+                if (pkg && pkg.has_boxes && pkg.summary_text) {
+                    packingHtml = `
+                        <div class="caja-order-packing-badge">
+                            <span class="caja-packing-icon">📦</span>
+                            <span class="caja-packing-label">Empaque asignado:</span>
+                            <strong class="caja-packing-value">${pkg.summary_text}</strong>
+                            ${pkg.total_alfajores ? `<span class="caja-packing-count">(${pkg.total_alfajores} alfajores)</span>` : ''}
+                        </div>
+                    `;
+                }
+
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
                         <div class="caja-card-header">
@@ -1320,6 +1369,7 @@
                         </div>
 
                         <div class="caja-order-items-list">
+                            ${packingHtml}
                             ${felicitacionHtml}
                             ${courtesyHtml}
                             ${itemsHtml}

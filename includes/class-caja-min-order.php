@@ -49,6 +49,10 @@ class Batllie_Caja_Min_Order {
         add_action('woocommerce_before_cart', array(__CLASS__, 'render_cart_banner'), 5);
         add_action('woocommerce_before_cart_table', array(__CLASS__, 'render_cart_banner'), 5);
 
+        // Fila informativa de empaque oficial en tabla de totales del carrito y checkout
+        add_action('woocommerce_cart_totals_before_order_total', array(__CLASS__, 'render_cart_totals_packaging_row'), 20);
+        add_action('woocommerce_review_order_before_order_total', array(__CLASS__, 'render_cart_totals_packaging_row'), 20);
+
         // Inyectar modal en el footer para feedback inmediato al hacer clic en pagar
         add_action('wp_footer', array(__CLASS__, 'render_min_order_modal'), 50);
 
@@ -348,15 +352,18 @@ class Batllie_Caja_Min_Order {
         }
 
         $min = self::get_min_purchase_amount();
-        if ($min <= 0 || !WC()->cart || WC()->cart->is_empty()) {
+        $packing = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
+
+        if ($min <= 0 && (empty($packing) || empty($packing['has_alfajores']))) {
             return;
         }
 
         self::$banner_rendered = true;
         $amount   = self::get_cart_amount();
-        $is_below = ($amount < $min);
+        $is_below = ($min > 0 && $amount < $min);
         $missing  = max(0.0, $min - $amount);
         $pct      = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
+        $pkg_text = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_cart_packaging_text($packing) : null;
         ?>
         <div id="batllie-min-order-cart-banner" class="batllie-min-order-banner <?php echo $is_below ? 'is-below' : 'is-met'; ?>">
             <div class="batllie-min-banner-inner">
@@ -394,12 +401,42 @@ class Batllie_Caja_Min_Order {
                             <?php _e('Ya puedes ir a pagar tu pedido sin inconvenientes.', 'emp-caja'); ?>
                         </div>
                     <?php endif; ?>
+
+                    <?php if (!empty($pkg_text['has_alfajores'])): ?>
+                        <div class="batllie-banner-packaging-note" id="batllie-banner-packaging-note">
+                            <span class="batllie-banner-pkg-icon">📦</span>
+                            <span class="batllie-banner-pkg-text" id="batllie-banner-pkg-text"><?php echo esc_html($pkg_text['sentence']); ?></span>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
-            <div class="batllie-min-banner-progress-wrap">
-                <div class="batllie-min-banner-progress-bar" style="width: <?php echo esc_attr($pct); ?>%;"></div>
-            </div>
+            <?php if ($min > 0): ?>
+                <div class="batllie-min-banner-progress-wrap">
+                    <div class="batllie-min-banner-progress-bar" style="width: <?php echo esc_attr($pct); ?>%;"></div>
+                </div>
+            <?php endif; ?>
         </div>
+        <?php
+    }
+
+    /**
+     * Fila informativa de Empaque Oficial en la tabla de totales del carrito y checkout
+     */
+    public static function render_cart_totals_packaging_row() {
+        $packing = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
+        if (empty($packing) || empty($packing['has_alfajores'])) {
+            return;
+        }
+        $pkg_text = Batllie_Caja_Packing::get_cart_packaging_text($packing);
+        ?>
+        <tr class="batllie-cart-packing-totals-row" id="batllie-cart-packing-totals-row">
+            <th><?php _e('Empaque Oficial:', 'emp-caja'); ?></th>
+            <td data-title="<?php esc_attr_e('Empaque Oficial', 'emp-caja'); ?>">
+                <span class="batllie-cart-packing-pill" id="batllie-cart-packing-pill">
+                    📦 <strong id="batllie-cart-packing-pill-text"><?php echo esc_html($pkg_text['short']); ?></strong>
+                </span>
+            </td>
+        </tr>
         <?php
     }
 

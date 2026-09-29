@@ -459,11 +459,47 @@
     }
 
     /**
+     * Formatear resumen legible de cajas asignadas (ej: 1 Caja x 12, 2 Cajas x 12, etc.)
+     */
+    function formatCartPackagingSummary(packing) {
+        if (!packing || !packing.has_alfajores) {
+            return null;
+        }
+
+        const b = packing.boxes || {};
+        const b12 = parseInt(b.box_12, 10) || 0;
+        const b6 = parseInt(b.box_6, 10) || 0;
+        const courtesy = parseInt(b.courtesy, 10) || 0;
+        const parts = [];
+
+        if (b12 > 0) {
+            parts.push(b12 > 1 ? (b12 + ' Cajas x 12') : '1 Caja x 12');
+        }
+        if (b6 > 0) {
+            parts.push(b6 > 1 ? (b6 + ' Cajas x 6') : '1 Caja x 6');
+        }
+        if (courtesy > 0) {
+            parts.push(courtesy > 1 ? (courtesy + ' Cajas de Cortesía') : '1 Caja de Cortesía');
+        }
+
+        const short = parts.length > 0 ? parts.join(' + ') : 'A granel';
+        const sentence = 'Tus alfajores se despachan en ' + short + '.';
+
+        return {
+            has_alfajores: true,
+            short: short,
+            sentence: sentence
+        };
+    }
+
+    /**
      * Actualizar la interfaz de empaque y barra de progreso de cajas
      */
     function updatePackingUI(packing) {
         if (!packing || !packing.has_alfajores) {
             $('#batllie-modal-packing-section').hide();
+            $('#batllie-banner-packaging-note').hide();
+            $('#batllie-cart-packing-totals-row').hide();
             return;
         }
 
@@ -516,6 +552,54 @@
                 $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6').removeClass('is-complete').addClass('is-missing');
                 $('#batllie-btn-accept-courtesy').hide();
             }
+        }
+
+        // 4. Actualización del empaque en el banner del carrito y tabla de totales
+        const pkgSummary = formatCartPackagingSummary(packing);
+        if (pkgSummary) {
+            let $bannerNote = $('#batllie-banner-packaging-note');
+            if (!$bannerNote.length && $('#batllie-min-order-cart-banner .batllie-min-banner-content').length) {
+                $('#batllie-min-order-cart-banner .batllie-min-banner-content').append(
+                    '<div class="batllie-banner-packaging-note" id="batllie-banner-packaging-note">' +
+                        '<span class="batllie-banner-pkg-icon">📦</span> ' +
+                        '<span class="batllie-banner-pkg-text" id="batllie-banner-pkg-text"></span>' +
+                    '</div>'
+                );
+                $bannerNote = $('#batllie-banner-packaging-note');
+            }
+            if ($bannerNote.length) {
+                $('#batllie-banner-pkg-text').text(pkgSummary.sentence);
+                $bannerNote.show();
+            }
+
+            let $totalsRow = $('#batllie-cart-packing-totals-row');
+            if (!$totalsRow.length) {
+                const $targetTable = $('.woocommerce-cart .cart_totals table tbody, .woocommerce-checkout #order_review table tfoot');
+                if ($targetTable.length) {
+                    const rowHtml = '<tr class="batllie-cart-packing-totals-row" id="batllie-cart-packing-totals-row">' +
+                        '<th>Empaque Oficial:</th>' +
+                        '<td data-title="Empaque Oficial">' +
+                            '<span class="batllie-cart-packing-pill" id="batllie-cart-packing-pill">' +
+                                '📦 <strong id="batllie-cart-packing-pill-text">' + pkgSummary.short + '</strong>' +
+                            '</span>' +
+                        '</td>' +
+                    '</tr>';
+                    const $orderTotal = $targetTable.find('.order-total');
+                    if ($orderTotal.length) {
+                        $orderTotal.before(rowHtml);
+                    } else {
+                        $targetTable.append(rowHtml);
+                    }
+                    $totalsRow = $('#batllie-cart-packing-totals-row');
+                }
+            }
+            if ($totalsRow.length) {
+                $('#batllie-cart-packing-pill-text').text(pkgSummary.short);
+                $totalsRow.show();
+            }
+        } else {
+            $('#batllie-banner-packaging-note').hide();
+            $('#batllie-cart-packing-totals-row').hide();
         }
 
         updateCheckoutButtons();

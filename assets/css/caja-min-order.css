@@ -155,6 +155,30 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     font-weight: 700;
 }
 
+/* Nota de Empaque Asignado en el Banner del Carrito */
+.batllie-banner-packaging-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--caja-text, #f8fafc);
+}
+
+.batllie-banner-pkg-icon {
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.batllie-banner-pkg-text {
+    color: var(--caja-primary, #f8f0d0);
+    font-weight: 700;
+}
+
 /* Barra de Progreso en el Banner */
 .batllie-min-banner-progress-wrap {
     height: 8px;
@@ -663,4 +687,34 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
         grid-template-columns: 1fr;
         max-height: 160px;
     }
+}
+
+/* ==========================================================================
+   Fila informativa de Empaque Oficial en Totales del Carrito y Checkout
+   ========================================================================== */
+tr.batllie-cart-packing-totals-row th {
+    font-weight: 600;
+    color: var(--caja-text, inherit);
+    vertical-align: middle;
+}
+
+tr.batllie-cart-packing-totals-row td {
+    vertical-align: middle;
+}
+
+.batllie-cart-packing-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: color-mix(in srgb, var(--caja-primary, #f8f0d0) 15%, transparent);
+    color: var(--caja-text, #ffffff);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.88rem;
+    border: 1px solid rgba(248, 240, 208, 0.25);
+}
+
+.batllie-cart-packing-pill strong {
+    color: var(--caja-primary, #f8f0d0);
+    font-weight: 700;
 }

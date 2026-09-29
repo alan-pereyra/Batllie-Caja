@@ -480,6 +480,167 @@ class Batllie_Caja_Packing {
     }
 
     /**
+     * Obtener resumen detallado de cajas asignadas para un pedido (Comanda Mostrador / Cocina)
+     * Soporta cálculo retroactivo si el pedido fue creado sin metadata
+     */
+    public static function get_order_boxes_summary($order) {
+        if (!$order) {
+            return null;
+        }
+
+        $boxes = $order->get_meta('_batllie_boxes_used');
+        $has_courtesy_meta = ($order->get_meta('_batllie_has_courtesy_box') === 'yes');
+
+        $box_12   = !empty($boxes['box_12']) ? intval($boxes['box_12']) : 0;
+        $box_6    = !empty($boxes['box_6']) ? intval($boxes['box_6']) : 0;
+        $courtesy = !empty($boxes['courtesy']) ? intval($boxes['courtesy']) : ($has_courtesy_meta ? 1 : 0);
+
+        // Si no hay cajas guardadas, calcular retroactivamente a partir de los ítems del pedido
+        $total_alfajores = 0;
+        foreach ($order->get_items() as $item) {
+            $product_id = $item->get_product_id();
+            $item_name  = mb_strtolower($item->get_name(), 'UTF-8');
+            $qty        = $item->get_quantity();
+
+            $is_alf = self::is_alfajor_product($product_id) || (strpos($item_name, 'alfajor') !== false) || (strpos($item_name, 'batllie') !== false);
+            if ($is_alf) {
+                $total_alfajores += $qty;
+            }
+        }
+
+        if ($box_12 === 0 && $box_6 === 0 && $courtesy === 0 && $total_alfajores > 0) {
+            // Algoritmo con Prioridad Cajas de 12
+            if ($total_alfajores >= 12) {
+                $box_12 = floor($total_alfajores / 12);
+                $rem = $total_alfajores % 12;
+                if ($rem >= 6) {
+                    $box_6 = floor($rem / 6);
+                    $rem = $rem % 6;
+                }
+                if ($rem > 0 && $has_courtesy_meta) {
+                    $courtesy = 1;
+                }
+            } elseif ($total_alfajores >= 6) {
+                $box_6 = floor($total_alfajores / 6);
+                $rem = $total_alfajores % 6;
+                if ($rem > 0 && $has_courtesy_meta) {
+                    $courtesy = 1;
+                }
+            } elseif ($has_courtesy_meta) {
+                $courtesy = 1;
+            }
+        }
+
+        $desc_parts = array();
+        if ($box_12 > 0) {
+            $desc_parts[] = sprintf(_n('%d Caja x 12', '%d Cajas x 12', $box_12, 'emp-caja'), $box_12);
+        }
+        if ($box_6 > 0) {
+            $desc_parts[] = sprintf(_n('%d Caja x 6', '%d Cajas x 6', $box_6, 'emp-caja'), $box_6);
+        }
+        if ($courtesy > 0) {
+            $desc_parts[] = __('🎁 Caja de Cortesía', 'emp-caja');
+        }
+
+        $boxed_units = ($box_12 * 12) + ($box_6 * 6);
+        $loose_remaining = max(0, $total_alfajores - $boxed_units);
+        if ($loose_remaining > 0 && $courtesy === 0) {
+            if (empty($desc_parts)) {
+                $desc_parts[] = sprintf(_n('%d alfajor suelto', '%d alfajores sueltos', $loose_remaining, 'emp-caja'), $loose_remaining);
+            } else {
+                $desc_parts[] = sprintf(_n('+ %d suelto', '+ %d sueltos', $loose_remaining, 'emp-caja'), $loose_remaining);
+            }
+        }
+
+        $summary_text = !empty($desc_parts) ? implode(' + ', $desc_parts) : '';
+        $has_boxes = ($box_12 > 0 || $box_6 > 0 || $courtesy > 0 || $total_alfajores > 0);
+
+        return array(
+            'has_boxes'       => $has_boxes,
+            'total_alfajores' => $total_alfajores,
+            'box_12'          => $box_12,
+            'box_6'           => $box_6,
+            'courtesy'        => $courtesy,
+            'loose'           => $loose_remaining,
+            'summary_text'    => $summary_text,
+        );
+    }
+
+    /**
+     * Obtener texto descriptivo de empaque para el cliente en el carrito
+     */
+    public static function get_cart_packaging_text($packing = null) {
+        if ($packing === null) {
+            $packing = self::analyze_cart();
+        }
+
+        if (empty($packing) || empty($packing['has_alfajores'])) {
+            return array(
+                'has_alfajores' => false,
+                'short'         => '',
+                'sentence'      => '',
+                'total'         => 0,
+            );
+        }
+
+        $total = $packing['total_alfajores'] ?? 0;
+        $b12   = $packing['boxes']['box_12'] ?? 0;
+        $b6    = $packing['boxes']['box_6'] ?? 0;
+        $court = $packing['boxes']['courtesy'] ?? 0;
+
+        $parts = array();
+        if ($b12 > 0) {
+            $parts[] = sprintf(_n('%d Caja x 12', '%d Cajas x 12', $b12, 'emp-caja'), $b12);
+        }
+        if ($b6 > 0) {
+            $parts[] = sprintf(_n('%d Caja x 6', '%d Cajas x 6', $b6, 'emp-caja'), $b6);
+        }
+        if ($court > 0) {
+            $parts[] = __('🎁 Caja de Cortesía de regalo', 'emp-caja');
+        }
+
+        $short = implode(' + ', $parts);
+        if (empty($short)) {
+            $short = sprintf(_n('%d alfajor', '%d alfajores', $total, 'emp-caja'), $total);
+        }
+
+        if ($packing['status'] === 'all_boxed') {
+            if ($b12 > 0 && $b6 === 0) {
+                $sentence = sprintf(
+                    _n('Tus %d alfajores viajarán protegidos en %s Oficial Batllié.', 'Tus %d alfajores viajarán protegidos en %s Oficiales Batllié.', $b12, 'emp-caja'),
+                    $total,
+                    $short
+                );
+            } else {
+                $sentence = sprintf(
+                    __('Tus %d alfajores viajarán protegidos en %s.', 'emp-caja'),
+                    $total,
+                    $short
+                );
+            }
+        } elseif ($court > 0) {
+            $sentence = sprintf(
+                __('Tus %d alfajores viajarán en %s.', 'emp-caja'),
+                $total,
+                $short
+            );
+        } else {
+            $sentence = sprintf(
+                __('Tus %d alfajores se asignan a %s.', 'emp-caja'),
+                $total,
+                $short
+            );
+        }
+
+        return array(
+            'has_alfajores' => true,
+            'short'         => $short,
+            'sentence'      => $sentence,
+            'total'         => $total,
+        );
+    }
+
+    /**
      * Endpoint AJAX para consultar estado del empaque
      */
     public static function ajax_get_packing_status() {
