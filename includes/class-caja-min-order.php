@@ -445,8 +445,7 @@ class Batllie_Caja_Min_Order {
                     <!-- Sección B: Motor de Empaque, Barra de Progreso y Gustos 1-Click -->
                     <div id="batllie-modal-packing-section" class="batllie-modal-packing-section" style="<?php echo (!empty($packing['has_alfajores']) && $packing['status'] !== 'all_boxed') ? '' : 'display:none;'; ?>">
                         <div class="batllie-packing-header">
-                            <h3 id="batllie-packing-title" class="batllie-packing-title"><?php echo esc_html($packing['is_blocked'] ? __('Completá tu Caja para Despachar', 'emp-caja') : __('¡Mejorá tu Experiencia Batllié!', 'emp-caja')); ?></h3>
-                            <p id="batllie-packing-subtitle" class="batllie-packing-subtitle"><?php echo esc_html($packing['message'] ?? ''); ?></p>
+                            <h3 id="batllie-packing-title" class="batllie-packing-title"><?php _e('Tomaste una decisión correcta pero podría ser aún mejor', 'emp-caja'); ?></h3>
                         </div>
 
                         <!-- Barra de Resumen de Totales y Cajas Armadas -->
@@ -520,26 +519,11 @@ class Batllie_Caja_Min_Order {
                 </div>
 
                 <div class="batllie-min-modal-footer">
-                    <!-- Botón para aceptar Caja de Cortesía (cuando corresponde) -->
+                    <!-- Botón para continuar sin agregar alfajores extras (SOLO cuando no es imperativo y se permite cortesía) -->
                     <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!empty($packing['courtesy_allowed'])) ? '' : 'display:none;'; ?>">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
-                            <polyline points="20 12 20 22 4 22 4 12"></polyline>
-                            <rect x="2" y="7" width="20" height="5"></rect>
-                            <line x1="12" y1="22" x2="12" y2="7"></line>
-                            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
-                            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
-                        </svg>
-                        <span><?php _e('Continuar con Caja de Cortesía de Regalo', 'emp-caja'); ?></span>
+                        <span><?php _e('Continuar de todas formas', 'emp-caja'); ?></span>
                     </button>
 
-                    <a href="<?php echo esc_url($shop_url); ?>" class="batllie-min-btn batllie-min-btn-shop" id="batllie-min-modal-shop-btn">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;">
-                            <circle cx="9" cy="21" r="1"></circle>
-                            <circle cx="20" cy="21" r="1"></circle>
-                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                        </svg>
-                        <span><?php _e('Seguir Comprando', 'emp-caja'); ?></span>
-                    </a>
                     <button type="button" class="batllie-min-btn batllie-min-btn-dismiss" id="batllie-min-modal-dismiss-btn">
                         <?php _e('Volver al Carrito', 'emp-caja'); ?>
                     </button>

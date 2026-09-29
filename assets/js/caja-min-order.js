@@ -485,24 +485,24 @@
         // 3. Títulos, Mensajes y Badges
         if (packing.status === 'all_boxed') {
             $('#batllie-packing-title').text('¡Caja Completa!');
-            $('#batllie-packing-subtitle').text(packing.message || 'Tus alfajores viajan en caja cerrada oficial Batllié.');
             $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
-        } else if (packing.is_blocked) {
-            $('#batllie-packing-title').text('Completá tu Caja para Despachar');
-            $('#batllie-packing-subtitle').text(packing.message);
-            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
-            $('#batllie-btn-accept-courtesy').hide();
-        } else if (packing.status === 'courtesy_available') {
-            $('#batllie-packing-title').text('¡Mejorá tu Experiencia Batllié!');
-            $('#batllie-packing-subtitle').text(packing.message);
-            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
-            $('#batllie-btn-accept-courtesy').show();
-        } else if (packing.status === 'no_prior_box') {
-            $('#batllie-packing-title').text('Comenzá tu Experiencia Batllié');
-            $('#batllie-packing-subtitle').text(packing.message);
-            $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6').removeClass('is-complete').addClass('is-missing');
-            $('#batllie-btn-accept-courtesy').hide();
+        } else {
+            $('#batllie-packing-title').text('Tomaste una decisión correcta pero podría ser aún mejor');
+
+            if (packing.is_blocked) {
+                // Bloqueo imperativo: faltan 1 o 2 unidades. Botón para continuar NO DEBE APARECER
+                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
+                $('#batllie-btn-accept-courtesy').hide();
+            } else if (packing.status === 'courtesy_available') {
+                // No imperativo: cortesía disponible (faltan >= 3). Botón discreto "Continuar de todas formas"
+                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
+                $('#batllie-btn-accept-courtesy').show();
+            } else if (packing.status === 'no_prior_box') {
+                // Menos de 1 caja completa
+                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6').removeClass('is-complete').addClass('is-missing');
+                $('#batllie-btn-accept-courtesy').hide();
+            }
         }
 
         updateCheckoutButtons();
