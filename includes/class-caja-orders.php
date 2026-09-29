@@ -429,6 +429,46 @@ class Batllie_Caja_Orders {
     }
 
     /**
+     * Consolidar ítems idénticos sumando sus cantidades y totales en una sola fila
+     */
+    public static function consolidate_order_items($items, $currency = null) {
+        if (empty($items) || !is_array($items)) {
+            return array();
+        }
+
+        $consolidated = array();
+        foreach ($items as $item) {
+            // Clave única basada en ID de producto, nombre y metadatos de variación
+            $meta_key = !empty($item['meta']) && is_array($item['meta']) ? implode('|', $item['meta']) : '';
+            $id_part = !empty($item['id']) ? $item['id'] : sanitize_title($item['name']);
+            $key = $id_part . '_' . md5(mb_strtolower(trim($item['name']), 'UTF-8') . '_' . $meta_key);
+
+            if (!isset($consolidated[$key])) {
+                $consolidated[$key] = $item;
+                $consolidated[$key]['quantity'] = intval($item['quantity']);
+                $consolidated[$key]['total_num'] = floatval($item['total_num']);
+                if (empty($consolidated[$key]['total']) && $currency && function_exists('wc_price')) {
+                    $consolidated[$key]['total'] = wc_price($consolidated[$key]['total_num'], array('currency' => $currency));
+                }
+            } else {
+                $consolidated[$key]['quantity'] += intval($item['quantity']);
+                $consolidated[$key]['total_num'] += floatval($item['total_num']);
+                if ($currency && function_exists('wc_price')) {
+                    $consolidated[$key]['total'] = wc_price($consolidated[$key]['total_num'], array('currency' => $currency));
+                }
+                // Si la imagen previa era un placeholder y este ítem tiene imagen real, actualizar
+                if (empty($consolidated[$key]['image']) || strpos($consolidated[$key]['image'], 'placeholder') !== false) {
+                    if (!empty($item['image']) && strpos($item['image'], 'placeholder') === false) {
+                        $consolidated[$key]['image'] = $item['image'];
+                    }
+                }
+            }
+        }
+
+        return array_values($consolidated);
+    }
+
+    /**
      * Formatear datos de un pedido para consumo JSON / Frontend
      */
     public static function format_order($order) {
@@ -565,6 +605,11 @@ class Batllie_Caja_Orders {
 
         // Calcular el precio total y unidades de cada caja
         foreach ($raw_boxes as $b_id => &$box) {
+            // Consolidar sabores repetidos dentro de la caja si fueron agregados por separado
+            if (!empty($box['pack_items'])) {
+                $box['pack_items'] = self::consolidate_order_items($box['pack_items'], $order->get_currency());
+            }
+
             $box_total_num = $box['total_num'];
             $box_units = 0;
             foreach ($box['pack_items'] as $sub) {
@@ -577,8 +622,11 @@ class Batllie_Caja_Orders {
         }
         unset($box);
 
-        // Construir listado final: primero las cajas (con sus alfajores agrupados), luego productos sueltos
-        $items = array_merge(array_values($raw_boxes), array_values($raw_standalone));
+        // Consolidar productos idénticos sueltos en una sola fila sumando sus cantidades
+        $consolidated_standalone = self::consolidate_order_items($raw_standalone, $order->get_currency());
+
+        // Construir listado final: primero las cajas (con sus alfajores agrupados), luego productos sueltos consolidados
+        $items = array_merge(array_values($raw_boxes), $consolidated_standalone);
 
         $date_created = $order->get_date_created();
         $time_diff = $date_created ? human_time_diff($date_created->getTimestamp(), current_time('timestamp')) : '';

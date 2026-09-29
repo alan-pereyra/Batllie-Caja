@@ -1037,10 +1037,78 @@
             $empty.hide();
             let html = '';
 
+            // Consolidar ítems idénticos para que aparezcan en una sola fila (ej: 4x y 1x -> 5x)
+            function parseMoneyVal(val, numVal) {
+                if (numVal !== undefined && numVal !== null && !isNaN(parseFloat(numVal))) {
+                    return parseFloat(numVal);
+                }
+                if (typeof val === 'string') {
+                    const clean = val.replace(/<[^>]+>/g, '').replace(/[^0-9,\.-]/g, '').trim();
+                    const normalized = clean.replace(/\./g, '').replace(',', '.');
+                    const parsed = parseFloat(normalized);
+                    if (!isNaN(parsed)) return parsed;
+                }
+                return 0;
+            }
+
+            function formatMoneyAr(amount) {
+                const num = parseFloat(amount) || 0;
+                const parts = num.toFixed(2).split('.');
+                const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                const decimalPart = parts[1];
+                return '$ ' + integerPart + ',' + decimalPart;
+            }
+
+            function consolidateItemsForDisplay(itemsList) {
+                if (!Array.isArray(itemsList) || !itemsList.length) return [];
+                const map = new Map();
+                const out = [];
+
+                itemsList.forEach(rawItem => {
+                    const it = Object.assign({}, rawItem);
+
+                    if (it.is_box || (it.pack_items && it.pack_items.length > 0)) {
+                        if (it.pack_items && it.pack_items.length > 0) {
+                            it.pack_items = consolidateItemsForDisplay(it.pack_items);
+                        }
+                        out.push(it);
+                        return;
+                    }
+
+                    const metaKey = Array.isArray(it.meta) ? it.meta.join('|') : (it.meta || '');
+                    const nameKey = (it.name || '').toLowerCase().trim();
+                    const groupKey = (it.id ? it.id : nameKey) + '___' + nameKey + '___' + metaKey;
+
+                    const qty = parseInt(it.quantity, 10) || 1;
+                    const priceNum = parseMoneyVal(it.total, it.total_num);
+
+                    if (map.has(groupKey)) {
+                        const existing = map.get(groupKey);
+                        existing.quantity = (parseInt(existing.quantity, 10) || 1) + qty;
+                        const existingPriceNum = parseMoneyVal(existing.total, existing.total_num);
+                        const newTotalNum = existingPriceNum + priceNum;
+                        existing.total_num = newTotalNum;
+                        existing.total = formatMoneyAr(newTotalNum);
+
+                        if ((!existing.image || existing.image.includes('placeholder')) && it.image && !it.image.includes('placeholder')) {
+                            existing.image = it.image;
+                        }
+                    } else {
+                        it.quantity = qty;
+                        it.total_num = priceNum;
+                        map.set(groupKey, it);
+                        out.push(it);
+                    }
+                });
+
+                return out;
+            }
+
             orders.forEach(order => {
                 let itemsHtml = '';
                 if (order.items && order.items.length) {
-                    order.items.forEach(item => {
+                    const displayItems = consolidateItemsForDisplay(order.items);
+                    displayItems.forEach(item => {
                         if (item.is_box || (item.pack_items && item.pack_items.length > 0)) {
                             // Renderizar tarjeta de Pack / Caja agrupada con sus productos anidados
                             let subItemsHtml = '';
