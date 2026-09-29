@@ -238,33 +238,58 @@ class Batllie_Caja_Packing {
     public static function get_all_box_candidates() {
         if (!function_exists('wc_get_products')) return array();
 
-        $products = wc_get_products(array(
-            'status' => 'publish',
-            'limit'  => -1,
-            'return' => 'objects',
-        ));
-
         $candidates = array();
         $b6_id  = self::get_official_box_id(6);
         $b12_id = self::get_official_box_id(12);
+        $included_ids = array();
+
+        if ($b6_id && function_exists('wc_get_product')) {
+            $p6 = wc_get_product($b6_id);
+            if ($p6 && $p6->exists() && $p6->get_status() !== 'trash') {
+                $candidates[] = array(
+                    'id'    => $b6_id,
+                    'name'  => $p6->get_name(),
+                    'stock' => $p6->get_stock_quantity() !== null ? (int)$p6->get_stock_quantity() : __('Ilimitado', 'emp-caja'),
+                );
+                $included_ids[] = $b6_id;
+            }
+        }
+
+        if ($b12_id && function_exists('wc_get_product') && !in_array($b12_id, $included_ids, true)) {
+            $p12 = wc_get_product($b12_id);
+            if ($p12 && $p12->exists() && $p12->get_status() !== 'trash') {
+                $candidates[] = array(
+                    'id'    => $b12_id,
+                    'name'  => $p12->get_name(),
+                    'stock' => $p12->get_stock_quantity() !== null ? (int)$p12->get_stock_quantity() : __('Ilimitado', 'emp-caja'),
+                );
+                $included_ids[] = $b12_id;
+            }
+        }
+
+        $products = wc_get_products(array(
+            'status'     => 'publish',
+            'limit'      => -1,
+            'visibility' => 'any',
+            'return'     => 'objects',
+        ));
 
         foreach ($products as $p) {
             if ($p->is_type('grouped')) continue;
             $pid = $p->get_id();
+            if (in_array($pid, $included_ids, true)) continue;
+
             $pname = $p->get_name();
             $lower = mb_strtolower($pname, 'UTF-8');
 
-            $is_cand = ($pid === $b6_id || $pid === $b12_id || strpos($lower, 'caja') !== false || strpos($lower, 'empaque') !== false || strpos($lower, 'pack') !== false);
+            $is_cand = (strpos($lower, 'caja') !== false || strpos($lower, 'empaque') !== false || strpos($lower, 'pack') !== false);
             if ($is_cand) {
-                $role = '';
-                if ($pid === $b6_id) $role = ' (Caja Oficial 6u)';
-                elseif ($pid === $b12_id) $role = ' (Caja Oficial 12u)';
-
                 $candidates[] = array(
                     'id'    => $pid,
-                    'name'  => $pname . $role,
+                    'name'  => $pname,
                     'stock' => $p->get_stock_quantity() !== null ? (int)$p->get_stock_quantity() : __('Ilimitado', 'emp-caja'),
                 );
+                $included_ids[] = $pid;
             }
         }
 

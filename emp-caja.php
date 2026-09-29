@@ -555,7 +555,7 @@ class Batllie_Caja_Plugin {
                         <td>
                             <select name="batllie_caja_options[box_6_product_id]" style="max-width: 350px;">
                                 <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'] == $b6_id); ?>>
+                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b6_id); ?>>
                                         <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -575,7 +575,7 @@ class Batllie_Caja_Plugin {
                         <td>
                             <select name="batllie_caja_options[box_12_product_id]" style="max-width: 350px;">
                                 <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'] == $b12_id); ?>>
+                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b12_id); ?>>
                                         <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
