@@ -432,6 +432,7 @@ if (!defined('ABSPATH')) {
                 <div class="caja-form-group" id="caja-edit-stock-qty-group">
                     <label for="edit-prod-stock-qty"><?php _e('Cantidad en Stock', 'emp-caja'); ?></label>
                     <input type="number" min="0" id="edit-prod-stock-qty" name="stock_quantity" />
+                    <div id="caja-edit-stock-dynamic-hint" style="display:none; margin-top:6px; font-size:12px; color:#059669; font-weight:600; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; padding:6px 10px;"></div>
                 </div>
 
                 <div class="caja-form-group" id="edit-prod-box-role-group">

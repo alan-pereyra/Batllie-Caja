@@ -14,6 +14,7 @@ class Batllie_Caja_Grouped {
 
     private static $current_submission_pack_id = null;
     private static $added_extra_box_for = array();
+    private static $calculating_stock = array();
 
     public static function init() {
         // Campo en Administración de WooCommerce (panel de edición de producto -> pestaña Productos Enlazados)
@@ -86,6 +87,17 @@ class Batllie_Caja_Grouped {
 
         // Encolar assets específicos de carrito y checkout
         add_action('wp_enqueue_scripts', array(__CLASS__, 'enqueue_cart_assets'));
+
+        // --- SINCRONIZACIÓN DINÁMICA DE STOCK PARA CAJAS Y COMBOS ---
+        add_filter('woocommerce_product_get_manage_stock', array(__CLASS__, 'filter_product_manage_stock'), 20, 2);
+        add_filter('woocommerce_product_get_stock_quantity', array(__CLASS__, 'filter_product_stock_quantity'), 20, 2);
+        add_filter('woocommerce_product_variation_get_stock_quantity', array(__CLASS__, 'filter_product_stock_quantity'), 20, 2);
+        add_filter('woocommerce_product_is_in_stock', array(__CLASS__, 'filter_product_is_in_stock'), 20, 2);
+        add_filter('woocommerce_product_get_stock_status', array(__CLASS__, 'filter_product_stock_status'), 20, 2);
+        add_filter('woocommerce_get_availability', array(__CLASS__, 'filter_product_availability'), 20, 2);
+        add_filter('woocommerce_get_availability_text', array(__CLASS__, 'filter_product_availability_text'), 20, 2);
+        add_filter('woocommerce_add_to_cart_validation', array(__CLASS__, 'validate_dynamic_box_add_to_cart'), 15, 6);
+        add_action('woocommerce_check_cart_items', array(__CLASS__, 'validate_dynamic_box_in_cart'));
     }
 
     /**
@@ -246,16 +258,21 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Comprobar si un producto agrupado está configurado como un combo predeterminado / fijo
+     * Comprobar si un producto agrupado o caja está configurado como un combo predeterminado / fijo
      */
     public static function is_predefined_combo($product) {
         if (!is_a($product, 'WC_Product')) {
             $product = wc_get_product($product);
         }
-        if (!$product || !$product->is_type('grouped')) {
+        if (!$product) {
             return false;
         }
-        return get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
+        $is_pred = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
+        if ($is_pred) {
+            return true;
+        }
+        $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
+        return (!empty($qtys) && is_array($qtys));
     }
 
     /**
@@ -273,7 +290,7 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Obtener la cantidad requerida para un producto agrupado
+     * Obtener la cantidad requerida para un producto agrupado o caja
      * 1. Si es combo predeterminado, suma de las cantidades de cada producto
      * 2. Consulta post meta `_batllie_grouped_target_qty`
      * 3. Si no está definido, detecta automáticamente del título
@@ -283,7 +300,7 @@ class Batllie_Caja_Grouped {
         if (!is_a($product, 'WC_Product')) {
             $product = wc_get_product($product);
         }
-        if (!$product || !$product->is_type('grouped')) {
+        if (!$product) {
             return 0;
         }
 
@@ -315,8 +332,341 @@ class Batllie_Caja_Grouped {
             return $detected;
         }
 
-        // Predeterminado para cualquier producto agrupado / caja en Batllié
-        return 6;
+        return $product->is_type('grouped') ? 6 : 0;
+    }
+
+    /**
+     * Calcular stock dinámico para cajas, packs y combos basado en sus alfajores componentes
+     * y el stock de la caja física oficial (detectando el cuello de botella).
+     *
+     * @param WC_Product|int $product
+     * @return array
+     */
+    public static function calculate_dynamic_box_stock($product) {
+        if (!is_a($product, 'WC_Product')) {
+            $product = wc_get_product($product);
+        }
+        if (!$product) {
+            return array('is_dynamic' => false);
+        }
+
+        $product_id = $product->get_id();
+
+        // Evitar recursión infinita
+        if (isset(self::$calculating_stock[$product_id])) {
+            return array('is_dynamic' => false);
+        }
+
+        $is_grouped    = $product->is_type('grouped');
+        $is_predefined = self::is_predefined_combo($product);
+        $predefined    = self::get_predefined_quantities($product);
+        $target_qty    = self::get_target_qty($product);
+        $enable_box    = get_post_meta($product_id, '_batllie_grouped_enable_extra_box', true) === 'yes';
+        $p_box_id      = get_post_meta($product_id, '_batllie_packaging_box_product_id', true);
+
+        // Si no es un producto agrupado ni tiene configuración de pack/combo/caja, no es dinámico
+        if (!$is_grouped && !$is_predefined && empty($predefined) && !$enable_box && empty($p_box_id)) {
+            return array('is_dynamic' => false);
+        }
+
+        self::$calculating_stock[$product_id] = true;
+
+        $bottleneck_item = '';
+        $min_possible    = PHP_INT_MAX;
+        $has_components  = false;
+
+        // 1. Combo predefinido (cantidades fijas por sabor de alfajor)
+        if (!empty($predefined) && is_array($predefined)) {
+            $has_components = true;
+            foreach ($predefined as $child_id => $qty_needed) {
+                $c_id = absint($child_id);
+                $q_need = max(1, absint($qty_needed));
+                if (!$c_id) continue;
+
+                $child = wc_get_product($c_id);
+                if (!$child || !$child->is_purchasable() || !$child->is_in_stock()) {
+                    $min_possible = 0;
+                    $bottleneck_item = $child ? sprintf(__('%s (Agotado)', 'emp-caja'), $child->get_name()) : __('Alfajor faltante', 'emp-caja');
+                    break;
+                }
+
+                if ($child->managing_stock()) {
+                    $c_stock = $child->get_stock_quantity();
+                    if ($c_stock !== null) {
+                        $possible = (int) floor($c_stock / $q_need);
+                        if ($possible < $min_possible) {
+                            $min_possible = $possible;
+                            $bottleneck_item = sprintf('%s (%d u. en stock, permite %d cajas)', $child->get_name(), $c_stock, $possible);
+                        }
+                    }
+                }
+            }
+        } elseif ($is_grouped) {
+            // 2. Caja agrupada personalizable (el cliente elige entre los sabores hijos disponibles)
+            $children = (array) $product->get_children();
+            if (!empty($children)) {
+                $has_components = true;
+                $target = $target_qty > 0 ? $target_qty : 6;
+                $total_in_stock = 0;
+                $has_managed = false;
+                $any_available = false;
+
+                foreach ($children as $c_id) {
+                    $child = wc_get_product($c_id);
+                    if (!$child || !$child->is_purchasable() || !$child->is_in_stock()) {
+                        continue;
+                    }
+                    $any_available = true;
+                    if ($child->managing_stock()) {
+                        $has_managed = true;
+                        $total_in_stock += max(0, (int) $child->get_stock_quantity());
+                    }
+                }
+
+                if (!$any_available) {
+                    $min_possible = 0;
+                    $bottleneck_item = __('Todos los alfajores están agotados', 'emp-caja');
+                } elseif ($has_managed) {
+                    $possible = (int) floor($total_in_stock / $target);
+                    if ($possible < $min_possible) {
+                        $min_possible = $possible;
+                        $bottleneck_item = sprintf(__('Stock total de alfajores (%d u. disponibles para %d cajas)', 'emp-caja'), $total_in_stock, $possible);
+                    }
+                }
+            }
+        }
+
+        // 3. Evaluar stock de la caja física oficial correspondiente
+        $box_id_to_check = 0;
+        if (!empty($p_box_id)) {
+            $box_id_to_check = absint($p_box_id);
+        } else {
+            $cap = ($target_qty >= 12) ? 12 : 6;
+            if (class_exists('Batllie_Caja_Packing')) {
+                $box_id_to_check = Batllie_Caja_Packing::get_official_box_id($cap);
+            }
+        }
+
+        if ($box_id_to_check > 0 && $box_id_to_check !== $product_id) {
+            $box_prod = wc_get_product($box_id_to_check);
+            if ($box_prod && $box_prod->managing_stock()) {
+                $b_stock = $box_prod->get_stock_quantity();
+                if ($b_stock !== null) {
+                    $has_components = true;
+                    if ($b_stock < $min_possible) {
+                        $min_possible = (int) $b_stock;
+                        $bottleneck_item = sprintf('%s (%d u. disponibles)', $box_prod->get_name(), $b_stock);
+                    }
+                }
+            }
+        }
+
+        // 4. Evaluar si el producto padre tiene límite de stock manual configurado
+        $manual_stock = null;
+        $raw_stock_meta = get_post_meta($product_id, '_stock', true);
+        $managing_stock = get_post_meta($product_id, '_manage_stock', true) === 'yes';
+        if ($managing_stock && $raw_stock_meta !== '' && is_numeric($raw_stock_meta)) {
+            $manual_stock = (int) $raw_stock_meta;
+            if ($manual_stock < $min_possible) {
+                $min_possible = $manual_stock;
+                $bottleneck_item = sprintf(__('Límite de stock fijado en el producto (%d u.)', 'emp-caja'), $manual_stock);
+            }
+        }
+
+        unset(self::$calculating_stock[$product_id]);
+
+        if (!$has_components && $manual_stock === null) {
+            return array('is_dynamic' => false);
+        }
+
+        $calculated = ($min_possible !== PHP_INT_MAX) ? max(0, $min_possible) : $manual_stock;
+        $status = ($calculated !== null && $calculated <= 0) ? 'outofstock' : 'instock';
+
+        return array(
+            'is_dynamic'      => true,
+            'stock_quantity'  => $calculated,
+            'stock_status'    => $status,
+            'bottleneck_item' => $bottleneck_item,
+            'manual_stock'    => $manual_stock,
+        );
+    }
+
+    /**
+     * Forzar que productos con componentes se consideren gestionados por stock si tienen componentes
+     */
+    public static function filter_product_manage_stock($manage_stock, $product) {
+        if (!$product) return $manage_stock;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            return true;
+        }
+        return $manage_stock;
+    }
+
+    /**
+     * Filtro del stock numérico de WooCommerce
+     */
+    public static function filter_product_stock_quantity($stock, $product) {
+        if (!$product) return $stock;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic']) && $info['stock_quantity'] !== null) {
+            return $info['stock_quantity'];
+        }
+        return $stock;
+    }
+
+    /**
+     * Filtro de disponibilidad booleana en stock
+     */
+    public static function filter_product_is_in_stock($is_in_stock, $product) {
+        if (!$product) return $is_in_stock;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            return $info['stock_status'] === 'instock';
+        }
+        return $is_in_stock;
+    }
+
+    /**
+     * Filtro del estado de stock en texto ('instock' o 'outofstock')
+     */
+    public static function filter_product_stock_status($status, $product) {
+        if (!$product) return $status;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            return $info['stock_status'];
+        }
+        return $status;
+    }
+
+    /**
+     * Filtro del HTML de disponibilidad ('11 disponibles' / 'Agotado')
+     */
+    public static function filter_product_availability($availability, $product) {
+        if (!$product) return $availability;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            if ($info['stock_status'] === 'outofstock' || $info['stock_quantity'] === 0) {
+                return array(
+                    'availability' => __('Agotado', 'emp-caja'),
+                    'class'        => 'out-of-stock'
+                );
+            }
+            if ($info['stock_quantity'] !== null) {
+                return array(
+                    'availability' => sprintf(__('%d disponibles', 'emp-caja'), $info['stock_quantity']),
+                    'class'        => 'in-stock'
+                );
+            }
+        }
+        return $availability;
+    }
+
+    /**
+     * Filtro del texto plano de disponibilidad
+     */
+    public static function filter_product_availability_text($text, $product) {
+        if (!$product) return $text;
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            if ($info['stock_status'] === 'outofstock' || $info['stock_quantity'] === 0) {
+                return __('Agotado', 'emp-caja');
+            }
+            if ($info['stock_quantity'] !== null) {
+                return sprintf(__('%d disponibles', 'emp-caja'), $info['stock_quantity']);
+            }
+        }
+        return $text;
+    }
+
+    /**
+     * Validar adición al carrito para que nunca se añada más del stock dinámico disponible
+     */
+    public static function validate_dynamic_box_add_to_cart($passed, $product_id, $quantity, $variation_id = 0, $variations = array(), $cart_item_data = array()) {
+        $product = wc_get_product($product_id);
+        if (!$product) return $passed;
+
+        $info = self::calculate_dynamic_box_stock($product);
+        if (!empty($info['is_dynamic'])) {
+            if ($info['stock_status'] === 'outofstock' || ($info['stock_quantity'] !== null && $info['stock_quantity'] <= 0)) {
+                wc_add_notice(sprintf(__('Lo sentimos, "%s" se encuentra agotado en este momento.', 'emp-caja'), $product->get_name()), 'error');
+                return false;
+            }
+
+            if ($info['stock_quantity'] !== null) {
+                $in_cart = 0;
+                if (function_exists('WC') && WC()->cart) {
+                    foreach (WC()->cart->get_cart() as $cart_item) {
+                        if ($cart_item['product_id'] == $product_id) {
+                            $in_cart += $cart_item['quantity'];
+                        }
+                    }
+                }
+                $total_requested = $in_cart + $quantity;
+                if ($total_requested > $info['stock_quantity']) {
+                    wc_add_notice(
+                        sprintf(
+                            __('No puedes añadir esa cantidad al carrito. Solo hay %d disponibles para "%s"%s.', 'emp-caja'),
+                            $info['stock_quantity'],
+                            $product->get_name(),
+                            !empty($info['bottleneck_item']) ? (' (' . sprintf(__('limitado por: %s', 'emp-caja'), $info['bottleneck_item']) . ')') : ''
+                        ),
+                        'error'
+                    );
+                    return false;
+                }
+            }
+        }
+        return $passed;
+    }
+
+    /**
+     * Validar en el carrito y checkout que ningún pack exceda el stock dinámico en vivo
+     */
+    public static function validate_dynamic_box_in_cart() {
+        if (!function_exists('WC') || !WC()->cart) {
+            return;
+        }
+
+        $cart_totals = array();
+        foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+            $product_id = $cart_item['product_id'];
+            if (!isset($cart_totals[$product_id])) {
+                $cart_totals[$product_id] = 0;
+            }
+            $cart_totals[$product_id] += $cart_item['quantity'];
+        }
+
+        foreach ($cart_totals as $product_id => $total_qty_in_cart) {
+            $product = wc_get_product($product_id);
+            if (!$product) continue;
+
+            $info = self::calculate_dynamic_box_stock($product);
+            if (!empty($info['is_dynamic'])) {
+                $avail = $info['stock_quantity'];
+                if ($avail !== null && $total_qty_in_cart > $avail) {
+                    if ($avail <= 0) {
+                        wc_add_notice(
+                            sprintf(
+                                __('"%s" se ha agotado debido a la disponibilidad de sus componentes y no puede comprarse en este momento.', 'emp-caja'),
+                                $product->get_name()
+                            ),
+                            'error'
+                        );
+                    } else {
+                        wc_add_notice(
+                            sprintf(
+                                __('Solo hay %d unidades disponibles de "%s"%s. Por favor ajusta la cantidad en tu carrito.', 'emp-caja'),
+                                $avail,
+                                $product->get_name(),
+                                !empty($info['bottleneck_item']) ? (' (' . sprintf(__('limitado por: %s', 'emp-caja'), $info['bottleneck_item']) . ')') : ''
+                            ),
+                            'error'
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -334,8 +684,28 @@ class Batllie_Caja_Grouped {
         $suggested = self::detect_qty_from_title($title);
         $default_box_name = $title ? (stripos($title, 'caja') !== false ? $title : sprintf(__('Caja %s', 'emp-caja'), $title)) : __('Caja Batllié Degustación x 6 unidades', 'emp-caja');
 
-        echo '<div class="options_group show_if_grouped" style="background:#f0fdf4; padding:16px 18px; border-left:4px solid #10b981; margin:15px 0; border-radius:4px;">';
+        echo '<div class="options_group show_if_grouped show_if_simple" style="background:#f0fdf4; padding:16px 18px; border-left:4px solid #10b981; margin:15px 0; border-radius:4px;">';
         echo '<p style="margin:0 0 12px 0; font-weight:700; color:#065f46; font-size:14px; display:flex; align-items:center; gap:8px;"><span style="font-size:18px;">📦</span> ' . __('Configuración de Caja Batllié (Pack Agrupado)', 'emp-caja') . '</p>';
+
+        $dynamic_info = self::calculate_dynamic_box_stock($post_id);
+        if (!empty($dynamic_info['is_dynamic'])) {
+            $calc_stock = $dynamic_info['stock_quantity'];
+            $b_item = !empty($dynamic_info['bottleneck_item']) ? $dynamic_info['bottleneck_item'] : '';
+            $status_color = ($calc_stock > 0) ? '#065f46' : '#991b1b';
+            $bg_color = ($calc_stock > 0) ? '#d1fae5' : '#fee2e2';
+            $border_color = ($calc_stock > 0) ? '#34d399' : '#f87171';
+
+            echo '<div style="background:' . $bg_color . '; border:2px solid ' . $border_color . '; border-radius:6px; padding:12px 14px; margin-bottom:15px;">';
+            echo '<div style="font-weight:700; color:' . $status_color . '; font-size:14px; display:flex; align-items:center; justify-content:space-between;">';
+            echo '<span>⚡ ' . esc_html__('Stock Dinámico Sincronizado:', 'emp-caja') . ' ' . ($calc_stock > 0 ? sprintf(__('%d unidades disponibles', 'emp-caja'), $calc_stock) : esc_html__('¡AGOTADO (0 u.)!', 'emp-caja')) . '</span>';
+            echo '<span style="font-size:11px; font-weight:600; background:#fff; color:#374151; padding:2px 8px; border-radius:12px; border:1px solid ' . $border_color . ';">' . esc_html__('Sincronizado en vivo', 'emp-caja') . '</span>';
+            echo '</div>';
+            if ($b_item) {
+                echo '<p style="margin:6px 0 0 0; font-size:12px; color:#1f2937;">' . sprintf(esc_html__('⚠️ Cuello de botella actual: %s', 'emp-caja'), '<strong>' . esc_html($b_item) . '</strong>') . '</p>';
+            }
+            echo '<p style="margin:4px 0 0 0; font-size:11px; color:#4b5563;">' . esc_html__('El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus alfajores componentes, la caja física de empaque y el stock fijado.', 'emp-caja') . '</p>';
+            echo '</div>';
+        }
 
         woocommerce_wp_text_input(array(
             'id'          => '_batllie_grouped_target_qty',
@@ -370,6 +740,105 @@ class Batllie_Caja_Grouped {
             'type'        => 'text',
             'value'       => $extra_box_name,
         ));
+
+        echo '<div style="margin: 14px 0 12px 0; border-top: 1px dashed #a7f3d0;"></div>';
+
+        $assigned_box = get_post_meta($post_id, '_batllie_packaging_box_product_id', true);
+        $b6_id        = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+        $b6_name      = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(6) : '';
+        $b12_id       = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+        $b12_name     = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(12) : '';
+        $candidates   = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array();
+
+        $box_options = array(
+            '0' => __('⚡ Automático (Detectar según unidades 6 o 12)', 'emp-caja'),
+        );
+        if ($b6_id) {
+            $box_options[$b6_id] = sprintf(__('📦 Caja Oficial 6u (%s)', 'emp-caja'), $b6_name);
+        }
+        if ($b12_id) {
+            $box_options[$b12_id] = sprintf(__('📦 Caja Oficial 12u (%s)', 'emp-caja'), $b12_name);
+        }
+        foreach ($candidates as $cand) {
+            if ($cand['id'] != $b6_id && $cand['id'] != $b12_id) {
+                $box_options[$cand['id']] = $cand['name'] . ' (' . $cand['stock'] . ' disp.)';
+            }
+        }
+
+        woocommerce_wp_select(array(
+            'id'          => '_batllie_packaging_box_product_id',
+            'label'       => __('Caja física de empaque asociada', 'emp-caja'),
+            'options'     => $box_options,
+            'description' => __('Caja física de empaque cuyo inventario limitará y se descontará automáticamente al vender este pack o combo.', 'emp-caja'),
+            'desc_tip'    => true,
+            'value'       => $assigned_box ?: '0',
+        ));
+
+        echo '<div style="margin: 14px 0 12px 0; border-top: 1px dashed #a7f3d0;"></div>';
+
+        $is_pred_val = get_post_meta($post_id, '_batllie_grouped_is_predefined', true);
+        $saved_pred_qtys = get_post_meta($post_id, '_batllie_grouped_predefined_quantities', true);
+        if (!is_array($saved_pred_qtys)) $saved_pred_qtys = array();
+
+        woocommerce_wp_checkbox(array(
+            'id'          => '_batllie_grouped_is_predefined',
+            'label'       => __('¿Es un Combo / Receta Fija?', 'emp-caja'),
+            'description' => __('Activa esto si la caja ya viene armada con cantidades fijas de alfajores específicos (ej: 4 negros, 4 blancos, 4 pistacho). El stock de la caja se calculará a partir del stock disponible de sus componentes.', 'emp-caja'),
+            'value'       => $is_pred_val === 'yes' ? 'yes' : 'no',
+            'cbvalue'     => 'yes',
+        ));
+
+        // Obtener productos candidatos para la receta
+        $recipe_candidates = array();
+        $prod_obj = wc_get_product($post_id);
+        $child_ids = ($prod_obj && method_exists($prod_obj, 'get_children')) ? array_map('absint', (array)$prod_obj->get_children()) : array();
+
+        if (!empty($child_ids)) {
+            foreach ($child_ids as $cid) {
+                $cp = wc_get_product($cid);
+                if ($cp) {
+                    $recipe_candidates[$cid] = $cp;
+                }
+            }
+        } else {
+            $all_prods = wc_get_products(array(
+                'status' => 'publish',
+                'limit'  => -1,
+                'type'   => 'simple',
+            ));
+            foreach ($all_prods as $ap) {
+                if ($ap->get_id() == $post_id) continue;
+                if (isset($saved_pred_qtys[$ap->get_id()]) || (class_exists('Batllie_Caja_Packing') && Batllie_Caja_Packing::is_alfajor_product($ap->get_id()))) {
+                    $recipe_candidates[$ap->get_id()] = $ap;
+                }
+            }
+        }
+
+        echo '<div id="batllie_recipe_container" style="' . ($is_pred_val === 'yes' ? '' : 'display:none;') . ' margin:12px 0 16px 0; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:12px;">';
+        echo '<p style="margin:0 0 8px 0; font-weight:600; font-size:13px; color:#1e293b;">📋 ' . esc_html__('Composición / Receta de la caja (Unidades de cada alfajor por caja):', 'emp-caja') . '</p>';
+        echo '<table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">';
+        echo '<thead><tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;"><th style="padding:6px 8px;">' . esc_html__('Alfajor / Producto', 'emp-caja') . '</th><th style="padding:6px 8px; width:90px; text-align:center;">' . esc_html__('Stock Disp.', 'emp-caja') . '</th><th style="padding:6px 8px; width:120px; text-align:right;">' . esc_html__('Cant. en Caja', 'emp-caja') . '</th></tr></thead>';
+        echo '<tbody>';
+
+        if (empty($recipe_candidates)) {
+            echo '<tr><td colspan="3" style="padding:10px; color:#64748b; text-align:center;">' . esc_html__('No se encontraron alfajores disponibles para configurar la receta.', 'emp-caja') . '</td></tr>';
+        } else {
+            foreach ($recipe_candidates as $cid => $cp) {
+                $c_stock = $cp->get_stock_quantity();
+                $c_stock_text = ($c_stock !== null) ? (int)$c_stock : __('Ilim.', 'emp-caja');
+                $val = isset($saved_pred_qtys[$cid]) ? (int)$saved_pred_qtys[$cid] : 0;
+                echo '<tr style="border-bottom:1px solid #f1f5f9;">';
+                echo '<td style="padding:6px 8px; font-weight:500;">' . esc_html($cp->get_name()) . '</td>';
+                echo '<td style="padding:6px 8px; text-align:center; color:' . ($c_stock !== null && $c_stock <= 5 ? '#dc2626' : '#059669') . ';">' . esc_html($c_stock_text) . '</td>';
+                echo '<td style="padding:6px 8px; text-align:right;">';
+                echo '<input type="number" name="_batllie_grouped_predefined_quantities[' . esc_attr($cid) . ']" value="' . esc_attr($val) . '" min="0" step="1" style="width:70px; text-align:center; padding:3px 6px;" />';
+                echo '</td>';
+                echo '</tr>';
+            }
+        }
+        echo '</tbody></table>';
+        echo '<p class="description" style="margin-top:6px; font-size:11px; color:#64748b;">' . esc_html__('Indica cuántas unidades de cada alfajor requiere esta caja. El stock total de la caja se limitará automáticamente por el alfajor con menor stock disponible.', 'emp-caja') . '</p>';
+        echo '</div>';
 
         echo '<div style="margin: 14px 0 12px 0; border-top: 1px dashed #a7f3d0;"></div>';
 
@@ -441,6 +910,14 @@ class Batllie_Caja_Grouped {
         ?>
         <script>
         jQuery(document).ready(function($) {
+            $('#_batllie_grouped_is_predefined').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#batllie_recipe_container').slideDown(150);
+                } else {
+                    $('#batllie_recipe_container').slideUp(150);
+                }
+            });
+
             var mediaUploader;
             $('#batllie-upload-box-image-btn').on('click', function(e) {
                 e.preventDefault();
@@ -543,6 +1020,31 @@ class Batllie_Caja_Grouped {
                 update_post_meta($post_id, '_batllie_grouped_box_image_id', absint($img_id));
             }
         }
+
+        if (isset($_POST['_batllie_packaging_box_product_id'])) {
+            $p_box = sanitize_text_field($_POST['_batllie_packaging_box_product_id']);
+            update_post_meta($post_id, '_batllie_packaging_box_product_id', $p_box);
+        }
+
+        $is_pred = isset($_POST['_batllie_grouped_is_predefined']) ? 'yes' : 'no';
+        update_post_meta($post_id, '_batllie_grouped_is_predefined', $is_pred);
+
+        if (isset($_POST['_batllie_grouped_predefined_quantities']) && is_array($_POST['_batllie_grouped_predefined_quantities'])) {
+            $clean_qtys = array();
+            $total_units = 0;
+            foreach ($_POST['_batllie_grouped_predefined_quantities'] as $child_id => $c_qty) {
+                $c_id = absint($child_id);
+                $c_val = absint($c_qty);
+                if ($c_id > 0 && $c_val > 0) {
+                    $clean_qtys[$c_id] = $c_val;
+                    $total_units += $c_val;
+                }
+            }
+            update_post_meta($post_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
+            if ($is_pred === 'yes' && $total_units > 0) {
+                update_post_meta($post_id, '_batllie_grouped_target_qty', $total_units);
+            }
+        }
     }
 
     /**
@@ -599,6 +1101,31 @@ class Batllie_Caja_Grouped {
                 $product->delete_meta_data('_batllie_grouped_box_image_id');
             } else {
                 $product->update_meta_data('_batllie_grouped_box_image_id', absint($img_id));
+            }
+        }
+
+        if (isset($_POST['_batllie_packaging_box_product_id'])) {
+            $p_box = sanitize_text_field($_POST['_batllie_packaging_box_product_id']);
+            $product->update_meta_data('_batllie_packaging_box_product_id', $p_box);
+        }
+
+        $is_pred = isset($_POST['_batllie_grouped_is_predefined']) ? 'yes' : 'no';
+        $product->update_meta_data('_batllie_grouped_is_predefined', $is_pred);
+
+        if (isset($_POST['_batllie_grouped_predefined_quantities']) && is_array($_POST['_batllie_grouped_predefined_quantities'])) {
+            $clean_qtys = array();
+            $total_units = 0;
+            foreach ($_POST['_batllie_grouped_predefined_quantities'] as $child_id => $c_qty) {
+                $c_id = absint($child_id);
+                $c_val = absint($c_qty);
+                if ($c_id > 0 && $c_val > 0) {
+                    $clean_qtys[$c_id] = $c_val;
+                    $total_units += $c_val;
+                }
+            }
+            $product->update_meta_data('_batllie_grouped_predefined_quantities', $clean_qtys);
+            if ($is_pred === 'yes' && $total_units > 0) {
+                $product->update_meta_data('_batllie_grouped_target_qty', $total_units);
             }
         }
     }

@@ -2120,6 +2120,7 @@
                         <td>
                             <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
                             <small class="caja-stock-num">(${p.stock_quantity})</small>
+                            ${p.is_dynamic_stock ? `<div style="font-size:0.75rem; color:#059669; font-weight:600; margin-top:2px;" title="${p.bottleneck_item ? 'Limitado por: ' + p.bottleneck_item : ''}">⚡ Dinámico</div>` : ''}
                         </td>
                         <td>
                             <strong class="caja-prod-price">${p.price}</strong>
@@ -2405,6 +2406,13 @@
                 $('#edit-prod-stock-qty').val(0);
             }
 
+            if (p.is_dynamic_stock && p.dynamic_stock) {
+                const bottleneck = p.bottleneck_item ? ` (limitado por: ${p.bottleneck_item})` : '';
+                $('#caja-edit-stock-dynamic-hint').html(`⚡ Stock Dinámico Sincronizado: <strong>${p.stock_quantity} disp.</strong>${bottleneck}`).show();
+            } else {
+                $('#caja-edit-stock-dynamic-hint').hide();
+            }
+
             $('#caja-edit-product-error').hide();
             $('#caja-modal-edit-product').fadeIn(200);
             setTimeout(() => {
@@ -2551,6 +2559,7 @@
             $('#stock-modal-current-qty').text(currentQty);
             $('#stock-modal-current-badge')
                 .attr('class', 'caja-badge ' + (p.stock_badge || ''))
+                .attr('title', p.bottleneck_item ? ('Limitado dinámicamente por: ' + p.bottleneck_item) : '')
                 .text(p.stock_label || '');
 
             $('#calc-current-num').text(currentQty);

@@ -105,20 +105,29 @@ class Batllie_Caja_Products {
         $catalog_visibility = $product->get_catalog_visibility();
         $product_type = $product->get_type();
         $children_ids = array();
-        $is_predefined = false;
-        $predefined_quantities = array();
         if ($product->is_type('grouped')) {
             $children_ids = array_map('intval', (array) $product->get_children());
-            $is_predefined = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
-            $saved_qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
-            if (is_array($saved_qtys)) {
-                $predefined_quantities = $saved_qtys;
-            }
         }
+
+        $is_predefined = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
+        $saved_qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
+        $predefined_quantities = is_array($saved_qtys) ? $saved_qtys : array();
 
         $manage_stock = $product->get_manage_stock();
         $stock_qty = $product->get_stock_quantity();
         $is_low_stock = false;
+
+        $dynamic_stock_info = null;
+        if (class_exists('Batllie_Caja_Grouped')) {
+            $dyn = Batllie_Caja_Grouped::calculate_dynamic_box_stock($product);
+            if (!empty($dyn['is_dynamic'])) {
+                $dynamic_stock_info = $dyn;
+                if ($dyn['stock_quantity'] !== null) {
+                    $stock_qty = $dyn['stock_quantity'];
+                    $manage_stock = true;
+                }
+            }
+        }
 
         if ($manage_stock) {
             if ($stock_qty !== null && $stock_qty <= 0) {
@@ -173,6 +182,9 @@ class Batllie_Caja_Products {
             'official_box_role'        => $box_role,
             'is_official_box'          => !empty($box_role),
             'packaging_box_product_id' => $packaging_box_id ?: 0,
+            'dynamic_stock'            => $dynamic_stock_info,
+            'is_dynamic_stock'         => !empty($dynamic_stock_info),
+            'bottleneck_item'          => !empty($dynamic_stock_info['bottleneck_item']) ? $dynamic_stock_info['bottleneck_item'] : '',
             'description'              => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
     }
@@ -430,38 +442,36 @@ class Batllie_Caja_Products {
             }
         }
 
-        if ($product->is_type('grouped')) {
-            if (isset($data['is_predefined'])) {
-                $is_pred = ($data['is_predefined'] === 'yes' || $data['is_predefined'] === true || $data['is_predefined'] === '1') ? 'yes' : 'no';
-                update_post_meta($product_id, '_batllie_grouped_is_predefined', $is_pred);
-            }
+        if (isset($data['is_predefined'])) {
+            $is_pred = ($data['is_predefined'] === 'yes' || $data['is_predefined'] === true || $data['is_predefined'] === '1') ? 'yes' : 'no';
+            update_post_meta($product_id, '_batllie_grouped_is_predefined', $is_pred);
+        }
 
-            if (isset($data['predefined_quantities']) && is_array($data['predefined_quantities'])) {
-                $clean_qtys = array();
-                $total_units = 0;
-                foreach ($data['predefined_quantities'] as $child_id => $c_qty) {
-                    $c_id = absint($child_id);
-                    $c_val = max(1, absint($c_qty));
-                    if ($c_id > 0) {
-                        $clean_qtys[$c_id] = $c_val;
-                        $total_units += $c_val;
-                    }
-                }
-                update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
-                if (get_post_meta($product_id, '_batllie_grouped_is_predefined', true) === 'yes' && $total_units > 0) {
-                    update_post_meta($product_id, '_batllie_grouped_target_qty', $total_units);
+        if (isset($data['predefined_quantities']) && is_array($data['predefined_quantities'])) {
+            $clean_qtys = array();
+            $total_units = 0;
+            foreach ($data['predefined_quantities'] as $child_id => $c_qty) {
+                $c_id = absint($child_id);
+                $c_val = max(1, absint($c_qty));
+                if ($c_id > 0) {
+                    $clean_qtys[$c_id] = $c_val;
+                    $total_units += $c_val;
                 }
             }
-
-            if (isset($data['children'])) {
-                $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
-                $product->set_children($children);
+            update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
+            if (get_post_meta($product_id, '_batllie_grouped_is_predefined', true) === 'yes' && $total_units > 0) {
+                update_post_meta($product_id, '_batllie_grouped_target_qty', $total_units);
             }
+        }
 
-            if (isset($data['packaging_box_product_id'])) {
-                $p_box = sanitize_text_field($data['packaging_box_product_id']);
-                update_post_meta($product_id, '_batllie_packaging_box_product_id', $p_box);
-            }
+        if ($product->is_type('grouped') && isset($data['children'])) {
+            $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
+            $product->set_children($children);
+        }
+
+        if (isset($data['packaging_box_product_id'])) {
+            $p_box = sanitize_text_field($data['packaging_box_product_id']);
+            update_post_meta($product_id, '_batllie_packaging_box_product_id', $p_box);
         }
 
         if (isset($data['official_box_role']) && class_exists('Batllie_Caja_Packing')) {

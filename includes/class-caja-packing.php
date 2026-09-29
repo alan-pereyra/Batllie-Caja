@@ -1224,7 +1224,10 @@ class Batllie_Caja_Packing {
             $prod_id = $item->get_product_id();
 
             $is_extra_box = ($item->get_meta('_batllie_extra_box') === 'yes');
+            $pred_qtys = get_post_meta($prod_id, '_batllie_grouped_predefined_quantities', true);
+            $has_pred_recipe = (!empty($pred_qtys) && is_array($pred_qtys));
             $is_pack_parent = $is_extra_box || 
+                              $has_pred_recipe ||
                               (strpos($item_name, 'caja x') !== false) || 
                               (strpos($item_name, 'caja ') !== false && (strpos($item_name, 'unidades') !== false || strpos($item_name, 'unidad') !== false));
             $parent_grouped_id = (int) $item->get_meta('_batllie_parent_grouped_id');
@@ -1242,12 +1245,25 @@ class Batllie_Caja_Packing {
                 $total_alfajores += $qty;
             } elseif ($is_pack_parent) {
                 // El ítem padre de la caja está como línea de pedido
-                $cap = (strpos($item_name, '12') !== false) ? 12 : 6;
+                $cap = (strpos($item_name, '12') !== false || (class_exists('Batllie_Caja_Grouped') && Batllie_Caja_Grouped::get_target_qty($prod_id) >= 12)) ? 12 : 6;
                 $box_prod_id = self::get_box_product_for_grouped($prod_id, $cap);
                 if (!isset($box_stock_to_deduct[$box_prod_id])) {
                     $box_stock_to_deduct[$box_prod_id] = 0;
                 }
                 $box_stock_to_deduct[$box_prod_id] += $qty;
+
+                // Si tiene receta predefinida y no fue desagregado en ítems hijos, descontar sus alfajores componentes
+                if ($has_pred_recipe) {
+                    foreach ($pred_qtys as $child_id => $c_units) {
+                        $total_c = absint($c_units) * $qty;
+                        if ($total_c > 0) {
+                            if (!isset($box_stock_to_deduct[$child_id])) {
+                                $box_stock_to_deduct[$child_id] = 0;
+                            }
+                            $box_stock_to_deduct[$child_id] += $total_c;
+                        }
+                    }
+                }
             } else {
                 $is_alf = self::is_alfajor_product($prod_id) || (strpos($item_name, 'alfajor') !== false) || (strpos($item_name, 'batllie') !== false);
                 if ($is_alf) {
