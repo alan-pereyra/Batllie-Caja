@@ -478,21 +478,23 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
 }
 
 .batllie-packing-bar-wrap {
-    height: 9px;
-    background: rgba(255, 255, 255, 0.08);
+    height: 12px;
+    background: rgba(255, 255, 255, 0.12) !important;
     border-radius: 9999px;
     overflow: hidden;
     width: 100%;
     margin-bottom: 8px;
     border: none !important;
     box-shadow: none !important;
+    position: relative;
 }
 
 .batllie-packing-bar-fill {
+    display: block;
     height: 100%;
     border-radius: 9999px;
-    background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #f59e0b 100%);
-    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(90deg, #f59e0b 0%, var(--caja-primary, #f8f0d0) 100%) !important;
+    transition: width 0.35s ease-in-out;
     box-shadow: none !important;
 }
 
@@ -605,21 +607,29 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     align-items: center;
     justify-content: center;
     gap: 2px;
-    background: var(--caja-primary, #10b981) !important;
-    color: #ffffff !important;
+    background: var(--caja-primary, #f8f0d0) !important;
+    color: var(--caja-btn-text, #162a1f) !important;
     border: none !important;
     box-shadow: none !important;
     border-radius: 6px;
     padding: 5px 8px;
-    font-size: 0.76rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 800 !important;
     cursor: pointer;
     transition: all 0.2s ease;
     line-height: 1;
 }
 
+.batllie-flavor-add-btn .btn-icon,
+.batllie-flavor-add-btn .btn-txt {
+    color: var(--caja-btn-text, #162a1f) !important;
+    font-weight: 800 !important;
+    line-height: 1;
+}
+
 .batllie-flavor-add-btn:hover {
-    background: var(--caja-primary-hover, #059669) !important;
+    background: var(--caja-primary-hover, #edd99c) !important;
+    color: var(--caja-btn-text, #162a1f) !important;
     transform: scale(1.06);
 }
 

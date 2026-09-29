@@ -117,7 +117,14 @@
             $cartRows.each(function () {
                 const $row = $(this);
                 const text = ($row.text() || '').toLowerCase();
-                if (text.includes('alfajor')) {
+                let isAlfajor = text.includes('alfajor');
+                if (!isAlfajor) {
+                    const rowProdId = parseInt($row.find('[data-product_id]').attr('data-product_id') || $row.attr('data-product_id'), 10);
+                    if (rowProdId && alfajorIdSet.has(rowProdId)) {
+                        isAlfajor = true;
+                    }
+                }
+                if (isAlfajor) {
                     foundDomItems = true;
                     let q = 0;
                     const $input = $row.find('input.wc-block-components-quantity-selector__input, input.qty, input[type="number"]');
@@ -425,6 +432,9 @@
         if (!$backdrop.length) return;
 
         isModalOpen = true;
+        if (config.packing) {
+            updatePackingUI(config.packing);
+        }
         $backdrop.css('display', 'flex');
         setTimeout(function () {
             $backdrop.addClass('is-visible');
@@ -473,14 +483,17 @@
         }
 
         // 2. Barra de progreso de la caja actual
-        const curUnits = packing.current_box_units || 0;
-        const curCap = packing.current_box_capacity || 6;
-        const pct = Math.min(100, Math.round((curUnits / curCap) * 100));
+        const curUnits = parseInt(packing.current_box_units, 10) || 0;
+        const curCap = parseInt(packing.current_box_capacity, 10) || 6;
+        const pct = (curCap > 0) ? Math.min(100, Math.round((curUnits / curCap) * 100)) : 0;
 
         const boxLabel = (packing.current_box_num > 1) ? (packing.current_box_num + 'ª Caja en armado:') : 'Caja en armado:';
         $('.batllie-packing-meta-label').text(boxLabel);
         $('#batllie-packing-count').text(curUnits + ' de ' + curCap + ' alfajores');
-        $('#batllie-packing-bar-fill').css('width', pct + '%');
+        $('#batllie-packing-bar-fill').css({
+            'width': pct + '%',
+            'min-width': (curUnits > 0 ? '8px' : '0px')
+        });
 
         // 3. Títulos, Mensajes y Badges
         if (packing.status === 'all_boxed') {
@@ -642,6 +655,8 @@
             has_alfajores: true,
             total_alfajores: totalAlf,
             current_box_units: curUnits,
+            current_box_capacity: cap,
+            current_box_num: curPacking.current_box_num || 1,
             missing_units: missingUnits,
             status: status,
             is_blocked: isBlocked,

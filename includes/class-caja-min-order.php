@@ -477,7 +477,7 @@ class Batllie_Caja_Min_Order {
                             </div>
                             <div class="batllie-packing-bar-wrap">
                                 <?php 
-                                $pct_box = ($rem > 0) ? min(100, round(($rem / 6) * 100)) : 0;
+                                $pct_box = ($cur_cap > 0) ? min(100, round(($cur_units / $cur_cap) * 100)) : 0;
                                 ?>
                                 <div id="batllie-packing-bar-fill" class="batllie-packing-bar-fill" style="width: <?php echo esc_attr($pct_box); ?>%;"></div>
                             </div>
