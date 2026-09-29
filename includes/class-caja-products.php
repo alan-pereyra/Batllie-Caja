@@ -149,6 +149,62 @@ class Batllie_Caja_Products {
         $box_role = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_product_box_role($product->get_id()) : '';
         $packaging_box_id = get_post_meta($product->get_id(), '_batllie_packaging_box_product_id', true);
 
+        // Metadatos de Producto Agrupado (Pack / Caja Batllié)
+        $grouped_target_qty       = get_post_meta($product->get_id(), '_batllie_grouped_target_qty', true);
+        $grouped_enable_extra_box = get_post_meta($product->get_id(), '_batllie_grouped_enable_extra_box', true);
+        $grouped_extra_box_name   = get_post_meta($product->get_id(), '_batllie_grouped_extra_box_name', true);
+        $grouped_fixed_price      = get_post_meta($product->get_id(), '_batllie_grouped_fixed_price', true);
+        $grouped_fixed_price_display = get_post_meta($product->get_id(), '_batllie_grouped_fixed_price_display', true) ?: 'box';
+        $grouped_custom_price_from   = get_post_meta($product->get_id(), '_batllie_grouped_custom_price_from', true);
+        $grouped_box_image_id     = get_post_meta($product->get_id(), '_batllie_grouped_box_image_id', true);
+        $grouped_box_image_url    = $grouped_box_image_id ? wp_get_attachment_image_url($grouped_box_image_id, 'medium') : '';
+
+        // Atributos y Variaciones si es Producto Variable
+        $attributes_data = array();
+        $variations_data = array();
+        if ($product->is_type('variable')) {
+            $raw_attributes = $product->get_attributes();
+            foreach ($raw_attributes as $attr_slug => $attr) {
+                if (is_a($attr, 'WC_Product_Attribute')) {
+                    $options = $attr->is_taxonomy() ? wc_get_product_terms($product->get_id(), $attr->get_name(), array('fields' => 'names')) : $attr->get_options();
+                    $attributes_data[] = array(
+                        'name'      => wc_attribute_label($attr->get_name()),
+                        'slug'      => $attr_slug,
+                        'options'   => is_array($options) ? implode(' | ', $options) : (string) $options,
+                        'variation' => (bool) $attr->get_variation(),
+                    );
+                } elseif (is_array($attr)) {
+                    $options = isset($attr['options']) ? (is_array($attr['options']) ? implode(' | ', $attr['options']) : (string)$attr['options']) : (isset($attr['value']) ? $attr['value'] : '');
+                    $attributes_data[] = array(
+                        'name'      => isset($attr['name']) ? $attr['name'] : $attr_slug,
+                        'slug'      => $attr_slug,
+                        'options'   => $options,
+                        'variation' => !empty($attr['is_variation']),
+                    );
+                }
+            }
+
+            $variation_ids = $product->get_children();
+            foreach ($variation_ids as $vid) {
+                $v = wc_get_product($vid);
+                if ($v && $v->is_type('variation')) {
+                    $v_img_id = $v->get_image_id();
+                    $variations_data[] = array(
+                        'id'             => $v->get_id(),
+                        'attributes'     => $v->get_attributes(),
+                        'regular_price'  => $v->get_regular_price(),
+                        'sale_price'     => $v->get_sale_price(),
+                        'sku'            => $v->get_sku(),
+                        'manage_stock'   => $v->get_manage_stock(),
+                        'stock_quantity' => $v->get_stock_quantity() !== null ? intval($v->get_stock_quantity()) : '',
+                        'image_id'       => $v_img_id ? intval($v_img_id) : 0,
+                        'image_url'      => $v_img_id ? wp_get_attachment_image_url($v_img_id, 'thumbnail') : '',
+                        'enabled'        => $v->get_status() === 'publish',
+                    );
+                }
+            }
+        }
+
         return array(
             'id'                       => $product->get_id(),
             'name'                     => $product->get_name(),
@@ -182,6 +238,16 @@ class Batllie_Caja_Products {
             'official_box_role'        => $box_role,
             'is_official_box'          => !empty($box_role),
             'packaging_box_product_id' => $packaging_box_id ?: 0,
+            'grouped_target_qty'       => $grouped_target_qty !== '' ? $grouped_target_qty : '',
+            'grouped_enable_extra_box' => $grouped_enable_extra_box === 'yes',
+            'grouped_extra_box_name'   => $grouped_extra_box_name,
+            'grouped_fixed_price'      => $grouped_fixed_price,
+            'grouped_fixed_price_display' => $grouped_fixed_price_display,
+            'grouped_custom_price_from'   => $grouped_custom_price_from,
+            'grouped_box_image_id'     => $grouped_box_image_id ? intval($grouped_box_image_id) : 0,
+            'grouped_box_image_url'    => $grouped_box_image_url,
+            'attributes'               => $attributes_data,
+            'variations'               => $variations_data,
             'dynamic_stock'            => $dynamic_stock_info,
             'is_dynamic_stock'         => !empty($dynamic_stock_info),
             'bottleneck_item'          => !empty($dynamic_stock_info['bottleneck_item']) ? $dynamic_stock_info['bottleneck_item'] : '',
@@ -494,6 +560,147 @@ class Batllie_Caja_Products {
         if (isset($data['packaging_box_product_id'])) {
             $p_box = sanitize_text_field($data['packaging_box_product_id']);
             update_post_meta($product_id, '_batllie_packaging_box_product_id', $p_box);
+        }
+
+        // Metadatos de Configuración de Caja Batllié (Pack Agrupado)
+        if (isset($data['grouped_target_qty'])) {
+            $t_qty = sanitize_text_field($data['grouped_target_qty']);
+            if ($t_qty === '') {
+                delete_post_meta($product_id, '_batllie_grouped_target_qty');
+            } else {
+                update_post_meta($product_id, '_batllie_grouped_target_qty', absint($t_qty));
+            }
+        }
+
+        if (isset($data['grouped_enable_extra_box'])) {
+            $enable_extra = ($data['grouped_enable_extra_box'] === 'yes' || $data['grouped_enable_extra_box'] === true || $data['grouped_enable_extra_box'] === '1') ? 'yes' : 'no';
+            update_post_meta($product_id, '_batllie_grouped_enable_extra_box', $enable_extra);
+        }
+
+        if (isset($data['grouped_extra_box_name'])) {
+            $b_name = sanitize_text_field($data['grouped_extra_box_name']);
+            if ($b_name === '') {
+                delete_post_meta($product_id, '_batllie_grouped_extra_box_name');
+            } else {
+                update_post_meta($product_id, '_batllie_grouped_extra_box_name', $b_name);
+            }
+        }
+
+        if (isset($data['grouped_fixed_price'])) {
+            $fix_p = sanitize_text_field($data['grouped_fixed_price']);
+            if ($fix_p === '') {
+                delete_post_meta($product_id, '_batllie_grouped_fixed_price');
+            } else {
+                update_post_meta($product_id, '_batllie_grouped_fixed_price', wc_format_decimal($fix_p));
+            }
+        }
+
+        if (isset($data['grouped_fixed_price_display'])) {
+            $disp = sanitize_key($data['grouped_fixed_price_display']);
+            update_post_meta($product_id, '_batllie_grouped_fixed_price_display', in_array($disp, array('box', 'distributed'), true) ? $disp : 'box');
+        }
+
+        if (isset($data['grouped_custom_price_from'])) {
+            $from_p = sanitize_text_field($data['grouped_custom_price_from']);
+            if ($from_p === '') {
+                delete_post_meta($product_id, '_batllie_grouped_custom_price_from');
+            } else {
+                update_post_meta($product_id, '_batllie_grouped_custom_price_from', wc_format_decimal($from_p));
+            }
+        }
+
+        if (isset($data['grouped_box_image_id'])) {
+            $b_img = sanitize_text_field($data['grouped_box_image_id']);
+            if ($b_img === '' || $b_img === '0') {
+                delete_post_meta($product_id, '_batllie_grouped_box_image_id');
+            } else {
+                update_post_meta($product_id, '_batllie_grouped_box_image_id', absint($b_img));
+            }
+        }
+
+        // Atributos y Variaciones si es Producto Variable
+        if ($product->is_type('variable')) {
+            if (isset($data['attributes']) && is_array($data['attributes'])) {
+                $product_attributes = array();
+                $position = 0;
+                foreach ($data['attributes'] as $attr_item) {
+                    $attr_name = isset($attr_item['name']) ? sanitize_text_field($attr_item['name']) : '';
+                    if (empty($attr_name)) continue;
+
+                    $options_raw = isset($attr_item['options']) ? $attr_item['options'] : '';
+                    $options = is_array($options_raw) ? array_map('sanitize_text_field', $options_raw) : array_map('trim', explode('|', sanitize_text_field($options_raw)));
+                    $options = array_filter($options);
+                    if (empty($options)) continue;
+
+                    $attribute = new WC_Product_Attribute();
+                    $attribute->set_name($attr_name);
+                    $attribute->set_options($options);
+                    $attribute->set_position($position++);
+                    $attribute->set_visible(true);
+                    $attribute->set_variation(true);
+                    $product_attributes[sanitize_title($attr_name)] = $attribute;
+                }
+                $product->set_attributes($product_attributes);
+                $product->save();
+            }
+
+            if (isset($data['variations']) && is_array($data['variations'])) {
+                foreach ($data['variations'] as $v_data) {
+                    $v_id = !empty($v_data['id']) ? absint($v_data['id']) : 0;
+                    if (!empty($v_data['delete']) && $v_id > 0) {
+                        $v_obj = wc_get_product($v_id);
+                        if ($v_obj) {
+                            $v_obj->delete(true);
+                        }
+                        continue;
+                    }
+
+                    $variation = $v_id > 0 ? wc_get_product($v_id) : new WC_Product_Variation();
+                    if (!$variation || !is_a($variation, 'WC_Product_Variation')) {
+                        $variation = new WC_Product_Variation();
+                    }
+                    $variation->set_parent_id($product_id);
+                    $variation->set_status(!empty($v_data['enabled']) && $v_data['enabled'] !== 'no' && $v_data['enabled'] !== false ? 'publish' : 'private');
+
+                    if (isset($v_data['regular_price'])) {
+                        $variation->set_regular_price(wc_format_decimal($v_data['regular_price']));
+                    }
+                    if (isset($v_data['sale_price'])) {
+                        $variation->set_sale_price(wc_format_decimal($v_data['sale_price']));
+                        if ($v_data['sale_price'] !== '' && (float)$v_data['sale_price'] > 0) {
+                            $variation->set_price(wc_format_decimal($v_data['sale_price']));
+                        } else {
+                            $variation->set_price($variation->get_regular_price());
+                        }
+                    }
+                    if (isset($v_data['sku'])) {
+                        $variation->set_sku(sanitize_text_field($v_data['sku']));
+                    }
+                    if (isset($v_data['manage_stock'])) {
+                        $m_stock = ($v_data['manage_stock'] === 'yes' || $v_data['manage_stock'] === true || $v_data['manage_stock'] === '1');
+                        $variation->set_manage_stock($m_stock);
+                        if ($m_stock && isset($v_data['stock_quantity'])) {
+                            $v_qty = intval($v_data['stock_quantity']);
+                            $variation->set_stock_quantity($v_qty);
+                            $variation->set_stock_status($v_qty > 0 ? 'instock' : 'outofstock');
+                        }
+                    }
+                    if (isset($v_data['image_id'])) {
+                        $v_img = absint($v_data['image_id']);
+                        $variation->set_image_id($v_img ?: '');
+                    }
+                    if (isset($v_data['attributes']) && is_array($v_data['attributes'])) {
+                        $v_attrs = array();
+                        foreach ($v_data['attributes'] as $k => $v) {
+                            $clean_k = sanitize_title(str_replace('attribute_', '', $k));
+                            $v_attrs[$clean_k] = sanitize_text_field($v);
+                        }
+                        $variation->set_attributes($v_attrs);
+                    }
+                    $variation->save();
+                }
+                WC_Product_Variable::sync($product_id);
+            }
         }
 
         if (isset($data['official_box_role']) && class_exists('Batllie_Caja_Packing')) {

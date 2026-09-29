@@ -450,64 +450,222 @@ if (!defined('ABSPATH')) {
                     <div id="caja-edit-stock-dynamic-hint" style="display:none; margin-top:6px; font-size:12px; color:#059669; font-weight:600; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:4px; padding:6px 10px;"></div>
                 </div>
 
-                <div class="caja-form-group" id="edit-prod-box-role-group">
-                    <label for="edit-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
-                    <select id="edit-prod-box-role" name="official_box_role" class="caja-select">
-                        <option value="none"></option>
-                        <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
-                        <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
-                    </select>
+                <!-- ============================================== -->
+                <!-- SECCIÓN 1: CAJA OFICIAL (SOLO PRODUCTO SIMPLE) -->
+                <!-- ============================================== -->
+                <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-caja-oficial" style="display:none;">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-caja-oficial">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">📦</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Caja Oficial', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="edit-collapse-caja-oficial" style="display:none;">
+                        <div class="caja-form-group" style="margin-bottom:0;">
+                            <label for="edit-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
+                            <select id="edit-prod-box-role" name="official_box_role" class="caja-select">
+                                <option value="none"></option>
+                                <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
+                                <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Sección de Selección de Productos para Productos Agrupados -->
-                <div class="caja-form-group caja-grouped-children-box" id="edit-prod-grouped-section" style="display:none;">
-                    <div class="caja-grouped-header-bar">
-                        <label class="caja-grouped-header-title"><strong>📦 <?php _e('Productos incluidos en la Agrupación / Caja:', 'emp-caja'); ?></strong></label>
-                    </div>
+                <!-- ========================================================================= -->
+                <!-- SECCIÓN 2: PRODUCTOS INCLUIDOS EN LA CAJA (SOLO PRODUCTO AGRUPADO)       -->
+                <!-- ========================================================================= -->
+                <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-grouped-children" style="display:none;">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-grouped-children">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">📦</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Productos incluidos en la Agrupación / Caja', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="edit-collapse-grouped-children" style="display:none;">
+                        <!-- Selector de Modo de Agrupación: Personalizable vs Combo Predeterminado -->
+                        <div class="caja-grouped-mode-card" style="margin-bottom:12px;">
+                            <span class="caja-mode-card-title"><?php _e('¿Cómo funciona esta caja / agrupación?', 'emp-caja'); ?></span>
+                            <div class="caja-grouped-mode-radios">
+                                <label class="caja-radio-pill active" id="label-grouped-mode-custom">
+                                    <input type="radio" name="grouped_combo_mode" value="custom" id="edit-grouped-mode-custom" checked />
+                                    <div class="caja-radio-pill-content">
+                                        <strong>📦 Caja personalizable</strong>
+                                        <small><?php _e('El cliente elige los productos y cantidades al armar la caja', 'emp-caja'); ?></small>
+                                    </div>
+                                </label>
+                                <label class="caja-radio-pill" id="label-grouped-mode-predefined">
+                                    <input type="radio" name="grouped_combo_mode" value="predefined" id="edit-grouped-mode-predefined" />
+                                    <div class="caja-radio-pill-content">
+                                        <strong>🎁 Combo predeterminado / fijo</strong>
+                                        <small><?php _e('La tienda fija la cantidad de cada producto y el cliente compra el combo ya armado', 'emp-caja'); ?></small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
 
-                    <!-- Selector de Modo de Agrupación: Personalizable vs Combo Predeterminado -->
-                    <div class="caja-grouped-mode-card">
-                        <span class="caja-mode-card-title"><?php _e('¿Cómo funciona esta caja / agrupación?', 'emp-caja'); ?></span>
-                        <div class="caja-grouped-mode-radios">
-                            <label class="caja-radio-pill active" id="label-grouped-mode-custom">
-                                <input type="radio" name="grouped_combo_mode" value="custom" id="edit-grouped-mode-custom" checked />
-                                <div class="caja-radio-pill-content">
-                                    <strong>📦 Caja personalizable</strong>
-                                    <small><?php _e('El cliente elige los productos y cantidades al armar la caja', 'emp-caja'); ?></small>
-                                </div>
-                            </label>
-                            <label class="caja-radio-pill" id="label-grouped-mode-predefined">
-                                <input type="radio" name="grouped_combo_mode" value="predefined" id="edit-grouped-mode-predefined" />
-                                <div class="caja-radio-pill-content">
-                                    <strong>🎁 Combo predeterminado / fijo</strong>
-                                    <small><?php _e('La tienda fija la cantidad de cada producto y el cliente compra el combo ya armado', 'emp-caja'); ?></small>
-                                </div>
-                            </label>
+                        <p class="caja-form-hint" id="edit-grouped-mode-hint" style="margin-top:2px; margin-bottom:8px;">
+                            <?php _e('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:', 'emp-caja'); ?>
+                        </p>
+                        <div class="caja-grouped-filter-row">
+                            <input type="text" id="edit-grouped-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar lista de productos..." />
+                            <div class="caja-grouped-btn-actions">
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                            </div>
+                        </div>
+                        <div class="caja-children-checklist-container" id="edit-prod-children-list">
+                            <!-- Generado dinámicamente -->
+                        </div>
+                        <div class="caja-grouped-footer-bar" style="margin-top:8px;">
+                            <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
                         </div>
                     </div>
+                </div>
 
-                    <p class="caja-form-hint" id="edit-grouped-mode-hint" style="margin-top:2px; margin-bottom:8px;">
-                        <?php _e('Seleccioná cuáles productos simples se incluyen dentro de esta caja agrupada:', 'emp-caja'); ?>
-                    </p>
-                    <div class="caja-grouped-filter-row">
-                        <input type="text" id="edit-grouped-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar lista de productos..." />
-                        <div class="caja-grouped-btn-actions">
-                            <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
-                            <button type="button" class="caja-btn caja-btn-secondary" id="btn-grouped-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                <!-- ========================================================================= -->
+                <!-- SECCIÓN 3: CONFIGURACIÓN DE CAJA BATLLIÉ (SOLO PRODUCTO AGRUPADO)         -->
+                <!-- ========================================================================= -->
+                <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-grouped-config" style="display:none;">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-grouped-config">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">📦</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Configuración de Caja Batllié (Pack Agrupado)', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="edit-collapse-grouped-config" style="display:none;">
+                        <!-- Cartel Stock Dinámico -->
+                        <div id="edit-grouped-dyn-stock-banner" style="background:rgba(16, 185, 129, 0.1); border:1px solid #10b981; border-radius:6px; padding:12px; margin-bottom:14px; display:none;">
+                            <div style="font-weight:700; color:#10b981; font-size:13px; display:flex; align-items:center; justify-content:space-between;">
+                                <span id="edit-grouped-dyn-stock-text">⚡ Stock Dinámico Sincronizado</span>
+                                <span style="font-size:11px; font-weight:600; background:#fff; color:#065f46; padding:2px 8px; border-radius:12px;">Sincronizado en vivo</span>
+                            </div>
+                            <div id="edit-grouped-dyn-bottleneck-text" style="margin-top:4px; font-size:12px; color:#e2e8f0; font-weight:500;"></div>
+                            <small style="display:block; margin-top:4px; font-size:11px; color:#94a3b8;">El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus alfajores componentes, la caja física de empaque y el stock fijado.</small>
+                        </div>
+
+                        <!-- Cantidad fija de la caja -->
+                        <div class="caja-form-group">
+                            <label for="edit-grouped-target-qty"><strong><?php _e('Cantidad fija de la caja', 'emp-caja'); ?></strong></label>
+                            <input type="number" min="0" step="1" id="edit-grouped-target-qty" name="grouped_target_qty" placeholder="<?php esc_attr_e('Ej: 6', 'emp-caja'); ?>" />
+                            <small class="caja-form-hint"><?php _e('Número exacto de unidades que el cliente debe elegir para poder comprar la caja (ej: 6 para caja de 6, 12 para caja de 12). Si se deja vacío, el sistema detectará automáticamente la cantidad según el título del producto.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- ¿Incluir caja en el carrito? -->
+                        <div class="caja-form-group">
+                            <label class="caja-checkbox-label">
+                                <input type="checkbox" id="edit-grouped-enable-extra-box" name="grouped_enable_extra_box" value="yes" />
+                                <span><strong><?php _e('¿Incluir caja en el carrito?', 'emp-caja'); ?></strong></span>
+                            </label>
+                            <small class="caja-form-hint"><?php _e('Añadir automáticamente el producto de empaque (la caja física) a costo $0 al carrito y al pedido cuando el cliente agregue este pack.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Nombre de la caja adicional -->
+                        <div class="caja-form-group">
+                            <label for="edit-grouped-extra-box-name"><strong><?php _e('Nombre de la caja adicional', 'emp-caja'); ?></strong></label>
+                            <input type="text" id="edit-grouped-extra-box-name" name="grouped_extra_box_name" placeholder="<?php esc_attr_e('Ej: Caja 6 unidades', 'emp-caja'); ?>" />
+                            <small class="caja-form-hint"><?php _e('Nombre con el que figurará la caja física en el carrito, pedido y pantalla de Caja POS (a $0). Si se deja vacío, se usará el título del producto.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Caja física de empaque asociada -->
+                        <div class="caja-form-group">
+                            <label for="edit-prod-packaging-box"><strong>📦 <?php _e('Caja física de empaque asociada', 'emp-caja'); ?></strong></label>
+                            <select id="edit-prod-packaging-box" name="packaging_box_product_id" class="caja-select"></select>
+                            <small class="caja-form-hint"><?php _e('Caja física de empaque cuyo inventario limitará y se descontará automáticamente al vender este pack o combo.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Precio Fijo del Combo / Caja -->
+                        <div class="caja-form-group">
+                            <label for="edit-grouped-fixed-price"><strong><?php _e('Precio Fijo del Combo / Caja ($)', 'emp-caja'); ?></strong></label>
+                            <input type="number" step="0.01" min="0" id="edit-grouped-fixed-price" name="grouped_fixed_price" placeholder="<?php esc_attr_e('Ej: 17500 (opcional)', 'emp-caja'); ?>" />
+                            <small class="caja-form-hint"><?php _e('Si defines un precio fijo, la caja/combo se cobrará exactamente a este importe final sin importar los productos individuales que agrupe ni la cantidad.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Desglose del precio fijo -->
+                        <div class="caja-form-group">
+                            <label for="edit-grouped-fixed-price-display"><strong><?php _e('Desglose del precio fijo', 'emp-caja'); ?></strong></label>
+                            <select id="edit-grouped-fixed-price-display" name="grouped_fixed_price_display" class="caja-select">
+                                <option value="box"><?php _e('Asignar precio total a la Caja (Alfajores figuran a $0 incluidos)', 'emp-caja'); ?></option>
+                                <option value="distributed"><?php _e('Distribuir equitativamente entre los alfajores (Caja a $0)', 'emp-caja'); ?></option>
+                            </select>
+                            <small class="caja-form-hint"><?php _e('Define cómo se mostrará el cobro en el carrito y en el pedido cuando el precio fijo esté activo.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Precio "Desde" (Página principal) -->
+                        <div class="caja-form-group">
+                            <label for="edit-grouped-custom-price-from"><strong><?php _e('Precio "Desde" (Página principal)', 'emp-caja'); ?></strong></label>
+                            <input type="number" step="0.01" min="0" id="edit-grouped-custom-price-from" name="grouped_custom_price_from" placeholder="<?php esc_attr_e('Ej: 16800', 'emp-caja'); ?>" />
+                            <small class="caja-form-hint"><?php _e('Precio que se muestra en la página principal y catálogo como "Desde $...". Si configuraste un Precio Fijo arriba, este campo no es necesario.', 'emp-caja'); ?></small>
+                        </div>
+
+                        <!-- Imagen de la caja de empaque -->
+                        <div class="caja-form-group">
+                            <label><strong><?php _e('Imagen física de la caja (Empaque)', 'emp-caja'); ?></strong></label>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div id="edit-grouped-box-img-preview" style="width:50px; height:50px; border:1px dashed var(--caja-card-border); border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:rgba(255,255,255,0.02);">
+                                    <span style="font-size:20px;">📦</span>
+                                </div>
+                                <input type="hidden" id="edit-grouped-box-image-id" name="grouped_box_image_id" value="" />
+                                <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="edit-grouped-choose-box-img-btn">
+                                    <span><?php _e('Seleccionar imagen de la caja', 'emp-caja'); ?></span>
+                                </button>
+                                <button type="button" class="caja-btn caja-btn-sm caja-btn-danger" id="edit-grouped-remove-box-img-btn" style="display:none;">
+                                    <span>🗑️ <?php _e('Quitar', 'emp-caja'); ?></span>
+                                </button>
+                            </div>
+                            <small class="caja-form-hint"><?php _e('Imagen física de la caja que se usará en el carrito de la web y en la sección de Caja POS.', 'emp-caja'); ?></small>
                         </div>
                     </div>
-                    <div class="caja-children-checklist-container" id="edit-prod-children-list">
-                        <!-- Generado dinámicamente -->
-                    </div>
-                    <div class="caja-grouped-footer-bar">
-                        <span class="caja-badge caja-badge-info" id="edit-grouped-selected-badge">0 seleccionados</span>
-                    </div>
+                </div>
 
-                    <!-- Selector de Caja física asociada al Producto Agrupado -->
-                    <div class="caja-form-group caja-grouped-box-select-row" style="margin-top:14px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.12);">
-                        <label for="edit-prod-packaging-box"><strong>📦 <?php _e('Caja física de empaque que descuenta stock al vender este pack:', 'emp-caja'); ?></strong></label>
-                        <select id="edit-prod-packaging-box" name="packaging_box_product_id" class="caja-select"></select>
-                        <small class="caja-form-hint"><?php _e('Cada vez que un cliente compre este producto agrupado, se descontará 1 unidad del inventario físico de esta caja seleccionada.', 'emp-caja'); ?></small>
+                <!-- ========================================================================= -->
+                <!-- SECCIÓN 4: ATRIBUTOS Y VARIACIONES (SOLO PRODUCTO VARIABLE)               -->
+                <!-- ========================================================================= -->
+                <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-variable" style="display:none;">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-variable">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">🔄</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Atributos y Variaciones', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="edit-collapse-variable" style="display:none;">
+                        <!-- Sub-sección 1: Atributos -->
+                        <div class="caja-variable-attributes-section" style="margin-bottom:16px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                                <strong>🏷️ <?php _e('Atributos del Producto (para generar variaciones)', 'emp-caja'); ?></strong>
+                                <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="caja-btn-add-attribute">
+                                    <span>➕ <?php _e('Añadir Atributo', 'emp-caja'); ?></span>
+                                </button>
+                            </div>
+                            <small class="caja-form-hint" style="display:block; margin-bottom:8px;">
+                                <?php _e('Ingresá el nombre del atributo (ej: Sabor, Tamaño) y sus opciones separadas por una barra vertical | (ej: Negro | Blanco | Pistacho).', 'emp-caja'); ?>
+                            </small>
+                            <div id="caja-attributes-list" class="caja-attributes-list">
+                                <!-- Filas de atributos -->
+                            </div>
+                        </div>
+
+                        <!-- Sub-sección 2: Variaciones -->
+                        <div class="caja-variable-variations-section">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                                <strong>📦 <?php _e('Variaciones de Producto', 'emp-caja'); ?></strong>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="caja-btn-generate-variations" title="<?php esc_attr_e('Genera automáticamente todas las variaciones posibles según las opciones de los atributos', 'emp-caja'); ?>">
+                                        <span>⚡ <?php _e('Generar según Atributos', 'emp-caja'); ?></span>
+                                    </button>
+                                    <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary" id="caja-btn-add-variation">
+                                        <span>➕ <?php _e('Añadir Variación', 'emp-caja'); ?></span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="caja-variations-list" class="caja-variations-list">
+                                <!-- Tarjetas de variaciones generadas -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 

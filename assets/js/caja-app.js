@@ -597,6 +597,198 @@
                 self.handleUpdateProduct($(this));
             });
 
+            // Toggle de acordeones desplegables en modales de producto
+            $(document).on('click', '.caja-btn-modal-accordion', function(e) {
+                e.preventDefault();
+                const target = $(this).data('target');
+                const $target = $(target);
+                const $btn = $(this);
+                const $arrow = $btn.find('.caja-toggle-arrow');
+
+                $target.slideToggle(180, function() {
+                    if ($target.is(':visible')) {
+                        $btn.addClass('active');
+                        $arrow.text('▲');
+                    } else {
+                        $btn.removeClass('active');
+                        $arrow.text('▼');
+                    }
+                });
+            });
+
+            // Selector de Imagen física de la caja de empaque (Configuración Pack Agrupado)
+            $('#edit-grouped-choose-box-img-btn').on('click', function(e) {
+                e.preventDefault();
+                self.openMediaUploader({
+                    title: 'Seleccionar Imagen de la Caja (Empaque)',
+                    buttonText: 'Usar como imagen de la caja',
+                    onSelect: function(media) {
+                        $('#edit-grouped-box-image-id').val(media.id);
+                        $('#edit-grouped-box-img-preview').html(`<img src="${media.url}" style="width:100%; height:100%; object-fit:cover;" />`);
+                        $('#edit-grouped-remove-box-img-btn').show();
+                    }
+                });
+            });
+
+            $('#edit-grouped-remove-box-img-btn').on('click', function(e) {
+                e.preventDefault();
+                $('#edit-grouped-box-image-id').val('');
+                $('#edit-grouped-box-img-preview').html('<span style="font-size:20px;">📦</span>');
+                $(this).hide();
+            });
+
+            // Eventos para Producto Variable: Añadir atributo, eliminar, generar variaciones
+            $('#caja-btn-add-attribute').on('click', function(e) {
+                e.preventDefault();
+                const $container = $('#caja-attributes-list');
+                const rowHtml = `
+                    <div class="caja-attribute-row">
+                        <div class="caja-form-row">
+                            <div class="caja-form-group caja-col" style="flex: 1;">
+                                <label><strong>Nombre del Atributo</strong></label>
+                                <input type="text" class="caja-attr-name" value="" placeholder="Ej: Sabor, Tamaño..." />
+                            </div>
+                            <div class="caja-form-group caja-col" style="flex: 2;">
+                                <label><strong>Opciones (separadas con | )</strong></label>
+                                <input type="text" class="caja-attr-options" value="" placeholder="Ej: Negro | Blanco | Pistacho" />
+                            </div>
+                            <div class="caja-form-group caja-col caja-align-bottom" style="flex: 0 0 auto;">
+                                <button type="button" class="caja-btn caja-btn-danger caja-btn-sm caja-remove-attr-btn" title="Eliminar atributo">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $container.append(rowHtml);
+            });
+
+            $(document).on('click', '.caja-remove-attr-btn', function(e) {
+                e.preventDefault();
+                $(this).closest('.caja-attribute-row').remove();
+            });
+
+            $('#caja-btn-generate-variations').on('click', function(e) {
+                e.preventDefault();
+                const attrs = self.collectVariableAttributes();
+                if (!attrs.length) {
+                    alert('Debes definir al menos un atributo con opciones para generar variaciones.');
+                    return;
+                }
+
+                const optionsArrays = attrs.map(a => {
+                    return a.options.split('|').map(s => s.trim()).filter(Boolean);
+                });
+
+                if (optionsArrays.some(arr => !arr.length)) {
+                    alert('Todos los atributos deben tener al menos una opción definida.');
+                    return;
+                }
+
+                function cartesian(arrays) {
+                    return arrays.reduce((acc, curr) => {
+                        return acc.flatMap(a => curr.map(c => [...a, c]));
+                    }, [[]]);
+                }
+
+                const combinations = cartesian(optionsArrays);
+                const parentPrice = $('#edit-prod-price').val() || '';
+                const parentSale = $('#edit-prod-sale-price').val() || '';
+
+                const existingVariations = self.collectVariationsList();
+                const newVariations = [];
+
+                combinations.forEach(comb => {
+                    const attrMap = {};
+                    attrs.forEach((a, i) => {
+                        attrMap[a.name] = comb[i];
+                    });
+
+                    const match = existingVariations.find(ev => {
+                        return attrs.every(a => ev.attributes && (ev.attributes[a.name] || '').toLowerCase() === (attrMap[a.name] || '').toLowerCase());
+                    });
+
+                    if (match) {
+                        newVariations.push(match);
+                    } else {
+                        newVariations.push({
+                            id: 0,
+                            enabled: true,
+                            regular_price: parentPrice,
+                            sale_price: parentSale,
+                            sku: '',
+                            manage_stock: false,
+                            stock_quantity: 10,
+                            image_id: 0,
+                            image_url: '',
+                            attributes: attrMap
+                        });
+                    }
+                });
+
+                self.renderVariationsList(newVariations, attrs);
+            });
+
+            $('#caja-btn-add-variation').on('click', function(e) {
+                e.preventDefault();
+                const attrs = self.collectVariableAttributes();
+                const parentPrice = $('#edit-prod-price').val() || '';
+                const parentSale = $('#edit-prod-sale-price').val() || '';
+                const currentVars = self.collectVariationsList();
+
+                currentVars.push({
+                    id: 0,
+                    enabled: true,
+                    regular_price: parentPrice,
+                    sale_price: parentSale,
+                    sku: '',
+                    manage_stock: false,
+                    stock_quantity: 10,
+                    image_id: 0,
+                    image_url: '',
+                    attributes: {}
+                });
+
+                self.renderVariationsList(currentVars, attrs);
+            });
+
+            $(document).on('click', '.caja-remove-var-btn', function(e) {
+                e.preventDefault();
+                const $card = $(this).closest('.caja-variation-card');
+                const id = parseInt($card.data('id')) || 0;
+                if (id > 0) {
+                    if (confirm('¿Eliminar esta variación de producto?')) {
+                        $card.data('deleted', true).slideUp(150);
+                    }
+                } else {
+                    $card.slideUp(150, function() { $(this).remove(); });
+                }
+            });
+
+            $(document).on('change', '.caja-var-manage-stock', function() {
+                const $col = $(this).closest('.caja-variation-card-body').find('.caja-var-stock-col');
+                if ($(this).is(':checked')) {
+                    $col.slideDown(150);
+                } else {
+                    $col.slideUp(150);
+                }
+            });
+
+            $(document).on('click', '.caja-var-choose-img-btn', function(e) {
+                e.preventDefault();
+                const $btn = $(this);
+                const $box = $btn.closest('.caja-var-img-box');
+                const $img = $box.find('.caja-var-thumb');
+                const $input = $box.find('.caja-var-image-id');
+
+                self.openMediaUploader({
+                    title: 'Seleccionar Foto para la Variación',
+                    buttonText: 'Asignar a variación',
+                    onSelect: function(media) {
+                        $input.val(media.id);
+                        $img.attr('src', media.url).show();
+                    }
+                });
+            });
+
             // Confirmación al reemplazar una caja oficial existente
             $('#new-prod-box-role, #edit-prod-box-role').on('change', function() {
                 const newRole = $(this).val();
@@ -2377,10 +2569,206 @@
             }
         },
 
+        renderVariableAttributes: function(attributes) {
+            const $container = $('#caja-attributes-list');
+            $container.empty();
+
+            if (!attributes || !attributes.length) {
+                attributes = [{ name: 'Sabor', options: 'Negro | Blanco' }];
+            }
+
+            attributes.forEach(attr => {
+                const rowHtml = `
+                    <div class="caja-attribute-row">
+                        <div class="caja-form-row">
+                            <div class="caja-form-group caja-col" style="flex: 1;">
+                                <label><strong>Nombre del Atributo</strong></label>
+                                <input type="text" class="caja-attr-name" value="${attr.name || ''}" placeholder="Ej: Sabor, Tamaño..." />
+                            </div>
+                            <div class="caja-form-group caja-col" style="flex: 2;">
+                                <label><strong>Opciones (separadas con | )</strong></label>
+                                <input type="text" class="caja-attr-options" value="${attr.options || ''}" placeholder="Ej: Negro | Blanco | Pistacho" />
+                            </div>
+                            <div class="caja-form-group caja-col caja-align-bottom" style="flex: 0 0 auto;">
+                                <button type="button" class="caja-btn caja-btn-danger caja-btn-sm caja-remove-attr-btn" title="Eliminar atributo">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $container.append(rowHtml);
+            });
+        },
+
+        collectVariableAttributes: function() {
+            const attrs = [];
+            $('#caja-attributes-list .caja-attribute-row').each(function() {
+                const name = ($(this).find('.caja-attr-name').val() || '').trim();
+                const options = ($(this).find('.caja-attr-options').val() || '').trim();
+                if (name && options) {
+                    attrs.push({ name, options });
+                }
+            });
+            return attrs;
+        },
+
+        renderVariationsList: function(variations, currentAttributes) {
+            const self = this;
+            const $container = $('#caja-variations-list');
+            $container.empty();
+
+            if (!variations || !variations.length) {
+                $container.html('<p class="caja-text-muted" style="font-size:12px; font-style:italic; padding:8px 0;">No hay variaciones creadas aún. Podés crearlas pulsando en "⚡ Generar según Atributos" o "➕ Añadir Variación".</p>');
+                return;
+            }
+
+            const attrs = currentAttributes && currentAttributes.length ? currentAttributes : self.collectVariableAttributes();
+
+            variations.forEach((v, idx) => {
+                const vId = v.id || 0;
+                const regPrice = v.regular_price || '';
+                const salePrice = v.sale_price || '';
+                const sku = v.sku || '';
+                const manageStock = !!v.manage_stock;
+                const stockQty = v.stock_quantity !== '' && v.stock_quantity !== null ? v.stock_quantity : '';
+                const isEnabled = v.enabled !== false;
+                const imgId = v.image_id || 0;
+                const imgUrl = v.image_url || '';
+
+                let attrSelectorsHtml = '';
+                attrs.forEach(a => {
+                    const cleanName = a.name.trim();
+                    const optionsList = a.options.split('|').map(s => s.trim()).filter(Boolean);
+                    const currentVal = (v.attributes && (v.attributes[cleanName] || v.attributes[cleanName.toLowerCase()] || v.attributes['attribute_' + cleanName.toLowerCase()])) || '';
+
+                    let optsHtml = '<option value="">Cualquier ' + cleanName + '...</option>';
+                    optionsList.forEach(opt => {
+                        const isSel = (currentVal.toLowerCase() === opt.toLowerCase()) ? 'selected' : '';
+                        optsHtml += `<option value="${opt}" ${isSel}>${opt}</option>`;
+                    });
+
+                    attrSelectorsHtml += `
+                        <div class="caja-form-group caja-col">
+                            <label><strong>${cleanName}:</strong></label>
+                            <select class="caja-select caja-var-attr-select" data-attr-name="${cleanName}">
+                                ${optsHtml}
+                            </select>
+                        </div>
+                    `;
+                });
+
+                const cardHtml = `
+                    <div class="caja-variation-card" data-id="${vId}">
+                        <div class="caja-variation-card-header">
+                            <div class="caja-variation-title">
+                                <strong>Variación #${idx + 1}</strong>
+                                ${vId ? `<small class="caja-text-muted" style="margin-left:4px;">(ID: ${vId})</small>` : '<span class="caja-badge caja-badge-info" style="margin-left:4px;">Nueva</span>'}
+                            </div>
+                            <div class="caja-variation-header-actions">
+                                <label class="caja-checkbox-label" style="margin:0; font-size:12px;">
+                                    <input type="checkbox" class="caja-var-enabled" ${isEnabled ? 'checked' : ''} />
+                                    <span>Activa</span>
+                                </label>
+                                <button type="button" class="caja-btn caja-btn-danger caja-btn-sm caja-remove-var-btn" title="Eliminar variación">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="caja-variation-card-body">
+                            <div class="caja-form-row">
+                                ${attrSelectorsHtml}
+                            </div>
+                            <div class="caja-form-row">
+                                <div class="caja-form-group caja-col">
+                                    <label>Precio Regular *</label>
+                                    <input type="number" step="0.01" min="0" class="caja-var-price" value="${regPrice}" placeholder="0.00" />
+                                </div>
+                                <div class="caja-form-group caja-col">
+                                    <label>Precio Oferta</label>
+                                    <input type="number" step="0.01" min="0" class="caja-var-sale-price" value="${salePrice}" placeholder="0.00" />
+                                </div>
+                                <div class="caja-form-group caja-col">
+                                    <label>SKU</label>
+                                    <input type="text" class="caja-var-sku" value="${sku}" placeholder="SKU..." />
+                                </div>
+                            </div>
+                            <div class="caja-form-row" style="align-items:center;">
+                                <div class="caja-form-group caja-col" style="flex:0 0 auto;">
+                                    <label class="caja-checkbox-label">
+                                        <input type="checkbox" class="caja-var-manage-stock" ${manageStock ? 'checked' : ''} />
+                                        <span>¿Gestionar inventario?</span>
+                                    </label>
+                                </div>
+                                <div class="caja-form-group caja-col caja-var-stock-col" style="${manageStock ? '' : 'display:none;'} flex:1;">
+                                    <label>Stock</label>
+                                    <input type="number" min="0" step="1" class="caja-var-stock-qty" value="${stockQty}" placeholder="0" />
+                                </div>
+                                <div class="caja-form-group caja-col" style="flex:0 0 auto;">
+                                    <div class="caja-var-img-box" style="display:flex; align-items:center; gap:8px;">
+                                        <img class="caja-var-thumb" src="${imgUrl}" style="${imgUrl ? '' : 'display:none;'} width:34px; height:34px; border-radius:4px; object-fit:cover; border:1px solid rgba(255,255,255,0.15);" />
+                                        <input type="hidden" class="caja-var-image-id" value="${imgId}" />
+                                        <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-var-choose-img-btn" style="padding:4px 8px; font-size:11px;">📷 Foto</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                $container.append(cardHtml);
+            });
+        },
+
+        collectVariationsList: function() {
+            const variations = [];
+            $('#caja-variations-list .caja-variation-card').each(function() {
+                const $card = $(this);
+                if ($card.data('deleted')) {
+                    const id = parseInt($card.data('id')) || 0;
+                    if (id > 0) {
+                        variations.push({ id, delete: true });
+                    }
+                    return;
+                }
+
+                const id = parseInt($card.data('id')) || 0;
+                const enabled = $card.find('.caja-var-enabled').is(':checked');
+                const regular_price = $card.find('.caja-var-price').val();
+                const sale_price = $card.find('.caja-var-sale-price').val();
+                const sku = $card.find('.caja-var-sku').val();
+                const manage_stock = $card.find('.caja-var-manage-stock').is(':checked');
+                const stock_quantity = $card.find('.caja-var-stock-qty').val();
+                const image_id = $card.find('.caja-var-image-id').val();
+
+                const attributes = {};
+                $card.find('.caja-var-attr-select').each(function() {
+                    const attrName = $(this).data('attr-name');
+                    const val = $(this).val();
+                    if (attrName) {
+                        attributes[attrName] = val;
+                    }
+                });
+
+                variations.push({
+                    id,
+                    enabled,
+                    regular_price,
+                    sale_price,
+                    sku,
+                    manage_stock,
+                    stock_quantity,
+                    image_id,
+                    attributes
+                });
+            });
+            return variations;
+        },
+
         openEditProductModal: function(productId) {
             const self = this;
             const p = self.cachedProducts.find(item => item.id === productId);
             if (!p) return;
+
+            // Resetear estado de acordeones (todos colapsados inicialmente)
+            $('.caja-modal-section-accordion .caja-btn-modal-accordion').removeClass('active').find('.caja-toggle-arrow').text('▼');
+            $('.caja-modal-section-accordion .caja-details-collapse').hide();
 
             $('#edit-prod-id').val(p.id);
             const initialType = p.product_type || 'simple';
@@ -2419,12 +2807,42 @@
                 $('#edit-prod-remove-img-btn').hide();
             }
 
+            // Datos de Configuración de Pack Agrupado
+            $('#edit-grouped-target-qty').val(p.grouped_target_qty !== undefined && p.grouped_target_qty !== null ? p.grouped_target_qty : '');
+            $('#edit-grouped-enable-extra-box').prop('checked', !!p.grouped_enable_extra_box);
+            $('#edit-grouped-extra-box-name').val(p.grouped_extra_box_name || '');
+            $('#edit-grouped-fixed-price').val(p.grouped_fixed_price || '');
+            $('#edit-grouped-fixed-price-display').val(p.grouped_fixed_price_display || 'box');
+            $('#edit-grouped-custom-price-from').val(p.grouped_custom_price_from || '');
+            $('#edit-grouped-box-image-id').val(p.grouped_box_image_id || '');
+            if (p.grouped_box_image_url) {
+                $('#edit-grouped-box-img-preview').html(`<img src="${p.grouped_box_image_url}" style="width:100%; height:100%; object-fit:cover;" />`);
+                $('#edit-grouped-remove-box-img-btn').show();
+            } else {
+                $('#edit-grouped-box-img-preview').html('<span style="font-size:20px;">📦</span>');
+                $('#edit-grouped-remove-box-img-btn').hide();
+            }
+
+            if (p.is_dynamic_stock && p.dynamic_stock) {
+                $('#edit-grouped-dyn-stock-text').text(`⚡ Stock Dinámico Sincronizado: ${p.stock_quantity} unidades disponibles`);
+                if (p.bottleneck_item) {
+                    $('#edit-grouped-dyn-bottleneck-text').html(`⚠️ Cuello de botella actual: <strong>${p.bottleneck_item}</strong>`).show();
+                } else {
+                    $('#edit-grouped-dyn-bottleneck-text').hide();
+                }
+                $('#edit-grouped-dyn-stock-banner').show();
+            } else {
+                $('#edit-grouped-dyn-stock-banner').hide();
+            }
+
             // Manejo dinámico según Tipo de Producto (simple, grouped, variable)
             function updateEditProductTypeUI(type) {
                 if (type === 'grouped') {
-                    $('#edit-prod-box-role-group').slideUp(150);
+                    $('#edit-prod-sec-caja-oficial').slideUp(150);
+                    $('#edit-prod-sec-variable').slideUp(150);
                     $('#edit-prod-grouped-notice').slideDown(150);
-                    $('#edit-prod-grouped-section').slideDown(150);
+                    $('#edit-prod-sec-grouped-children').slideDown(150);
+                    $('#edit-prod-sec-grouped-config').slideDown(150);
                     $('#edit-grouped-search-filter').val('');
 
                     const isPredefined = !!p.is_predefined;
@@ -2444,13 +2862,20 @@
                     self.populatePackagingBoxSelect(p.packaging_box_product_id);
                 } else if (type === 'variable') {
                     $('#edit-prod-grouped-notice').slideUp(150);
-                    $('#edit-prod-grouped-section').slideUp(150);
-                    $('#edit-prod-box-role-group').slideUp(150);
+                    $('#edit-prod-sec-grouped-children').slideUp(150);
+                    $('#edit-prod-sec-grouped-config').slideUp(150);
+                    $('#edit-prod-sec-caja-oficial').slideUp(150);
+                    $('#edit-prod-sec-variable').slideDown(150);
+
+                    self.renderVariableAttributes(p.attributes || []);
+                    self.renderVariationsList(p.variations || [], p.attributes || []);
                 } else {
                     // simple
                     $('#edit-prod-grouped-notice').slideUp(150);
-                    $('#edit-prod-grouped-section').slideUp(150);
-                    $('#edit-prod-box-role-group').slideDown(150);
+                    $('#edit-prod-sec-grouped-children').slideUp(150);
+                    $('#edit-prod-sec-grouped-config').slideUp(150);
+                    $('#edit-prod-sec-variable').slideUp(150);
+                    $('#edit-prod-sec-caja-oficial').slideDown(150);
 
                     const currentBoxRole = p.official_box_role || 'none';
                     $('#edit-prod-box-role').val(currentBoxRole).data('prev-val', currentBoxRole);
@@ -2518,6 +2943,14 @@
 
             if (isGrouped) {
                 productData.packaging_box_product_id = $('#edit-prod-packaging-box').val() || 0;
+                productData.grouped_target_qty = $('#edit-grouped-target-qty').val();
+                productData.grouped_enable_extra_box = $('#edit-grouped-enable-extra-box').is(':checked') ? 'yes' : 'no';
+                productData.grouped_extra_box_name = $('#edit-grouped-extra-box-name').val();
+                productData.grouped_fixed_price = $('#edit-grouped-fixed-price').val();
+                productData.grouped_fixed_price_display = $('#edit-grouped-fixed-price-display').val();
+                productData.grouped_custom_price_from = $('#edit-grouped-custom-price-from').val();
+                productData.grouped_box_image_id = $('#edit-grouped-box-image-id').val();
+
                 const isPredefined = $('input[name="grouped_combo_mode"]:checked').val() === 'predefined';
                 const children = [];
                 const predefinedQtys = {};
@@ -2535,6 +2968,9 @@
                 productData.children = children;
                 productData.is_predefined = isPredefined ? 'yes' : 'no';
                 productData.predefined_quantities = predefinedQtys;
+            } else if (selectedType === 'variable') {
+                productData.attributes = self.collectVariableAttributes();
+                productData.variations = self.collectVariationsList();
             }
 
             $.ajax({
