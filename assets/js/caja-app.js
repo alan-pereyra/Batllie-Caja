@@ -1322,7 +1322,6 @@
                             let badgeText = item.box_badge || (item.has_courtesy ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA');
                             let imgHtml = item.image ? `<img src="${item.image}" class="caja-pack-box-thumb" alt="${item.name}" />` : '';
                             let unitsBadge = item.box_units ? `<span class="caja-pack-units-badge">${item.box_units} u.</span>` : '';
-                            let aumentoBadge = isAumento ? `<span class="caja-pack-units-badge caja-badge-aumento-pill" style="background:#059669; color:#fff; font-weight:700;">🚀 Aumentó su pedido</span>` : '';
                             let boxPrice = item.box_total || item.total;
 
                             itemsHtml += `
@@ -1333,7 +1332,6 @@
                                             <div class="caja-pack-box-top-line">
                                                 <span class="caja-pack-box-badge">${badgeText}</span>
                                                 ${unitsBadge}
-                                                ${aumentoBadge}
                                             </div>
                                             <span class="caja-pack-box-name">${item.name}</span>
                                         </div>
