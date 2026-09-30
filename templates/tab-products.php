@@ -191,6 +191,16 @@ if (!defined('ABSPATH')) {
                         <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
                     </select>
                 </div>
+<div class="caja-form-group">
+    <label for="new-prod-sales-suggestions"><?php _e('Ventas Sugeridas', 'emp-caja'); ?></label>
+    <select id="new-prod-sales-suggestions" name="sales_suggestions" class="caja-select">
+        <option value="none"><?php _e('-- Ninguna --', 'emp-caja'); ?></option>
+        <!-- Opciones de productos sugeridos se cargarán vía AJAX -->
+    </select>
+</div>
+<div class="caja-form-group">
+
+</div>
 
                 <div class="caja-form-group">
                     <label for="new-prod-desc"><?php _e('Descripción Corta / Ingredientes', 'emp-caja'); ?></label>

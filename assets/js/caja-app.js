@@ -438,7 +438,30 @@
                 } else {
                     self.loadCategories();
                 }
-                $('#caja-modal-new-product').fadeIn(200);
+                // Load sales suggestions via AJAX
+$.ajax({
+    url: self.config.ajaxUrl,
+    type: 'POST',
+    data: {
+        action: 'emp_caja_get_sales_suggestions',
+        security: self.config.nonce
+    },
+    success: function(res) {
+        var $select = $('#new-prod-sales-suggestions');
+        $select.empty();
+        $select.append('<option value="none">' + (typeof wc_i18n !== 'undefined' ? wc_i18n.__('-- Ninguna --') : '-- Ninguna --') + '</option>');
+        if (res && res.success && res.data && res.data.length) {
+            res.data.forEach(function(p) {
+                var txt = p.name + ' ($' + p.price + ')';
+                $select.append('<option value="' + p.id + '">' + txt + '</option>');
+            });
+        }
+    },
+    error: function() {
+        console.warn('Failed to load sales suggestions');
+    }
+});
+$('#caja-modal-new-product').fadeIn(200);
             });
 
             $('#new-prod-type').on('change', function() {

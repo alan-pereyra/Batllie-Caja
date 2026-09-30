@@ -31,6 +31,8 @@ class Batllie_Caja_Ajax {
 
         // Gestión interna de archivos (Administradores)
         add_action('wp_ajax_emp_caja_write_file', array(__CLASS__, 'ajax_write_file'));
+        // Acción AJAX para obtener sugerencias de venta
+        add_action('wp_ajax_emp_caja_get_sales_suggestions', array(__CLASS__, 'ajax_get_sales_suggestions'));
     }
 
     /**
@@ -303,6 +305,38 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('bytes' => $bytes, 'path' => $rel));
+
+    /**
+     * AJAX: Obtener sugerencias de venta basadas en el carrito actual
+     */
+    public static function ajax_get_sales_suggestions() {
+        self::check_auth();
+        // Obtener los productos del carrito
+        $cart_items = WC()->cart->get_cart();
+        $suggested_ids = [];
+        foreach ($cart_items as $item) {
+            $product_id = $item['product_id'];
+            // Obtener productos relacionados (hasta 4 por producto)
+            $related = wc_get_related_products($product_id, 4);
+            $suggested_ids = array_merge($suggested_ids, $related);
+        }
+        $suggested_ids = array_unique($suggested_ids);
+        // Excluir los productos que ya están en el carrito
+        $cart_ids = array_map(function($i){ return $i['product_id']; }, $cart_items);
+        $suggested_ids = array_diff($suggested_ids, $cart_ids);
+        $products = [];
+        foreach ($suggested_ids as $pid) {
+            $product = wc_get_product($pid);
+            if (!$product) continue;
+            $products[] = array(
+                'id'        => $pid,
+                'name'      => $product->get_name(),
+                'price'     => $product->get_price(),
+                'thumbnail' => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail'),
+            );
+        }
+        wp_send_json_success($products);
+    }
     }
 }
 
