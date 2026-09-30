@@ -337,7 +337,7 @@ class Batllie_Caja_Ajax {
         }
         wp_send_json_success($products);
     }
-    }
+
 }
 
 // Inicializar controladores AJAX
