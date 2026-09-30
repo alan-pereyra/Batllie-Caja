@@ -464,14 +464,25 @@ class Batllie_Caja_Products {
             $allowed_types = array('simple', 'grouped', 'variable');
             $new_type = sanitize_key($data['product_type']);
             if (in_array($new_type, $allowed_types, true)) {
+                // Update the product_type term.
                 wp_set_object_terms($product_id, $new_type, 'product_type');
+                // Clear caches to avoid stale data.
                 clean_post_cache($product_id);
                 if (function_exists('wc_delete_product_transients')) {
                     wc_delete_product_transients($product_id);
                 }
                 wp_cache_delete($product_id, 'posts');
                 wp_cache_delete($product_id, 'post_meta');
-                $product = wc_get_product($product_id);
+                // Re‑instantiate the product as the correct class and set its type.
+                if ($new_type === 'grouped') {
+                    $product = new WC_Product_Grouped($product_id);
+                } elseif ($new_type === 'variable') {
+                    $product = new WC_Product_Variable($product_id);
+                } else {
+                    $product = new WC_Product_Simple($product_id);
+                }
+                // Ensure the product object's type property matches.
+                $product->set_type($new_type);
             }
         }
 
