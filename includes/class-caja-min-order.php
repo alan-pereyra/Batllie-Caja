@@ -495,7 +495,14 @@ class Batllie_Caja_Min_Order {
                 $box12Img = wp_get_attachment_image_url($p12->get_image_id(), 'medium');
             }
         }
-        $cur_cap = $packing['current_box_capacity'] ?? 6;
+        $cur_cap   = !empty($packing['current_box_capacity']) ? intval($packing['current_box_capacity']) : 6;
+        $cur_units = isset($packing['current_box_units']) ? intval($packing['current_box_units']) : 0;
+        if ($cur_units <= 0 && !empty($packing['missing_units']) && intval($packing['missing_units']) < $cur_cap) {
+            $cur_units = max(0, $cur_cap - intval($packing['missing_units']));
+        } elseif ($cur_units <= 0 && !empty($packing['total_alfajores'])) {
+            $cur_units = ($packing['total_alfajores'] % $cur_cap) ?: $cur_cap;
+        }
+        $pct_box       = ($cur_cap > 0) ? min(100, round(($cur_units / $cur_cap) * 100)) : 0;
         $initialBoxImg = ($cur_cap == 12) ? ($box12Img ?: $box6Img) : ($box6Img ?: $box12Img);
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">

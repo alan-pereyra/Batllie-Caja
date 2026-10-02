@@ -500,13 +500,13 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
 
 .batllie-packing-bar-wrap {
     height: 12px;
-    background: rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.16) !important;
     border-radius: 9999px;
     overflow: hidden;
     width: 100%;
     margin-bottom: 8px;
     border: none !important;
-    box-shadow: none !important;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25) !important;
     position: relative;
 }
 
@@ -514,9 +514,9 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     display: block;
     height: 100%;
     border-radius: 9999px;
-    background: linear-gradient(90deg, #f59e0b 0%, var(--caja-primary, #f8f0d0) 100%) !important;
-    transition: width 0.35s ease-in-out;
-    box-shadow: none !important;
+    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%) !important;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.45) !important;
 }
 
 .batllie-packing-progress-status {

@@ -120,7 +120,8 @@
                 let isAlfajor = text.includes('alfajor');
                 if (!isAlfajor) {
                     const rowProdId = parseInt($row.find('[data-product_id]').attr('data-product_id') || $row.attr('data-product_id'), 10);
-                    if (rowProdId && alfajorIdSet.has(rowProdId)) {
+                    const rowVarId = parseInt($row.find('[data-variation_id]').attr('data-variation_id') || $row.attr('data-variation_id'), 10);
+                    if ((rowProdId && alfajorIdSet.has(rowProdId)) || (rowVarId && alfajorIdSet.has(rowVarId))) {
                         isAlfajor = true;
                     }
                 }
@@ -247,8 +248,19 @@
             };
         }
 
-        if (config.packing && config.packing.has_mixed_box && (totalAlfajores === (config.packing.total_alfajores || 0))) {
-            return config.packing;
+        if (config.packing && config.packing.has_mixed_box) {
+            const sharedCap = parseInt(config.packing.current_box_capacity, 10) || 6;
+            const diff = totalAlfajores - (config.packing.total_alfajores || 0);
+            const baseUnits = parseInt(config.packing.current_box_units, 10) || Math.max(0, sharedCap - (parseInt(config.packing.missing_units, 10) || 0));
+            const newUnits = Math.min(sharedCap, Math.max(0, baseUnits + diff));
+            const missing = Math.max(0, sharedCap - newUnits);
+            return Object.assign({}, config.packing, {
+                total_alfajores: totalAlfajores,
+                loose_alfajores: looseCount,
+                current_box_units: newUnits,
+                missing_units: missing,
+                status: (missing === 0) ? 'all_boxed' : 'courtesy_available'
+            });
         }
 
         const has_prior_box = Boolean(hasGroupedPack || totalAlfajores >= 6);
@@ -524,13 +536,22 @@
         $('#batllie-packing-summary-wrap').hide();
 
         // 2. Barra de progreso de la caja actual
-        const curUnits = parseInt(packing.current_box_units, 10) || 0;
         const curCap = parseInt(packing.current_box_capacity, 10) || 6;
+        let curUnits = parseInt(packing.current_box_units, 10);
+        if (isNaN(curUnits) || curUnits <= 0) {
+            if (packing.missing_units !== undefined && parseInt(packing.missing_units, 10) < curCap && parseInt(packing.missing_units, 10) > 0) {
+                curUnits = Math.max(0, curCap - parseInt(packing.missing_units, 10));
+            } else if (packing.total_alfajores) {
+                curUnits = (packing.total_alfajores % curCap) || curCap;
+            } else {
+                curUnits = 0;
+            }
+        }
         const pct = (curCap > 0) ? Math.min(100, Math.round((curUnits / curCap) * 100)) : 0;
 
         $('#batllie-packing-bar-fill').css({
             'width': pct + '%',
-            'min-width': (curUnits > 0 ? '8px' : '0px')
+            'min-width': (curUnits > 0 ? '12px' : '0px')
         });
 
         // 3. Títulos, Mensajes y Badges
@@ -725,10 +746,20 @@
      */
     function optimisticQuickAddStep() {
         const curPacking = config.packing || {};
-        let curUnits = (curPacking.current_box_units || 0) + 1;
-        let totalAlf = (curPacking.total_alfajores || 0) + 1;
-        let missingUnits = Math.max(0, (curPacking.missing_units || 1) - 1);
-        const cap = curPacking.current_box_capacity || 6;
+        const cap = parseInt(curPacking.current_box_capacity, 10) || 6;
+        let curUnits = parseInt(curPacking.current_box_units, 10);
+        if (isNaN(curUnits) || curUnits <= 0) {
+            if (curPacking.missing_units !== undefined && parseInt(curPacking.missing_units, 10) < cap && parseInt(curPacking.missing_units, 10) > 0) {
+                curUnits = Math.max(0, cap - parseInt(curPacking.missing_units, 10));
+            } else if (curPacking.total_alfajores) {
+                curUnits = (curPacking.total_alfajores % cap) || cap;
+            } else {
+                curUnits = 0;
+            }
+        }
+        curUnits += 1;
+        let totalAlf = (parseInt(curPacking.total_alfajores, 10) || 0) + 1;
+        let missingUnits = Math.max(0, cap - curUnits);
 
         let status = curPacking.status;
         let isBlocked = curPacking.is_blocked;
