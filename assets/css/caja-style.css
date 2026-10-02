@@ -3597,6 +3597,9 @@ body.caja-modal-locked {
 }
 
 .caja-control-box-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     background: #1e293b;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
@@ -3606,8 +3609,11 @@ body.caja-modal-locked {
 }
 
 .caja-control-box-header {
-    display: flex;
-    align-items: center;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
     gap: 10px;
     padding: 12px 18px;
     background: rgba(255, 255, 255, 0.05);
@@ -3628,18 +3634,27 @@ body.caja-modal-locked {
     font-weight: 700;
     padding: 3px 10px;
     border-radius: 6px;
+    flex-shrink: 0;
 }
 
 .caja-control-subitems-list {
-    padding: 8px 16px 8px 24px;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px 18px 8px 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
     touch-action: pan-y;
 }
 
 .caja-control-item-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 8px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 10px 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     transition: background 0.15s ease;
     touch-action: pan-y;
@@ -3652,56 +3667,78 @@ body.caja-modal-locked {
 }
 
 .caja-control-item-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    padding-right: 12px !important;
 }
 
 .caja-control-thumb {
     width: 42px;
     height: 42px;
+    min-width: 42px;
+    min-height: 42px;
     border-radius: 6px;
     object-fit: cover;
     background: #0f172a;
     border: 1px solid rgba(255, 255, 255, 0.12);
+    flex-shrink: 0;
 }
 
 .caja-control-no-thumb {
     font-size: 1.4rem;
     width: 42px;
+    min-width: 42px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .caja-control-item-info {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 8px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
 }
 
 .caja-control-item-qty {
     font-size: 1.05rem;
     font-weight: 800;
     color: #38bdf8;
+    flex-shrink: 0;
 }
 
 .caja-control-item-name {
     font-size: 0.98rem;
     font-weight: 600;
     color: #f1f5f9;
+    word-break: break-word;
 }
 
 .caja-control-check-wrap {
-    display: flex;
-    align-items: center;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    padding: 2px 0 !important;
     cursor: pointer;
-    padding: 6px;
 }
 
 .caja-control-check-wrap input[type="checkbox"] {
-    width: 28px;
-    height: 28px;
-    accent-color: #8b5cf6;
-    cursor: pointer;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    accent-color: #8b5cf6 !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+}
+
+.caja-control-check-box {
+    display: none !important;
 }
 
 .caja-control-pedido-footer {
@@ -3768,18 +3805,35 @@ body.caja-modal-locked {
         padding: 12px 10px 20px 10px;
         gap: 12px;
     }
+    .caja-control-box-header {
+        padding: 10px 14px !important;
+    }
     .caja-control-subitems-list {
-        padding: 4px 6px 4px 10px;
+        padding: 4px 14px 6px 14px !important;
     }
     .caja-control-item-row {
-        padding: 8px 4px;
+        width: 100% !important;
+        padding: 8px 0 !important;
+    }
+    .caja-control-item-left {
+        gap: 8px !important;
+        padding-right: 8px !important;
     }
     .caja-control-thumb {
-        width: 36px;
-        height: 36px;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
     }
     .caja-control-item-name {
-        font-size: 0.9rem;
+        font-size: 0.9rem !important;
+    }
+    .caja-control-check-wrap {
+        padding: 2px 0 !important;
+    }
+    .caja-control-check-wrap input[type="checkbox"] {
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
     }
     .caja-control-pedido-footer {
         padding: 10px 14px;

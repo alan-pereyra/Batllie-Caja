@@ -3076,7 +3076,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                     </div>
                                     <label class="caja-control-check-wrap">
                                         <input type="checkbox" class="caja-control-chk" />
-                                        <span class="caja-control-check-box"></span>
                                     </label>
                                 </div>
                             `;
@@ -3093,7 +3092,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                 </div>
                                 <label class="caja-control-check-wrap">
                                     <input type="checkbox" class="caja-control-chk" />
-                                    <span class="caja-control-check-box"></span>
                                 </label>
                             </div>
                         `;
@@ -3132,7 +3130,6 @@ $('#caja-modal-new-product').fadeIn(200);
                             </div>
                             <label class="caja-control-check-wrap">
                                 <input type="checkbox" class="caja-control-chk" />
-                                <span class="caja-control-check-box"></span>
                             </label>
                         </div>
                     `;
@@ -3171,7 +3168,6 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
                         <label class="caja-control-check-wrap">
                             <input type="checkbox" class="caja-control-chk" />
-                            <span class="caja-control-check-box"></span>
                         </label>
                     </div>
                 `;
@@ -3189,7 +3185,6 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
                         <label class="caja-control-check-wrap">
                             <input type="checkbox" class="caja-control-chk" />
-                            <span class="caja-control-check-box"></span>
                         </label>
                     </div>
                 `;
