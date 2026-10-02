@@ -1694,10 +1694,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 const hasCourtesy = Boolean(order && order.has_courtesy_box);
                 const hasDecision = Boolean(order && order.decision_correcta);
 
-                if (totalLooseUnits < 6 && !hasCourtesy) {
-                    return boxes.concat(consolidatedLoose, otherItems);
-                }
-
                 // Armar cajas automáticas de alfajores sueltos
                 const autoBoxes = [];
                 let pool = consolidatedLoose.map(it => Object.assign({}, it));
@@ -1705,9 +1701,88 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 const defaultImg = (boxes.length && boxes[0].image) ? boxes[0].image : '';
 
-                // Determinamos capacidades a llenar (Prioridad 12 unidades)
+                // Si el pedido tiene caja mixta y aún no fue empaquetada
+                let mixedProductItem = null;
+                const remainingOther = [];
+                if (order && order.has_mixed_box && otherItems.length) {
+                    const mInfo = order.mixed_box_info || {};
+                    const mTargetName = (mInfo.product_name || '').toLowerCase();
+                    otherItems.forEach(it => {
+                        const itName = (it.name || '').toLowerCase();
+                        if (!mixedProductItem && mTargetName && (itName.includes(mTargetName) || mTargetName.includes(itName))) {
+                            mixedProductItem = it;
+                        } else {
+                            remainingOther.push(it);
+                        }
+                    });
+                } else {
+                    remainingOther.push(...otherItems);
+                }
+
+                if (mixedProductItem && totalLooseUnits > 0) {
+                    const mInfo = order.mixed_box_info || {};
+                    const mCap = parseInt(mInfo.box_capacity, 10) || 12;
+                    const maxAlf = parseInt(mInfo.max_alfajores, 10) || 6;
+                    const takeAlf = Math.min(totalLooseUnits, maxAlf);
+                    let needed = takeAlf;
+                    const mBoxItems = [mixedProductItem];
+                    let mBoxTotalNum = parseMoneyVal(mixedProductItem.total, mixedProductItem.total_num);
+
+                    while (needed > 0 && poolIdx < pool.length) {
+                        const cur = pool[poolIdx];
+                        const curQty = parseInt(cur.quantity, 10) || 1;
+                        const curPrice = parseMoneyVal(cur.total, cur.total_num);
+                        const unitPrice = curQty > 0 ? (curPrice / curQty) : 0;
+
+                        if (curQty <= needed) {
+                            mBoxItems.push(cur);
+                            mBoxTotalNum += curPrice;
+                            needed -= curQty;
+                            poolIdx++;
+                        } else {
+                            const takeQty = needed;
+                            const takePrice = takeQty * unitPrice;
+                            const sub = Object.assign({}, cur, {
+                                quantity: takeQty,
+                                total_num: takePrice,
+                                total: formatMoneyAr(takePrice)
+                            });
+                            mBoxItems.push(sub);
+                            mBoxTotalNum += takePrice;
+                            pool[poolIdx].quantity = curQty - takeQty;
+                            pool[poolIdx].total_num = curPrice - takePrice;
+                            pool[poolIdx].total = formatMoneyAr(curPrice - takePrice);
+                            needed = 0;
+                        }
+                    }
+
+                    autoBoxes.push({
+                        item_id: 'client_box_mixed_1',
+                        id: 0,
+                        name: 'Caja ' + mCap + ' unidades (Mixta)',
+                        image: defaultImg,
+                        quantity: 1,
+                        is_box: true,
+                        is_auto_box: true,
+                        is_mixed_box: true,
+                        box_badge: '📦 PACK / CAJA',
+                        box_units: mCap,
+                        box_total: formatMoneyAr(mBoxTotalNum),
+                        box_total_num: mBoxTotalNum,
+                        has_decision_correcta: hasDecision,
+                        has_courtesy: false,
+                        pack_items: mBoxItems
+                    });
+
+                    totalLooseUnits -= takeAlf;
+                }
+
+                // Determinamos capacidades a llenar para los alfajores restantes (Prioridad 12 unidades)
                 const caps = [];
-                let uLeft = totalLooseUnits;
+                let uLeft = 0;
+                for (let i = poolIdx; i < pool.length; i++) {
+                    uLeft += parseInt(pool[i].quantity, 10) || 0;
+                }
                 while (uLeft >= 12) {
                     caps.push({ cap: 12, courtesy: false });
                     uLeft -= 12;
@@ -1716,7 +1791,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     caps.push({ cap: 6, courtesy: false });
                     uLeft -= 6;
                 }
-                if (uLeft > 0 && hasCourtesy) {
+                if (uLeft > 0 && hasCourtesy && !autoBoxes.length) {
                     caps.push({ cap: uLeft, courtesy: true });
                     uLeft = 0;
                 }
@@ -1786,7 +1861,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     poolIdx++;
                 }
 
-                return boxes.concat(autoBoxes, remainingLoose, otherItems);
+                return boxes.concat(autoBoxes, remainingLoose, remainingOther);
             }
 
             orders.forEach(order => {

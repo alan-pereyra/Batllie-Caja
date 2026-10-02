@@ -490,17 +490,18 @@ class Batllie_Caja_Orders {
      * Empaquetar alfajores sueltos en cajas automáticas (Caja 12, Caja 6, Cortesía)
      * para que en la comanda mostrador/cocina se vean agrupados homogéneamente como packs.
      */
-    public static function auto_package_loose_alfajores($raw_standalone, $currency = null, $has_courtesy = false, $has_decision = false, $default_image = '') {
+    public static function auto_package_loose_alfajores($raw_standalone, $currency = null, $has_courtesy = false, $has_decision = false, $default_image = '', $order = null) {
         if (empty($raw_standalone) || !is_array($raw_standalone)) {
             return array('boxes' => array(), 'remaining' => array());
         }
 
-        $loose_alfajores = array();
+        $loose_alfajores  = array();
         $other_standalone = array();
 
         foreach ($raw_standalone as $item) {
+            $prod_id = !empty($item['product_id']) ? $item['product_id'] : $item['id'];
             $name_lower = mb_strtolower($item['name'], 'UTF-8');
-            $is_alf = (class_exists('Batllie_Caja_Packing') && Batllie_Caja_Packing::is_alfajor_product($item['id'])) ||
+            $is_alf = (class_exists('Batllie_Caja_Packing') && Batllie_Caja_Packing::is_alfajor_product($prod_id)) ||
                       (strpos($name_lower, 'alfajor') !== false) ||
                       (strpos($name_lower, 'batllie') !== false);
 
@@ -524,11 +525,156 @@ class Batllie_Caja_Orders {
             $total_loose_units += intval($la['quantity']);
         }
 
-        // 3. Determinar qué cajas armar (Prioridad 12 unidades)
-        $boxes_to_create = array();
-        if ($total_loose_units >= 6 || ($total_loose_units > 0 && $has_courtesy)) {
-            $units_left = $total_loose_units;
+        // 3. Detectar productos que pueden compartir caja oficial (Caja Mixta)
+        $shared_candidates = array();
+        $pure_standalone   = array();
 
+        foreach ($other_standalone as $item) {
+            $p_id = !empty($item['product_id']) ? $item['product_id'] : $item['id'];
+            $v_id = !empty($item['variation_id']) ? $item['variation_id'] : 0;
+            $target_id = ($v_id > 0) ? $v_id : $p_id;
+
+            $can_share = get_post_meta($target_id, '_batllie_can_share_box', true);
+            if ((empty($can_share) || $can_share === 'none') && $v_id > 0) {
+                $can_share = get_post_meta($p_id, '_batllie_can_share_box', true);
+            }
+
+            if (!empty($can_share) && $can_share !== 'none') {
+                $max_alf = get_post_meta($target_id, '_batllie_share_box_max_alfajores', true);
+                if (($max_alf === '' || $max_alf === false) && $v_id > 0) {
+                    $max_alf = get_post_meta($p_id, '_batllie_share_box_max_alfajores', true);
+                }
+                $max_alf = ($max_alf !== '' && $max_alf !== false) ? intval($max_alf) : 6;
+                if ($max_alf <= 0) $max_alf = 6;
+
+                $shared_cap = ($can_share === 'box_6') ? 6 : 12;
+                $shared_candidates[] = array(
+                    'item'          => $item,
+                    'box_type'      => $can_share,
+                    'box_capacity'  => $shared_cap,
+                    'max_alfajores' => min(12, max(1, $max_alf)),
+                );
+            } else {
+                $pure_standalone[] = $item;
+            }
+        }
+
+        $auto_boxes      = array();
+        $pool            = $loose_alfajores;
+        $pool_idx        = 0;
+        $other_remaining = $pure_standalone;
+
+        // Evaluar si corresponde armar Caja Mixta con el producto compartido
+        $can_use_shared = false;
+        if (!empty($shared_candidates) && $total_loose_units > 0) {
+            $cand = $shared_candidates[0];
+            $is_compact = ($cand['max_alfajores'] >= $cand['box_capacity']);
+            // Si es compacto cabe siempre; si es voluminoso, comparte si hay menos de 12 alfajores
+            if ($is_compact || $total_loose_units < 12) {
+                $can_use_shared = true;
+            }
+        }
+
+        if ($can_use_shared) {
+            $cand      = $shared_candidates[0];
+            $m_item    = $cand['item'];
+            $m_cap     = $cand['box_capacity'];
+            $m_max_alf = $cand['max_alfajores'];
+
+            // Cantidad de alfajores que entran con el producto en la caja mixta
+            $take_alf = min($total_loose_units, $m_max_alf);
+            $needed   = $take_alf;
+            $m_box_items = array($m_item); // El producto compartido va adentro de la caja como primer ítem
+            $m_total_num = floatval($m_item['total_num']);
+
+            while ($needed > 0 && $pool_idx < count($pool)) {
+                $cur = $pool[$pool_idx];
+                $cur_qty = intval($cur['quantity']);
+                $unit_price = ($cur_qty > 0) ? (floatval($cur['total_num']) / $cur_qty) : 0.0;
+
+                if ($cur_qty <= $needed) {
+                    $m_box_items[] = $cur;
+                    $m_total_num += floatval($cur['total_num']);
+                    $needed -= $cur_qty;
+                    $pool_idx++;
+                } else {
+                    $take_qty = $needed;
+                    $take_total = $take_qty * $unit_price;
+
+                    $sub = $cur;
+                    $sub['quantity'] = $take_qty;
+                    $sub['total_num'] = $take_total;
+                    if ($currency && function_exists('wc_price')) {
+                        $sub['total'] = wc_price($take_total, array('currency' => $currency));
+                    }
+                    $m_box_items[] = $sub;
+                    $m_total_num += $take_total;
+
+                    $pool[$pool_idx]['quantity'] -= $take_qty;
+                    $pool[$pool_idx]['total_num'] -= $take_total;
+                    if ($currency && function_exists('wc_price')) {
+                        $pool[$pool_idx]['total'] = wc_price($pool[$pool_idx]['total_num'], array('currency' => $currency));
+                    }
+
+                    $needed = 0;
+                }
+            }
+
+            // Imagen oficial de la caja de 12 o 6
+            $box_img_url = $default_image;
+            if (class_exists('Batllie_Caja_Packing')) {
+                $off_box_id = Batllie_Caja_Packing::get_official_box_id($m_cap);
+                if ($off_box_id && function_exists('wc_get_product')) {
+                    $bp = wc_get_product($off_box_id);
+                    if ($bp && $bp->get_image_id()) {
+                        $box_img_url = wp_get_attachment_image_url($bp->get_image_id(), 'thumbnail');
+                    }
+                }
+            }
+
+            $m_formatted_total = ($currency && function_exists('wc_price')) ? wc_price($m_total_num, array('currency' => $currency)) : ('$ ' . number_format($m_total_num, 2, ',', '.'));
+
+            $auto_boxes[] = array(
+                'item_id'               => 'auto_box_mixed_1',
+                'id'                    => 0,
+                'name'                  => sprintf(__('Caja %d unidades (Mixta)', 'emp-caja'), $m_cap),
+                'image'                 => $box_img_url,
+                'quantity'              => 1,
+                'total_num'             => $m_total_num,
+                'total'                 => $m_formatted_total,
+                'meta'                  => array(),
+                'is_box'                => true,
+                'is_auto_box'           => true,
+                'is_mixed_box'          => true,
+                'box_badge'             => '📦 PACK / CAJA',
+                'box_units'             => $m_cap,
+                'box_total'             => $m_formatted_total,
+                'box_total_num'         => $m_total_num,
+                'has_decision_correcta' => $has_decision,
+                'has_aumento_pedido'    => $has_decision,
+                'has_courtesy'          => false,
+                'pack_items'            => $m_box_items,
+            );
+
+            // Si había otros candidatos compartidos que no cupieron, quedan como sueltos restantes
+            for ($k = 1; $k < count($shared_candidates); $k++) {
+                $other_remaining[] = $shared_candidates[$k]['item'];
+            }
+        } else {
+            // Si no se usó compartido, todos los candidatos quedan como productos sueltos
+            foreach ($shared_candidates as $sc) {
+                $other_remaining[] = $sc['item'];
+            }
+        }
+
+        // 4. Distribuir alfajores sueltos restantes en cajas tradicionales (Prioridad 12 unidades)
+        $units_left = 0;
+        for ($i = $pool_idx; $i < count($pool); $i++) {
+            $units_left += intval($pool[$i]['quantity']);
+        }
+
+        $boxes_to_create = array();
+        if ($units_left >= 6 || ($units_left > 0 && $has_courtesy && empty($auto_boxes))) {
             while ($units_left >= 12) {
                 $boxes_to_create[] = array('capacity' => 12, 'type' => 'box_12', 'is_courtesy' => false);
                 $units_left -= 12;
@@ -539,21 +685,11 @@ class Batllie_Caja_Orders {
                 $units_left -= 6;
             }
 
-            if ($units_left > 0 && $has_courtesy) {
+            if ($units_left > 0 && $has_courtesy && empty($auto_boxes)) {
                 $boxes_to_create[] = array('capacity' => $units_left, 'type' => 'courtesy', 'is_courtesy' => true);
                 $units_left = 0;
             }
         }
-
-        if (empty($boxes_to_create)) {
-            // No alcanzan para armar una caja de 6 ni tienen cortesía
-            return array('boxes' => array(), 'remaining' => array_merge($loose_alfajores, $other_standalone));
-        }
-
-        // 4. Distribuir alfajores sueltos en las cajas
-        $pool = $loose_alfajores;
-        $pool_idx = 0;
-        $auto_boxes = array();
 
         foreach ($boxes_to_create as $b_idx => $b_spec) {
             $cap = $b_spec['capacity'];
@@ -584,7 +720,6 @@ class Batllie_Caja_Orders {
                     $box_items[] = $sub;
                     $box_total_num += $take_total;
 
-                    // Restar del pool
                     $pool[$pool_idx]['quantity'] -= $take_qty;
                     $pool[$pool_idx]['total_num'] -= $take_total;
                     if ($currency && function_exists('wc_price')) {
@@ -601,16 +736,28 @@ class Batllie_Caja_Orders {
 
             $box_badge = ($b_spec['is_courtesy']) ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA';
 
-            // Si el pedido tiene decisión correcta (completó la caja en el modal), asignar el indicador a la última caja armada
-            $is_target_felicitacion = ($has_decision && $b_idx === (count($boxes_to_create) - 1));
+            // Si el pedido tiene decisión correcta y no hubo caja mixta que ya la tenga, asignarla a la última caja armada
+            $is_target_felicitacion = ($has_decision && empty($auto_boxes) && $b_idx === (count($boxes_to_create) - 1));
+
+            // Imagen oficial de la caja
+            $box_img_url = $default_image;
+            if (class_exists('Batllie_Caja_Packing')) {
+                $off_box_id = Batllie_Caja_Packing::get_official_box_id($cap);
+                if ($off_box_id && function_exists('wc_get_product')) {
+                    $bp = wc_get_product($off_box_id);
+                    if ($bp && $bp->get_image_id()) {
+                        $box_img_url = wp_get_attachment_image_url($bp->get_image_id(), 'thumbnail');
+                    }
+                }
+            }
 
             $formatted_box_total = ($currency && function_exists('wc_price')) ? wc_price($box_total_num, array('currency' => $currency)) : ('$ ' . number_format($box_total_num, 2, ',', '.'));
 
             $auto_boxes[] = array(
-                'item_id'               => 'auto_box_' . ($b_idx + 1),
+                'item_id'               => 'auto_box_' . (count($auto_boxes) + 1),
                 'id'                    => 0,
                 'name'                  => $box_name,
-                'image'                 => $default_image,
+                'image'                 => $box_img_url,
                 'quantity'              => 1,
                 'total_num'             => $box_total_num,
                 'total'                 => $formatted_box_total,
@@ -638,7 +785,7 @@ class Batllie_Caja_Orders {
 
         return array(
             'boxes'     => $auto_boxes,
-            'remaining' => array_merge($remaining_loose, $other_standalone)
+            'remaining' => array_merge($remaining_loose, $other_remaining)
         );
     }
 
@@ -705,6 +852,8 @@ class Batllie_Caja_Orders {
             $line_data = array(
                 'item_id'           => $item_id,
                 'id'                => $item->get_product_id(),
+                'product_id'        => $item->get_product_id(),
+                'variation_id'      => $item->get_variation_id() ? $item->get_variation_id() : 0,
                 'name'              => $item->get_name(),
                 'image'             => $image_url,
                 'quantity'          => $item->get_quantity(),
@@ -806,8 +955,8 @@ class Batllie_Caja_Orders {
         $has_courtesy    = ($order->get_meta('_batllie_has_courtesy_box') === 'yes');
         $has_decision    = ($order->get_meta('_batllie_decision_correcta') === 'yes') || ($order->get_meta('_batllie_aumento_pedido') === 'yes');
 
-        // Empaquetar alfajores sueltos en cajas automáticas homogéneas (Caja 6, Caja 12, Cortesía)
-        $packaged_loose = self::auto_package_loose_alfajores($raw_standalone, $order->get_currency(), $has_courtesy, $has_decision, $default_box_img);
+        // Empaquetar alfajores sueltos en cajas automáticas homogéneas (Caja 6, Caja 12, Cortesía o Mixta)
+        $packaged_loose = self::auto_package_loose_alfajores($raw_standalone, $order->get_currency(), $has_courtesy, $has_decision, $default_box_img, $order);
 
         // Construir listado final: primero las cajas de packs, luego cajas automáticas de alfajores sueltos, y finalmente productos sueltos restantes
         $items = array_merge(array_values($raw_boxes), $packaged_loose['boxes'], $packaged_loose['remaining']);
@@ -926,6 +1075,9 @@ class Batllie_Caja_Orders {
             'aumento_pedido'       => ($order->get_meta('_batllie_aumento_pedido') === 'yes' || $order->get_meta('_batllie_decision_correcta') === 'yes'),
             'tarjeta_incluida'     => ($order->get_meta('_batllie_tarjeta_incluida') === 'yes'),
             'has_courtesy_box'     => ($order->get_meta('_batllie_has_courtesy_box') === 'yes'),
+            'has_mixed_box'        => ($order->get_meta('_batllie_has_mixed_box') === 'yes'),
+            'mixed_box_info'       => $order->get_meta('_batllie_mixed_box_info'),
+            'packaging_summary_text' => $order->get_meta('_batllie_packaging_summary_text'),
             'boxes_used'           => $boxes_used,
             'boxes_6_qty'          => isset($boxes_used['box_6']) ? intval($boxes_used['box_6']) : (!empty($packing_summary['box_6']) ? intval($packing_summary['box_6']) : 0),
             'boxes_12_qty'         => isset($boxes_used['box_12']) ? intval($boxes_used['box_12']) : (!empty($packing_summary['box_12']) ? intval($packing_summary['box_12']) : 0),

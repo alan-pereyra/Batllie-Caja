@@ -1665,6 +1665,38 @@ class Batllie_Caja_Packing {
         $has_mixed_meta    = ($order->get_meta('_batllie_has_mixed_box') === 'yes');
         $mixed_info        = $order->get_meta('_batllie_mixed_box_info');
 
+        if (!$has_mixed_meta && $loose_alfajores > 0) {
+            foreach ($order->get_items() as $item) {
+                $p_id = $item->get_product_id();
+                $v_id = $item->get_variation_id();
+                $t_id = ($v_id > 0) ? $v_id : $p_id;
+                $can_share = get_post_meta($t_id, '_batllie_can_share_box', true);
+                if ((empty($can_share) || $can_share === 'none') && $v_id > 0) {
+                    $can_share = get_post_meta($p_id, '_batllie_can_share_box', true);
+                }
+                if (!empty($can_share) && $can_share !== 'none') {
+                    $max_alf = get_post_meta($t_id, '_batllie_share_box_max_alfajores', true);
+                    if (($max_alf === '' || $max_alf === false) && $v_id > 0) {
+                        $max_alf = get_post_meta($p_id, '_batllie_share_box_max_alfajores', true);
+                    }
+                    $max_alf = ($max_alf !== '' && $max_alf !== false) ? intval($max_alf) : 6;
+                    $m_cap = ($can_share === 'box_6') ? 6 : 12;
+                    $is_compact = ($max_alf >= $m_cap);
+                    if ($is_compact || $loose_alfajores < 12) {
+                        $has_mixed_meta = true;
+                        $mixed_info = array(
+                            'box_type'     => $can_share,
+                            'box_capacity' => $m_cap,
+                            'alfajores'    => min($loose_alfajores, $max_alf),
+                        );
+                        $order->update_meta_data('_batllie_has_mixed_box', 'yes');
+                        $order->update_meta_data('_batllie_mixed_box_info', $mixed_info);
+                        break;
+                    }
+                }
+            }
+        }
+
         if ($loose_alfajores > 0) {
             $u_left = $loose_alfajores;
             $loose_b12 = 0;
