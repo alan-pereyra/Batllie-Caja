@@ -310,25 +310,21 @@
 
                 // Ajustar visibilidad dinámica del menú ubicado ARRIBA del botón de estado
                 if (newStatus === 'pending') {
-                    setVisible($grid, true);
                     setVisible($payBox, true);
                     setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'processing') {
-                    setVisible($grid, true);
                     setVisible($payBox, !isApproved);
                     setVisible($pkgBox, !isPkgVerified);
-                    setVisible($shipBox, true);
+                    setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
-                    setVisible($grid, true);
                     setVisible($payBox, false);
                     setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, true);
                     $controlBtnWrap.show();
                 } else if (newStatus === 'completed') {
-                    setVisible($grid, true);
                     setVisible($payBox, false);
                     setVisible($pkgBox, false);
                     setVisible($shipBox, true);
@@ -338,7 +334,6 @@
                     $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado');
                 } else if (newStatus === 'recibido-problema') {
-                    setVisible($grid, true);
                     setVisible($payBox, false);
                     setVisible($pkgBox, false);
                     setVisible($shipBox, true);
@@ -348,12 +343,14 @@
                     $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado_problemas');
                 } else if (newStatus === 'cancelled' || newStatus === 'refunded') {
-                    setVisible($grid, true);
                     setVisible($payBox, true);
                     setVisible($pkgBox, false);
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 }
+
+                const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
+                setVisible($grid, hasVisibleMeta);
 
                 select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed');
                 select.addClass('status-bg-' + newStatus);
@@ -2013,7 +2010,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 // Reglas de visibilidad condicional para el menú de pago, empaque y envío (ubicado ARRIBA del selector de estado):
                 const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
                 const isVerified = (order.control_pedido_verified === true || order.control_pedido_verified === 'yes');
-                let showMetaGrid = true;
                 let showPaymentBox = false;
                 let showPackagingBox = false;
                 let showShippingBox = false;
@@ -2025,7 +2021,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else if (order.status === 'processing') {
                     showPaymentBox = !isPayApproved;
                     showPackagingBox = !isVerified;
-                    showShippingBox = true;
+                    showShippingBox = false;
                 } else if (order.status === 'enviando' || order.status === 'on-hold') {
                     showPaymentBox = false;
                     showPackagingBox = !isVerified;
@@ -2043,6 +2039,8 @@ $('#caja-modal-new-product').fadeIn(200);
                     showPackagingBox = !isVerified;
                     showShippingBox = false;
                 }
+
+                let showMetaGrid = (showPaymentBox || showPackagingBox || showShippingBox);
 
                 const showControlPedidoBtn = (order.status === 'enviando' || order.status === 'on-hold');
 
