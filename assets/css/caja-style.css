@@ -3733,10 +3733,8 @@ span#edit-grouped-selected-badge {
    CONTROL DE EMPAQUE EN LA TARJETA DEL PEDIDO
    ========================================================================== */
 .caja-meta-packaging-box {
-    background: #1e293b;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    padding: 10px 12px;
 }
 
 .caja-btn-modify-pkg {

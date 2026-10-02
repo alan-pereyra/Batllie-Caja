@@ -317,7 +317,7 @@
                 } else if (newStatus === 'processing') {
                     setVisible($payBox, !isApproved);
                     setVisible($pkgBox, !isPkgVerified);
-                    setVisible($shipBox, false);
+                    setVisible($shipBox, true);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
                     setVisible($payBox, false);
@@ -2021,7 +2021,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else if (order.status === 'processing') {
                     showPaymentBox = !isPayApproved;
                     showPackagingBox = !isVerified;
-                    showShippingBox = false;
+                    showShippingBox = true;
                 } else if (order.status === 'enviando' || order.status === 'on-hold') {
                     showPaymentBox = false;
                     showPackagingBox = !isVerified;
