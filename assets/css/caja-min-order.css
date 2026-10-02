@@ -397,8 +397,12 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     box-shadow: none !important;
 }
 
-/* Botón Secundario ("Volver al Carrito" y "Continuar de todas formas"): Estilo outline discreto */
+/* Botón Secundario ("Continuar de todas formas"): Estilo outline discreto */
 .batllie-min-btn-dismiss,
+#batllie-min-modal-dismiss-btn {
+    display: none !important;
+}
+
 .batllie-min-btn-courtesy {
     background: transparent !important;
     color: var(--caja-text, #f8fafc) !important;
@@ -408,7 +412,6 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     font-weight: 600;
 }
 
-.batllie-min-btn-dismiss:hover,
 .batllie-min-btn-courtesy:hover {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: var(--caja-text-muted, #94a3b8) !important;
@@ -475,62 +478,24 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     display: none !important;
 }
 
-/* Barra de Resumen de Totales y Cajas Completas */
+/* Barra de Resumen de Totales y Cajas Completas (Oculto a pedido) */
+#batllie-packing-summary-wrap,
 .batllie-packing-summary-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 9px;
-    padding: 7px 12px;
-    margin: 10px 0 12px 0;
-    font-size: 0.82rem;
-    border: none !important;
-    box-shadow: none !important;
+    display: none !important;
 }
 
-.batllie-summary-total {
-    color: var(--caja-text, #f8fafc);
-}
-
-.batllie-summary-total strong {
-    color: var(--caja-primary, #10b981);
-    font-weight: 700;
-}
-
-.batllie-summary-boxed {
-    color: var(--caja-status-completed, #10b981);
-    font-weight: 600;
-    background: rgba(16, 185, 129, 0.14);
-    padding: 3px 8px;
-    border-radius: 6px;
-    line-height: 1.2;
-}
-
-/* Tarjeta de Progreso de la Caja */
+/* Tarjeta de Progreso de la Caja (Totalmente plana, sin fondo) */
 .batllie-packing-progress-container {
-    background: rgba(0, 0, 0, 0.22);
-    border-radius: 12px;
-    padding: 12px 14px;
-    margin: 12px 0 14px 0;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 2px 0 6px 0 !important;
+    margin: 8px 0 10px 0 !important;
     border: none !important;
     box-shadow: none !important;
 }
 
 .batllie-packing-progress-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.82rem;
-    margin-bottom: 8px;
-    color: var(--caja-text-muted, #94a3b8);
-}
-
-.batllie-packing-count {
-    font-weight: 700;
-    color: var(--caja-text, #f8fafc);
+    display: none !important;
 }
 
 .batllie-packing-bar-wrap {

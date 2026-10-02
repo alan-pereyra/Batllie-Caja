@@ -822,8 +822,8 @@ class Batllie_Caja_Packing {
                         $is_blocked       = false;
                         $courtesy_allowed = true;
                         $message_type     = 'recommendation';
-                        $custom_title     = sprintf(__('¡Tu %s viaja en Caja Oficial!', 'emp-caja'), $shared_name);
-                        $custom_subtitle  = sprintf(__('Sumá %d alfajor(es) más para completar tu Caja Oficial de %d', 'emp-caja'), $missing_units, $shared_cap);
+                        $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                        $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
                         $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_units);
                         $message          = sprintf(
                             __('Tu %s y tus %d alfajores viajarán juntos en 1 Caja Oficial de %d. ¡Con solo %d alfajor(es) más completás tu caja!', 'emp-caja'),
@@ -933,8 +933,8 @@ class Batllie_Caja_Packing {
                         $is_blocked       = false;
                         $courtesy_allowed = true;
                         $message_type     = 'recommendation';
-                        $custom_title     = sprintf(__('¡Tu %s viaja en Caja Oficial!', 'emp-caja'), $shared_name);
-                        $custom_subtitle  = sprintf(__('Sumá %d alfajor(es) más para completar el espacio de la caja', 'emp-caja'), $missing_to_max);
+                        $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                        $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
                         $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_max);
                         $message          = sprintf(
                             __('Tu %s y tus %d alfajores viajarán juntos en 1 Caja Oficial de %d. ¡Con solo %d alfajor(es) más completás todo el espacio disponible en la caja!', 'emp-caja'),
@@ -948,7 +948,7 @@ class Batllie_Caja_Packing {
                         $is_blocked       = false;
                         $courtesy_allowed = false;
                         $message_type     = 'complete';
-                        $custom_title     = __('¡Caja Compartida Completa!', 'emp-caja');
+                        $custom_title     = __('¡Caja Completa!', 'emp-caja');
                         $custom_subtitle  = __('Tu pedido está perfectamente protegido', 'emp-caja');
                         $custom_badge     = __('¡Caja al 100%! 💌', 'emp-caja');
                         $message          = sprintf(
@@ -991,13 +991,9 @@ class Batllie_Caja_Packing {
                     $is_blocked       = false;
                     $courtesy_allowed = true;
                     $message_type     = 'upsell';
-                    $custom_title     = __('¡Llevate una Caja de 12 exclusiva de alfajores!', 'emp-caja');
-                    $custom_subtitle  = sprintf(
-                        __('Sumá %d alfajores más para completar una Caja de 12 entera de alfajores (y tu %s viaja en su empaque individual)', 'emp-caja'),
-                        $missing_to_12,
-                        $shared_name
-                    );
-                    $custom_badge     = sprintf(__('Faltan %d para Caja de 12', 'emp-caja'), $missing_to_12);
+                    $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                    $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
+                    $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_12);
                     $message          = sprintf(
                         __('Actualmente tenés 1 Caja Mixta con tu %s + %d alfajores, y %d alfajor(es) suelto(s). Si sumás solo %d alfajor(es) más, ¡te llevás una Caja Oficial de 12 completa de alfajores y tu %s en su empaque individual!', 'emp-caja'),
                         $shared_name,

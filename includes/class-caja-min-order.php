@@ -531,33 +531,8 @@ class Batllie_Caja_Min_Order {
                             </div>
                         </div>
 
-                        <!-- Barra de Resumen de Totales y Cajas Armadas -->
-                        <div id="batllie-packing-summary-wrap">
-                            <div class="batllie-packing-summary-bar">
-                                <span class="batllie-summary-total">Total: <strong id="batllie-summary-total-count"><?php echo esc_html($packing['total_alfajores'] ?? 0); ?> alfajores</strong></span>
-                                <span class="batllie-summary-boxed" id="batllie-summary-boxed-badge" style="<?php echo !empty($packing['completed_boxes_text']) ? '' : 'display:none;'; ?>">
-                                    📦 <span id="batllie-summary-boxed-text"><?php echo esc_html($packing['completed_boxes_text'] ?? ''); ?></span> ✅
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Barra de Progreso Gamificada con colores de marca -->
-                        <div class="batllie-packing-progress-container" id="batllie-packing-progress-container">
-                            <div class="batllie-packing-progress-meta">
-                                <span class="batllie-packing-meta-label">
-                                    <?php 
-                                     $box_num = $packing['current_box_num'] ?? 1;
-                                    echo esc_html(($box_num > 1) ? sprintf(__('%dª Caja en armado:', 'emp-caja'), $box_num) : __('Caja en armado:', 'emp-caja')); 
-                                    ?>
-                                </span>
-                                <span id="batllie-packing-count" class="batllie-packing-count">
-                                    <?php 
-                                    $cur_units = $packing['current_box_units'] ?? 0;
-                                    $cur_cap   = $packing['current_box_capacity'] ?? 6;
-                                    echo esc_html(sprintf(__('%d de %d alfajores', 'emp-caja'), $cur_units, $cur_cap)); 
-                                    ?>
-                                </span>
-                            </div>
+                        <!-- Barra de Progreso Gamificada con colores de marca (plana, sin fondo) -->
+                        <div class="batllie-packing-progress-container" id="batllie-packing-progress-container" style="background: transparent; border: none; box-shadow: none; padding: 4px 0 8px 0; margin: 8px 0 12px 0;">
                             <div class="batllie-packing-bar-wrap">
                                 <?php 
                                 $pct_box = ($cur_cap > 0) ? min(100, round(($cur_units / $cur_cap) * 100)) : 0;
@@ -605,10 +580,6 @@ class Batllie_Caja_Min_Order {
                     <!-- Botón para continuar sin agregar alfajores extras (habilitado si no está por debajo del mínimo de compra) -->
                     <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!$is_below) ? '' : 'display:none;'; ?>">
                         <span><?php _e('Continuar de todas formas', 'emp-caja'); ?></span>
-                    </button>
-
-                    <button type="button" class="batllie-min-btn batllie-min-btn-dismiss" id="batllie-min-modal-dismiss-btn">
-                        <?php _e('Volver al Carrito', 'emp-caja'); ?>
                     </button>
                 </div>
             </div>

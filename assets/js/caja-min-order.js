@@ -520,25 +520,14 @@
         const $sec = $('#batllie-modal-packing-section');
         $sec.show();
 
-        // 1. Resumen de totales y cajas armadas
-        $('#batllie-summary-total-count').text(packing.total_alfajores + ' alfajores');
-        const $boxedBadge = $('#batllie-summary-boxed-badge');
-        const $boxedText = $('#batllie-summary-boxed-text');
-        if (packing.completed_boxes_text) {
-            $boxedText.text(packing.completed_boxes_text);
-            $boxedBadge.show();
-        } else {
-            $boxedBadge.hide();
-        }
+        // 1. Resumen de totales y cajas armadas (Oculto a pedido para optimizar espacio vertical en móvil)
+        $('#batllie-packing-summary-wrap').hide();
 
         // 2. Barra de progreso de la caja actual
         const curUnits = parseInt(packing.current_box_units, 10) || 0;
         const curCap = parseInt(packing.current_box_capacity, 10) || 6;
         const pct = (curCap > 0) ? Math.min(100, Math.round((curUnits / curCap) * 100)) : 0;
 
-        const boxLabel = (packing.current_box_num > 1) ? (packing.current_box_num + 'ª Caja en armado:') : 'Caja en armado:';
-        $('.batllie-packing-meta-label').text(boxLabel);
-        $('#batllie-packing-count').text(curUnits + ' de ' + curCap + ' alfajores');
         $('#batllie-packing-bar-fill').css({
             'width': pct + '%',
             'min-width': (curUnits > 0 ? '8px' : '0px')
@@ -560,8 +549,8 @@
             $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
         } else {
-            const mainTitle = packing.custom_title || 'Tomaste una buena decisión';
-            const subTitle = packing.custom_subtitle || 'pero podría ser aún mejor';
+            const mainTitle = 'Tomaste una buena decisión';
+            const subTitle = 'pero podría ser aún mejor';
             $('#batllie-packing-title').html('<span class="batllie-packing-title-main">' + mainTitle + '</span> <span class="batllie-packing-title-sub">' + subTitle + '</span>');
 
             const missingUnits = packing.missing_units || (6 - (curUnits % 6 || 6));
