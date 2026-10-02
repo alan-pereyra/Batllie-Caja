@@ -373,7 +373,7 @@ class Batllie_Caja_Products {
             update_post_meta($product_id, '_batllie_can_share_box', $can_share);
         }
         if (isset($data['share_box_max_alfajores'])) {
-            $share_max = max(1, min(11, intval($data['share_box_max_alfajores'])));
+            $share_max = max(1, min(12, intval($data['share_box_max_alfajores'])));
             update_post_meta($product_id, '_batllie_share_box_max_alfajores', $share_max);
         }
 
@@ -743,7 +743,7 @@ class Batllie_Caja_Products {
                             update_post_meta($v_saved_id, '_batllie_can_share_box', sanitize_key($v_data['can_share_box']));
                         }
                         if (isset($v_data['share_box_max_alfajores'])) {
-                            update_post_meta($v_saved_id, '_batllie_share_box_max_alfajores', max(1, min(11, intval($v_data['share_box_max_alfajores']))));
+                            update_post_meta($v_saved_id, '_batllie_share_box_max_alfajores', max(1, min(12, intval($v_data['share_box_max_alfajores']))));
                         }
                     }
                 }
@@ -804,7 +804,7 @@ class Batllie_Caja_Products {
             update_post_meta($product_id, '_batllie_can_share_box', $can_share);
         }
         if (isset($data['share_box_max_alfajores'])) {
-            $share_max = max(1, min(11, intval($data['share_box_max_alfajores'])));
+            $share_max = max(1, min(12, intval($data['share_box_max_alfajores'])));
             update_post_meta($product_id, '_batllie_share_box_max_alfajores', $share_max);
         }
 

@@ -216,7 +216,8 @@ if (!defined('ABSPATH')) {
                             </div>
                             <div class="caja-form-group caja-col" id="new-prod-share-max-group" style="display:none;">
                                 <label for="new-prod-share-max-alfajores"><strong><?php _e('Máx. alfajores en esa misma caja', 'emp-caja'); ?></strong></label>
-                                <input type="number" min="1" max="11" id="new-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6" />
+                                <input type="number" min="1" max="12" id="new-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6 o 12" />
+                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de alfajores (ej: 6 si ocupa espacio como yerba, o 12 si entra con la caja completa).', 'emp-caja'); ?></small>
                             </div>
                         </div>
                     </div>
@@ -559,8 +560,8 @@ if (!defined('ABSPATH')) {
                             </div>
                             <div class="caja-form-group caja-col" id="edit-prod-share-max-group" style="display:none;">
                                 <label for="edit-prod-share-max-alfajores"><strong><?php _e('Máx. alfajores en esa misma caja', 'emp-caja'); ?></strong></label>
-                                <input type="number" min="1" max="11" id="edit-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6" />
-                                <small class="caja-text-muted"><?php _e('Límite de alfajores que caben junto a este producto.', 'emp-caja'); ?></small>
+                                <input type="number" min="1" max="12" id="edit-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6 o 12" />
+                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de alfajores que caben junto a este producto (ej: 6 si ocupa espacio como yerba, o 12 si entra con la caja completa).', 'emp-caja'); ?></small>
                             </div>
                         </div>
                         <div id="edit-prod-shared-variable-hint" style="display:none; padding:8px 12px; border-radius:4px; background:rgba(255,255,255,0.05); font-size:12px; color:var(--caja-text-muted); margin-top:8px;">

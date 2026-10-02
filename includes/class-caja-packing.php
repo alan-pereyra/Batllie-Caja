@@ -450,7 +450,8 @@ class Batllie_Caja_Packing {
                 </select>
                 <div id="_batllie_share_max_wrap" style="<?php echo ($can_share !== 'none') ? '' : 'display:none;'; ?> margin-top:8px;">
                     <p style="margin:0 0 4px 0;"><strong><?php _e('Máx. alfajores que caben en esa misma caja:', 'emp-caja'); ?></strong></p>
-                    <input type="number" name="_batllie_share_box_max_alfajores" min="1" max="11" value="<?php echo esc_attr($share_max); ?>" style="width:100%;" />
+                    <input type="number" name="_batllie_share_box_max_alfajores" min="1" max="12" value="<?php echo esc_attr($share_max); ?>" style="width:100%;" />
+                    <p class="description" style="margin-top:4px; color:#666;"><?php _e('Ej: 6 si el producto ocupa espacio (como yerba), o 12 si entra incluso con la caja completa.', 'emp-caja'); ?></p>
                 </div>
                 <script type="text/javascript">
                 jQuery(function($){
@@ -508,7 +509,7 @@ class Batllie_Caja_Packing {
             update_post_meta($post_id, '_batllie_can_share_box', sanitize_key($_POST['_batllie_can_share_box']));
         }
         if (isset($_POST['_batllie_share_box_max_alfajores'])) {
-            update_post_meta($post_id, '_batllie_share_box_max_alfajores', max(1, min(11, intval($_POST['_batllie_share_box_max_alfajores']))));
+            update_post_meta($post_id, '_batllie_share_box_max_alfajores', max(1, min(12, intval($_POST['_batllie_share_box_max_alfajores']))));
         }
 
         if (isset($_POST['_batllie_packaging_box_product_id'])) {
@@ -768,113 +769,244 @@ class Batllie_Caja_Packing {
         $packaging_summary_short = '';
 
         // EVALUACIÓN DE EMPAQUE COMPARTIDO EN CAJA OFICIAL
-        if (!empty($shared_pack_items) && $loose_count > 0 && $loose_count < 12) {
-            $has_mixed_box   = true;
+        $can_use_shared = false;
+        $is_compact     = false;
+        $primary_shared = null;
+        $shared_box_type = 'box_12';
+        $shared_cap     = 12;
+        $shared_max_alf = 6;
+        $shared_name    = '';
+
+        if (!empty($shared_pack_items) && $loose_count > 0) {
             $primary_shared  = $shared_pack_items[0];
             $shared_box_type = $primary_shared['box_type']; // 'box_12' o 'box_6'
             $shared_cap      = ($shared_box_type === 'box_6') ? 6 : 12;
-            $shared_max_alf  = $primary_shared['max_alfajores'];
+            $shared_max_alf  = min(12, max(1, $primary_shared['max_alfajores']));
             $shared_name     = $primary_shared['name'];
+            $is_compact      = ($shared_max_alf >= $shared_cap);
 
-            if ($loose_count <= $shared_max_alf) {
-                // CASO A: Todos los alfajores caben con el producto en la caja mixta
-                $boxes_from_loose[$shared_box_type] = 1;
-                $current_box_num      = 1;
-                $current_box_units    = $loose_count;
-                $current_box_capacity = $shared_max_alf;
-                $missing_to_max       = $shared_max_alf - $loose_count;
-                $missing_units        = $missing_to_max;
-                $missing_for_12       = 12 - $loose_count;
+            // Si es compacto (espacio reducido), cabe siempre incluso con la caja completa de alfajores.
+            // Si es voluminoso (max < cap), solo comparte si hay menos de 12 alfajores.
+            if ($is_compact || $loose_count < 12) {
+                $can_use_shared = true;
+            }
+        }
 
-                $mixed_box_info = array(
-                    'box_type'      => $shared_box_type,
-                    'box_capacity'  => $shared_cap,
-                    'product_name'  => $shared_name,
-                    'alfajores'     => $loose_count,
-                    'max_alfajores' => $shared_max_alf,
-                    'loose_excess'  => 0,
-                );
+        if ($can_use_shared) {
+            $has_mixed_box = true;
 
-                $packaging_summary_short = sprintf(__('1 Caja x %d (Mixta: %s + %d alfajores)', 'emp-caja'), $shared_cap, $shared_name, $loose_count);
+            if ($is_compact) {
+                // PRODUCTO DE ESPACIO REDUCIDO (Cabe incluso cuando está completa la cantidad de alfajores)
+                if ($loose_count <= $shared_cap) {
+                    $boxes_from_loose[$shared_box_type] = 1;
+                    $current_box_num      = 1;
+                    $current_box_units    = $loose_count;
+                    $current_box_capacity = $shared_cap;
+                    $missing_to_full      = $shared_cap - $loose_count;
+                    $missing_units        = $missing_to_full;
+                    $missing_for_12       = ($shared_cap === 12) ? $missing_units : (12 - $loose_count);
 
-                if ($loose_count < $shared_max_alf) {
+                    $mixed_box_info = array(
+                        'box_type'      => $shared_box_type,
+                        'box_capacity'  => $shared_cap,
+                        'product_name'  => $shared_name,
+                        'alfajores'     => $loose_count,
+                        'max_alfajores' => $shared_cap,
+                        'loose_excess'  => 0,
+                    );
+
+                    $packaging_summary_short = sprintf(__('1 Caja x %d (Mixta: %s + %d alfajores)', 'emp-caja'), $shared_cap, $shared_name, $loose_count);
+
+                    if ($loose_count < $shared_cap) {
+                        $status           = 'courtesy_available';
+                        $is_blocked       = false;
+                        $courtesy_allowed = true;
+                        $message_type     = 'recommendation';
+                        $custom_title     = sprintf(__('¡Tu %s viaja en Caja Oficial!', 'emp-caja'), $shared_name);
+                        $custom_subtitle  = sprintf(__('Sumá %d alfajor(es) más para completar tu Caja Oficial de %d', 'emp-caja'), $missing_units, $shared_cap);
+                        $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_units);
+                        $message          = sprintf(
+                            __('Tu %s y tus %d alfajores viajarán juntos en 1 Caja Oficial de %d. ¡Con solo %d alfajor(es) más completás tu caja!', 'emp-caja'),
+                            $shared_name,
+                            $loose_count,
+                            $shared_cap,
+                            $missing_units
+                        );
+                    } else {
+                        // Caja al 100% llena con el producto incluido
+                        $status           = 'all_boxed';
+                        $is_blocked       = false;
+                        $courtesy_allowed = false;
+                        $message_type     = 'complete';
+                        $custom_title     = __('¡Caja Completa!', 'emp-caja');
+                        $custom_subtitle  = __('Tu pedido está perfectamente protegido', 'emp-caja');
+                        $custom_badge     = __('¡Caja al 100%! 💌', 'emp-caja');
+                        $message          = sprintf(
+                            __('¡Excelente! Tu %s y tus %d alfajores viajan juntos en tu Caja Oficial de %d completa.', 'emp-caja'),
+                            $shared_name,
+                            $loose_count,
+                            $shared_cap
+                        );
+                    }
+                } else {
+                    // loose_count > shared_cap con producto compacto
+                    $boxes_from_loose[$shared_box_type] = 1;
+                    $rem = $loose_count - $shared_cap;
+
+                    if ($rem >= 12) {
+                        $boxes_from_loose['box_12'] += floor($rem / 12);
+                        $rem = $rem % 12;
+                    }
+                    if ($rem >= 6) {
+                        $boxes_from_loose['box_6'] += floor($rem / 6);
+                        $rem = $rem % 6;
+                    }
+
+                    $mixed_box_info = array(
+                        'box_type'      => $shared_box_type,
+                        'box_capacity'  => $shared_cap,
+                        'product_name'  => $shared_name,
+                        'alfajores'     => $shared_cap,
+                        'max_alfajores' => $shared_cap,
+                        'loose_excess'  => $rem,
+                    );
+
+                    $packaging_summary_short = sprintf(__('1 Caja x %d (Mixta: %s + %d alfajores)', 'emp-caja'), $shared_cap, $shared_name, $shared_cap);
+
+                    if ($rem === 0) {
+                        $status           = 'all_boxed';
+                        $is_blocked       = false;
+                        $courtesy_allowed = false;
+                        $message_type     = 'complete';
+                        $message          = __('¡Tus alfajores forman cajas completas!', 'emp-caja');
+                    } else {
+                        $missing_to_6     = 6 - $rem;
+                        $missing_units    = $missing_to_6;
+                        $missing_for_12   = 12 - $rem;
+                        $current_box_num  = ($boxes_from_packs['box_12'] + $boxes_from_packs['box_6'] + $boxes_from_loose['box_12'] + $boxes_from_loose['box_6']) + 1;
+                        $current_box_units = $rem;
+                        $current_box_capacity = 6;
+                        $status           = 'courtesy_available';
+                        $is_blocked       = false;
+                        $courtesy_allowed = true;
+                        $boxes_from_loose['courtesy'] = 1;
+                        $message_type     = 'upsell';
+                        $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                        $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
+                        $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_6);
+                        $message          = sprintf(
+                            __('Tu %s viaja en la primera caja de %d junto a %d alfajores. Para tus %d alfajor(es) restantes, con solo %d más completás otra caja de 6.', 'emp-caja'),
+                            $shared_name,
+                            $shared_cap,
+                            $shared_cap,
+                            $rem,
+                            $missing_to_6
+                        );
+                        $packaging_summary_short .= sprintf(__(' + %d suelto%s', 'emp-caja'), $rem, ($rem > 1 ? 's' : ''));
+                    }
+                }
+            } else {
+                // PRODUCTO VOLUMINOSO (Desplaza alfajores, ej: Yerba Mate máx 6 en Caja de 12)
+                if ($loose_count <= $shared_max_alf) {
+                    // CASO A: Todos los alfajores caben con el producto en la caja mixta
+                    $boxes_from_loose[$shared_box_type] = 1;
+                    $current_box_num      = 1;
+                    $current_box_units    = $loose_count;
+                    $current_box_capacity = $shared_max_alf;
+                    $missing_to_max       = $shared_max_alf - $loose_count;
+                    $missing_units        = $missing_to_max;
+                    $missing_for_12       = 12 - $loose_count;
+
+                    $mixed_box_info = array(
+                        'box_type'      => $shared_box_type,
+                        'box_capacity'  => $shared_cap,
+                        'product_name'  => $shared_name,
+                        'alfajores'     => $loose_count,
+                        'max_alfajores' => $shared_max_alf,
+                        'loose_excess'  => 0,
+                    );
+
+                    $packaging_summary_short = sprintf(__('1 Caja x %d (Mixta: %s + %d alfajores)', 'emp-caja'), $shared_cap, $shared_name, $loose_count);
+
+                    if ($loose_count < $shared_max_alf) {
+                        $status           = 'courtesy_available';
+                        $is_blocked       = false;
+                        $courtesy_allowed = true;
+                        $message_type     = 'recommendation';
+                        $custom_title     = sprintf(__('¡Tu %s viaja en Caja Oficial!', 'emp-caja'), $shared_name);
+                        $custom_subtitle  = sprintf(__('Sumá %d alfajor(es) más para completar el espacio de la caja', 'emp-caja'), $missing_to_max);
+                        $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_max);
+                        $message          = sprintf(
+                            __('Tu %s y tus %d alfajores viajarán juntos en 1 Caja Oficial de %d. ¡Con solo %d alfajor(es) más completás todo el espacio disponible en la caja!', 'emp-caja'),
+                            $shared_name,
+                            $loose_count,
+                            $shared_cap,
+                            $missing_to_max
+                        );
+                    } else {
+                        $status           = 'all_boxed';
+                        $is_blocked       = false;
+                        $courtesy_allowed = false;
+                        $message_type     = 'complete';
+                        $custom_title     = __('¡Caja Compartida Completa!', 'emp-caja');
+                        $custom_subtitle  = __('Tu pedido está perfectamente protegido', 'emp-caja');
+                        $custom_badge     = __('¡Caja al 100%! 💌', 'emp-caja');
+                        $message          = sprintf(
+                            __('¡Excelente! Tu %s y tus %d alfajores viajan perfectamente protegidos en 1 Caja Oficial de %d.', 'emp-caja'),
+                            $shared_name,
+                            $loose_count,
+                            $shared_cap
+                        );
+                    }
+                } else {
+                    // CASO B: loose_count > shared_max_alf y loose_count < 12
+                    $excess = $loose_count - $shared_max_alf;
+                    $boxes_from_loose[$shared_box_type] = 1;
+                    $missing_to_12        = 12 - $loose_count;
+                    $missing_units        = $missing_to_12;
+                    $missing_for_12       = $missing_to_12;
+                    $current_box_num      = 1;
+                    $current_box_units    = $loose_count;
+                    $current_box_capacity = 12;
+
+                    $mixed_box_info = array(
+                        'box_type'      => $shared_box_type,
+                        'box_capacity'  => $shared_cap,
+                        'product_name'  => $shared_name,
+                        'alfajores'     => $shared_max_alf,
+                        'max_alfajores' => $shared_max_alf,
+                        'loose_excess'  => $excess,
+                    );
+
+                    $packaging_summary_short = sprintf(
+                        __('1 Caja x %d (Mixta: %s + %d alfajores) + %d suelto%s', 'emp-caja'),
+                        $shared_cap,
+                        $shared_name,
+                        $shared_max_alf,
+                        $excess,
+                        ($excess > 1 ? 's' : '')
+                    );
+
                     $status           = 'courtesy_available';
                     $is_blocked       = false;
                     $courtesy_allowed = true;
-                    $message_type     = 'recommendation';
-                    $custom_title     = sprintf(__('¡Tu %s viaja en Caja Oficial!', 'emp-caja'), $shared_name);
-                    $custom_subtitle  = sprintf(__('Sumá %d alfajor(es) más para completar el espacio de la caja', 'emp-caja'), $missing_to_max);
-                    $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_max);
-                    $message          = sprintf(
-                        __('Tu %s y tus %d alfajores viajarán juntos en 1 Caja Oficial de %d. ¡Con solo %d alfajor(es) más completás todo el espacio disponible en la caja!', 'emp-caja'),
-                        $shared_name,
-                        $loose_count,
-                        $shared_cap,
-                        $missing_to_max
+                    $message_type     = 'upsell';
+                    $custom_title     = __('¡Llevate una Caja de 12 exclusiva de alfajores!', 'emp-caja');
+                    $custom_subtitle  = sprintf(
+                        __('Sumá %d alfajores más para completar una Caja de 12 entera de alfajores (y tu %s viaja en su empaque individual)', 'emp-caja'),
+                        $missing_to_12,
+                        $shared_name
                     );
-                } else {
-                    $status           = 'all_boxed';
-                    $is_blocked       = false;
-                    $courtesy_allowed = false;
-                    $message_type     = 'complete';
-                    $custom_title     = __('¡Caja Compartida Completa!', 'emp-caja');
-                    $custom_subtitle  = __('Tu pedido está perfectamente protegido', 'emp-caja');
-                    $custom_badge     = __('¡Caja al 100%! 💌', 'emp-caja');
+                    $custom_badge     = sprintf(__('Faltan %d para Caja de 12', 'emp-caja'), $missing_to_12);
                     $message          = sprintf(
-                        __('¡Excelente! Tu %s y tus %d alfajores viajan perfectamente protegidos en 1 Caja Oficial de %d.', 'emp-caja'),
+                        __('Actualmente tenés 1 Caja Mixta con tu %s + %d alfajores, y %d alfajor(es) suelto(s). Si sumás solo %d alfajor(es) más, ¡te llevás una Caja Oficial de 12 completa de alfajores y tu %s en su empaque individual!', 'emp-caja'),
                         $shared_name,
-                        $loose_count,
-                        $shared_cap
+                        $shared_max_alf,
+                        $excess,
+                        $missing_to_12,
+                        $shared_name
                     );
                 }
-            } else {
-                // CASO B: loose_count > shared_max_alf y loose_count < 12
-                $excess = $loose_count - $shared_max_alf;
-                $boxes_from_loose[$shared_box_type] = 1;
-                $missing_to_12        = 12 - $loose_count;
-                $missing_units        = $missing_to_12;
-                $missing_for_12       = $missing_to_12;
-                $current_box_num      = 1;
-                $current_box_units    = $loose_count;
-                $current_box_capacity = 12;
-
-                $mixed_box_info = array(
-                    'box_type'      => $shared_box_type,
-                    'box_capacity'  => $shared_cap,
-                    'product_name'  => $shared_name,
-                    'alfajores'     => $shared_max_alf,
-                    'max_alfajores' => $shared_max_alf,
-                    'loose_excess'  => $excess,
-                );
-
-                $packaging_summary_short = sprintf(
-                    __('1 Caja x %d (Mixta: %s + %d alfajores) + %d suelto%s', 'emp-caja'),
-                    $shared_cap,
-                    $shared_name,
-                    $shared_max_alf,
-                    $excess,
-                    ($excess > 1 ? 's' : '')
-                );
-
-                $status           = 'courtesy_available';
-                $is_blocked       = false;
-                $courtesy_allowed = true;
-                $message_type     = 'upsell';
-                $custom_title     = __('¡Llevate una Caja de 12 exclusiva de alfajores!', 'emp-caja');
-                $custom_subtitle  = sprintf(
-                    __('Sumá %d alfajores más para completar una Caja de 12 entera de alfajores (y tu %s viaja en su empaque individual)', 'emp-caja'),
-                    $missing_to_12,
-                    $shared_name
-                );
-                $custom_badge     = sprintf(__('Faltan %d para Caja de 12', 'emp-caja'), $missing_to_12);
-                $message          = sprintf(
-                    __('Actualmente tenés 1 Caja Mixta con tu %s + %d alfajores, y %d alfajor(es) suelto(s). Si sumás solo %d alfajor(es) más, ¡te llevás una Caja Oficial de 12 completa de alfajores y tu %s en su empaque individual!', 'emp-caja'),
-                    $shared_name,
-                    $shared_max_alf,
-                    $excess,
-                    $missing_to_12,
-                    $shared_name
-                );
             }
         } elseif (!$has_prior_box) {
             // CASO 1: NO HAY CAJA PREVIA COMPLETA (total alfajores de 1 a 5)

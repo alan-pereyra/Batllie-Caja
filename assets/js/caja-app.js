@@ -3385,7 +3385,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                 </div>
                                 <div class="caja-form-group caja-col caja-var-max-group" style="${canShare !== 'none' ? '' : 'display:none;'} flex:1;">
                                     <label style="font-size:11px;"><strong>Máx. Alfajores que caben</strong></label>
-                                    <input type="number" min="1" max="11" class="caja-var-max-alfajores" value="${maxAlf}" placeholder="6" style="font-size:12px;" />
+                                    <input type="number" min="1" max="12" class="caja-var-max-alfajores" value="${maxAlf}" placeholder="6 o 12" style="font-size:12px;" />
                                 </div>
                             </div>
                         </div>
