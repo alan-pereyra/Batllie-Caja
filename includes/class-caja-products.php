@@ -233,6 +233,7 @@ class Batllie_Caja_Products {
             'catalog_visibility'       => $catalog_visibility,
             'product_type'             => $product_type,
             'children_ids'             => $children_ids,
+            'recommended_ids'          => array_values(array_filter(array_map('intval', (array)(get_post_meta($product->get_id(), '_batllie_cart_recommended_ids', true) ?: $product->get_cross_sell_ids() ?: array())))),
             'is_predefined'            => $is_predefined,
             'predefined_quantities'    => $predefined_quantities,
             'official_box_role'        => $box_role,
@@ -347,6 +348,19 @@ class Batllie_Caja_Products {
                 Batllie_Caja_Packing::set_official_box_id(6, $product_id);
             } elseif ($role === 'box_12') {
                 Batllie_Caja_Packing::set_official_box_id(12, $product_id);
+            } elseif ($role === 'bag_large') {
+                Batllie_Caja_Packing::set_official_bag_id('large', $product_id);
+            } elseif ($role === 'bag_small') {
+                Batllie_Caja_Packing::set_official_bag_id('small', $product_id);
+            }
+        }
+
+        if (isset($data['recommended_ids'])) {
+            $rec_ids = is_array($data['recommended_ids']) ? array_values(array_filter(array_map('intval', $data['recommended_ids']))) : array();
+            update_post_meta($product_id, '_batllie_cart_recommended_ids', $rec_ids);
+            if (method_exists($product, 'set_cross_sell_ids')) {
+                $product->set_cross_sell_ids($rec_ids);
+                $product->save();
             }
         }
 
@@ -720,6 +734,10 @@ class Batllie_Caja_Products {
                 Batllie_Caja_Packing::set_official_box_id(6, $product_id);
             } elseif ($role === 'box_12') {
                 Batllie_Caja_Packing::set_official_box_id(12, $product_id);
+            } elseif ($role === 'bag_large') {
+                Batllie_Caja_Packing::set_official_bag_id('large', $product_id);
+            } elseif ($role === 'bag_small') {
+                Batllie_Caja_Packing::set_official_bag_id('small', $product_id);
             } elseif ($role === 'none') {
                 if (Batllie_Caja_Packing::get_official_box_id(6) === $product_id) {
                     delete_option(Batllie_Caja_Packing::OPTION_BOX_6_ID);
@@ -727,7 +745,21 @@ class Batllie_Caja_Products {
                 if (Batllie_Caja_Packing::get_official_box_id(12) === $product_id) {
                     delete_option(Batllie_Caja_Packing::OPTION_BOX_12_ID);
                 }
+                if (Batllie_Caja_Packing::get_official_bag_id('large') === $product_id) {
+                    delete_option(Batllie_Caja_Packing::OPTION_BAG_LARGE_ID);
+                }
+                if (Batllie_Caja_Packing::get_official_bag_id('small') === $product_id) {
+                    delete_option(Batllie_Caja_Packing::OPTION_BAG_SMALL_ID);
+                }
                 delete_post_meta($product_id, '_batllie_is_official_box');
+            }
+        }
+
+        if (isset($data['recommended_ids'])) {
+            $rec_ids = is_array($data['recommended_ids']) ? array_values(array_filter(array_map('intval', $data['recommended_ids']))) : array();
+            update_post_meta($product_id, '_batllie_cart_recommended_ids', $rec_ids);
+            if (method_exists($product, 'set_cross_sell_ids')) {
+                $product->set_cross_sell_ids($rec_ids);
             }
         }
 

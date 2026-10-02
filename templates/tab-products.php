@@ -189,18 +189,38 @@ if (!defined('ABSPATH')) {
                         <option value="none"></option>
                         <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
                         <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                        <option value="bag_large"><?php _e('🛍️ Asignar como Bolsa Grande de Envío', 'emp-caja'); ?></option>
+                        <option value="bag_small"><?php _e('🛍️ Asignar como Bolsa Chica de Envío', 'emp-caja'); ?></option>
                     </select>
                 </div>
-<div class="caja-form-group">
-    <label for="new-prod-sales-suggestions"><?php _e('Ventas Sugeridas', 'emp-caja'); ?></label>
-    <select id="new-prod-sales-suggestions" name="sales_suggestions" class="caja-select">
-        <option value="none"><?php _e('-- Ninguna --', 'emp-caja'); ?></option>
-        <!-- Opciones de productos sugeridos se cargarán vía AJAX -->
-    </select>
-</div>
-<div class="caja-form-group">
 
-</div>
+                <div class="caja-details-accordion caja-modal-section-accordion" id="new-prod-sec-recommendations">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#new-collapse-recommendations">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">💡</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Productos Recomendados al agregar al carrito', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="new-collapse-recommendations" style="display:none;">
+                        <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
+                            <?php _e('Seleccioná cuáles productos se recomendarán cuando el cliente agregue este producto:', 'emp-caja'); ?>
+                        </p>
+                        <div class="caja-grouped-filter-row">
+                            <input type="text" id="new-rec-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar productos..." />
+                            <div class="caja-grouped-btn-actions">
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-new-rec-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-new-rec-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                            </div>
+                        </div>
+                        <div class="caja-children-checklist-container" id="new-prod-rec-list">
+                            <!-- Generado dinámicamente -->
+                        </div>
+                        <div class="caja-grouped-footer-bar" style="margin-top:8px;">
+                            <span class="caja-badge caja-badge-info" id="new-rec-selected-badge">0 seleccionados</span>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="caja-form-group">
                     <label for="new-prod-desc"><?php _e('Descripción Corta / Ingredientes', 'emp-caja'); ?></label>
@@ -478,7 +498,40 @@ if (!defined('ABSPATH')) {
                                 <option value="none"></option>
                                 <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
                                 <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
+                                <option value="bag_large"><?php _e('🛍️ Asignar como Bolsa Grande de Envío', 'emp-caja'); ?></option>
+                                <option value="bag_small"><?php _e('🛍️ Asignar como Bolsa Chica de Envío', 'emp-caja'); ?></option>
                             </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================================= -->
+                <!-- SECCIÓN: PRODUCTOS RECOMENDADOS AL AGREGAR AL CARRITO                     -->
+                <!-- ========================================================================= -->
+                <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-recommendations">
+                    <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-recommendations">
+                        <span class="caja-toggle-left">
+                            <span class="caja-toggle-icon">💡</span>
+                            <span class="caja-toggle-text"><strong><?php _e('Productos Recomendados al agregar al carrito', 'emp-caja'); ?></strong></span>
+                        </span>
+                        <span class="caja-toggle-arrow">▼</span>
+                    </button>
+                    <div class="caja-details-collapse" id="edit-collapse-recommendations" style="display:none;">
+                        <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
+                            <?php _e('Seleccioná cuáles productos se van a recomendar en la web cuando el cliente agregue este producto a su carrito:', 'emp-caja'); ?>
+                        </p>
+                        <div class="caja-grouped-filter-row">
+                            <input type="text" id="edit-rec-search-filter" class="caja-input-sm" placeholder="🔍 Filtrar lista de productos..." />
+                            <div class="caja-grouped-btn-actions">
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-rec-select-all"><?php _e('Marcar todos', 'emp-caja'); ?></button>
+                                <button type="button" class="caja-btn caja-btn-secondary" id="btn-rec-deselect-all"><?php _e('Desmarcar todos', 'emp-caja'); ?></button>
+                            </div>
+                        </div>
+                        <div class="caja-children-checklist-container" id="edit-prod-rec-list">
+                            <!-- Generado dinámicamente -->
+                        </div>
+                        <div class="caja-grouped-footer-bar" style="margin-top:8px;">
+                            <span class="caja-badge caja-badge-info" id="edit-rec-selected-badge">0 seleccionados</span>
                         </div>
                     </div>
                 </div>

@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.19
+ * Version: 1.8.20
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.19');
+define('EMP_CAJA_VERSION', '1.8.20');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -202,6 +202,16 @@ class Batllie_Caja_Plugin {
         wp_enqueue_script('batllie-caja-app');
 
         $options = self::get_color_settings();
+        $priority = $options['packing_priority'] ?? '12';
+        $officialBoxId = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id( intval($priority) ) : 0;
+        $priorityBoxImg = '';
+        if ( $officialBoxId ) {
+            $product = wc_get_product( $officialBoxId );
+            if ( $product ) {
+                $img_id = $product->get_image_id();
+                $priorityBoxImg = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+            }
+        }
 
         // Inyectar variables CSS personalizadas
         $custom_css = "
@@ -298,10 +308,15 @@ class Batllie_Caja_Plugin {
             'currentUser'    => wp_get_current_user()->display_name,
             'currencySymbol'   => function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '$',
             'placeholderImg'   => function_exists('wc_placeholder_img_src') ? wc_placeholder_img_src('medium') : '',
+            'priorityBoxImage' => $priorityBoxImg,
             'officialBox6Id'   => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0,
             'officialBox6Name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(6) : '',
             'officialBox12Id'  => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0,
             'officialBox12Name'=> class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(12) : '',
+            'officialBagLargeId'   => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('large') : 0,
+            'officialBagLargeName' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_name('large') : '',
+            'officialBagSmallId'   => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('small') : 0,
+            'officialBagSmallName' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_name('small') : '',
             'boxCandidates'    => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array(),
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),

@@ -432,9 +432,6 @@
         if (!$backdrop.length) return;
 
         isModalOpen = true;
-        try {
-            document.cookie = "batllie_had_incomplete_box=yes; path=/; max-age=86400";
-        } catch (e) {}
 
         if (config.packing) {
             updatePackingUI(config.packing);
@@ -537,23 +534,24 @@
 
         // 3. Títulos, Mensajes y Badges
         if (packing.status === 'all_boxed') {
-            $('#batllie-packing-title').text('¡Caja Completa!');
+            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">¡Caja Completa!</span>');
             $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
         } else {
-            $('#batllie-packing-title').text('Tomaste una decisión correcta pero podría ser aún mejor');
+            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">Tomaste una buena decisión</span> <span class="batllie-packing-title-sub">pero podría ser aún mejor</span>');
 
-            if (packing.is_blocked) {
-                // Bloqueo imperativo: faltan 1 o 2 unidades. Botón para continuar NO DEBE APARECER
-                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
-                $('#batllie-btn-accept-courtesy').hide();
-            } else if (packing.status === 'courtesy_available') {
-                // No imperativo: cortesía disponible (faltan >= 3). Botón discreto "Continuar de todas formas"
-                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para completar').removeClass('is-complete').addClass('is-missing');
+            if (config.priorityBoxImage) {
+                $('#batllie-modal-box-image').attr('src', config.priorityBoxImage);
+                $('#batllie-modal-box-image-wrap').show();
+            }
+
+            const missingUnits = packing.missing_units || (6 - (curUnits % 6 || 6));
+            $('#batllie-packing-badge').text('Faltan ' + missingUnits + ' para completar').removeClass('is-complete').addClass('is-missing');
+
+            // Siempre permitir avanzar si no está por debajo del monto mínimo
+            if (!config.isBelowMin) {
                 $('#batllie-btn-accept-courtesy').show();
-            } else if (packing.status === 'no_prior_box') {
-                // Menos de 1 caja completa
-                $('#batllie-packing-badge').text('Faltan ' + packing.missing_units + ' para caja de 6').removeClass('is-complete').addClass('is-missing');
+            } else {
                 $('#batllie-btn-accept-courtesy').hide();
             }
         }
@@ -916,22 +914,8 @@
                 return false;
             }
 
-            // Caso 2: Bloqueo Imperativo de Empaque (faltan 1 o 2 unidades)
-            if (isPackingBlocked) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                $('#batllie-modal-min-stats').hide();
-                updatePackingUI(packing);
-                $('#batllie-modal-packing-section').show();
-
-                openModal();
-                return false;
-            }
-
-            // Caso 3: Caja de Cortesía disponible (faltan >= 3 unidades, con caja previa)
-            if (isCourtesyAvailable && !hasAcceptedCourtesy) {
+            // Caso 2: Incentivo de Empaque (si tiene alfajores y la caja no está completa, incentivar con opción de continuar)
+            if (packing && packing.has_alfajores && packing.status !== 'all_boxed' && !hasAcceptedCourtesy) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();

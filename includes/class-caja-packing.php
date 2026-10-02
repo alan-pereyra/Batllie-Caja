@@ -20,8 +20,10 @@ if (!defined('ABSPATH')) {
 
 class Batllie_Caja_Packing {
 
-    const OPTION_BOX_6_ID  = '_batllie_packing_box_6_id';
-    const OPTION_BOX_12_ID = '_batllie_packing_box_12_id';
+    const OPTION_BOX_6_ID     = '_batllie_packing_box_6_id';
+    const OPTION_BOX_12_ID    = '_batllie_packing_box_12_id';
+    const OPTION_BAG_LARGE_ID = '_batllie_packing_bag_large_id';
+    const OPTION_BAG_SMALL_ID = '_batllie_packing_bag_small_id';
 
     public static function init() {
         // Asegurar que los productos de cajas existan al inicializar
@@ -186,7 +188,75 @@ class Batllie_Caja_Packing {
     }
 
     /**
-     * Obtener el rol de caja oficial de un producto ('box_6', 'box_12' o '')
+     * Obtener el ID del producto asignado como Bolsa Oficial de Envío ('large' o 'small')
+     */
+    public static function get_official_bag_id($type = 'large') {
+        $type = ($type === 'small') ? 'small' : 'large';
+        $opt_key = ($type === 'small') ? self::OPTION_BAG_SMALL_ID : self::OPTION_BAG_LARGE_ID;
+        $saved_id = (int) get_option($opt_key, 0);
+
+        if ($saved_id && function_exists('wc_get_product')) {
+            $p = wc_get_product($saved_id);
+            if ($p && $p->exists() && $p->get_status() !== 'trash') {
+                return $saved_id;
+            }
+        }
+
+        // Buscar por post_meta si no está en option
+        $posts = get_posts(array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'meta_query'     => array(
+                array(
+                    'key'   => '_batllie_is_official_box',
+                    'value' => 'bag_' . $type,
+                )
+            )
+        ));
+
+        return !empty($posts) ? (int)$posts[0] : 0;
+    }
+
+    /**
+     * Obtener el nombre del producto asignado como Bolsa de Envío
+     */
+    public static function get_official_bag_name($type = 'large') {
+        $id = self::get_official_bag_id($type);
+        if ($id && function_exists('wc_get_product')) {
+            $p = wc_get_product($id);
+            if ($p) {
+                return $p->get_name();
+            }
+        }
+        return ($type === 'small') ? __('Bolsa Chica de Envío', 'emp-caja') : __('Bolsa Grande de Envío', 'emp-caja');
+    }
+
+    /**
+     * Asignar un producto como Bolsa de Envío
+     */
+    public static function set_official_bag_id($type, $product_id) {
+        $type = ($type === 'small') ? 'small' : 'large';
+        $opt_key = ($type === 'small') ? self::OPTION_BAG_SMALL_ID : self::OPTION_BAG_LARGE_ID;
+        $product_id = (int) $product_id;
+
+        $old_id = (int) get_option($opt_key, 0);
+        if ($old_id && $old_id !== $product_id) {
+            delete_post_meta($old_id, '_batllie_is_official_box');
+        }
+
+        update_option($opt_key, $product_id);
+
+        if ($product_id > 0 && function_exists('wc_get_product')) {
+            update_post_meta($product_id, '_batllie_is_official_box', 'bag_' . $type);
+        }
+
+        return true;
+    }
+
+    /**
+     * Obtener el rol de caja oficial o bolsa de un producto ('box_6', 'box_12', 'bag_large', 'bag_small' o '')
      */
     public static function get_product_box_role($product_id) {
         $product_id = (int) $product_id;
@@ -195,9 +265,13 @@ class Batllie_Caja_Packing {
         if ($product_id === $box_6_id) return 'box_6';
         $box_12_id = (int) get_option(self::OPTION_BOX_12_ID, 0);
         if ($product_id === $box_12_id) return 'box_12';
+        $bag_large_id = (int) get_option(self::OPTION_BAG_LARGE_ID, 0);
+        if ($product_id === $bag_large_id) return 'bag_large';
+        $bag_small_id = (int) get_option(self::OPTION_BAG_SMALL_ID, 0);
+        if ($product_id === $bag_small_id) return 'bag_small';
 
         $meta = get_post_meta($product_id, '_batllie_is_official_box', true);
-        return in_array($meta, array('box_6', 'box_12'), true) ? $meta : '';
+        return in_array($meta, array('box_6', 'box_12', 'bag_large', 'bag_small'), true) ? $meta : '';
     }
 
     /**
@@ -696,56 +770,29 @@ class Batllie_Caja_Packing {
                 $current_box_units = $extra;
                 $current_box_capacity = 6;
 
-                // REGLA CLAVE: ¿Faltan MENOS de 3 unidades (faltan 1 o 2)?
-                if ($missing_to_6 < 3) {
-                    // Faltan 1 o 2 alfajores: BLOQUEO IMPERATIVO
-                    $status           = 'imperative_missing';
-                    $is_blocked       = true;
-                    $courtesy_allowed = false;
-                    $message_type     = 'imperative';
+                // REGLA: Sugerencia para completar caja (sin bloqueo obligatorio de checkout)
+                $status           = 'courtesy_available';
+                $is_blocked       = false;
+                $courtesy_allowed = true;
+                $boxes_from_loose['courtesy'] = 1;
+                $message_type     = 'upsell';
 
-                    if (!empty($completed_boxes_text)) {
-                        $message = sprintf(
-                            __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6 alfajores. Agregá %s para poder despachar todo en caja cerrada.', 'emp-caja'),
-                            $total_alfajores,
-                            $completed_boxes_text,
-                            $current_box_num,
-                            $extra,
-                            ($missing_to_6 === 1 ? __('el alfajor faltante', 'emp-caja') : sprintf(__('los %d alfajores faltantes', 'emp-caja'), $missing_to_6))
-                        );
-                    } else {
-                        $message = sprintf(
-                            __('Tenés %d alfajores en total. Estás a solo %d alfajor(es) de completar tu caja para poder despachar tu pedido.', 'emp-caja'),
-                            $total_alfajores,
-                            $missing_to_6
-                        );
-                    }
+                if (!empty($completed_boxes_text)) {
+                    $message = sprintf(
+                        __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6. Con solo %d más completás tu caja (o +%d para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
+                        $total_alfajores,
+                        $completed_boxes_text,
+                        $current_box_num,
+                        $extra,
+                        $missing_to_6,
+                        $missing_for_12
+                    );
                 } else {
-                    // Faltan 3 o más unidades (ej: sobran 3, faltan 3):
-                    // SE PERMITE AVANZAR Y SE OFRECE CAJA DE CORTESÍA SI NO AGREGA
-                    $status           = 'courtesy_available';
-                    $is_blocked       = false;
-                    $courtesy_allowed = true;
-                    $boxes_from_loose['courtesy'] = 1;
-                    $message_type     = 'upsell';
-
-                    if (!empty($completed_boxes_text)) {
-                        $message = sprintf(
-                            __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6. Con solo %d más completás tu caja (o +%d para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
-                            $total_alfajores,
-                            $completed_boxes_text,
-                            $current_box_num,
-                            $extra,
-                            $missing_to_6,
-                            $missing_for_12
-                        );
-                    } else {
-                        $message = sprintf(
-                            __('Tu pedido está excelente, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu caja (o +%d para la Caja Premium de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
-                            $missing_to_6,
-                            $missing_for_12
-                        );
-                    }
+                    $message = sprintf(
+                        __('Tomaste una buena decisión al elegir nuestros alfajores, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu caja (o +%d para la Caja Premium de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
+                        $missing_to_6,
+                        $missing_for_12
+                    );
                 }
             }
         }
@@ -776,27 +823,8 @@ class Batllie_Caja_Packing {
             $current_box_capacity = 6;
         }
 
-        // Seguimiento de aumento de pedido: Si tuvo caja incompleta y luego la completó
-        if ($missing_units > 0) {
-            if (function_exists('WC') && WC()->session) {
-                WC()->session->set('batllie_had_incomplete_box', 'yes');
-            }
-            if (!headers_sent()) {
-                setcookie('batllie_had_incomplete_box', 'yes', time() + 86400, '/');
-            }
-        } elseif ($status === 'all_boxed' && $loose_count >= 6) {
-            $had_incomplete = (isset($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes') ||
-                              (function_exists('WC') && WC()->session && WC()->session->get('batllie_had_incomplete_box') === 'yes');
-            if ($had_incomplete) {
-                if (function_exists('WC') && WC()->session) {
-                    WC()->session->set('batllie_aumento_pedido', 'yes');
-                    WC()->session->set('batllie_decision_correcta', 'yes');
-                }
-                if (!headers_sent()) {
-                    setcookie('batllie_aumento_pedido', 'yes', time() + 86400, '/');
-                }
-            }
-        }
+        // Seguimiento de aumento de pedido: solo si se agregó activamente un upsell
+        // (eliminamos el cookie de caja incompleta que causaba falsos positivos en pedidos posteriores)
 
         return array(
             'has_alfajores'        => ($total_alfajores > 0),
@@ -922,11 +950,17 @@ class Batllie_Caja_Packing {
         $summary_text = !empty($desc_parts) ? implode(' + ', $desc_parts) : '';
         $has_boxes = ($box_12 > 0 || $box_6 > 0 || $courtesy > 0 || $total_alfajores > 0);
 
+        $saved_bags = $order->get_meta('_batllie_packaging_bags');
+        $bag_large = isset($saved_bags['large']) ? intval($saved_bags['large']) : (metadata_exists('post', $order->get_id(), '_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1);
+        $bag_small = isset($saved_bags['small']) ? intval($saved_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0);
+
         return array(
             'has_boxes'       => $has_boxes,
             'total_alfajores' => $total_alfajores,
             'box_12'          => $box_12,
             'box_6'           => $box_6,
+            'bag_large'       => $bag_large,
+            'bag_small'       => $bag_small,
             'courtesy'        => $courtesy,
             'loose'           => $loose_remaining,
             'summary_text'    => $summary_text,
@@ -1112,42 +1146,19 @@ class Batllie_Caja_Packing {
      * Validación en el checkout clásico: Bloquear si faltan 1 o 2 unidades (bloqueo imperativo)
      */
     public static function validate_checkout_packing($data, $errors) {
-        $analysis = self::analyze_cart();
-        if (!empty($analysis['is_blocked']) && !empty($analysis['missing_units'])) {
-            $errors->add(
-                'batllie_packing_imperative_error',
-                sprintf(
-                    __('Estás a solo %d alfajor(es) de completar tu caja. Por favor agregalos a tu pedido para poder despacharlo en caja cerrada.', 'emp-caja'),
-                    $analysis['missing_units']
-                )
-            );
-        }
+        // Por directiva: la única restricción obligatoria es el mínimo de compra.
+        // Las unidades para completar cajas son opcionales e incentivadas pero no bloqueantes.
     }
 
     /**
-     * Validación en WooCommerce Blocks Store API: Bloquear si faltan 1 o 2 unidades
+     * Validación en WooCommerce Blocks Store API
      */
     public static function validate_store_api_packing($order, $request) {
-        $analysis = self::analyze_cart();
-        if (!empty($analysis['is_blocked']) && !empty($analysis['missing_units'])) {
-            if (class_exists('\Automattic\WooCommerce\StoreApi\Exceptions\RouteException')) {
-                throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
-                    'woocommerce_rest_packing_blocked',
-                    sprintf(
-                        __('Estás a solo %d alfajor(es) de completar tu caja. Por favor agregalos a tu pedido para poder despacharlo en caja cerrada.', 'emp-caja'),
-                        $analysis['missing_units']
-                    ),
-                    400
-                );
-            }
-        }
-
-        $had_incomplete = (isset($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes') ||
-                          (function_exists('WC') && WC()->session && WC()->session->get('batllie_had_incomplete_box') === 'yes');
+        // Por directiva: no bloquear Store API por empaque incompleto.
         $increased_order = (isset($_COOKIE['batllie_aumento_pedido']) && $_COOKIE['batllie_aumento_pedido'] === 'yes') ||
                            (function_exists('WC') && WC()->session && WC()->session->get('batllie_aumento_pedido') === 'yes');
 
-        if ($order && ($increased_order || $had_incomplete)) {
+        if ($order && $increased_order) {
             $order->update_meta_data('_batllie_aumento_pedido', 'yes');
             $order->update_meta_data('_batllie_decision_correcta', 'yes');
         }
@@ -1342,18 +1353,29 @@ class Batllie_Caja_Packing {
 
         $session_aumento = false;
         if (function_exists('WC') && WC()->session) {
-            $session_aumento = (WC()->session->get('batllie_aumento_pedido') === 'yes') || (WC()->session->get('batllie_had_incomplete_box') === 'yes');
+            $session_aumento = (WC()->session->get('batllie_aumento_pedido') === 'yes');
         }
-        $cookie_aumento = (!empty($_COOKIE['batllie_aumento_pedido']) && $_COOKIE['batllie_aumento_pedido'] === 'yes') ||
-                          (!empty($_COOKIE['batllie_had_incomplete_box']) && $_COOKIE['batllie_had_incomplete_box'] === 'yes');
+        $cookie_aumento = (!empty($_COOKIE['batllie_aumento_pedido']) && $_COOKIE['batllie_aumento_pedido'] === 'yes');
         $order_had_aumento = ($order->get_meta('_batllie_aumento_pedido') === 'yes');
 
-        $decision_correcta = $has_upsell_add || $session_aumento || $cookie_aumento || $order_had_aumento || ($loose_alfajores > 0 && ($loose_alfajores % 6 === 0));
+        // Solo califica para aumento de pedido si realmente se agregó un upsell o el pedido fue aumentado por recomendación
+        $decision_correcta = $has_upsell_add || $order_had_aumento || ($session_aumento && $loose_alfajores >= 6) || ($cookie_aumento && $loose_alfajores >= 6);
 
         $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
         $order->update_meta_data('_batllie_box_stock_deducted_details', $box_stock_to_deduct);
         $order->update_meta_data('_batllie_decision_correcta', $decision_correcta ? 'yes' : 'no');
         $order->update_meta_data('_batllie_aumento_pedido', $decision_correcta ? 'yes' : 'no');
+
+        // Limpiar sesiones y cookies de aumento de pedido para que no persistan en pedidos siguientes
+        if (function_exists('WC') && WC()->session) {
+            WC()->session->set('batllie_aumento_pedido', null);
+            WC()->session->set('batllie_had_incomplete_box', null);
+            WC()->session->set('batllie_decision_correcta', null);
+        }
+        if (!headers_sent()) {
+            setcookie('batllie_aumento_pedido', '', time() - 3600, '/');
+            setcookie('batllie_had_incomplete_box', '', time() - 3600, '/');
+        }
 
         if (!empty($deductions_log) && class_exists('Batllie_Caja_Orders')) {
             Batllie_Caja_Orders::add_timeline_event(

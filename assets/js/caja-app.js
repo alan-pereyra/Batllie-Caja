@@ -45,6 +45,11 @@
                 if ((o.customer_note || '') !== (n.customer_note || '')) return true;
                 if ((o.caja_note || '') !== (n.caja_note || '')) return true;
                 if (o.total !== n.total) return true;
+                if (o.boxes_6_qty !== n.boxes_6_qty) return true;
+                if (o.boxes_12_qty !== n.boxes_12_qty) return true;
+                if (o.bag_large !== n.bag_large) return true;
+                if (o.bag_small !== n.bag_small) return true;
+                if (o.control_pedido_verified !== n.control_pedido_verified) return true;
                 const oLen = (o.timeline && Array.isArray(o.timeline)) ? o.timeline.length : 0;
                 const nLen = (n.timeline && Array.isArray(n.timeline)) ? n.timeline.length : 0;
                 if (oLen !== nLen) return true;
@@ -174,37 +179,59 @@
                 });
             });
 
-            // Cambio de estado de pago personalizado
+            // Cambio de estado de pago personalizado (con bloqueo estricto si no está aprobado)
             $(document).on('change', '.caja-payment-select', function() {
                 const orderId = $(this).data('order-id');
                 const val = $(this).val();
                 const $card = $(`#caja-order-card-${orderId}`);
                 const $mainDropdown = $card.find('.caja-main-status-dropdown');
-                const $procOption = $mainDropdown.find('option[value="processing"]');
+                const $shipSelect = $card.find('.caja-shipping-select');
+                const $controlBtnWrap = $card.find('.caja-control-pedido-btn-wrap');
+                const isApproved = (val === 'pagado' || val === 'efectivo_entrega');
 
-                // Si se marca pagado o efectivo_entrega, habilitar pasar a En preparación
-                if (val === 'pagado' || val === 'efectivo_entrega') {
-                    $procOption.prop('disabled', false).text('En preparación');
+                // Bloqueo de pasos posteriores si el pago no fue aprobado
+                if (isApproved) {
+                    $mainDropdown.find('option[value="processing"]').prop('disabled', false).text('En preparación');
+                    $mainDropdown.find('option[value="enviando"]').prop('disabled', false).text('Enviando');
+                    $mainDropdown.find('option[value="completed"]').prop('disabled', false).text('Completado');
+                    $shipSelect.find('option').prop('disabled', false);
+                    $controlBtnWrap.show();
                 } else {
-                    // Si el pedido está en estado pendiente, bloquear pasar a En preparación
-                    if ($mainDropdown.val() === 'pending') {
-                        $procOption.prop('disabled', true).text('En preparación (requiere pago)');
-                    }
+                    $mainDropdown.find('option[value="processing"]').prop('disabled', true).text('En preparación 🔒 (requiere pago)');
+                    $mainDropdown.find('option[value="enviando"]').prop('disabled', true).text('Enviando 🔒 (requiere pago)');
+                    $mainDropdown.find('option[value="completed"]').prop('disabled', true).text('Completado 🔒 (requiere pago)');
+                    $shipSelect.find('option:not([value="no_gestionado"])').prop('disabled', true);
+                    $controlBtnWrap.hide();
                 }
 
                 // Actualizar clases de color status-pay-*
                 $(this).removeClass('status-pay-pagado status-pay-pendiente status-pay-efectivo_entrega status-pay-pendiente_devolucion status-pay-devolucion')
                        .addClass('status-pay-' + val);
 
+                // Actualizar objeto en caché
+                const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
+                if (cachedOrder) {
+                    cachedOrder.payment_status = val;
+                }
+
                 self.updateCustomStatus(orderId, 'payment_status', val, $(this));
             });
 
-            // Cambio de estado de envío personalizado
+            // Cambio de estado de envío personalizado (bloqueado si el pago no está aprobado)
             $(document).on('change', '.caja-shipping-select', function() {
                 const orderId = $(this).data('order-id');
                 const val = $(this).val();
                 const $card = $(`#caja-order-card-${orderId}`);
                 const $mainDropdown = $card.find('.caja-main-status-dropdown');
+                const $paySelect = $card.find('.caja-payment-select');
+                const payVal = $paySelect.val();
+                const isApproved = (payVal === 'pagado' || payVal === 'efectivo_entrega');
+
+                if (val !== 'no_gestionado' && !isApproved) {
+                    alert('⚠️ No se puede gestionar el envío porque el pago aún no ha sido confirmado (Pagado o Efectivo en entrega).');
+                    $(this).val('no_gestionado');
+                    return;
+                }
 
                 // Actualizar clases de color status-ship-*
                 $(this).removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
@@ -247,17 +274,20 @@
                 const $card = $(`#caja-order-card-${orderId}`);
                 const $grid = $(`#caja-meta-grid-${orderId}`);
                 const $payBox = $(`#caja-meta-payment-${orderId}`);
+                const $pkgBox = $(`#caja-meta-packaging-${orderId}`);
                 const $shipBox = $(`#caja-meta-shipping-${orderId}`);
                 const $paySelect = $card.find('.caja-payment-select');
                 const $shipSelect = $card.find('.caja-shipping-select');
+                const $controlBtnWrap = $card.find('.caja-control-pedido-btn-wrap');
                 const payVal = $paySelect.val();
+                const isApproved = (payVal === 'pagado' || payVal === 'efectivo_entrega');
 
-                // Validación: En "Pendiente", solo puede pasar a "En preparación" si está Pagado o Efectivo en entrega
+                // Validación estricta: si el pago no fue chequeado, los siguientes pasos están bloqueados
                 const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
                 const currentStatus = cachedOrder ? cachedOrder.status : 'pending';
 
-                if (currentStatus === 'pending' && newStatus === 'processing' && payVal !== 'pagado' && payVal !== 'efectivo_entrega') {
-                    alert('Para pasar a En preparación, primero debes marcar el cobro como Pagado o Efectivo en entrega.');
+                if ((newStatus === 'processing' || newStatus === 'enviando' || newStatus === 'completed') && !isApproved) {
+                    alert('⚠️ No se puede avanzar el pedido porque el pago aún no ha sido confirmado (Pagado o Efectivo en entrega).');
                     select.val(currentStatus);
                     return;
                 }
@@ -270,23 +300,31 @@
                     }
                 };
 
-                // Ajustar visibilidad dinámica del recuadro debajo del botón de estado
+                // Ajustar visibilidad dinámica del menú ubicado ARRIBA del botón de estado
                 if (newStatus === 'pending') {
                     setVisible($grid, true);
                     setVisible($payBox, true);
+                    setVisible($pkgBox, true);
                     setVisible($shipBox, false);
+                    $controlBtnWrap.toggle(isApproved);
                 } else if (newStatus === 'processing') {
-                    setVisible($grid, false);
-                    setVisible($payBox, false);
-                    setVisible($shipBox, false);
+                    setVisible($grid, true);
+                    setVisible($payBox, !isApproved);
+                    setVisible($pkgBox, true);
+                    setVisible($shipBox, true);
+                    $controlBtnWrap.show();
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
                     setVisible($grid, true);
                     setVisible($payBox, false);
+                    setVisible($pkgBox, true);
                     setVisible($shipBox, true);
+                    $controlBtnWrap.show();
                 } else if (newStatus === 'completed') {
                     setVisible($grid, true);
                     setVisible($payBox, false);
+                    setVisible($pkgBox, false);
                     setVisible($shipBox, true);
+                    $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido sin problemas
                     $shipSelect.val('entregado');
                     $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
@@ -294,21 +332,244 @@
                 } else if (newStatus === 'recibido-problema') {
                     setVisible($grid, true);
                     setVisible($payBox, false);
+                    setVisible($pkgBox, false);
                     setVisible($shipBox, true);
+                    $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido con problemas
                     $shipSelect.val('entregado_problemas');
                     $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado_problemas');
                 } else if (newStatus === 'cancelled' || newStatus === 'refunded') {
-                    // Si se pone "cancelado" o "Reembolzado" en el botón grande se vuelve a habilitar el desplegable del pago
                     setVisible($grid, true);
                     setVisible($payBox, true);
+                    setVisible($pkgBox, false);
                     setVisible($shipBox, false);
+                    $controlBtnWrap.hide();
                 }
 
                 select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed');
                 select.addClass('status-bg-' + newStatus);
                 self.updateOrderStatus(orderId, newStatus, select);
+            });
+
+            // -------------------------------------------------------------
+            // EVENTOS DE CONTROL DE EMPAQUE (Cajas 6/12 y Bolsas de envío)
+            // -------------------------------------------------------------
+            // Abrir vista de edición de cajas oficiales
+            $(document).on('click', '.caja-btn-modify-pkg', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                $(`#caja-pkg-summary-${orderId}`).hide();
+                $(`#caja-pkg-edit-${orderId}`).slideDown(150);
+            });
+
+            // Cancelar edición de cajas oficiales
+            $(document).on('click', '.btn-cancel-pkg-boxes', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const order = self.cachedOrders.find(o => o.id == orderId);
+                if (order) {
+                    $(`#pkg-input-box-12-${orderId}`).val(order.boxes_12_qty || 0);
+                    $(`#pkg-input-box-6-${orderId}`).val(order.boxes_6_qty || 0);
+                }
+                $(`#caja-pkg-edit-${orderId}`).slideUp(150, function() {
+                    $(`#caja-pkg-summary-${orderId}`).show();
+                });
+            });
+
+            // Stepper de cajas oficiales (+ / -)
+            $(document).on('click', '.btn-step-box', function(e) {
+                e.preventDefault();
+                const type = $(this).data('type');
+                const action = $(this).data('action');
+                const orderId = $(this).data('order-id');
+                const $input = $(`#pkg-input-box-${type}-${orderId}`);
+                let val = parseInt($input.val(), 10) || 0;
+                if (action === 'plus') {
+                    val++;
+                } else if (action === 'minus') {
+                    val = Math.max(0, val - 1);
+                }
+                $input.val(val);
+            });
+
+            // Guardar cambios en cajas oficiales
+            $(document).on('click', '.btn-save-pkg-boxes', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const box12 = parseInt($(`#pkg-input-box-12-${orderId}`).val(), 10) || 0;
+                const box6 = parseInt($(`#pkg-input-box-6-${orderId}`).val(), 10) || 0;
+                const bagLarge = parseInt($(`#pkg-input-bag-large-${orderId}`).val(), 10) || 1;
+                const bagSmall = parseInt($(`#pkg-input-bag-small-${orderId}`).val(), 10) || 0;
+
+                const $btn = $(this);
+                $btn.prop('disabled', true).text('Guardando...');
+
+                self.savePackaging(orderId, box6, box12, bagLarge, bagSmall, function(success) {
+                    $btn.prop('disabled', false).text('💾 Guardar cajas');
+                    if (success) {
+                        $(`#caja-pkg-edit-${orderId}`).slideUp(150, function() {
+                            $(`#caja-pkg-summary-${orderId}`).show();
+                        });
+                    }
+                });
+            });
+
+            // Stepper de bolsas grandes y chicas (+ / - con persistencia)
+            $(document).on('click', '.btn-step-bag', function(e) {
+                e.preventDefault();
+                const type = $(this).data('type');
+                const action = $(this).data('action');
+                const orderId = $(this).data('order-id');
+                const $input = $(`#pkg-input-bag-${type}-${orderId}`);
+                let val = parseInt($input.val(), 10) || 0;
+                if (action === 'plus') {
+                    val++;
+                } else if (action === 'minus') {
+                    val = Math.max(0, val - 1);
+                }
+                $input.val(val);
+
+                const box12 = parseInt($(`#pkg-input-box-12-${orderId}`).val(), 10) || 0;
+                const box6 = parseInt($(`#pkg-input-box-6-${orderId}`).val(), 10) || 0;
+                const bagLarge = parseInt($(`#pkg-input-bag-large-${orderId}`).val(), 10) || 1;
+                const bagSmall = parseInt($(`#pkg-input-bag-small-${orderId}`).val(), 10) || 0;
+
+                self.savePackaging(orderId, box6, box12, bagLarge, bagSmall);
+            });
+
+            // -------------------------------------------------------------
+            // EVENTOS DE CONTROL DE PEDIDO (PANTALLA COMPLETA PREVIA A ENVÍO)
+            // -------------------------------------------------------------
+            // Botón "Control de pedido": abre modal en pantalla completa
+            $(document).on('click', '.caja-btn-control-pedido', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const order = self.cachedOrders.find(o => o.id == orderId);
+                if (!order) return;
+
+                const isApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
+                if (!isApproved) {
+                    alert('⚠️ Debe confirmar el pago (Pagado o Efectivo en entrega) antes de realizar el control de pedido.');
+                    return;
+                }
+
+                self.openControlPedidoModal(order);
+            });
+
+            // Cerrar modal de Control de Pedido (Acción 1 permitida: la X)
+            $(document).on('click', '#caja-control-close-btn', function(e) {
+                e.preventDefault();
+                $('#caja-modal-control-pedido').fadeOut(150);
+            });
+
+            // Cambios en los checkboxes del control de pedido
+            $(document).on('change', '.caja-control-chk', function() {
+                const total = $('.caja-control-chk').length;
+                const checked = $('.caja-control-chk:checked').length;
+                $('#caja-control-checked-count').text(checked);
+                $('#caja-control-total-count').text(total);
+
+                if (total > 0 && checked === total) {
+                    $('#caja-btn-iniciar-envio').prop('disabled', false).addClass('is-ready');
+                } else {
+                    $('#caja-btn-iniciar-envio').prop('disabled', true).removeClass('is-ready');
+                }
+            });
+
+            // Acción 2 permitida: Iniciar envío tras chequear el 100% de los checkboxes
+            $(document).on('click', '#caja-btn-iniciar-envio', function(e) {
+                e.preventDefault();
+                const orderId = self.currentControlOrderId;
+                if (!orderId) return;
+
+                const total = $('.caja-control-chk').length;
+                const checked = $('.caja-control-chk:checked').length;
+                if (checked < total || total === 0) {
+                    alert('Debes chequear todos los productos y empaques antes de iniciar el envío.');
+                    return;
+                }
+
+                const $btn = $(this);
+                $btn.prop('disabled', true).text('Iniciando envío...');
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'emp_caja_verify_control_pedido',
+                        security: self.config.nonce,
+                        order_id: orderId
+                    },
+                    success: function(res) {
+                        $('#caja-modal-control-pedido').fadeOut(150);
+                        $btn.html('<span>🚀 Iniciar envío</span>');
+
+                        if (res.success) {
+                            const order = self.cachedOrders.find(o => o.id == orderId);
+                            if (order) {
+                                order.control_pedido_verified = true;
+                                order.status = 'enviando';
+                                order.shipping_status = 'enviando';
+                            }
+                            self.renderOrders(self.cachedOrders);
+                            self.showToast('🚀 Control de pedido completado al 100%. Repartidor enviando.');
+                        } else {
+                            alert(res.data && res.data.message ? res.data.message : 'Error al verificar control de pedido.');
+                        }
+                    },
+                    error: function() {
+                        $btn.prop('disabled', false).html('<span>🚀 Iniciar envío</span>');
+                        alert('Error de conexión al iniciar envío.');
+                    }
+                });
+            });
+
+            // -------------------------------------------------------------
+            // EVENTOS DE PRODUCTOS RECOMENDADOS (Crear y Editar producto)
+            // -------------------------------------------------------------
+            // Filtro de búsqueda en lista de recomendados
+            $(document).on('input', '#new-rec-search-filter, #edit-rec-search-filter', function() {
+                const query = ($(this).val() || '').toLowerCase().trim();
+                const isEdit = $(this).attr('id').startsWith('edit');
+                const containerId = isEdit ? 'edit-prod-rec-list' : 'new-prod-rec-list';
+                $(`#${containerId} .caja-child-select-item`).each(function() {
+                    const search = $(this).data('search') || '';
+                    if (!query || search.includes(query)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+            });
+
+            // Marcar todos recomendados
+            $(document).on('click', '#btn-new-rec-select-all, #btn-rec-select-all', function(e) {
+                e.preventDefault();
+                const isEdit = $(this).attr('id') === 'btn-rec-select-all';
+                const containerId = isEdit ? 'edit-prod-rec-list' : 'new-prod-rec-list';
+                const badgeId = isEdit ? 'edit-rec-selected-badge' : 'new-rec-selected-badge';
+                $(`#${containerId} .caja-child-select-item:visible .caja-rec-chk`).prop('checked', true);
+                self.updateRecommendationsCount(containerId, badgeId);
+            });
+
+            // Desmarcar todos recomendados
+            $(document).on('click', '#btn-new-rec-deselect-all, #btn-rec-deselect-all', function(e) {
+                e.preventDefault();
+                const isEdit = $(this).attr('id') === 'btn-rec-deselect-all';
+                const containerId = isEdit ? 'edit-prod-rec-list' : 'new-prod-rec-list';
+                const badgeId = isEdit ? 'edit-rec-selected-badge' : 'new-rec-selected-badge';
+                $(`#${containerId} .caja-rec-chk`).prop('checked', false);
+                self.updateRecommendationsCount(containerId, badgeId);
+            });
+
+            // Cambio en checkbox de recomendado
+            $(document).on('change', '.caja-rec-chk', function() {
+                const $list = $(this).closest('.caja-children-checklist-container');
+                const containerId = $list.attr('id');
+                const isEdit = containerId === 'edit-prod-rec-list';
+                const badgeId = isEdit ? 'edit-rec-selected-badge' : 'new-rec-selected-badge';
+                self.updateRecommendationsCount(containerId, badgeId);
             });
 
             // Alarma Sonora: Toggle
@@ -461,6 +722,7 @@ $.ajax({
         console.warn('Failed to load sales suggestions');
     }
 });
+self.renderRecommendationsList('new-prod-rec-list', [], 0, 'new-rec-selected-badge');
 $('#caja-modal-new-product').fadeIn(200);
             });
 
@@ -1731,33 +1993,40 @@ $('#caja-modal-new-product').fadeIn(200);
                     timelineHtml = '<div class="caja-timeline-empty">Sin historial registrado</div>';
                 }
 
-                // Reglas de visibilidad condicional para el recuadro de pago y envío (debajo del botón de estado):
-                // En "Pendiente": mostrar pago, ocultar moto.
-                // En "En preparación": ocultar todo el recuadro.
-                // En "Enviando", "Recibido", etc.: mostrar moto, ocultar pago.
-                // En "Cancelado" o "Reembolzado": mostrar pago, ocultar moto.
+                // Reglas de visibilidad condicional para el menú de pago, empaque y envío (ubicado ARRIBA del selector de estado):
                 const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
                 let showMetaGrid = true;
                 let showPaymentBox = false;
+                let showPackagingBox = false;
                 let showShippingBox = false;
 
                 if (order.status === 'pending') {
                     showPaymentBox = true;
+                    showPackagingBox = true;
                     showShippingBox = false;
                 } else if (order.status === 'processing') {
-                    showMetaGrid = false;
+                    showPaymentBox = !isPayApproved;
+                    showPackagingBox = true;
+                    showShippingBox = true;
+                } else if (order.status === 'enviando' || order.status === 'on-hold') {
                     showPaymentBox = false;
-                    showShippingBox = false;
-                } else if (order.status === 'enviando' || order.status === 'on-hold' || order.status === 'completed' || order.status === 'recibido-problema' || order.status === 'failed') {
+                    showPackagingBox = true;
+                    showShippingBox = true;
+                } else if (order.status === 'completed' || order.status === 'recibido-problema' || order.status === 'failed') {
                     showPaymentBox = false;
+                    showPackagingBox = false;
                     showShippingBox = true;
                 } else if (order.status === 'cancelled' || order.status === 'refunded') {
                     showPaymentBox = true;
+                    showPackagingBox = false;
                     showShippingBox = false;
                 } else {
                     showPaymentBox = true;
+                    showPackagingBox = true;
                     showShippingBox = false;
                 }
+
+                const showControlPedidoBtn = (order.status === 'processing' || order.status === 'enviando' || (order.status === 'pending' && isPayApproved));
 
                 let felicitacionHtml = '';
                 if (order.aumento_pedido || order.decision_correcta) {
@@ -1873,55 +2142,136 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-total-val">${order.total}</span>
                             </div>
 
+                            <!-- Menú de Pago, Control de Empaque y Envío (ubicado ARRIBA del selector de estado) -->
+                            <div class="caja-order-meta-grid ${showMetaGrid ? '' : 'caja-meta-hidden'}" id="caja-meta-grid-${order.id}" style="${showMetaGrid ? '' : 'display:none;'}">
+                                
+                                <!-- Recuadro 1: Medio y Estado del Pago -->
+                                <div class="caja-meta-box caja-meta-payment-box ${showPaymentBox ? '' : 'caja-meta-hidden'}" id="caja-meta-payment-${order.id}" style="${showPaymentBox ? '' : 'display:none;'}">
+                                    <div class="caja-meta-header">
+                                        <span class="caja-meta-icon">💳</span>
+                                        <span class="caja-meta-title">Pago:</span>
+                                        <strong class="caja-meta-val">${order.payment_method}</strong>
+                                    </div>
+                                    <div class="caja-meta-select-wrap">
+                                        <select class="caja-status-select caja-payment-select status-pay-${order.payment_status}" data-order-id="${order.id}">
+                                            <option value="pagado" ${order.payment_status === 'pagado' ? 'selected' : ''}>✅ Pagado</option>
+                                            <option value="pendiente" ${order.payment_status === 'pendiente' ? 'selected' : ''}>⏳ Pendiente de pago</option>
+                                            <option value="efectivo_entrega" ${order.payment_status === 'efectivo_entrega' ? 'selected' : ''}>💵 Efectivo en entrega</option>
+                                            <option value="pendiente_devolucion" ${order.payment_status === 'pendiente_devolucion' ? 'selected' : ''}>🔄 Pendiente devolución</option>
+                                            <option value="devolucion" ${order.payment_status === 'devolucion' ? 'selected' : ''}>↩️ Devolución</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Recuadro 2: Control de Empaque (Cajas oficiales 6/12 y Bolsas de envío grandes/chicas) -->
+                                <div class="caja-meta-box caja-meta-packaging-box ${showPackagingBox ? '' : 'caja-meta-hidden'}" id="caja-meta-packaging-${order.id}" style="${showPackagingBox ? '' : 'display:none;'}">
+                                    <div class="caja-meta-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span class="caja-meta-icon">📦</span>
+                                            <span class="caja-meta-title">Control de empaque:</span>
+                                        </div>
+                                        <button type="button" class="caja-btn-modify-pkg" data-order-id="${order.id}">✏️ Modificar</button>
+                                    </div>
+
+                                    <!-- Vista resumen de cajas oficiales (solo lectura por defecto) -->
+                                    <div class="caja-pkg-summary-view" id="caja-pkg-summary-${order.id}">
+                                        <div class="caja-pkg-item-row" style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;">Cajas oficiales:</span>
+                                            <span class="caja-pkg-val" id="caja-pkg-boxes-val-${order.id}" style="font-size:0.85rem; color:#f1f5f9;">
+                                                ${(order.boxes_12_qty > 0 || order.boxes_6_qty > 0)
+                                                    ? `x12: <strong>${order.boxes_12_qty || 0}</strong> &nbsp;|&nbsp; x6: <strong>${order.boxes_6_qty || 0}</strong>`
+                                                    : '<em style="color:#64748b;">0 cajas</em>'
+                                                }
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Vista edición de cajas oficiales (habilitada SOLO si se toca 'Modificar') -->
+                                    <div class="caja-pkg-edit-view" id="caja-pkg-edit-${order.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1);">
+                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 12:</span>
+                                            <div class="caja-stepper">
+                                                <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="12" data-order-id="${order.id}">−</button>
+                                                <input type="number" min="0" step="1" id="pkg-input-box-12-${order.id}" value="${order.boxes_12_qty || 0}" class="caja-pkg-input" readonly />
+                                                <button type="button" class="caja-step-btn btn-step-box" data-action="plus" data-type="12" data-order-id="${order.id}">+</button>
+                                            </div>
+                                        </div>
+                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 6:</span>
+                                            <div class="caja-stepper">
+                                                <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="6" data-order-id="${order.id}">−</button>
+                                                <input type="number" min="0" step="1" id="pkg-input-box-6-${order.id}" value="${order.boxes_6_qty || 0}" class="caja-pkg-input" readonly />
+                                                <button type="button" class="caja-step-btn btn-step-box" data-action="plus" data-type="6" data-order-id="${order.id}">+</button>
+                                            </div>
+                                        </div>
+                                        <div class="caja-pkg-edit-actions" style="display:flex; gap:6px; justify-content:flex-end;">
+                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary btn-cancel-pkg-boxes" data-order-id="${order.id}">Cancelar</button>
+                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-save-pkg-boxes" data-order-id="${order.id}">💾 Guardar cajas</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bolsas grandes y chicas de envío -->
+                                    <div class="caja-pkg-bags-row" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
+                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagLargeName || 'Bolsa grande')}">🛍️ Bolsas grandes:</span>
+                                            <div class="caja-stepper">
+                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="large" data-order-id="${order.id}">−</button>
+                                                <input type="number" min="0" step="1" id="pkg-input-bag-large-${order.id}" value="${order.bag_large !== undefined ? order.bag_large : 1}" class="caja-pkg-input" readonly />
+                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="large" data-order-id="${order.id}">+</button>
+                                            </div>
+                                        </div>
+                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center;">
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagSmallName || 'Bolsa chica')}">🛍️ Bolsas chicas:</span>
+                                            <div class="caja-stepper">
+                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="small" data-order-id="${order.id}">−</button>
+                                                <input type="number" min="0" step="1" id="pkg-input-bag-small-${order.id}" value="${order.bag_small || 0}" class="caja-pkg-input" readonly />
+                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="small" data-order-id="${order.id}">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Recuadro 3: Estado del Envío -->
+                                <div class="caja-meta-box caja-meta-shipping-box ${showShippingBox ? '' : 'caja-meta-hidden'}" id="caja-meta-shipping-${order.id}" style="${showShippingBox ? '' : 'display:none;'}">
+                                    <div class="caja-meta-header">
+                                        <span class="caja-meta-icon">🛵</span>
+                                        <span class="caja-meta-title">Envío:</span>
+                                    </div>
+                                    <div class="caja-meta-select-wrap">
+                                        <select class="caja-status-select caja-shipping-select status-ship-${order.shipping_status}" data-order-id="${order.id}">
+                                            <option value="no_gestionado" ${order.shipping_status === 'no_gestionado' ? 'selected' : ''}>📦 No gestionado</option>
+                                            <option value="esperando_repartidor" ${order.shipping_status === 'esperando_repartidor' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>⏳ Esperando al repartidor${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="enviando" ${order.shipping_status === 'enviando' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🚀 Repartidor enviando${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="demorado" ${order.shipping_status === 'demorado' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>⚠️ Repartidor con demora${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🏁 Recibido sin problemas${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🛑 Recibido con problemas${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Botón previo a darle el paquete al repartidor: Control de pedido (mismo estilo y color que Enviando, ubicado ARRIBA del selector de pasos) -->
+                            ${showControlPedidoBtn ? `
+                                <div class="caja-control-pedido-btn-wrap" style="margin-top:10px;">
+                                    <button type="button" class="caja-btn-control-pedido status-bg-enviando" data-order-id="${order.id}">
+                                        📋 Control de pedido${order.control_pedido_verified ? ' (✓ Verificado)' : ''}
+                                    </button>
+                                </div>
+                            ` : ''}
+
+                            <!-- Selector de Pasos Principal (ubicado ABAJO) -->
                             <div class="caja-order-status-select-wrap">
                                 <div class="caja-dropdown-relative">
                                     <select class="caja-main-status-dropdown status-bg-${order.status}" data-order-id="${order.id}">
                                         <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
-                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${(!isPayApproved && order.status === 'pending') ? 'disabled' : ''}>En preparación${(!isPayApproved && order.status === 'pending') ? ' (requiere pago)' : ''}</option>
-                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''}>Enviando</option>
-                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completado</option>
+                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>En preparación${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Enviando${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Completado${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                         <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
                                         <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
                                         <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
                                     </select>
                                     <span class="caja-dropdown-arrow">▼</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Medio de Pago y Estado del Envío (ubicado debajo del botón de estado) -->
-                        <div class="caja-order-meta-grid ${showMetaGrid ? '' : 'caja-meta-hidden'}" id="caja-meta-grid-${order.id}" style="${showMetaGrid ? '' : 'display:none;'}">
-                            <div class="caja-meta-box caja-meta-payment-box ${showPaymentBox ? '' : 'caja-meta-hidden'}" id="caja-meta-payment-${order.id}" style="${showPaymentBox ? '' : 'display:none;'}">
-                                <div class="caja-meta-header">
-                                    <span class="caja-meta-icon">💳</span>
-                                    <span class="caja-meta-title">Pago:</span>
-                                    <strong class="caja-meta-val">${order.payment_method}</strong>
-                                </div>
-                                <div class="caja-meta-select-wrap">
-                                    <select class="caja-status-select caja-payment-select status-pay-${order.payment_status}" data-order-id="${order.id}">
-                                        <option value="pagado" ${order.payment_status === 'pagado' ? 'selected' : ''}>✅ Pagado</option>
-                                        <option value="pendiente" ${order.payment_status === 'pendiente' ? 'selected' : ''}>⏳ Pendiente de pago</option>
-                                        <option value="efectivo_entrega" ${order.payment_status === 'efectivo_entrega' ? 'selected' : ''}>💵 Efectivo en entrega</option>
-                                        <option value="pendiente_devolucion" ${order.payment_status === 'pendiente_devolucion' ? 'selected' : ''}>🔄 Pendiente devolución</option>
-                                        <option value="devolucion" ${order.payment_status === 'devolucion' ? 'selected' : ''}>↩️ Devolución</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="caja-meta-box caja-meta-shipping-box ${showShippingBox ? '' : 'caja-meta-hidden'}" id="caja-meta-shipping-${order.id}" style="${showShippingBox ? '' : 'display:none;'}">
-                                <div class="caja-meta-header">
-                                    <span class="caja-meta-icon">🛵</span>
-                                    <span class="caja-meta-title">Envío:</span>
-                                </div>
-                                <div class="caja-meta-select-wrap">
-                                    <select class="caja-status-select caja-shipping-select status-ship-${order.shipping_status}" data-order-id="${order.id}">
-                                        <option value="no_gestionado" ${order.shipping_status === 'no_gestionado' ? 'selected' : ''}>📦 No gestionado</option>
-                                        <option value="esperando_repartidor" ${order.shipping_status === 'esperando_repartidor' ? 'selected' : ''}>⏳ Esperando al repartidor</option>
-                                        <option value="enviando" ${order.shipping_status === 'enviando' ? 'selected' : ''}>🚀 Repartidor enviando</option>
-                                        <option value="demorado" ${order.shipping_status === 'demorado' ? 'selected' : ''}>⚠️ Repartidor con demora</option>
-                                        <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''}>🏁 Recibido sin problemas</option>
-                                        <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''}>🛑 Recibido con problemas</option>
-                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -2566,6 +2916,276 @@ $('#caja-modal-new-product').fadeIn(200);
             }
         },
 
+        renderRecommendationsList: function(containerId, selectedIds, currentProductId, badgeId) {
+            const self = this;
+            const $list = $(`#${containerId}`);
+            if (!$list.length) return;
+            $list.empty();
+
+            selectedIds = Array.isArray(selectedIds) ? selectedIds.map(Number) : [];
+
+            // Excluir el producto actual
+            const candidates = (self.cachedProducts || []).filter(p => {
+                return !currentProductId || p.id !== currentProductId;
+            });
+
+            if (candidates.length === 0) {
+                $list.html('<div style="padding:10px; color:#94a3b8; font-size:0.85rem; text-align:center;">No hay productos disponibles para recomendar.</div>');
+                if (badgeId) $(`#${badgeId}`).text('0 seleccionados');
+                return;
+            }
+
+            let html = '';
+            candidates.forEach(cand => {
+                const isChecked = selectedIds.includes(Number(cand.id));
+                const thumb = cand.image_url || '';
+                const normName = (cand.name || '').toLowerCase();
+                const normSku = (cand.sku || '').toLowerCase();
+
+                html += `
+                    <div class="caja-child-select-item" data-search="${normName} ${normSku}" data-id="${cand.id}">
+                        <label class="caja-child-main-label" style="display:flex; align-items:center; gap:10px; cursor:pointer; width:100%;">
+                            <input type="checkbox" class="caja-rec-chk" value="${cand.id}" ${isChecked ? 'checked' : ''} />
+                            ${thumb ? `<img src="${thumb}" alt="" class="caja-child-thumb" style="width:36px; height:36px; border-radius:4px; object-fit:cover;" />` : '<span style="font-size:1.3rem;">📦</span>'}
+                            <div class="caja-child-info">
+                                <strong>${cand.name}</strong>
+                                <div class="caja-child-meta" style="font-size:0.8rem; color:#94a3b8;">
+                                    <span>${cand.price || ''}</span>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                `;
+            });
+
+            $list.html(html);
+            self.updateRecommendationsCount(containerId, badgeId);
+        },
+
+        updateRecommendationsCount: function(containerId, badgeId) {
+            if (!badgeId) return;
+            const count = $(`#${containerId} .caja-rec-chk:checked`).length;
+            $(`#${badgeId}`).text(`${count} seleccionado${count === 1 ? '' : 's'}`);
+        },
+
+        savePackaging: function(orderId, box6, box12, bagLarge, bagSmall, callback) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_update_packaging',
+                    security: self.config.nonce,
+                    order_id: orderId,
+                    box_6: box6,
+                    box_12: box12,
+                    bag_large: bagLarge,
+                    bag_small: bagSmall
+                },
+                success: function(res) {
+                    if (res.success && res.data && res.data.order) {
+                        const updated = res.data.order;
+                        const idx = self.cachedOrders.findIndex(o => o.id == orderId);
+                        if (idx !== -1) {
+                            self.cachedOrders[idx].boxes_6_qty = updated.boxes_6_qty;
+                            self.cachedOrders[idx].boxes_12_qty = updated.boxes_12_qty;
+                            self.cachedOrders[idx].bag_large = updated.bag_large;
+                            self.cachedOrders[idx].bag_small = updated.bag_small;
+                            if (updated.packing_summary) {
+                                self.cachedOrders[idx].packing_summary = updated.packing_summary;
+                            }
+                        }
+                        const boxesText = (updated.boxes_12_qty > 0 || updated.boxes_6_qty > 0)
+                            ? `x12: <strong>${updated.boxes_12_qty}</strong> &nbsp;|&nbsp; x6: <strong>${updated.boxes_6_qty}</strong>`
+                            : '<em style="color:#64748b;">0 cajas</em>';
+                        $(`#caja-pkg-boxes-val-${orderId}`).html(boxesText);
+                        self.showToast('✅ Empaque actualizado.');
+                        if (typeof callback === 'function') callback(true);
+                    } else {
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                error: function() {
+                    if (typeof callback === 'function') callback(false);
+                }
+            });
+        },
+
+        openControlPedidoModal: function(order) {
+            const self = this;
+            self.currentControlOrderId = order.id;
+
+            $('#caja-control-title').text(`Control de Pedido #${order.number}`);
+            const $body = $('#caja-control-body');
+            $body.empty();
+
+            let boxIndex = 1;
+            let html = '';
+            let looseItems = [];
+
+            // 1. Cajas agrupadas y automáticas
+            (order.items || []).forEach(it => {
+                if (it.is_box) {
+                    const subitems = it.pack_items || [];
+                    const unitsCount = it.box_units || (subitems.length > 0 ? subitems.reduce((acc, c) => acc + (parseInt(c.quantity, 10) || 1), 0) : (it.quantity || 1));
+
+                    html += `
+                        <div class="caja-control-box-card">
+                            <div class="caja-control-box-header">
+                                <span class="caja-control-box-icon">📦</span>
+                                <span class="caja-control-box-title">Caja ${boxIndex}: ${self.escapeHtml(it.name)}</span>
+                                <span class="caja-control-box-badge">${unitsCount} unidades</span>
+                            </div>
+                            <div class="caja-control-subitems-list">
+                    `;
+
+                    if (subitems.length > 0) {
+                        subitems.forEach(sub => {
+                            html += `
+                                <div class="caja-control-item-row">
+                                    <div class="caja-control-item-left">
+                                        ${sub.image ? `<img src="${sub.image}" class="caja-control-thumb" alt="" />` : '<span class="caja-control-no-thumb">🍬</span>'}
+                                        <div class="caja-control-item-info">
+                                            <span class="caja-control-item-qty">${sub.quantity}x</span>
+                                            <span class="caja-control-item-name">${self.escapeHtml(sub.name)}</span>
+                                        </div>
+                                    </div>
+                                    <label class="caja-control-check-wrap">
+                                        <input type="checkbox" class="caja-control-chk" />
+                                        <span class="caja-control-check-box"></span>
+                                    </label>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        html += `
+                            <div class="caja-control-item-row">
+                                <div class="caja-control-item-left">
+                                    <span class="caja-control-no-thumb">📦</span>
+                                    <div class="caja-control-item-info">
+                                        <span class="caja-control-item-qty">${it.quantity || 1}x</span>
+                                        <span class="caja-control-item-name">${self.escapeHtml(it.name)}</span>
+                                    </div>
+                                </div>
+                                <label class="caja-control-check-wrap">
+                                    <input type="checkbox" class="caja-control-chk" />
+                                    <span class="caja-control-check-box"></span>
+                                </label>
+                            </div>
+                        `;
+                    }
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                    boxIndex++;
+                } else {
+                    looseItems.push(it);
+                }
+            });
+
+            // 2. Productos sueltos / adicionales
+            if (looseItems.length > 0) {
+                html += `
+                    <div class="caja-control-box-card caja-control-loose-card">
+                        <div class="caja-control-box-header">
+                            <span class="caja-control-box-icon">🍬</span>
+                            <span class="caja-control-box-title">Productos sueltos / Adicionales</span>
+                            <span class="caja-control-box-badge">${looseItems.length} ítem${looseItems.length === 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="caja-control-subitems-list">
+                `;
+                looseItems.forEach(it => {
+                    html += `
+                        <div class="caja-control-item-row">
+                            <div class="caja-control-item-left">
+                                ${it.image ? `<img src="${it.image}" class="caja-control-thumb" alt="" />` : '<span class="caja-control-no-thumb">🍬</span>'}
+                                <div class="caja-control-item-info">
+                                    <span class="caja-control-item-qty">${it.quantity}x</span>
+                                    <span class="caja-control-item-name">${self.escapeHtml(it.name)}</span>
+                                </div>
+                            </div>
+                            <label class="caja-control-check-wrap">
+                                <input type="checkbox" class="caja-control-chk" />
+                                <span class="caja-control-check-box"></span>
+                            </label>
+                        </div>
+                    `;
+                });
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 3. Bolsas de envío (grandes y chicas)
+            const bagLargeQty = (order.bag_large !== undefined && order.bag_large !== null) ? parseInt(order.bag_large, 10) : 1;
+            const bagSmallQty = (order.bag_small !== undefined && order.bag_small !== null) ? parseInt(order.bag_small, 10) : 0;
+            const bagLargeName = (self.config && self.config.officialBagLargeName) || 'Bolsa grande de envío';
+            const bagSmallName = (self.config && self.config.officialBagSmallName) || 'Bolsa chica de envío';
+
+            html += `
+                <div class="caja-control-box-card caja-control-bags-card">
+                    <div class="caja-control-box-header">
+                        <span class="caja-control-box-icon">🛍️</span>
+                        <span class="caja-control-box-title">Bolsas de envío</span>
+                    </div>
+                    <div class="caja-control-subitems-list">
+            `;
+
+            if (bagLargeQty > 0 || (bagLargeQty === 0 && bagSmallQty === 0)) {
+                const qtyToShow = bagLargeQty > 0 ? bagLargeQty : 1;
+                html += `
+                    <div class="caja-control-item-row">
+                        <div class="caja-control-item-left">
+                            <span class="caja-control-no-thumb">🛍️</span>
+                            <div class="caja-control-item-info">
+                                <span class="caja-control-item-qty">${qtyToShow}x</span>
+                                <span class="caja-control-item-name">${self.escapeHtml(bagLargeName)}</span>
+                            </div>
+                        </div>
+                        <label class="caja-control-check-wrap">
+                            <input type="checkbox" class="caja-control-chk" />
+                            <span class="caja-control-check-box"></span>
+                        </label>
+                    </div>
+                `;
+            }
+
+            if (bagSmallQty > 0) {
+                html += `
+                    <div class="caja-control-item-row">
+                        <div class="caja-control-item-left">
+                            <span class="caja-control-no-thumb">🛍️</span>
+                            <div class="caja-control-item-info">
+                                <span class="caja-control-item-qty">${bagSmallQty}x</span>
+                                <span class="caja-control-item-name">${self.escapeHtml(bagSmallName)}</span>
+                            </div>
+                        </div>
+                        <label class="caja-control-check-wrap">
+                            <input type="checkbox" class="caja-control-chk" />
+                            <span class="caja-control-check-box"></span>
+                        </label>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            $body.html(html);
+
+            const total = $('.caja-control-chk').length;
+            $('#caja-control-checked-count').text(0);
+            $('#caja-control-total-count').text(total);
+            $('#caja-btn-iniciar-envio').prop('disabled', true).removeClass('is-ready');
+
+            $('#caja-modal-control-pedido').fadeIn(200);
+        },
+
         populatePackagingBoxSelect: function(selectedId) {
             const self = this;
             const $select = $('#edit-prod-packaging-box');
@@ -2928,6 +3548,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-edit-stock-dynamic-hint').hide();
             }
 
+            self.renderRecommendationsList('edit-prod-rec-list', p.recommended_ids || [], p.id, 'edit-rec-selected-badge');
+
             $('#caja-edit-product-error').hide();
             $('#caja-modal-edit-product').fadeIn(200);
             setTimeout(() => {
@@ -2995,6 +3617,12 @@ $('#caja-modal-new-product').fadeIn(200);
                 productData.attributes = self.collectVariableAttributes();
                 productData.variations = self.collectVariationsList();
             }
+
+            const editRecIds = [];
+            $('#edit-prod-rec-list .caja-rec-chk:checked').each(function() {
+                editRecIds.push(parseInt($(this).val(), 10));
+            });
+            productData.recommended_ids = editRecIds;
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -3194,6 +3822,12 @@ $('#caja-modal-new-product').fadeIn(200);
                 official_box_role: (selectedType === 'simple') ? ($('#new-prod-box-role').val() || 'none') : 'none'
             };
 
+            const newRecIds = [];
+            $('#new-prod-rec-list .caja-rec-chk:checked').each(function() {
+                newRecIds.push(parseInt($(this).val(), 10));
+            });
+            productData.recommended_ids = newRecIds;
+
             $.ajax({
                 url: self.config.ajaxUrl,
                 type: 'POST',
@@ -3274,6 +3908,16 @@ $('#caja-modal-new-product').fadeIn(200);
             setTimeout(function() {
                 $toast.fadeOut(300);
             }, 3500);
+        },
+
+        escapeHtml: function(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
     };
 

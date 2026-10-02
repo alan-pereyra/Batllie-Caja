@@ -33,6 +33,9 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_write_file', array(__CLASS__, 'ajax_write_file'));
         // Acción AJAX para obtener sugerencias de venta
         add_action('wp_ajax_emp_caja_get_sales_suggestions', array(__CLASS__, 'ajax_get_sales_suggestions'));
+        // Control de empaque y verificación de pedido previo a envío
+        add_action('wp_ajax_emp_caja_update_packaging', array(__CLASS__, 'ajax_update_packaging'));
+        add_action('wp_ajax_emp_caja_verify_control_pedido', array(__CLASS__, 'ajax_verify_control_pedido'));
     }
 
     /**
@@ -305,6 +308,7 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('bytes' => $bytes, 'path' => $rel));
+    }
 
     /**
      * AJAX: Obtener sugerencias de venta basadas en el carrito actual
@@ -336,6 +340,30 @@ class Batllie_Caja_Ajax {
             );
         }
         wp_send_json_success($products);
+    }
+
+    /**
+     * AJAX: Actualizar empaque (cajas 6, 12 y bolsas de envío)
+     */
+    public static function ajax_update_packaging() {
+        self::check_auth();
+        if (class_exists('Batllie_Caja_Orders')) {
+            Batllie_Caja_Orders::ajax_update_packaging();
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Verificar control de pedido previo a despacho
+     */
+    public static function ajax_verify_control_pedido() {
+        self::check_auth();
+        if (class_exists('Batllie_Caja_Orders')) {
+            Batllie_Caja_Orders::ajax_verify_control_pedido();
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
     }
 
 }

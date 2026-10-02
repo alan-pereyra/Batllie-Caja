@@ -45,6 +45,11 @@ if (!defined('ABSPATH')) {
                 </svg>
                 <span><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
             </button>
+                    <!-- Ventas sugeridas (Sales suggestions) -->
+            <button class="caja-tab-btn" data-tab="tab-sales-suggestions" id="caja-tab-nav-sales-suggestions">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+                <span><?php _e('Ventas sugeridas', 'emp-caja'); ?></span>
+            </button>
         </nav>
 
         <!-- Controles de la Barra Superior -->
@@ -125,7 +130,39 @@ if (!defined('ABSPATH')) {
         <section id="tab-products" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-products.php'; ?>
         </section>
+        <!-- Ventas sugeridas -->
+        <section id="tab-sales-suggestions" class="caja-tab-panel" style="display:none;">
+            <!-- Content will be populated by JavaScript -->
+        </section>
     </main>
+
+
+    <!-- Modal Pantalla Completa: Control de Pedido -->
+    <div id="caja-modal-control-pedido" class="caja-control-pedido-fullscreen" style="display:none;">
+        <div class="caja-control-pedido-container">
+            <div class="caja-control-pedido-header">
+                <div class="caja-control-header-left">
+                    <span class="caja-control-header-icon">📋</span>
+                    <h2 class="caja-control-header-title" id="caja-control-title"><?php _e('Control de Pedido', 'emp-caja'); ?></h2>
+                </div>
+                <button type="button" class="caja-control-close-btn" id="caja-control-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+            </div>
+            <div class="caja-control-pedido-intro">
+                <span><?php _e('Chequeá todos los productos incluidos en cada caja, los sueltos y las bolsas de envío antes de entregar al repartidor:', 'emp-caja'); ?></span>
+            </div>
+            <div class="caja-control-pedido-body" id="caja-control-body">
+                <!-- Se genera dinámicamente -->
+            </div>
+            <div class="caja-control-pedido-footer">
+                <div class="caja-control-counter">
+                    <span id="caja-control-checked-count">0</span> de <span id="caja-control-total-count">0</span> <?php _e('verificados', 'emp-caja'); ?>
+                </div>
+                <button type="button" class="caja-btn-iniciar-envio" id="caja-btn-iniciar-envio" disabled>
+                    <span>🚀 <?php _e('Iniciar envío', 'emp-caja'); ?></span>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Notificaciones Toast -->
     <div id="caja-toast" class="caja-toast" style="display:none;"></div>

@@ -895,6 +895,10 @@ class Batllie_Caja_Orders {
             $shipping_status = 'entregado_problemas';
         }
 
+        $boxes_used = (array) ($order->get_meta('_batllie_boxes_used') ?: array());
+        $saved_bags = (array) ($order->get_meta('_batllie_packaging_bags') ?: array());
+        $packing_summary = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_order_boxes_summary($order) : null;
+
         return array(
             'id'              => $order_id,
             'number'          => $order->get_order_number(),
@@ -922,8 +926,13 @@ class Batllie_Caja_Orders {
             'aumento_pedido'       => ($order->get_meta('_batllie_aumento_pedido') === 'yes' || $order->get_meta('_batllie_decision_correcta') === 'yes'),
             'tarjeta_incluida'     => ($order->get_meta('_batllie_tarjeta_incluida') === 'yes'),
             'has_courtesy_box'     => ($order->get_meta('_batllie_has_courtesy_box') === 'yes'),
-            'boxes_used'           => $order->get_meta('_batllie_boxes_used'),
-            'packing_summary'      => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_order_boxes_summary($order) : null,
+            'boxes_used'           => $boxes_used,
+            'boxes_6_qty'          => isset($boxes_used['box_6']) ? intval($boxes_used['box_6']) : (!empty($packing_summary['box_6']) ? intval($packing_summary['box_6']) : 0),
+            'boxes_12_qty'         => isset($boxes_used['box_12']) ? intval($boxes_used['box_12']) : (!empty($packing_summary['box_12']) ? intval($packing_summary['box_12']) : 0),
+            'bag_large'            => isset($saved_bags['large']) ? intval($saved_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1),
+            'bag_small'            => isset($saved_bags['small']) ? intval($saved_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0),
+            'control_pedido_verified' => ($order->get_meta('_batllie_control_pedido_verified') === 'yes'),
+            'packing_summary'      => $packing_summary,
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
             'order_date_formatted' => $order_date_formatted,
@@ -976,12 +985,11 @@ class Batllie_Caja_Orders {
         // Quitar prefijo 'wc-' si viene incluido
         $clean_status = str_replace('wc-', '', sanitize_key($new_status));
 
-        // En "Pendiente", solo habilitar pasar a "En preparación" si está Pagado o Efectivo en entrega
-        $current_status = $order->get_status();
-        if ($current_status === 'pending' && $clean_status === 'processing') {
+        // En la terminal de caja: si no se chequeó el pago todavía, el resto de pasos no pueden iniciarse
+        if (!in_array($clean_status, array('pending', 'cancelled', 'refunded'), true)) {
             $payment_status = $order->get_meta('_caja_payment_status');
             if ($payment_status !== 'pagado' && $payment_status !== 'efectivo_entrega') {
-                return new WP_Error('payment_required', __('Para pasar a En preparación, primero debes marcar el cobro como Pagado o Efectivo en entrega.', 'emp-caja'));
+                return new WP_Error('payment_required', __('Para iniciar los siguientes pasos, primero debes chequear y confirmar el pago (Pagado o Efectivo en entrega).', 'emp-caja'));
             }
         }
 
@@ -1068,12 +1076,25 @@ class Batllie_Caja_Orders {
             if (!in_array($clean_val, $allowed)) {
                 return false;
             }
+
+            // Si no se chequeó el pago todavía, el envío no puede iniciarse
+            if ($clean_val !== 'no_gestionado') {
+                $pay_st = $order->get_meta('_caja_payment_status');
+                if ($pay_st !== 'pagado' && $pay_st !== 'efectivo_entrega') {
+                    return false;
+                }
+            }
+
             $order->update_meta_data('_caja_shipping_status', $clean_val);
             $order->save();
 
             if ($clean_val === 'esperando_repartidor') {
                 self::add_timeline_event($order, __('se coordinó el envío', 'emp-caja'), '⏳', 'shipping_coord');
             } elseif ($clean_val === 'enviando') {
+                $curr_st = $order->get_status();
+                if ($curr_st === 'pending' || $curr_st === 'processing') {
+                    $order->update_status('enviando', __('Repartidor enviando pedido', 'emp-caja'));
+                }
                 self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
             } elseif ($clean_val === 'demorado') {
                 self::add_timeline_event($order, __('el repartidor con demora', 'emp-caja'), '⚠️', 'shipping_delay');
@@ -1363,5 +1384,95 @@ class Batllie_Caja_Orders {
             'highest_id'       => $highest_id,
             'orders'           => $all_orders
         );
+    }
+
+    /**
+     * AJAX: Guardar cambios de empaque (cajas de 6, cajas de 12, bolsas grandes y chicas)
+     */
+    public static function ajax_update_packaging() {
+        check_ajax_referer('batllie_caja_nonce', 'security');
+        $order_id = isset($_POST['order_id']) ? absint($_POST['order_id']) : 0;
+        if (!$order_id) {
+            wp_send_json_error(array('message' => __('ID de pedido inválido.', 'emp-caja')));
+        }
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            wp_send_json_error(array('message' => __('Pedido no encontrado.', 'emp-caja')));
+        }
+
+        $existing_boxes = $order->get_meta('_batllie_boxes_used') ?: array();
+        $existing_bags  = $order->get_meta('_batllie_packaging_bags') ?: array();
+
+        $boxes_6_raw = isset($_POST['boxes_6']) ? $_POST['boxes_6'] : (isset($_POST['box_6']) ? $_POST['box_6'] : null);
+        $boxes_12_raw = isset($_POST['boxes_12']) ? $_POST['boxes_12'] : (isset($_POST['box_12']) ? $_POST['box_12'] : null);
+        $bags_large_raw = isset($_POST['bags_large']) ? $_POST['bags_large'] : (isset($_POST['bag_large']) ? $_POST['bag_large'] : null);
+        $bags_small_raw = isset($_POST['bags_small']) ? $_POST['bags_small'] : (isset($_POST['bag_small']) ? $_POST['bag_small'] : null);
+
+        $boxes_6 = ($boxes_6_raw !== null) ? max(0, intval($boxes_6_raw)) : (isset($existing_boxes['box_6']) ? intval($existing_boxes['box_6']) : intval($order->get_meta('_batllie_boxes_6_qty') ?: 0));
+        $boxes_12 = ($boxes_12_raw !== null) ? max(0, intval($boxes_12_raw)) : (isset($existing_boxes['box_12']) ? intval($existing_boxes['box_12']) : intval($order->get_meta('_batllie_boxes_12_qty') ?: 0));
+        $bags_large = ($bags_large_raw !== null) ? max(0, intval($bags_large_raw)) : (isset($existing_bags['large']) ? intval($existing_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1));
+        $bags_small = ($bags_small_raw !== null) ? max(0, intval($bags_small_raw)) : (isset($existing_bags['small']) ? intval($existing_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0));
+
+        $boxes_used = array(
+            'box_6'  => $boxes_6,
+            'box_12' => $boxes_12,
+        );
+        $order->update_meta_data('_batllie_boxes_used', $boxes_used);
+        $order->update_meta_data('_batllie_boxes_6_qty', $boxes_6);
+        $order->update_meta_data('_batllie_boxes_12_qty', $boxes_12);
+
+        $bags_used = array(
+            'large' => $bags_large,
+            'small' => $bags_small,
+        );
+        $order->update_meta_data('_batllie_packaging_bags', $bags_used);
+        $order->update_meta_data('_batllie_bags_large_qty', $bags_large);
+        $order->update_meta_data('_batllie_bags_small_qty', $bags_small);
+
+        $order->save();
+
+        self::add_timeline_event(
+            $order,
+            sprintf(__('Empaque modificado: %d Cajas x 12, %d Cajas x 6, %d Bolsas Grandes, %d Bolsas Chicas', 'emp-caja'), $boxes_12, $boxes_6, $bags_large, $bags_small),
+            '📦',
+            'packing'
+        );
+
+        wp_send_json_success(array(
+            'order'   => self::format_order($order),
+            'message' => __('Control de empaque guardado con éxito.', 'emp-caja'),
+        ));
+    }
+
+    /**
+     * AJAX: Confirmar control de pedido y despachar con repartidor
+     */
+    public static function ajax_verify_control_pedido() {
+        check_ajax_referer('batllie_caja_nonce', 'security');
+        $order_id = isset($_POST['order_id']) ? absint($_POST['order_id']) : 0;
+
+        if (!$order_id) {
+            wp_send_json_error(array('message' => __('ID de pedido inválido.', 'emp-caja')));
+        }
+
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            wp_send_json_error(array('message' => __('Pedido no encontrado.', 'emp-caja')));
+        }
+
+        // Marcar control de pedido verificado
+        $order->update_meta_data('_batllie_control_pedido_verified', 'yes');
+        $order->update_meta_data('_caja_shipping_status', 'enviando');
+        $order->update_status('enviando', __('Control de pedido completado al 100%. Paquete entregado al repartidor.', 'emp-caja'));
+
+        self::add_timeline_event($order, __('Control de pedido verificado al 100%. Paquete entregado al repartidor.', 'emp-caja'), '📋', 'shipping_out');
+        self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
+
+        $order->save();
+
+        wp_send_json_success(array(
+            'order'   => self::format_order($order),
+            'message' => __('¡Control de pedido verificado! Envío iniciado con éxito.', 'emp-caja'),
+        ));
     }
 }

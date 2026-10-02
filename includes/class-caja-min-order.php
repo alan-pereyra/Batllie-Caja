@@ -162,6 +162,17 @@ class Batllie_Caja_Min_Order {
             wp_add_inline_style('emp_styles', $hide_notices_css);
         }
 
+        $priority = $options['packing_priority'] ?? '12';
+        $officialBoxId = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id( intval($priority) ) : 0;
+        $priorityBoxImg = '';
+        if ( $officialBoxId ) {
+            $product = wc_get_product( $officialBoxId );
+            if ( $product ) {
+                $img_id = $product->get_image_id();
+                $priorityBoxImg = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+            }
+        }
+
         wp_localize_script('batllie-caja-min-order-js', 'batllieMinOrderConfig', array(
             'ajaxUrl'          => admin_url('admin-ajax.php'),
             'nonce'            => wp_create_nonce('batllie_caja_nonce'),
@@ -179,6 +190,7 @@ class Batllie_Caja_Min_Order {
             'checkoutUrl'      => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
             'primaryColor'     => $options['primary_color'] ?? '#10b981',
             'packing'          => $packing,
+            'priorityBoxImage' => $priorityBoxImg,
             'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),
             'i18n'             => array(
                 'modalTitle'      => __('Monto Mínimo de Compra', 'emp-caja'),
@@ -457,6 +469,17 @@ class Batllie_Caja_Min_Order {
         $is_below  = ($min > 0 && $amount < $min);
         $shop_url  = home_url('/');
         $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array();
+        $color_options = class_exists('Batllie_Caja_Plugin') ? Batllie_Caja_Plugin::get_color_settings() : array();
+        $priority = $color_options['packing_priority'] ?? '12';
+        $officialBoxId = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id( intval($priority) ) : 0;
+        $priorityBoxImg = '';
+        if ( $officialBoxId ) {
+            $product = wc_get_product( $officialBoxId );
+            if ( $product ) {
+                $img_id = $product->get_image_id();
+                $priorityBoxImg = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+            }
+        }
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">
             <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Información de tu Pedido', 'emp-caja'); ?>">
@@ -482,7 +505,13 @@ class Batllie_Caja_Min_Order {
                     <!-- Sección B: Motor de Empaque, Barra de Progreso y Gustos 1-Click -->
                     <div id="batllie-modal-packing-section" class="batllie-modal-packing-section" style="<?php echo (!empty($packing['has_alfajores']) && $packing['status'] !== 'all_boxed') ? '' : 'display:none;'; ?>">
                         <div class="batllie-packing-header">
-                            <h3 id="batllie-packing-title" class="batllie-packing-title"><?php _e('Tomaste una decisión correcta pero podría ser aún mejor', 'emp-caja'); ?></h3>
+                            <h3 id="batllie-packing-title" class="batllie-packing-title">
+                                <span class="batllie-packing-title-main"><?php _e('Tomaste una buena decisión', 'emp-caja'); ?></span>
+                                <span class="batllie-packing-title-sub"><?php _e('pero podría ser aún mejor', 'emp-caja'); ?></span>
+                            </h3>
+                            <div class="batllie-modal-box-image-wrap" id="batllie-modal-box-image-wrap" style="<?php echo !empty($priorityBoxImg) ? '' : 'display:none;'; ?>">
+                                <img id="batllie-modal-box-image" src="<?php echo esc_url($priorityBoxImg); ?>" alt="<?php esc_attr_e('Caja oficial', 'emp-caja'); ?>" class="batllie-modal-box-image" />
+                            </div>
                         </div>
 
                         <!-- Barra de Resumen de Totales y Cajas Armadas -->
@@ -500,7 +529,7 @@ class Batllie_Caja_Min_Order {
                             <div class="batllie-packing-progress-meta">
                                 <span class="batllie-packing-meta-label">
                                     <?php 
-                                    $box_num = $packing['current_box_num'] ?? 1;
+                                     $box_num = $packing['current_box_num'] ?? 1;
                                     echo esc_html(($box_num > 1) ? sprintf(__('%dª Caja en armado:', 'emp-caja'), $box_num) : __('Caja en armado:', 'emp-caja')); 
                                     ?>
                                 </span>
@@ -556,8 +585,8 @@ class Batllie_Caja_Min_Order {
                 </div>
 
                 <div class="batllie-min-modal-footer">
-                    <!-- Botón para continuar sin agregar alfajores extras (SOLO cuando no es imperativo y se permite cortesía) -->
-                    <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!empty($packing['courtesy_allowed'])) ? '' : 'display:none;'; ?>">
+                    <!-- Botón para continuar sin agregar alfajores extras (habilitado si no está por debajo del mínimo de compra) -->
+                    <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!$is_below) ? '' : 'display:none;'; ?>">
                         <span><?php _e('Continuar de todas formas', 'emp-caja'); ?></span>
                     </button>
 
