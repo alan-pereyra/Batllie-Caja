@@ -1680,6 +1680,17 @@ $('#caja-modal-new-product').fadeIn(200);
                     }
                 });
 
+                // Si el pedido tiene caja mixta pero ninguna de las cajas actuales es una caja mixta,
+                // desarmar las cajas automáticas recibidas para permitir re-empaquetar con el producto mixto
+                if (order && order.has_mixed_box && !boxes.some(b => b.is_mixed_box)) {
+                    for (let i = boxes.length - 1; i >= 0; i--) {
+                        if (boxes[i].is_auto_box && boxes[i].pack_items && boxes[i].pack_items.length) {
+                            looseAlfajores.push(...boxes[i].pack_items);
+                            boxes.splice(i, 1);
+                        }
+                    }
+                }
+
                 if (!looseAlfajores.length) {
                     return boxes.concat(otherItems);
                 }
@@ -1709,7 +1720,10 @@ $('#caja-modal-new-product').fadeIn(200);
                     const mTargetName = (mInfo.product_name || '').toLowerCase();
                     otherItems.forEach(it => {
                         const itName = (it.name || '').toLowerCase();
-                        if (!mixedProductItem && mTargetName && (itName.includes(mTargetName) || mTargetName.includes(itName))) {
+                        if (!mixedProductItem && (
+                            (mTargetName && (itName.includes(mTargetName) || mTargetName.includes(itName))) ||
+                            otherItems.length === 1
+                        )) {
                             mixedProductItem = it;
                         } else {
                             remainingOther.push(it);

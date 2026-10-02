@@ -538,11 +538,20 @@ class Batllie_Caja_Orders {
             if ((empty($can_share) || $can_share === 'none') && $v_id > 0) {
                 $can_share = get_post_meta($p_id, '_batllie_can_share_box', true);
             }
+            if ((empty($can_share) || $can_share === 'none') && function_exists('wp_get_post_parent_id')) {
+                $parent_pid = wp_get_post_parent_id($target_id);
+                if ($parent_pid > 0) {
+                    $can_share = get_post_meta($parent_pid, '_batllie_can_share_box', true);
+                }
+            }
 
             if (!empty($can_share) && $can_share !== 'none') {
                 $max_alf = get_post_meta($target_id, '_batllie_share_box_max_alfajores', true);
                 if (($max_alf === '' || $max_alf === false) && $v_id > 0) {
                     $max_alf = get_post_meta($p_id, '_batllie_share_box_max_alfajores', true);
+                }
+                if (($max_alf === '' || $max_alf === false) && !empty($parent_pid)) {
+                    $max_alf = get_post_meta($parent_pid, '_batllie_share_box_max_alfajores', true);
                 }
                 $max_alf = ($max_alf !== '' && $max_alf !== false) ? intval($max_alf) : 6;
                 if ($max_alf <= 0) $max_alf = 6;
@@ -559,6 +568,33 @@ class Batllie_Caja_Orders {
             }
         }
 
+        // Fallback: Si el pedido ya tiene registrado _batllie_has_mixed_box en sus metadatos
+        if (empty($shared_candidates) && $order && $order->get_meta('_batllie_has_mixed_box') === 'yes' && !empty($pure_standalone)) {
+            $m_info = $order->get_meta('_batllie_mixed_box_info');
+            $m_target_name = !empty($m_info['product_name']) ? mb_strtolower($m_info['product_name'], 'UTF-8') : '';
+            $matched_idx = -1;
+
+            foreach ($pure_standalone as $idx => $st_item) {
+                $st_name = mb_strtolower($st_item['name'], 'UTF-8');
+                if (($m_target_name && (strpos($st_name, $m_target_name) !== false || strpos($m_target_name, $st_name) !== false)) || count($pure_standalone) === 1) {
+                    $matched_idx = $idx;
+                    break;
+                }
+            }
+
+            if ($matched_idx >= 0) {
+                $m_cap = (!empty($m_info['box_capacity'])) ? intval($m_info['box_capacity']) : 12;
+                $m_max = (!empty($m_info['max_alfajores'])) ? intval($m_info['max_alfajores']) : 6;
+                $shared_candidates[] = array(
+                    'item'          => $pure_standalone[$matched_idx],
+                    'box_type'      => !empty($m_info['box_type']) ? $m_info['box_type'] : 'box_12',
+                    'box_capacity'  => $m_cap,
+                    'max_alfajores' => $m_max,
+                );
+                array_splice($pure_standalone, $matched_idx, 1);
+            }
+        }
+
         $auto_boxes      = array();
         $pool            = $loose_alfajores;
         $pool_idx        = 0;
@@ -569,8 +605,8 @@ class Batllie_Caja_Orders {
         if (!empty($shared_candidates) && $total_loose_units > 0) {
             $cand = $shared_candidates[0];
             $is_compact = ($cand['max_alfajores'] >= $cand['box_capacity']);
-            // Si es compacto cabe siempre; si es voluminoso, comparte si hay menos de 12 alfajores
-            if ($is_compact || $total_loose_units < 12) {
+            // Si es compacto cabe siempre; si es voluminoso, comparte si hay menos de 12 alfajores o si la orden ya lo marcó
+            if ($is_compact || $total_loose_units < 12 || ($order && $order->get_meta('_batllie_has_mixed_box') === 'yes')) {
                 $can_use_shared = true;
             }
         }

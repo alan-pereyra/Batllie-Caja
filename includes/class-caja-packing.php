@@ -1509,6 +1509,7 @@ class Batllie_Caja_Packing {
             if (!empty($packing['courtesy_allowed']) && !empty($packing['boxes']['courtesy'])) {
                 $order->update_meta_data('_batllie_has_courtesy_box', 'yes');
             }
+            $order->save();
         }
     }
 
