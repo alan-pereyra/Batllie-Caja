@@ -311,7 +311,7 @@
                 // Ajustar visibilidad dinámica del menú ubicado ARRIBA del botón de estado
                 if (newStatus === 'pending') {
                     setVisible($payBox, true);
-                    setVisible($pkgBox, !isPkgVerified);
+                    setVisible($pkgBox, false);
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'processing') {
@@ -2016,7 +2016,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 if (order.status === 'pending') {
                     showPaymentBox = true;
-                    showPackagingBox = !isVerified;
+                    showPackagingBox = false;
                     showShippingBox = false;
                 } else if (order.status === 'processing') {
                     showPaymentBox = !isPayApproved;
@@ -2036,7 +2036,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     showShippingBox = false;
                 } else {
                     showPaymentBox = true;
-                    showPackagingBox = !isVerified;
+                    showPackagingBox = false;
                     showShippingBox = false;
                 }
 
