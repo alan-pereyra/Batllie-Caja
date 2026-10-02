@@ -306,23 +306,25 @@
                     }
                 };
 
+                const isPkgVerified = cachedOrder && (cachedOrder.control_pedido_verified === true || cachedOrder.control_pedido_verified === 'yes');
+
                 // Ajustar visibilidad dinámica del menú ubicado ARRIBA del botón de estado
                 if (newStatus === 'pending') {
                     setVisible($grid, true);
                     setVisible($payBox, true);
-                    setVisible($pkgBox, true);
+                    setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'processing') {
                     setVisible($grid, true);
                     setVisible($payBox, !isApproved);
-                    setVisible($pkgBox, true);
+                    setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, true);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
                     setVisible($grid, true);
                     setVisible($payBox, false);
-                    setVisible($pkgBox, true);
+                    setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, true);
                     $controlBtnWrap.show();
                 } else if (newStatus === 'completed') {
@@ -365,6 +367,11 @@
             $(document).on('click', '.caja-btn-modify-pkg', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
+                const order = self.cachedOrders.find(o => o.id == orderId);
+                if (order && (order.control_pedido_verified === true || order.control_pedido_verified === 'yes')) {
+                    alert('⚠️ Este pedido ya fue verificado y no se puede modificar su empaque.');
+                    return;
+                }
                 $(`#caja-pkg-summary-${orderId}`).hide();
                 $(`#caja-pkg-edit-${orderId}`).slideDown(150);
             });
@@ -424,9 +431,13 @@
             // Stepper de bolsas grandes y chicas (+ / - con persistencia)
             $(document).on('click', '.btn-step-bag', function(e) {
                 e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const order = self.cachedOrders.find(o => o.id == orderId);
+                if (order && (order.control_pedido_verified === true || order.control_pedido_verified === 'yes')) {
+                    return;
+                }
                 const type = $(this).data('type');
                 const action = $(this).data('action');
-                const orderId = $(this).data('order-id');
                 const $input = $(`#pkg-input-bag-${type}-${orderId}`);
                 let val = parseInt($input.val(), 10) || 0;
                 if (action === 'plus') {
@@ -2001,6 +2012,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 // Reglas de visibilidad condicional para el menú de pago, empaque y envío (ubicado ARRIBA del selector de estado):
                 const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
+                const isVerified = (order.control_pedido_verified === true || order.control_pedido_verified === 'yes');
                 let showMetaGrid = true;
                 let showPaymentBox = false;
                 let showPackagingBox = false;
@@ -2008,15 +2020,15 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 if (order.status === 'pending') {
                     showPaymentBox = true;
-                    showPackagingBox = true;
+                    showPackagingBox = !isVerified;
                     showShippingBox = false;
                 } else if (order.status === 'processing') {
                     showPaymentBox = !isPayApproved;
-                    showPackagingBox = true;
+                    showPackagingBox = !isVerified;
                     showShippingBox = true;
                 } else if (order.status === 'enviando' || order.status === 'on-hold') {
                     showPaymentBox = false;
-                    showPackagingBox = true;
+                    showPackagingBox = !isVerified;
                     showShippingBox = true;
                 } else if (order.status === 'completed' || order.status === 'recibido-problema' || order.status === 'failed') {
                     showPaymentBox = false;
@@ -2028,7 +2040,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     showShippingBox = false;
                 } else {
                     showPaymentBox = true;
-                    showPackagingBox = true;
+                    showPackagingBox = !isVerified;
                     showShippingBox = false;
                 }
 
@@ -2176,7 +2188,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                             <span class="caja-meta-icon">📦</span>
                                             <span class="caja-meta-title">Control de empaque:</span>
                                         </div>
-                                        <button type="button" class="caja-btn-modify-pkg" data-order-id="${order.id}">✏️ Modificar</button>
+                                        ${!isVerified ? `<button type="button" class="caja-btn-modify-pkg" data-order-id="${order.id}">✏️ Modificar</button>` : ''}
                                     </div>
 
                                     <!-- Vista resumen de cajas oficiales (solo lectura por defecto) -->
@@ -2220,19 +2232,27 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <div class="caja-pkg-bags-row" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
                                         <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                             <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagLargeName || 'Bolsa grande')}">🛍️ Bolsas grandes:</span>
-                                            <div class="caja-stepper">
-                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="large" data-order-id="${order.id}">−</button>
-                                                <input type="number" min="0" step="1" id="pkg-input-bag-large-${order.id}" value="${order.bag_large !== undefined ? order.bag_large : 1}" class="caja-pkg-input" readonly />
-                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="large" data-order-id="${order.id}">+</button>
-                                            </div>
+                                            ${!isVerified ? `
+                                                <div class="caja-stepper">
+                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="large" data-order-id="${order.id}">−</button>
+                                                    <input type="number" min="0" step="1" id="pkg-input-bag-large-${order.id}" value="${order.bag_large !== undefined ? order.bag_large : 1}" class="caja-pkg-input" readonly />
+                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="large" data-order-id="${order.id}">+</button>
+                                                </div>
+                                            ` : `
+                                                <span class="caja-pkg-val" style="font-size:0.85rem; font-weight:700; color:#f1f5f9;">${order.bag_large !== undefined ? order.bag_large : 1}</span>
+                                            `}
                                         </div>
                                         <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center;">
                                             <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagSmallName || 'Bolsa chica')}">🛍️ Bolsas chicas:</span>
-                                            <div class="caja-stepper">
-                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="small" data-order-id="${order.id}">−</button>
-                                                <input type="number" min="0" step="1" id="pkg-input-bag-small-${order.id}" value="${order.bag_small || 0}" class="caja-pkg-input" readonly />
-                                                <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="small" data-order-id="${order.id}">+</button>
-                                            </div>
+                                            ${!isVerified ? `
+                                                <div class="caja-stepper">
+                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="small" data-order-id="${order.id}">−</button>
+                                                    <input type="number" min="0" step="1" id="pkg-input-bag-small-${order.id}" value="${order.bag_small || 0}" class="caja-pkg-input" readonly />
+                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="small" data-order-id="${order.id}">+</button>
+                                                </div>
+                                            ` : `
+                                                <span class="caja-pkg-val" style="font-size:0.85rem; font-weight:700; color:#f1f5f9;">${order.bag_small || 0}</span>
+                                            `}
                                         </div>
                                     </div>
                                 </div>

@@ -1400,6 +1400,10 @@ class Batllie_Caja_Orders {
             wp_send_json_error(array('message' => __('Pedido no encontrado.', 'emp-caja')));
         }
 
+        if ($order->get_meta('_batllie_control_pedido_verified') === 'yes') {
+            wp_send_json_error(array('message' => __('No se puede modificar el empaque porque el pedido ya fue verificado.', 'emp-caja')));
+        }
+
         $existing_boxes = $order->get_meta('_batllie_boxes_used') ?: array();
         $existing_bags  = $order->get_meta('_batllie_packaging_bags') ?: array();
 
