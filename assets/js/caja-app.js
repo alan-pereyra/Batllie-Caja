@@ -195,7 +195,11 @@
                     $mainDropdown.find('option[value="enviando"]').prop('disabled', false).text('Enviando');
                     $mainDropdown.find('option[value="completed"]').prop('disabled', false).text('Completado');
                     $shipSelect.find('option').prop('disabled', false);
-                    $controlBtnWrap.show();
+                    if ($mainDropdown.val() === 'enviando' || $mainDropdown.val() === 'on-hold') {
+                        $controlBtnWrap.show();
+                    } else {
+                        $controlBtnWrap.hide();
+                    }
                 } else {
                     $mainDropdown.find('option[value="processing"]').prop('disabled', true).text('En preparación 🔒 (requiere pago)');
                     $mainDropdown.find('option[value="enviando"]').prop('disabled', true).text('Enviando 🔒 (requiere pago)');
@@ -242,11 +246,13 @@
                     $mainDropdown.val('completed');
                     $mainDropdown.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed')
                                  .addClass('status-bg-completed');
+                    $card.find('.caja-control-pedido-btn-wrap').hide();
                 } else if (val === 'entregado_problemas') {
                     // Sincronización: El botón grande cambia a Recibido (con problemas)
                     $mainDropdown.val('recibido-problema');
                     $mainDropdown.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed')
                                  .addClass('status-bg-recibido-problema');
+                    $card.find('.caja-control-pedido-btn-wrap').hide();
                 }
 
                 self.updateCustomStatus(orderId, 'shipping_status', val, $(this));
@@ -306,13 +312,13 @@
                     setVisible($payBox, true);
                     setVisible($pkgBox, true);
                     setVisible($shipBox, false);
-                    $controlBtnWrap.toggle(isApproved);
+                    $controlBtnWrap.hide();
                 } else if (newStatus === 'processing') {
                     setVisible($grid, true);
                     setVisible($payBox, !isApproved);
                     setVisible($pkgBox, true);
                     setVisible($shipBox, true);
-                    $controlBtnWrap.show();
+                    $controlBtnWrap.hide();
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
                     setVisible($grid, true);
                     setVisible($payBox, false);
@@ -2026,7 +2032,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     showShippingBox = false;
                 }
 
-                const showControlPedidoBtn = (order.status === 'processing' || order.status === 'enviando' || (order.status === 'pending' && isPayApproved));
+                const showControlPedidoBtn = (order.status === 'enviando' || order.status === 'on-hold');
 
                 let felicitacionHtml = '';
                 if (order.aumento_pedido || order.decision_correcta) {
@@ -2250,14 +2256,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                 </div>
                             </div>
 
-                            <!-- Botón previo a darle el paquete al repartidor: Control de pedido (mismo estilo y color que Enviando, ubicado ARRIBA del selector de pasos) -->
-                            ${showControlPedidoBtn ? `
-                                <div class="caja-control-pedido-btn-wrap" style="margin-top:10px;">
-                                    <button type="button" class="caja-btn-control-pedido status-bg-enviando" data-order-id="${order.id}">
-                                        📋 Control de pedido${order.control_pedido_verified ? ' (✓ Verificado)' : ''}
-                                    </button>
-                                </div>
-                            ` : ''}
+                            <!-- Botón previo a darle el paquete al repartidor: Control de pedido (solo se muestra cuando el estado es enviando) -->
+                            <div class="caja-control-pedido-btn-wrap" style="display:${showControlPedidoBtn ? 'block' : 'none'};">
+                                <button type="button" class="caja-btn-control-pedido status-bg-enviando" data-order-id="${order.id}">
+                                    📋 Control de pedido${order.control_pedido_verified ? ' (✓ Verificado)' : ''}
+                                </button>
+                            </div>
 
                             <!-- Selector de Pasos Principal (ubicado ABAJO) -->
                             <div class="caja-order-status-select-wrap">
