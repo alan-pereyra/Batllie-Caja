@@ -708,6 +708,16 @@
                 $('#new-prod-visibility').val('visible');
                 $('#new-prod-featured').prop('checked', false);
                 $('#new-prod-box-role').val('none').data('prev-val', 'none');
+                $('#new-prod-can-share-box').val('none');
+                $('#new-prod-share-max-group').hide();
+                $('#new-prod-share-max-alfajores').val('6');
+                $('#new-prod-can-share-box').off('change').on('change', function() {
+                    if ($(this).val() !== 'none') {
+                        $('#new-prod-share-max-group').slideDown(150);
+                    } else {
+                        $('#new-prod-share-max-group').slideUp(150);
+                    }
+                });
                 $('#caja-stock-qty-group').hide();
                 $('#caja-new-product-error').hide();
                 if (self.cachedCategories && self.cachedCategories.length > 0) {
@@ -3287,6 +3297,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 const isEnabled = v.enabled !== false;
                 const imgId = v.image_id || 0;
                 const imgUrl = v.image_url || '';
+                const canShare = v.can_share_box || 'none';
+                const maxAlf = (v.share_box_max_alfajores !== undefined && v.share_box_max_alfajores !== null && v.share_box_max_alfajores !== '') ? v.share_box_max_alfajores : 6;
 
                 let attrSelectorsHtml = '';
                 attrs.forEach(a => {
@@ -3362,11 +3374,34 @@ $('#caja-modal-new-product').fadeIn(200);
                                     </div>
                                 </div>
                             </div>
+                            <div class="caja-form-row caja-var-packing-row" style="margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); align-items:center;">
+                                <div class="caja-form-group caja-col" style="flex:1;">
+                                    <label style="font-size:11px;"><strong>🛍️ Compartir Caja Oficial</strong></label>
+                                    <select class="caja-select caja-var-share-box" style="font-size:12px;">
+                                        <option value="none" ${canShare === 'none' ? 'selected' : ''}>No (Individual)</option>
+                                        <option value="box_12" ${canShare === 'box_12' ? 'selected' : ''}>📦 Sí, en Caja de 12</option>
+                                        <option value="box_6" ${canShare === 'box_6' ? 'selected' : ''}>📦 Sí, en Caja de 6</option>
+                                    </select>
+                                </div>
+                                <div class="caja-form-group caja-col caja-var-max-group" style="${canShare !== 'none' ? '' : 'display:none;'} flex:1;">
+                                    <label style="font-size:11px;"><strong>Máx. Alfajores que caben</strong></label>
+                                    <input type="number" min="1" max="11" class="caja-var-max-alfajores" value="${maxAlf}" placeholder="6" style="font-size:12px;" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
 
                 $container.append(cardHtml);
+            });
+
+            $container.off('change', '.caja-var-share-box').on('change', '.caja-var-share-box', function() {
+                const $row = $(this).closest('.caja-var-packing-row');
+                if ($(this).val() !== 'none') {
+                    $row.find('.caja-var-max-group').show();
+                } else {
+                    $row.find('.caja-var-max-group').hide();
+                }
             });
         },
 
@@ -3390,6 +3425,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 const manage_stock = $card.find('.caja-var-manage-stock').is(':checked');
                 const stock_quantity = $card.find('.caja-var-stock-qty').val();
                 const image_id = $card.find('.caja-var-image-id').val();
+                const can_share_box = $card.find('.caja-var-share-box').val() || 'none';
+                const share_box_max_alfajores = parseInt($card.find('.caja-var-max-alfajores').val(), 10) || 6;
 
                 const attributes = {};
                 $card.find('.caja-var-attr-select').each(function() {
@@ -3409,6 +3446,8 @@ $('#caja-modal-new-product').fadeIn(200);
                     manage_stock,
                     stock_quantity,
                     image_id,
+                    can_share_box,
+                    share_box_max_alfajores,
                     attributes
                 });
             });
@@ -3534,12 +3573,37 @@ $('#caja-modal-new-product').fadeIn(200);
                     const currentBoxRole = p.official_box_role || 'none';
                     $('#edit-prod-box-role').val(currentBoxRole).data('prev-val', currentBoxRole);
                 }
+
+                if (type === 'variable') {
+                    $('#edit-prod-shared-variable-hint').show();
+                } else {
+                    $('#edit-prod-shared-variable-hint').hide();
+                }
             }
 
             updateEditProductTypeUI(initialType);
 
             $('#edit-prod-type').off('change').on('change', function() {
                 updateEditProductTypeUI($(this).val());
+            });
+
+            // Empaque Compartido
+            const canShare = p.can_share_box || 'none';
+            const shareMax = (p.share_box_max_alfajores !== undefined && p.share_box_max_alfajores !== null && p.share_box_max_alfajores !== '') ? p.share_box_max_alfajores : 6;
+            $('#edit-prod-can-share-box').val(canShare);
+            $('#edit-prod-share-max-alfajores').val(shareMax);
+            if (canShare !== 'none') {
+                $('#edit-prod-share-max-group').show();
+            } else {
+                $('#edit-prod-share-max-group').hide();
+            }
+
+            $('#edit-prod-can-share-box').off('change').on('change', function() {
+                if ($(this).val() !== 'none') {
+                    $('#edit-prod-share-max-group').slideDown(150);
+                } else {
+                    $('#edit-prod-share-max-group').slideUp(150);
+                }
             });
 
             if (p.manage_stock) {
@@ -3594,7 +3658,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 image_id: $('#edit-prod-image-id').val(),
                 featured: $('#edit-prod-featured').is(':checked') ? 'yes' : 'no',
                 catalog_visibility: $('#edit-prod-visibility').val(),
-                official_box_role: (selectedType === 'simple') ? ($('#edit-prod-box-role').val() || 'none') : 'none'
+                official_box_role: (selectedType === 'simple') ? ($('#edit-prod-box-role').val() || 'none') : 'none',
+                can_share_box: $('#edit-prod-can-share-box').val() || 'none',
+                share_box_max_alfajores: parseInt($('#edit-prod-share-max-alfajores').val(), 10) || 6
             };
 
             if (isGrouped) {
@@ -3850,7 +3916,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 image_id: $('#new-prod-image-id').val(),
                 featured: $('#new-prod-featured').is(':checked') ? 'yes' : 'no',
                 catalog_visibility: $('#new-prod-visibility').val(),
-                official_box_role: (selectedType === 'simple') ? ($('#new-prod-box-role').val() || 'none') : 'none'
+                official_box_role: (selectedType === 'simple') ? ($('#new-prod-box-role').val() || 'none') : 'none',
+                can_share_box: $('#new-prod-can-share-box').val() || 'none',
+                share_box_max_alfajores: parseInt($('#new-prod-share-max-alfajores').val(), 10) || 6
             };
 
             const newRecIds = [];

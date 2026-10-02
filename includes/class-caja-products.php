@@ -200,6 +200,8 @@ class Batllie_Caja_Products {
                         'image_id'       => $v_img_id ? intval($v_img_id) : 0,
                         'image_url'      => $v_img_id ? wp_get_attachment_image_url($v_img_id, 'thumbnail') : '',
                         'enabled'        => $v->get_status() === 'publish',
+                        'can_share_box'  => get_post_meta($vid, '_batllie_can_share_box', true) ?: 'none',
+                        'share_box_max_alfajores' => (get_post_meta($vid, '_batllie_share_box_max_alfajores', true) !== '') ? intval(get_post_meta($vid, '_batllie_share_box_max_alfajores', true)) : 6,
                     );
                 }
             }
@@ -238,6 +240,8 @@ class Batllie_Caja_Products {
             'predefined_quantities'    => $predefined_quantities,
             'official_box_role'        => $box_role,
             'is_official_box'          => !empty($box_role),
+            'can_share_box'            => get_post_meta($product->get_id(), '_batllie_can_share_box', true) ?: 'none',
+            'share_box_max_alfajores'  => (get_post_meta($product->get_id(), '_batllie_share_box_max_alfajores', true) !== '') ? intval(get_post_meta($product->get_id(), '_batllie_share_box_max_alfajores', true)) : 6,
             'packaging_box_product_id' => $packaging_box_id ?: 0,
             'grouped_target_qty'       => $grouped_target_qty !== '' ? $grouped_target_qty : '',
             'grouped_enable_extra_box' => $grouped_enable_extra_box === 'yes',
@@ -362,6 +366,15 @@ class Batllie_Caja_Products {
                 $product->set_cross_sell_ids($rec_ids);
                 $product->save();
             }
+        }
+
+        if (isset($data['can_share_box'])) {
+            $can_share = sanitize_key($data['can_share_box']);
+            update_post_meta($product_id, '_batllie_can_share_box', $can_share);
+        }
+        if (isset($data['share_box_max_alfajores'])) {
+            $share_max = max(1, min(11, intval($data['share_box_max_alfajores'])));
+            update_post_meta($product_id, '_batllie_share_box_max_alfajores', $share_max);
         }
 
         return self::format_product($product);
@@ -724,7 +737,15 @@ class Batllie_Caja_Products {
                         }
                         $variation->set_attributes($v_attrs);
                     }
-                    $variation->save();
+                    $v_saved_id = $variation->save();
+                    if ($v_saved_id) {
+                        if (isset($v_data['can_share_box'])) {
+                            update_post_meta($v_saved_id, '_batllie_can_share_box', sanitize_key($v_data['can_share_box']));
+                        }
+                        if (isset($v_data['share_box_max_alfajores'])) {
+                            update_post_meta($v_saved_id, '_batllie_share_box_max_alfajores', max(1, min(11, intval($v_data['share_box_max_alfajores']))));
+                        }
+                    }
                 }
                 WC_Product_Variable::sync($product_id);
             }
@@ -776,6 +797,15 @@ class Batllie_Caja_Products {
                 $product->set_stock_quantity($qty);
                 $product->set_stock_status($qty > 0 ? 'instock' : 'outofstock');
             }
+        }
+
+        if (isset($data['can_share_box'])) {
+            $can_share = sanitize_key($data['can_share_box']);
+            update_post_meta($product_id, '_batllie_can_share_box', $can_share);
+        }
+        if (isset($data['share_box_max_alfajores'])) {
+            $share_max = max(1, min(11, intval($data['share_box_max_alfajores'])));
+            update_post_meta($product_id, '_batllie_share_box_max_alfajores', $share_max);
         }
 
         $product->save();

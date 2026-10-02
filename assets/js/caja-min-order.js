@@ -247,6 +247,10 @@
             };
         }
 
+        if (config.packing && config.packing.has_mixed_box && (totalAlfajores === (config.packing.total_alfajores || 0))) {
+            return config.packing;
+        }
+
         const has_prior_box = Boolean(hasGroupedPack || totalAlfajores >= 6);
         let status = 'ok';
         let is_blocked = false;
@@ -467,6 +471,14 @@
             return null;
         }
 
+        if (packing.packaging_summary_short) {
+            return {
+                has_alfajores: true,
+                short: packing.packaging_summary_short,
+                sentence: 'Tus productos se despachan en ' + packing.packaging_summary_short + '.'
+            };
+        }
+
         const b = packing.boxes || {};
         const b12 = parseInt(b.box_12, 10) || 0;
         const b6 = parseInt(b.box_6, 10) || 0;
@@ -533,20 +545,28 @@
         });
 
         // 3. Títulos, Mensajes y Badges
+        const targetCap = parseInt(packing.current_box_capacity, 10) || 6;
+        const chosenBoxImg = (targetCap === 12) 
+            ? (config.box12Image || config.priorityBoxImage) 
+            : (config.box6Image || config.priorityBoxImage);
+
+        if (chosenBoxImg) {
+            $('#batllie-modal-box-image').attr('src', chosenBoxImg);
+            $('#batllie-modal-box-image-wrap').show();
+        }
+
         if (packing.status === 'all_boxed') {
             $('#batllie-packing-title').html('<span class="batllie-packing-title-main">¡Caja Completa!</span>');
             $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
         } else {
-            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">Tomaste una buena decisión</span> <span class="batllie-packing-title-sub">pero podría ser aún mejor</span>');
-
-            if (config.priorityBoxImage) {
-                $('#batllie-modal-box-image').attr('src', config.priorityBoxImage);
-                $('#batllie-modal-box-image-wrap').show();
-            }
+            const mainTitle = packing.custom_title || 'Tomaste una buena decisión';
+            const subTitle = packing.custom_subtitle || 'pero podría ser aún mejor';
+            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">' + mainTitle + '</span> <span class="batllie-packing-title-sub">' + subTitle + '</span>');
 
             const missingUnits = packing.missing_units || (6 - (curUnits % 6 || 6));
-            $('#batllie-packing-badge').text('Faltan ' + missingUnits + ' para completar').removeClass('is-complete').addClass('is-missing');
+            const badgeText = packing.custom_badge || ('Faltan ' + missingUnits + ' para completar');
+            $('#batllie-packing-badge').text(badgeText).removeClass('is-complete').addClass('is-missing');
 
             // Siempre permitir avanzar si no está por debajo del monto mínimo
             if (!config.isBelowMin) {

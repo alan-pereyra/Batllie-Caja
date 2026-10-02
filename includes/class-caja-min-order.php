@@ -162,16 +162,24 @@ class Batllie_Caja_Min_Order {
             wp_add_inline_style('emp_styles', $hide_notices_css);
         }
 
-        $priority = $options['packing_priority'] ?? '12';
-        $officialBoxId = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id( intval($priority) ) : 0;
-        $priorityBoxImg = '';
-        if ( $officialBoxId ) {
-            $product = wc_get_product( $officialBoxId );
-            if ( $product ) {
-                $img_id = $product->get_image_id();
-                $priorityBoxImg = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+        $box6Id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+        $box12Id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+        $box6Img = '';
+        $box12Img = '';
+        if ($box6Id && function_exists('wc_get_product')) {
+            $p6 = wc_get_product($box6Id);
+            if ($p6 && $p6->get_image_id()) {
+                $box6Img = wp_get_attachment_image_url($p6->get_image_id(), 'medium');
             }
         }
+        if ($box12Id && function_exists('wc_get_product')) {
+            $p12 = wc_get_product($box12Id);
+            if ($p12 && $p12->get_image_id()) {
+                $box12Img = wp_get_attachment_image_url($p12->get_image_id(), 'medium');
+            }
+        }
+        $priority = $options['packing_priority'] ?? '12';
+        $priorityBoxImg = ($priority == 6) ? ($box6Img ?: $box12Img) : ($box12Img ?: $box6Img);
 
         wp_localize_script('batllie-caja-min-order-js', 'batllieMinOrderConfig', array(
             'ajaxUrl'          => admin_url('admin-ajax.php'),
@@ -190,6 +198,8 @@ class Batllie_Caja_Min_Order {
             'checkoutUrl'      => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
             'primaryColor'     => $options['primary_color'] ?? '#10b981',
             'packing'          => $packing,
+            'box6Image'        => $box6Img,
+            'box12Image'       => $box12Img,
             'priorityBoxImage' => $priorityBoxImg,
             'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),
             'i18n'             => array(
@@ -469,17 +479,24 @@ class Batllie_Caja_Min_Order {
         $is_below  = ($min > 0 && $amount < $min);
         $shop_url  = home_url('/');
         $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array();
-        $color_options = class_exists('Batllie_Caja_Plugin') ? Batllie_Caja_Plugin::get_color_settings() : array();
-        $priority = $color_options['packing_priority'] ?? '12';
-        $officialBoxId = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id( intval($priority) ) : 0;
-        $priorityBoxImg = '';
-        if ( $officialBoxId ) {
-            $product = wc_get_product( $officialBoxId );
-            if ( $product ) {
-                $img_id = $product->get_image_id();
-                $priorityBoxImg = $img_id ? wp_get_attachment_image_url( $img_id, 'medium' ) : '';
+        $box6Id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+        $box12Id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+        $box6Img = '';
+        $box12Img = '';
+        if ($box6Id && function_exists('wc_get_product')) {
+            $p6 = wc_get_product($box6Id);
+            if ($p6 && $p6->get_image_id()) {
+                $box6Img = wp_get_attachment_image_url($p6->get_image_id(), 'medium');
             }
         }
+        if ($box12Id && function_exists('wc_get_product')) {
+            $p12 = wc_get_product($box12Id);
+            if ($p12 && $p12->get_image_id()) {
+                $box12Img = wp_get_attachment_image_url($p12->get_image_id(), 'medium');
+            }
+        }
+        $cur_cap = $packing['current_box_capacity'] ?? 6;
+        $initialBoxImg = ($cur_cap == 12) ? ($box12Img ?: $box6Img) : ($box6Img ?: $box12Img);
         ?>
         <div id="batllie-min-order-backdrop" class="batllie-min-order-backdrop" style="display:none;" aria-hidden="true">
             <div id="batllie-min-order-modal" class="batllie-min-order-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Información de tu Pedido', 'emp-caja'); ?>">
@@ -509,8 +526,8 @@ class Batllie_Caja_Min_Order {
                                 <span class="batllie-packing-title-main"><?php _e('Tomaste una buena decisión', 'emp-caja'); ?></span>
                                 <span class="batllie-packing-title-sub"><?php _e('pero podría ser aún mejor', 'emp-caja'); ?></span>
                             </h3>
-                            <div class="batllie-modal-box-image-wrap" id="batllie-modal-box-image-wrap" style="<?php echo !empty($priorityBoxImg) ? '' : 'display:none;'; ?>">
-                                <img id="batllie-modal-box-image" src="<?php echo esc_url($priorityBoxImg); ?>" alt="<?php esc_attr_e('Caja oficial', 'emp-caja'); ?>" class="batllie-modal-box-image" />
+                            <div class="batllie-modal-box-image-wrap" id="batllie-modal-box-image-wrap" style="<?php echo !empty($initialBoxImg) ? '' : 'display:none;'; ?>">
+                                <img id="batllie-modal-box-image" src="<?php echo esc_url($initialBoxImg); ?>" alt="<?php esc_attr_e('Caja oficial', 'emp-caja'); ?>" class="batllie-modal-box-image" />
                             </div>
                         </div>
 
