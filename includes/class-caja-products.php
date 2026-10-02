@@ -474,31 +474,33 @@ class Batllie_Caja_Products {
             return new WP_Error('not_found', __('Producto no encontrado.', 'emp-caja'));
         }
 
-        if (isset($data['product_type'])) {
-            $allowed_types = array('simple', 'grouped', 'variable');
-            $new_type = sanitize_key($data['product_type']);
-            if (in_array($new_type, $allowed_types, true)) {
-                // Update the product_type term.
-                wp_set_object_terms($product_id, $new_type, 'product_type');
-                // Clear caches to avoid stale data.
-                clean_post_cache($product_id);
-                if (function_exists('wc_delete_product_transients')) {
-                    wc_delete_product_transients($product_id);
+        try {
+            if (isset($data['product_type'])) {
+                $allowed_types = array('simple', 'grouped', 'variable');
+                $new_type = sanitize_key($data['product_type']);
+                if (in_array($new_type, $allowed_types, true)) {
+                    $current_type = $product->get_type();
+                    if ($current_type !== $new_type) {
+                        // Update the product_type term.
+                        wp_set_object_terms($product_id, $new_type, 'product_type');
+                        // Clear caches to avoid stale data.
+                        clean_post_cache($product_id);
+                        if (function_exists('wc_delete_product_transients')) {
+                            wc_delete_product_transients($product_id);
+                        }
+                        wp_cache_delete($product_id, 'posts');
+                        wp_cache_delete($product_id, 'post_meta');
+                        // Re‑instantiate the product as the correct class.
+                        if ($new_type === 'grouped') {
+                            $product = new WC_Product_Grouped($product_id);
+                        } elseif ($new_type === 'variable') {
+                            $product = new WC_Product_Variable($product_id);
+                        } else {
+                            $product = new WC_Product_Simple($product_id);
+                        }
+                    }
                 }
-                wp_cache_delete($product_id, 'posts');
-                wp_cache_delete($product_id, 'post_meta');
-                // Re‑instantiate the product as the correct class and set its type.
-                if ($new_type === 'grouped') {
-                    $product = new WC_Product_Grouped($product_id);
-                } elseif ($new_type === 'variable') {
-                    $product = new WC_Product_Variable($product_id);
-                } else {
-                    $product = new WC_Product_Simple($product_id);
-                }
-                // Ensure the product object's type property matches.
-                $product->set_type($new_type);
             }
-        }
 
         if (isset($data['name']) && !empty(trim($data['name']))) {
             $product->set_name(sanitize_text_field($data['name']));
@@ -756,7 +758,9 @@ class Batllie_Caja_Products {
         }
 
         if (isset($data['recommended_ids'])) {
-            $rec_ids = is_array($data['recommended_ids']) ? array_values(array_filter(array_map('intval', $data['recommended_ids']))) : array();
+            $rec_ids = is_array($data['recommended_ids']) ? array_values(array_filter(array_map('intval', $data['recommended_ids']), function($id) {
+                return $id > 0;
+            })) : array();
             update_post_meta($product_id, '_batllie_cart_recommended_ids', $rec_ids);
             if (method_exists($product, 'set_cross_sell_ids')) {
                 $product->set_cross_sell_ids($rec_ids);
@@ -780,6 +784,10 @@ class Batllie_Caja_Products {
             wc_update_product_stock($product, $qty, 'set');
         }
 
-        return self::format_product($product);
+            return self::format_product($product);
+        } catch (\Throwable $e) {
+            error_log('[emp-caja] Error en update_product: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return new WP_Error('update_exception', __('Error al actualizar el producto: ', 'emp-caja') . $e->getMessage());
+        }
     }
 }

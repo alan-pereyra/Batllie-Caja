@@ -3631,9 +3631,13 @@ $('#caja-modal-new-product').fadeIn(200);
 
             const editRecIds = [];
             $('#edit-prod-rec-list .caja-rec-chk:checked').each(function() {
-                editRecIds.push(parseInt($(this).val(), 10));
+                const idVal = parseInt($(this).val(), 10);
+                if (idVal > 0) {
+                    editRecIds.push(idVal);
+                }
             });
-            productData.recommended_ids = editRecIds;
+            // Si está vacío, enviamos [0] para que jQuery $.param no descarte la clave en POST
+            productData.recommended_ids = editRecIds.length ? editRecIds : [0];
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -3693,8 +3697,24 @@ $('#caja-modal-new-product').fadeIn(200);
                         $err.text(res.data && res.data.message ? res.data.message : 'Error al modificar el producto.').fadeIn(150);
                     }
                 },
-                error: function() {
-                    $err.text('Error de comunicación con el servidor.').fadeIn(150);
+                error: function(xhr, status, error) {
+                    console.error('emp_caja_update_product error:', status, error, xhr.responseText);
+                    let msg = 'Error de comunicación con el servidor.';
+                    if (xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                        msg = xhr.responseJSON.data.message;
+                    } else if (xhr.responseText) {
+                        try {
+                            const parsed = JSON.parse(xhr.responseText);
+                            if (parsed && parsed.data && parsed.data.message) {
+                                msg = parsed.data.message;
+                            }
+                        } catch (e) {
+                            if (xhr.status) {
+                                msg += ` (${xhr.status}: ${xhr.statusText || 'Error interno'})`;
+                            }
+                        }
+                    }
+                    $err.text(msg).fadeIn(150);
                 },
                 complete: function() {
                     $btn.prop('disabled', false);
