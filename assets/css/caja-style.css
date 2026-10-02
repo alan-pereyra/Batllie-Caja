@@ -3623,8 +3623,19 @@ body.caja-modal-locked {
     color: #f1f5f9;
 }
 
+.caja-control-box-header-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    padding-right: 12px !important;
+}
+
 .caja-control-box-title {
-    flex: 1;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #f1f5f9;
 }
 
 .caja-control-box-badge {
@@ -3807,6 +3818,10 @@ body.caja-modal-locked {
     }
     .caja-control-box-header {
         padding: 10px 14px !important;
+    }
+    .caja-control-box-header-info {
+        gap: 6px !important;
+        padding-right: 6px !important;
     }
     .caja-control-subitems-list {
         padding: 4px 14px 6px 14px !important;

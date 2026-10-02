@@ -3056,9 +3056,14 @@ $('#caja-modal-new-product').fadeIn(200);
                     html += `
                         <div class="caja-control-box-card">
                             <div class="caja-control-box-header">
-                                <span class="caja-control-box-icon">📦</span>
-                                <span class="caja-control-box-title">Caja ${boxIndex}: ${self.escapeHtml(it.name)}</span>
-                                <span class="caja-control-box-badge">${unitsCount} unidades</span>
+                                <div class="caja-control-box-header-info">
+                                    <span class="caja-control-box-icon">📦</span>
+                                    <span class="caja-control-box-title">Caja ${boxIndex}: ${self.escapeHtml(it.name)}</span>
+                                    <span class="caja-control-box-badge">${unitsCount} unidades</span>
+                                </div>
+                                <label class="caja-control-check-wrap" title="Verificar caja">
+                                    <input type="checkbox" class="caja-control-chk" />
+                                </label>
                             </div>
                             <div class="caja-control-subitems-list">
                     `;
@@ -3080,21 +3085,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                 </div>
                             `;
                         });
-                    } else {
-                        html += `
-                            <div class="caja-control-item-row">
-                                <div class="caja-control-item-left">
-                                    <span class="caja-control-no-thumb">📦</span>
-                                    <div class="caja-control-item-info">
-                                        <span class="caja-control-item-qty">${it.quantity || 1}x</span>
-                                        <span class="caja-control-item-name">${self.escapeHtml(it.name)}</span>
-                                    </div>
-                                </div>
-                                <label class="caja-control-check-wrap">
-                                    <input type="checkbox" class="caja-control-chk" />
-                                </label>
-                            </div>
-                        `;
                     }
 
                     html += `
