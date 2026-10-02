@@ -474,6 +474,7 @@
             // Cerrar modal de Control de Pedido (Acción 1 permitida: la X)
             $(document).on('click', '#caja-control-close-btn', function(e) {
                 e.preventDefault();
+                $('body').removeClass('caja-modal-locked');
                 $('#caja-modal-control-pedido').fadeOut(150);
             });
 
@@ -516,6 +517,7 @@
                         order_id: orderId
                     },
                     success: function(res) {
+                        $('body').removeClass('caja-modal-locked');
                         $('#caja-modal-control-pedido').fadeOut(150);
                         $btn.html('<span>🚀 Iniciar envío</span>');
 
@@ -3205,6 +3207,8 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-control-total-count').text(total);
             $('#caja-btn-iniciar-envio').prop('disabled', true).removeClass('is-ready');
 
+            $('body').addClass('caja-modal-locked');
+            $body.scrollTop(0);
             $('#caja-modal-control-pedido').fadeIn(200);
         },
 
