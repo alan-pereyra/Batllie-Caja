@@ -1,11 +1,181 @@
 /**
  * Batllie Caja & Pedidos POS - Script de Seguimiento en Vivo
- * Actualiza automáticamente el estado y la barra de progreso sin recargar la página
+ * Actualiza automáticamente el estado y la barra de progreso sin recargar la página,
+ * emitiendo alertas sonoras y notificaciones visuales ante cualquier cambio de estado.
  */
 
 (function($) {
     'use strict';
 
+    // =========================================================================
+    // Módulo de Audio Web API para Notificaciones Sonoras
+    // =========================================================================
+    var audioCtx = null;
+    function getAudioContext() {
+        try {
+            if (!audioCtx) {
+                var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        } catch (e) {}
+        return audioCtx;
+    }
+
+    function unlockAudio() {
+        var ctx = getAudioContext();
+        if (ctx && ctx.state === 'running') {
+            ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'].forEach(function(evt) {
+                document.removeEventListener(evt, unlockAudio, true);
+            });
+        }
+    }
+    ['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'].forEach(function(evt) {
+        document.addEventListener(evt, unlockAudio, { passive: true, capture: true });
+    });
+
+    function playNotificationSound() {
+        try {
+            var ctx = getAudioContext();
+            if (!ctx) return;
+            var now = ctx.currentTime;
+
+            // Campana armónica de aviso (D5, A5, D6, A6 armónico)
+            var tones = [
+                { freq: 587.33, start: 0.00, dur: 0.35, vol: 0.65 },
+                { freq: 880.00, start: 0.12, dur: 0.45, vol: 0.75 },
+                { freq: 1174.66, start: 0.24, dur: 0.65, vol: 0.85 },
+                { freq: 1760.00, start: 0.24, dur: 0.40, vol: 0.35 }
+            ];
+
+            tones.forEach(function(t) {
+                var osc = ctx.createOscillator();
+                var gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(t.freq, now + t.start);
+                gain.gain.setValueAtTime(0.0001, now + t.start);
+                gain.gain.exponentialRampToValueAtTime(t.vol, now + t.start + 0.015);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + t.start + t.dur);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + t.start);
+                osc.stop(now + t.start + t.dur);
+            });
+
+            // Haptic feedback en dispositivos móviles compatibles
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                navigator.vibrate([120, 80, 200]);
+            }
+        } catch (err) {
+            console.warn('Batllie Tracking: Audio alert error', err);
+        }
+    }
+
+    // =========================================================================
+    // Notificaciones Visuales: Toast Flotante y Título de Pestaña
+    // =========================================================================
+    var toastTimer = null;
+    function showStatusToast(message, title) {
+        title = title || '¡Actualización de tu pedido!';
+        var $toast = $('#batllie-tracking-toast');
+        if (!$toast.length) {
+            $toast = $(
+                '<div id="batllie-tracking-toast" class="batllie-tracking-toast" role="status" aria-live="polite">' +
+                    '<div class="batllie-toast-icon">' +
+                        '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+                            '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>' +
+                            '<path d="M13.73 21a2 2 0 0 1-3.46 0"></path>' +
+                        '</svg>' +
+                    '</div>' +
+                    '<div class="batllie-toast-content">' +
+                        '<div class="batllie-toast-title"></div>' +
+                        '<div class="batllie-toast-msg"></div>' +
+                    '</div>' +
+                    '<button type="button" class="batllie-toast-close" aria-label="Cerrar">&times;</button>' +
+                '</div>'
+            );
+            $('body').append($toast);
+
+            $toast.on('click', '.batllie-toast-close', function(e) {
+                e.stopPropagation();
+                $toast.removeClass('is-visible');
+            });
+
+            $toast.on('click', function() {
+                var $card = $('.batllie-order-tracking-card').first();
+                if ($card.length) {
+                    $('html, body').animate({ scrollTop: $card.offset().top - 20 }, 400);
+                }
+            });
+        }
+
+        $toast.find('.batllie-toast-title').text(title);
+        $toast.find('.batllie-toast-msg').text(message);
+
+        $toast.removeClass('is-visible');
+        void $toast[0].offsetWidth; // trigger reflow
+        $toast.addClass('is-visible');
+
+        if (toastTimer) {
+            clearTimeout(toastTimer);
+        }
+        toastTimer = setTimeout(function() {
+            $toast.removeClass('is-visible');
+        }, 8000);
+    }
+
+    var titleFlashInterval = null;
+    var originalDocTitle = document.title;
+    function flashTabTitle(newLabel) {
+        if (!document.hidden) return;
+        if (titleFlashInterval) {
+            clearInterval(titleFlashInterval);
+        }
+        var alt = false;
+        titleFlashInterval = setInterval(function() {
+            if (!document.hidden) {
+                clearInterval(titleFlashInterval);
+                titleFlashInterval = null;
+                document.title = originalDocTitle;
+                return;
+            }
+            document.title = alt ? '🔔 ¡Pedido actualizado!' : originalDocTitle;
+            alt = !alt;
+        }, 1200);
+    }
+
+    $(document).on('visibilitychange', function() {
+        if (!document.hidden && titleFlashInterval) {
+            clearInterval(titleFlashInterval);
+            titleFlashInterval = null;
+            document.title = originalDocTitle;
+        }
+    });
+
+    function sendBrowserNotification(newLabel, orderNumber) {
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                try {
+                    new Notification('Batllie - Pedido #' + orderNumber, {
+                        body: newLabel,
+                        icon: '/favicon.ico'
+                    });
+                } catch (err) {}
+            } else if (Notification.permission === 'default') {
+                try {
+                    Notification.requestPermission();
+                } catch (err) {}
+            }
+        }
+    }
+
+    // =========================================================================
+    // Seguimiento y Actualización de Pedidos
+    // =========================================================================
     $(document).ready(function() {
         var $cards = $('.batllie-order-tracking-card');
         if (!$cards.length) {
@@ -37,11 +207,23 @@
 
         var checkmarkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
+        // Solicitar amablemente permisos de notificación web en la primera interacción
+        $(document).one('click touchstart', function() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().catch(function() {});
+            }
+        });
+
         $cards.each(function() {
             var $card = $(this);
             var orderId = $card.data('order-id');
             var orderKey = $card.data('order-key');
+            var orderNumber = $card.data('order-number') || orderId;
             var currentStep = parseInt($card.data('current-step'), 10) || 1;
+            var currentLabel = $card.find('.status-highlight').text().trim();
+            var currentStatus = $card.data('order-status') || '';
+            var currentShipping = $card.data('shipping-status') || '';
+            var isPaid = ($card.data('is-paid') == '1');
 
             if (!orderId || !orderKey) {
                 return;
@@ -89,8 +271,8 @@
                 }
             }
 
-            // Inicializar ancho de barra
-            updateUI(currentStep);
+            // Inicializar ancho de barra y estado
+            updateUI(currentStep, currentLabel);
 
             // Intervalo de sondeo en vivo
             var timer = setInterval(function() {
@@ -106,9 +288,41 @@
                     success: function(response) {
                         if (response && response.success && response.data) {
                             var newStep = parseInt(response.data.step, 10);
-                            var newLabel = response.data.step_label;
-                            if (newStep !== currentStep) {
+                            var newLabel = response.data.step_label ? response.data.step_label.trim() : '';
+                            var newStatus = response.data.status || '';
+                            var newShipping = response.data.shipping_status || '';
+                            var newIsPaid = Boolean(response.data.is_paid);
+
+                            var stepChanged = (!isNaN(newStep) && newStep !== currentStep);
+                            var labelChanged = (newLabel && newLabel !== currentLabel);
+                            var statusChanged = (newStatus && newStatus !== currentStatus);
+                            var shippingChanged = (newShipping && newShipping !== currentShipping);
+                            var paymentBecamePaid = (!isPaid && newIsPaid);
+
+                            if (stepChanged || labelChanged || statusChanged || shippingChanged) {
                                 updateUI(newStep, newLabel);
+                                currentStep = newStep;
+                                currentLabel = newLabel;
+                                currentStatus = newStatus;
+                                currentShipping = newShipping;
+
+                                // Reproducir sonido de notificación
+                                playNotificationSound();
+
+                                // Mostrar notificación visual flotante
+                                showStatusToast(newLabel, '¡Pedido #' + orderNumber + ' actualizado!');
+
+                                // Flashear título de la pestaña si el usuario está en otra ventana
+                                flashTabTitle(newLabel);
+
+                                // Notificación nativa del navegador
+                                sendBrowserNotification(newLabel, orderNumber);
+
+                                // Resaltar tarjeta visualmente
+                                $card.addClass('has-updated-pulse');
+                                setTimeout(function() {
+                                    $card.removeClass('has-updated-pulse');
+                                }, 2400);
 
                                 // Sincronizar actualización con localStorage y chips del selector
                                 try {
@@ -132,6 +346,12 @@
                                         $chip.find('.batllie-chip-step-txt').text(newLabel);
                                     }
                                 } catch (err) {}
+                            } else if (paymentBecamePaid) {
+                                isPaid = true;
+                                $card.data('is-paid', '1');
+                                playNotificationSound();
+                                showStatusToast('¡Comprobante verificado! Pago acreditado.', '¡Pago confirmado!');
+                                flashTabTitle('¡Pago acreditado!');
                             }
 
                             // Si el pedido ya pasó a "pagado" desde la caja, ocultar y remover la sección de comprobante

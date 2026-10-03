@@ -36,9 +36,8 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 14px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    gap: 8px;
+    padding-bottom: 6px;
 }
 
 .batllie-tracking-title-group {
@@ -47,6 +46,7 @@
     align-items: center;
     text-align: center;
     gap: 6px;
+    width: 100%;
 }
 
 .batllie-tracking-title {
@@ -59,10 +59,12 @@
 }
 
 .batllie-tracking-subtitle {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
     color: var(--caja-text-muted, #94a3b8);
     margin: 0;
     text-align: center;
+    line-height: 1.45;
+    max-width: 520px;
 }
 
 .batllie-tracking-badges {
@@ -302,6 +304,124 @@
         box-shadow: 0 0 24px color-mix(in srgb, var(--caja-primary, #10b981) 70%, transparent);
         border-color: var(--caja-primary-hover, #059669);
     }
+}
+
+/* Efecto de pulso en tarjeta al detectar actualización */
+.batllie-order-tracking-card.has-updated-pulse {
+    animation: cardUpdateGlow 2.2s ease;
+}
+
+@keyframes cardUpdateGlow {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--caja-primary, #10b981) 70%, transparent);
+    }
+    30% {
+        box-shadow: 0 0 28px 6px color-mix(in srgb, var(--caja-primary, #10b981) 50%, transparent);
+    }
+    100% {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+}
+
+/* ==========================================================================
+   Toast de Notificación en Vivo (Cambio de Estado)
+   ========================================================================== */
+.batllie-tracking-toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-35px);
+    z-index: 9999999;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1.5px solid var(--caja-primary, #10b981);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px color-mix(in srgb, var(--caja-primary, #10b981) 40%, transparent);
+    color: #f8fafc;
+    padding: 14px 18px;
+    border-radius: 14px;
+    max-width: calc(100vw - 32px);
+    width: 440px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.batllie-tracking-toast.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+.batllie-toast-icon {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--caja-primary, #10b981) 20%, transparent);
+    color: var(--caja-primary, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: toastBellShake 1.6s ease infinite;
+}
+
+@keyframes toastBellShake {
+    0%, 100% { transform: rotate(0deg); }
+    15% { transform: rotate(14deg); }
+    30% { transform: rotate(-14deg); }
+    45% { transform: rotate(8deg); }
+    60% { transform: rotate(-8deg); }
+    75% { transform: rotate(0deg); }
+}
+
+.batllie-toast-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+}
+
+.batllie-toast-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--caja-primary, #10b981);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.batllie-toast-msg {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #e2e8f0;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.batllie-toast-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 24px;
+    line-height: 1;
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.2s ease;
+}
+
+.batllie-toast-close:hover {
+    color: #ffffff;
 }
 
 /* Adaptación Responsive para Móviles */
