@@ -578,11 +578,10 @@ class Batllie_Caja_Tracking {
         }
         $clean_alias = preg_replace('/^alias:\s*/i', '', $bacs_alias);
 
-        // WhatsApp para envío de comprobante
+        // WhatsApp para envío de comprobante con información completa del pedido
         $wa_number = apply_filters('batllie_caja_whatsapp_number', '5491149472377', $order);
         $clean_wa = preg_replace('/[^0-9]/', '', $wa_number);
-        $wa_total = function_exists('wc_price') ? strip_tags(html_entity_decode(wc_price($order->get_total(), array('currency' => $order->get_currency())))) : ('$ ' . number_format($order->get_total(), 2, ',', '.'));
-        $wa_text = sprintf(__('Hola! Te adjunto el comprobante de transferencia para el Pedido #%s (%s).', 'emp-caja'), $order->get_order_number(), $wa_total);
+        $wa_text = self::generate_order_whatsapp_message($order, $clean_alias);
         $whatsapp_url = 'https://api.whatsapp.com/send?phone=' . $clean_wa . '&text=' . rawurlencode($wa_text);
 
         return array(
@@ -604,6 +603,109 @@ class Batllie_Caja_Tracking {
             'whatsapp_url'         => $whatsapp_url,
             'is_cancelled'         => in_array($status, array('cancelled', 'refunded', 'failed')),
         );
+    }
+
+    /**
+     * Generar mensaje completo y formateado para WhatsApp con todos los detalles del pedido
+     */
+    public static function generate_order_whatsapp_message($order, $clean_alias = '') {
+        if (!$order || !is_a($order, 'WC_Order')) {
+            return '';
+        }
+
+        $currency = $order->get_currency();
+        $order_number = $order->get_order_number();
+
+        // Cliente
+        $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
+        $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
+        $customer_name = trim($first_name . ' ' . $last_name);
+        $phone = method_exists($order, 'get_billing_phone') ? $order->get_billing_phone() : '';
+
+        // Dirección de entrega o facturación
+        $addr_1 = $order->get_shipping_address_1() ?: $order->get_billing_address_1();
+        $addr_2 = $order->get_shipping_address_2() ?: $order->get_billing_address_2();
+        $city = $order->get_shipping_city() ?: $order->get_billing_city();
+        $state = $order->get_shipping_state() ?: $order->get_billing_state();
+        $parts = array_filter(array($addr_1, $addr_2, $city, $state));
+        $address = implode(', ', $parts);
+
+        // Envío y Pago
+        $shipping_method = $order->get_shipping_method();
+        $payment_method  = $order->get_payment_method_title();
+        $customer_note   = $order->get_customer_note();
+
+        // Items pedidos
+        $items_lines = array();
+        foreach ($order->get_items() as $item) {
+            $qty = $item->get_quantity();
+            $name = $item->get_name();
+            $price_str = strip_tags(html_entity_decode(wc_price($item->get_total(), array('currency' => $currency))));
+
+            // Metas de variaciones (ej: molienda, peso, etc.)
+            $metas = array();
+            foreach ($item->get_formatted_meta_data('') as $meta) {
+                if (strpos($meta->key, '_') === 0) continue;
+                $metas[] = wp_strip_all_tags($meta->display_key . ': ' . $meta->display_value);
+            }
+            $meta_info = !empty($metas) ? ' (' . implode(', ', $metas) . ')' : '';
+
+            $items_lines[] = "• " . $qty . "x " . $name . $meta_info . " - " . $price_str;
+        }
+
+        $subtotal_str = strip_tags(html_entity_decode(wc_price($order->get_subtotal(), array('currency' => $currency))));
+        $shipping_total = (float) $order->get_shipping_total();
+        $shipping_str = ($shipping_total > 0) ? strip_tags(html_entity_decode(wc_price($shipping_total, array('currency' => $currency)))) : __('Gratis', 'emp-caja');
+        $total_str = strip_tags(html_entity_decode(wc_price($order->get_total(), array('currency' => $currency))));
+
+        $lines = array();
+        $lines[] = __('¡Hola! Te adjunto el comprobante de transferencia para mi pedido:', 'emp-caja');
+        $lines[] = "";
+        $lines[] = sprintf(__('📋 *DETALLES DEL PEDIDO #%s*', 'emp-caja'), $order_number);
+        $lines[] = "━━━━━━━━━━━━━━━━━━━━━";
+
+        if ($customer_name) {
+            $lines[] = sprintf(__('👤 *Cliente:* %s', 'emp-caja'), $customer_name);
+        }
+        if ($phone) {
+            $lines[] = sprintf(__('📞 *Teléfono:* %s', 'emp-caja'), $phone);
+        }
+        if ($address) {
+            $lines[] = sprintf(__('📍 *Dirección:* %s', 'emp-caja'), $address);
+        }
+        if ($shipping_method) {
+            $lines[] = sprintf(__('🚚 *Envío:* %s', 'emp-caja'), $shipping_method);
+        }
+        if ($payment_method) {
+            $pay_txt = $payment_method;
+            if ($clean_alias) {
+                $pay_txt .= " (" . sprintf(__('Alias: %s', 'emp-caja'), $clean_alias) . ")";
+            }
+            $lines[] = sprintf(__('💳 *Pago:* %s', 'emp-caja'), $pay_txt);
+        }
+
+        $lines[] = "";
+        $lines[] = __('🛒 *PRODUCTOS:*', 'emp-caja');
+        foreach ($items_lines as $il) {
+            $lines[] = $il;
+        }
+
+        $lines[] = "";
+        $lines[] = "━━━━━━━━━━━━━━━━━━━━━";
+        if ($subtotal_str && $subtotal_str !== $total_str) {
+            $lines[] = sprintf(__('💰 *Subtotal:* %s', 'emp-caja'), $subtotal_str);
+            $lines[] = sprintf(__('🚚 *Costo de envío:* %s', 'emp-caja'), $shipping_str);
+        }
+        $lines[] = sprintf(__('💵 *TOTAL A TRANSFERIR:* *%s*', 'emp-caja'), $total_str);
+        $lines[] = "━━━━━━━━━━━━━━━━━━━━━";
+
+        if ($customer_note) {
+            $lines[] = "";
+            $lines[] = sprintf(__('📝 *Nota del pedido:* %s', 'emp-caja'), $customer_note);
+        }
+
+        $full_message = implode("\n", $lines);
+        return apply_filters('batllie_caja_order_whatsapp_message', $full_message, $order);
     }
 
     /**
