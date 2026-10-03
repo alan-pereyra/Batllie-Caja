@@ -553,16 +553,46 @@ class Batllie_Caja_Tracking {
         $is_paid = ($caja_pay_status === 'pagado') || in_array($status, array('processing', 'completed'));
         $show_receipt_pending = $is_bacs && !$is_paid;
 
+        // Obtener Alias de la cuenta bancaria BACS si aplica
+        $bacs_alias = '';
+        $bacs_bank  = '';
+        if ($is_bacs) {
+            $bacs_accounts = get_option('woocommerce_bacs_accounts', array());
+            if (!empty($bacs_accounts) && is_array($bacs_accounts)) {
+                foreach ($bacs_accounts as $acc) {
+                    if (!empty($acc['account_name'])) {
+                        $bacs_alias = trim($acc['account_name']);
+                    }
+                    if (!empty($acc['bank_name'])) {
+                        $bacs_bank = trim($acc['bank_name']);
+                    }
+                    if (!empty($bacs_alias)) break;
+                }
+            }
+            if (empty($bacs_alias)) {
+                $bacs_settings = get_option('woocommerce_bacs_settings', array());
+                if (!empty($bacs_settings['account_name'])) {
+                    $bacs_alias = trim($bacs_settings['account_name']);
+                }
+            }
+        }
+        $clean_alias = preg_replace('/^alias:\s*/i', '', $bacs_alias);
+
         // WhatsApp para envío de comprobante
         $wa_number = apply_filters('batllie_caja_whatsapp_number', '5491149472377', $order);
         $clean_wa = preg_replace('/[^0-9]/', '', $wa_number);
-        $wa_text = sprintf(__('Hola! Te adjunto el comprobante de transferencia para el Pedido #%s.', 'emp-caja'), $order->get_order_number());
+        $wa_total = function_exists('wc_price') ? strip_tags(html_entity_decode(wc_price($order->get_total(), array('currency' => $order->get_currency())))) : ('$ ' . number_format($order->get_total(), 2, ',', '.'));
+        $wa_text = sprintf(__('Hola! Te adjunto el comprobante de transferencia para el Pedido #%s (%s).', 'emp-caja'), $order->get_order_number(), $wa_total);
         $whatsapp_url = 'https://api.whatsapp.com/send?phone=' . $clean_wa . '&text=' . rawurlencode($wa_text);
 
         return array(
             'order_id'             => $order->get_id(),
             'order_number'         => $order->get_order_number(),
             'order_key'            => $order->get_order_key(),
+            'order_total'          => $order->get_formatted_order_total(),
+            'order_total_raw'      => (float) $order->get_total(),
+            'bacs_alias'           => $clean_alias,
+            'bacs_bank'            => $bacs_bank,
             'step'                 => $step,
             'step_label'           => $step_label,
             'status'               => $status,

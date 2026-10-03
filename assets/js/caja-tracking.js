@@ -157,5 +157,45 @@
                 });
             }, pollInterval);
         });
+
+        // Botón copiar alias al portapapeles
+        $(document).on('click', '.batllie-receipt-copy-btn', function(e) {
+            e.preventDefault();
+            var $btn = $(this);
+            var textToCopy = $btn.attr('data-copy-text') || '';
+            if (!textToCopy) return;
+
+            var $label = $btn.find('.batllie-copy-label');
+            var originalText = $label.text();
+
+            var onSuccess = function() {
+                $btn.addClass('is-copied');
+                $label.text('¡Copiado!');
+                setTimeout(function() {
+                    $btn.removeClass('is-copied');
+                    $label.text(originalText || 'Copiar');
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(onSuccess).catch(function() {
+                    copyFallback(textToCopy, onSuccess);
+                });
+            } else {
+                copyFallback(textToCopy, onSuccess);
+            }
+        });
+
+        function copyFallback(text, cb) {
+            var $temp = $('<textarea>');
+            $temp.css({ position: 'fixed', left: '-9999px', top: '0', opacity: '0' });
+            $('body').append($temp);
+            $temp.val(text).select();
+            try {
+                document.execCommand('copy');
+                if (typeof cb === 'function') cb();
+            } catch (err) {}
+            $temp.remove();
+        }
     });
 })(jQuery);

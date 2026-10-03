@@ -227,17 +227,55 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
     <!-- Sección Comprobante Pendiente (Transferencia sin pagar aún) -->
     <?php if (!empty($tracking['show_receipt_pending'])) : ?>
+    <?php
+    $display_total = !empty($tracking['order_total']) ? $tracking['order_total'] : (isset($order) && is_a($order, 'WC_Order') ? $order->get_formatted_order_total() : '');
+    $display_alias = !empty($tracking['bacs_alias']) ? $tracking['bacs_alias'] : '';
+    if (empty($display_alias)) {
+        $bacs_accs = get_option('woocommerce_bacs_accounts', array());
+        if (!empty($bacs_accs) && is_array($bacs_accs) && !empty($bacs_accs[0]['account_name'])) {
+            $display_alias = preg_replace('/^alias:\s*/i', '', trim($bacs_accs[0]['account_name']));
+        }
+    }
+    ?>
     <div class="batllie-tracking-receipt-pending" id="batllie-receipt-pending-<?php echo esc_attr($order_id); ?>">
         <div class="batllie-receipt-content">
             <h4 class="batllie-receipt-title">
                 <?php _e('Comprobante pendiente', 'emp-caja'); ?>
             </h4>
+
+            <div class="batllie-receipt-meta-box">
+                <?php if (!empty($display_total)) : ?>
+                <div class="batllie-receipt-meta-item batllie-receipt-meta-total">
+                    <span class="batllie-receipt-meta-label"><?php _e('Total:', 'emp-caja'); ?></span>
+                    <span class="batllie-receipt-meta-value batllie-receipt-total-val"><?php echo wp_kses_post($display_total); ?></span>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($display_alias)) : ?>
+                <div class="batllie-receipt-meta-item batllie-receipt-meta-alias">
+                    <span class="batllie-receipt-meta-label"><?php _e('Alias:', 'emp-caja'); ?></span>
+                    <span class="batllie-receipt-meta-value batllie-receipt-alias-val" id="batllie-alias-val-<?php echo esc_attr($order_id); ?>"><?php echo esc_html($display_alias); ?></span>
+                    <button type="button" 
+                            class="batllie-receipt-copy-btn" 
+                            data-copy-text="<?php echo esc_attr($display_alias); ?>"
+                            title="<?php esc_attr_e('Copiar alias', 'emp-caja'); ?>"
+                            aria-label="<?php esc_attr_e('Copiar alias', 'emp-caja'); ?>">
+                        <svg class="batllie-copy-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span class="batllie-copy-label"><?php _e('Copiar', 'emp-caja'); ?></span>
+                    </button>
+                </div>
+                <?php endif; ?>
+            </div>
+
             <a href="<?php echo esc_url($tracking['whatsapp_url']); ?>" 
                target="_blank" 
                rel="noopener noreferrer" 
                class="batllie-receipt-wa-btn">
-                <svg class="batllie-receipt-wa-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm.01 1.67c2.2 0 4.26.86 5.82 2.41a8.17 8.17 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.19 8.19 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24zm-3.52 4.75c-.19 0-.5.07-.76.35-.26.29-1 1-1 2.42 0 1.43 1.04 2.8 1.18 3 .15.19 2.05 3.19 5.01 4.35 2.46.96 2.96.77 3.49.72.53-.05 1.71-.7 1.95-1.37.24-.68.24-1.26.17-1.38-.07-.11-.26-.18-.55-.33-.29-.15-1.71-.84-1.98-.94-.26-.09-.45-.15-.65.15-.19.29-.75.94-.92 1.13-.17.19-.34.22-.63.07-.29-.15-1.22-.45-2.33-1.44-.86-.77-1.44-1.72-1.61-2.01-.17-.29-.02-.45.13-.59.13-.13.29-.34.43-.51.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.51-.08-.15-.65-1.57-.89-2.15-.24-.57-.48-.49-.66-.5-.17-.01-.36-.01-.55-.01z"/>
+                <svg class="batllie-receipt-wa-icon" viewBox="0 0 448 512" width="22" height="22" fill="currentColor" aria-hidden="true">
+                    <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
                 </svg>
                 <span><?php _e('Enviar comprobante', 'emp-caja'); ?></span>
             </a>

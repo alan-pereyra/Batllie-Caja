@@ -414,6 +414,86 @@
     text-align: center;
 }
 
+.batllie-receipt-meta-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0 6px 0;
+    width: 100%;
+}
+
+.batllie-receipt-meta-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 1.15rem;
+    color: var(--caja-text, #f8fafc);
+    flex-wrap: wrap;
+    line-height: 1.3;
+}
+
+.batllie-receipt-meta-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--caja-text-muted, #94a3b8);
+    letter-spacing: 0.01em;
+}
+
+.batllie-receipt-meta-value.batllie-receipt-total-val {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #f59e0b;
+}
+
+.batllie-receipt-meta-value.batllie-receipt-total-val bdi,
+.batllie-receipt-meta-value.batllie-receipt-total-val span {
+    color: inherit !important;
+}
+
+.batllie-receipt-meta-value.batllie-receipt-alias-val {
+    font-size: 1.12rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    letter-spacing: 0.02em;
+    user-select: all;
+}
+
+.batllie-receipt-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e2e8f0;
+    padding: 4px 9px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    line-height: 1;
+}
+
+.batllie-receipt-copy-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+.batllie-receipt-copy-btn.is-copied {
+    background: #059669 !important;
+    border-color: #059669 !important;
+    color: #ffffff !important;
+}
+
 .batllie-receipt-wa-btn {
     display: inline-flex;
     align-items: center;
