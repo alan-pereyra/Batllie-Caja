@@ -1433,4 +1433,115 @@ td:has(.order-actions-button) {
     color: var(--caja-status-cancelled, #ef4444);
 }
 
+/* ==========================================================================
+   Adaptación en PC (Desktop): Pantalla completa sin bordes de teléfono
+   ========================================================================== */
+@media (min-width: 769px) {
+    .batllie-pedidos-modal {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        background: var(--caja-bg, #0f172a) !important;
+    }
+
+    .batllie-pedidos-backdrop {
+        display: none !important;
+    }
+
+    .batllie-pedidos-dialog {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: var(--caja-bg, #0f172a) !important;
+        transform: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .batllie-pedidos-dialog-header {
+        padding: 24px 60px !important;
+        background: var(--caja-header-bg, #1e293b) !important;
+        border-bottom: 1px solid var(--caja-card-border, #334155) !important;
+        flex-shrink: 0 !important;
+    }
+
+    .batllie-pedidos-title {
+        font-size: 1.6rem !important;
+    }
+
+    .batllie-pedidos-subtitle {
+        font-size: 0.95rem !important;
+    }
+
+    .batllie-pedidos-close-btn {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 28px !important;
+    }
+
+    .batllie-pedidos-dialog-body {
+        padding: 40px 60px !important;
+        background: var(--caja-bg, #0f172a) !important;
+        flex: 1 !important;
+        overflow-y: auto !important;
+    }
+
+    .batllie-pedidos-list {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)) !important;
+        gap: 24px !important;
+        width: 100% !important;
+        max-width: 1400px !important;
+        margin: 0 auto !important;
+    }
+
+    .batllie-hub-order-card {
+        padding: 24px !important;
+        border-radius: 16px !important;
+        background: color-mix(in srgb, var(--caja-header-bg, #0f172a) 60%, var(--caja-card-bg, #1e293b)) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+    }
+
+    .batllie-hub-order-card:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    .batllie-hub-order-number {
+        font-size: 1.25rem !important;
+    }
+
+    .batllie-hub-status-pill {
+        font-size: 0.84rem !important;
+        padding: 6px 14px !important;
+    }
+
+    .batllie-hub-total-row {
+        margin: 14px 0 !important;
+    }
+
+    .batllie-hub-total-value {
+        font-size: 1.4rem !important;
+    }
+
+    .batllie-hub-track-btn {
+        padding: 12px 18px !important;
+        font-size: 0.95rem !important;
+    }
+
+    .batllie-pedidos-lookup-box {
+        max-width: 640px !important;
+        margin: 36px auto 0 auto !important;
+        width: 100% !important;
+    }
+}
+
+
 

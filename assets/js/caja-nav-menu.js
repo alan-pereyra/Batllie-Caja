@@ -41,6 +41,20 @@
                 }
             });
             orders = Object.values(map);
+            // Normalizar etiquetas y pasos para estados cancelados o reembolsados
+            orders.forEach(function(o) {
+                if (o && o.status === 'cancelled') {
+                    o.step = 0;
+                    o.step_label = 'Pedido cancelado';
+                } else if (o && o.status === 'refunded') {
+                    o.step = 0;
+                    o.step_label = 'Pedido reembolsado';
+                } else if (o && o.status === 'failed') {
+                    o.step = 0;
+                    o.step_label = 'Pedido fallido';
+                }
+            });
+
             // Ordenar por ID descendente
             orders.sort(function (a, b) {
                 return (parseInt(b.id, 10) || 0) - (parseInt(a.id, 10) || 0);
@@ -280,8 +294,18 @@
             var html = '';
             orders.forEach(function (ord) {
                 var step = parseInt(ord.step, 10) || 1;
-                var pillClass = 'step-' + step + (ord.status ? ' status-' + ord.status : '');
                 var stepLabel = ord.step_label || 'En preparación';
+                if (ord.status === 'cancelled') {
+                    step = 0;
+                    stepLabel = 'Pedido cancelado';
+                } else if (ord.status === 'refunded') {
+                    step = 0;
+                    stepLabel = 'Pedido reembolsado';
+                } else if (ord.status === 'failed') {
+                    step = 0;
+                    stepLabel = 'Pedido fallido';
+                }
+                var pillClass = 'step-' + step + (ord.status ? ' status-' + ord.status : '');
                 var dateStr = ord.date || '';
                 var totalStr = ord.total || '';
                 var itemsSummary = ord.items_summary || '';

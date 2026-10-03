@@ -519,7 +519,16 @@ class Batllie_Caja_Tracking {
         $step_label = __('Batllie está preparando tu pedido', 'emp-caja');
 
         // Mapeo de etapas
-        if ($status === 'completed' || $status === 'recibido-problema' || $shipping_status === 'entregado' || $shipping_status === 'entregado_problemas') {
+        if ($status === 'cancelled') {
+            $step = 0;
+            $step_label = __('Pedido cancelado', 'emp-caja');
+        } elseif ($status === 'refunded') {
+            $step = 0;
+            $step_label = __('Pedido reembolsado', 'emp-caja');
+        } elseif ($status === 'failed') {
+            $step = 0;
+            $step_label = __('Pedido fallido', 'emp-caja');
+        } elseif ($status === 'completed' || $status === 'recibido-problema' || $shipping_status === 'entregado' || $shipping_status === 'entregado_problemas') {
             $step = 4;
             $step_label = __('Pedido recibido, que lo disfrutes', 'emp-caja');
         } elseif ($shipping_status === 'enviando' || $shipping_status === 'demorado' || $status === 'enviando') {
@@ -898,6 +907,19 @@ class Batllie_Caja_Tracking {
                         <?php if (!empty($recent_orders)) : ?>
                             <?php foreach ($recent_orders as $ord) : 
                                 $step = isset($ord['step']) ? intval($ord['step']) : 1;
+                                $step_label = !empty($ord['step_label']) ? $ord['step_label'] : __('Batllie está preparando tu pedido', 'emp-caja');
+                                if (!empty($ord['status'])) {
+                                    if ($ord['status'] === 'cancelled') {
+                                        $step = 0;
+                                        $step_label = __('Pedido cancelado', 'emp-caja');
+                                    } elseif ($ord['status'] === 'refunded') {
+                                        $step = 0;
+                                        $step_label = __('Pedido reembolsado', 'emp-caja');
+                                    } elseif ($ord['status'] === 'failed') {
+                                        $step = 0;
+                                        $step_label = __('Pedido fallido', 'emp-caja');
+                                    }
+                                }
                                 $pill_class = 'step-' . $step;
                                 if (!empty($ord['status'])) {
                                     $pill_class .= ' status-' . esc_attr($ord['status']);
@@ -911,7 +933,7 @@ class Batllie_Caja_Tracking {
                                         </div>
                                         <div class="batllie-hub-status-pill <?php echo esc_attr($pill_class); ?>">
                                             <span class="batllie-hub-pill-dot"></span>
-                                            <span><?php echo esc_html($ord['step_label']); ?></span>
+                                            <span><?php echo esc_html($step_label); ?></span>
                                         </div>
                                     </div>
 
