@@ -2036,24 +2036,43 @@ $('#caja-modal-new-product').fadeIn(200);
                 // Formatear fecha del pedido para el encabezado del historial
                 let orderDateDisplay = order.order_date_formatted || '';
                 let orderDateKey = order.order_date_key || '';
-                if (order.timestamp) {
+
+                const formatArDate = (ts) => {
+                    if (!ts) return null;
                     try {
-                        const d = new Date(order.timestamp * 1000);
-                        if (!orderDateDisplay) {
-                            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                            const dayName = days[d.getDay()];
-                            const dayNum = String(d.getDate()).padStart(2, '0');
-                            const monthNum = String(d.getMonth() + 1).padStart(2, '0');
-                            const yearNum = d.getFullYear();
-                            orderDateDisplay = `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
-                        }
-                        if (!orderDateKey) {
-                            const y = d.getFullYear();
-                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                            const day = String(d.getDate()).padStart(2, '0');
-                            orderDateKey = `${y}-${m}-${day}`;
-                        }
-                    } catch(e) {}
+                        const d = new Date(ts * 1000);
+                        const formatter = new Intl.DateTimeFormat('es-AR', {
+                            timeZone: 'America/Argentina/Buenos_Aires',
+                            weekday: 'long',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                        });
+                        const parts = formatter.formatToParts(d);
+                        let weekday = '', day = '', month = '', year = '';
+                        parts.forEach(p => {
+                            if (p.type === 'weekday') weekday = p.value.charAt(0).toUpperCase() + p.value.slice(1);
+                            if (p.type === 'day') day = p.value;
+                            if (p.type === 'month') month = p.value;
+                            if (p.type === 'year') year = p.value;
+                        });
+                        return {
+                            display: `${weekday} ${day}/${month}/${year}`,
+                            key: `${year}-${month}-${day}`
+                        };
+                    } catch(e) {
+                        return null;
+                    }
+                };
+
+                if (order.timestamp) {
+                    const ar = formatArDate(order.timestamp);
+                    if (!orderDateDisplay && ar) {
+                        orderDateDisplay = ar.display;
+                    }
+                    if (!orderDateKey && ar) {
+                        orderDateKey = ar.key;
+                    }
                 }
                 if (!orderDateDisplay && order.time_formatted) {
                     orderDateDisplay = order.time_formatted.split(' ')[0];
@@ -2063,15 +2082,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 const getEventDateFormatted = (ev) => {
                     if (ev.date_formatted) return ev.date_formatted;
                     if (ev.timestamp) {
-                        try {
-                            const d = new Date(ev.timestamp * 1000);
-                            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                            const dayName = days[d.getDay()];
-                            const dayNum = String(d.getDate()).padStart(2, '0');
-                            const monthNum = String(d.getMonth() + 1).padStart(2, '0');
-                            const yearNum = d.getFullYear();
-                            return `${dayName} ${dayNum}/${monthNum}/${yearNum}`;
-                        } catch(e) {}
+                        const ar = formatArDate(ev.timestamp);
+                        if (ar) return ar.display;
                     }
                     return ev.date || '';
                 };
@@ -2079,13 +2091,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 const getEventDateKey = (ev) => {
                     if (ev.date_key) return ev.date_key;
                     if (ev.timestamp) {
-                        try {
-                            const d = new Date(ev.timestamp * 1000);
-                            const y = d.getFullYear();
-                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                            const day = String(d.getDate()).padStart(2, '0');
-                            return `${y}-${m}-${day}`;
-                        } catch(e) {}
+                        const ar = formatArDate(ev.timestamp);
+                        if (ar) return ar.key;
                     }
                     return '';
                 };

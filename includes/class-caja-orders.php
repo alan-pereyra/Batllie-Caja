@@ -213,6 +213,30 @@ class Batllie_Caja_Orders {
     }
 
     /**
+     * Obtener zona horaria oficial de Argentina
+     */
+    public static function get_timezone() {
+        static $tz = null;
+        if ($tz === null) {
+            $tz = new DateTimeZone('America/Argentina/Buenos_Aires');
+        }
+        return $tz;
+    }
+
+    /**
+     * Formatear fecha y hora en la zona horaria de Argentina
+     */
+    public static function format_datetime($format, $timestamp = null) {
+        $ts = ($timestamp !== null && is_numeric($timestamp)) ? (int)$timestamp : time();
+        if (function_exists('wp_date')) {
+            return wp_date($format, $ts, self::get_timezone());
+        }
+        $dt = new DateTime('@' . $ts);
+        $dt->setTimezone(self::get_timezone());
+        return $dt->format($format);
+    }
+
+    /**
      * Normalizar teléfonos argentinos para visualización, almacenamiento y WhatsApp
      */
     public static function normalize_argentine_phone($raw_phone) {
@@ -998,19 +1022,20 @@ class Batllie_Caja_Orders {
         $items = array_merge(array_values($raw_boxes), $packaged_loose['boxes'], $packaged_loose['remaining']);
 
         $date_created = $order->get_date_created();
-        $time_diff = $date_created ? human_time_diff($date_created->getTimestamp(), current_time('timestamp')) : '';
-        $time_formatted = $date_created ? $date_created->date_i18n('d/m/Y H:i') : '';
+        $order_ts = $date_created ? $date_created->getTimestamp() : 0;
+        $time_diff = $order_ts ? human_time_diff($order_ts, time()) : '';
+        $time_formatted = $order_ts ? self::format_datetime('d/m/Y H:i', $order_ts) : '';
+        $time_only_formatted = $order_ts ? self::format_datetime('H:i', $order_ts) : '';
 
         // Formato con nombre de día y fecha para encabezado de historial (ej: Viernes 25/09/2026)
         $order_date_formatted = '';
         $order_date_key = '';
-        if ($date_created) {
-            $ts = $date_created->getTimestamp();
-            $day_name = date_i18n('l', $ts);
+        if ($order_ts) {
+            $day_name = self::format_datetime('l', $order_ts);
             $day_capitalized = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
-            $date_str = date_i18n('d/m/Y', $ts);
+            $date_str = self::format_datetime('d/m/Y', $order_ts);
             $order_date_formatted = $day_capitalized . ' ' . $date_str;
-            $order_date_key = date_i18n('Y-m-d', $ts);
+            $order_date_key = self::format_datetime('Y-m-d', $order_ts);
         }
 
         // Datos del cliente
@@ -1123,10 +1148,11 @@ class Batllie_Caja_Orders {
             'packing_summary'      => $packing_summary,
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
+            'time_only_formatted'  => $time_only_formatted,
             'order_date_formatted' => $order_date_formatted,
             'order_date_key'       => $order_date_key,
-            'order_date'           => $date_created ? $date_created->date_i18n('d/m/Y') : '',
-            'timestamp'            => $date_created ? $date_created->getTimestamp() : 0,
+            'order_date'           => $order_ts ? self::format_datetime('d/m/Y', $order_ts) : '',
+            'timestamp'            => $order_ts,
             'timeline'             => self::get_order_timeline($order),
         );
     }
@@ -1326,14 +1352,14 @@ class Batllie_Caja_Orders {
             }
         }
 
-        $now = current_time('timestamp');
-        $time_str = date_i18n('H:i', $now);
-        $date_str = date_i18n('d/m', $now);
-        $day_name = date_i18n('l', $now);
+        $now = time();
+        $time_str = self::format_datetime('H:i', $now);
+        $date_str = self::format_datetime('d/m', $now);
+        $day_name = self::format_datetime('l', $now);
         $day_cap  = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
-        $d_str    = date_i18n('d/m/Y', $now);
+        $d_str    = self::format_datetime('d/m/Y', $now);
         $date_formatted = $day_cap . ' ' . $d_str;
-        $date_key = date_i18n('Y-m-d', $now);
+        $date_key = self::format_datetime('Y-m-d', $now);
 
         $last_event = end($timeline);
         if ($last_event && isset($last_event['text']) && $last_event['text'] === $text && isset($last_event['time']) && $last_event['time'] === $time_str) {
@@ -1383,6 +1409,8 @@ class Batllie_Caja_Orders {
 
         $date_created = $order->get_date_created();
         $date_paid    = $order->get_date_paid();
+        $created_ts   = $date_created ? $date_created->getTimestamp() : 0;
+        $paid_ts      = $date_paid ? $date_paid->getTimestamp() : 0;
 
         // 1. Evento de llegada del pedido
         $has_created = false;
@@ -1392,14 +1420,19 @@ class Batllie_Caja_Orders {
                 break;
             }
         }
-        if (!$has_created && $date_created) {
+        if (!$has_created && $created_ts) {
+            $c_day = self::format_datetime('l', $created_ts);
+            $c_day_cap = mb_convert_case($c_day, MB_CASE_TITLE, 'UTF-8');
+            $c_d_str = self::format_datetime('d/m/Y', $created_ts);
             array_unshift($timeline, array(
-                'time'      => $date_created->date_i18n('H:i'),
-                'date'      => $date_created->date_i18n('d/m'),
-                'timestamp' => $date_created->getTimestamp(),
-                'text'      => __('llegó el pedido', 'emp-caja'),
-                'icon'      => '📥',
-                'type'      => 'created'
+                'time'           => self::format_datetime('H:i', $created_ts),
+                'date'           => self::format_datetime('d/m', $created_ts),
+                'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                'date_key'       => self::format_datetime('Y-m-d', $created_ts),
+                'timestamp'      => $created_ts,
+                'text'           => __('llegó el pedido', 'emp-caja'),
+                'icon'           => '📥',
+                'type'           => 'created'
             ));
         }
 
@@ -1414,24 +1447,20 @@ class Batllie_Caja_Orders {
         if (!$has_paid) {
             $pay_status = $order->get_meta('_caja_payment_status');
             $status     = $order->get_status();
-            if ($date_paid) {
+            $p_ts = $paid_ts ?: ($created_ts ?: time());
+            if ($date_paid || $pay_status === 'pagado' || in_array($status, array('processing', 'completed'))) {
+                $p_day = self::format_datetime('l', $p_ts);
+                $p_day_cap = mb_convert_case($p_day, MB_CASE_TITLE, 'UTF-8');
+                $p_d_str = self::format_datetime('d/m/Y', $p_ts);
                 $timeline[] = array(
-                    'time'      => $date_paid->date_i18n('H:i'),
-                    'date'      => $date_paid->date_i18n('d/m'),
-                    'timestamp' => $date_paid->getTimestamp(),
-                    'text'      => __('se confirmó el pago', 'emp-caja'),
-                    'icon'      => '💳',
-                    'type'      => 'payment'
-                );
-            } elseif ($pay_status === 'pagado' || in_array($status, array('processing', 'completed'))) {
-                $ts = $date_created ? $date_created->getTimestamp() : current_time('timestamp');
-                $timeline[] = array(
-                    'time'      => date_i18n('H:i', $ts),
-                    'date'      => date_i18n('d/m', $ts),
-                    'timestamp' => $ts,
-                    'text'      => __('se confirmó el pago', 'emp-caja'),
-                    'icon'      => '💳',
-                    'type'      => 'payment'
+                    'time'           => self::format_datetime('H:i', $p_ts),
+                    'date'           => self::format_datetime('d/m', $p_ts),
+                    'date_formatted' => $p_day_cap . ' ' . $p_d_str,
+                    'date_key'       => self::format_datetime('Y-m-d', $p_ts),
+                    'timestamp'      => $p_ts,
+                    'text'           => __('se confirmó el pago', 'emp-caja'),
+                    'icon'           => '💳',
+                    'type'           => 'payment'
                 );
             }
         }
@@ -1439,7 +1468,7 @@ class Batllie_Caja_Orders {
         // 3. Reconstruir hitos clave para pedidos ya existentes
         $status   = $order->get_status();
         $shipping = $order->get_meta('_caja_shipping_status');
-        $base_ts  = $date_created ? $date_created->getTimestamp() : current_time('timestamp');
+        $base_ts  = $created_ts ?: time();
 
         $has_prep = false;
         $has_coord = false;
@@ -1457,57 +1486,72 @@ class Batllie_Caja_Orders {
         }
 
         if (!$has_prep && in_array($status, array('processing', 'enviando', 'completed', 'recibido-problema'))) {
+            $ts = $base_ts + 60;
             $timeline[] = array(
-                'time'      => date_i18n('H:i', $base_ts + 60),
-                'date'      => date_i18n('d/m', $base_ts + 60),
-                'timestamp' => $base_ts + 60,
-                'text'      => __('en preparación', 'emp-caja'),
-                'icon'      => '👨‍🍳',
-                'type'      => 'status_prep'
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => __('en preparación', 'emp-caja'),
+                'icon'           => '👨‍🍳',
+                'type'           => 'status_prep'
             );
         }
 
         if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+            $ts = $base_ts + 120;
             $timeline[] = array(
-                'time'      => date_i18n('H:i', $base_ts + 120),
-                'date'      => date_i18n('d/m', $base_ts + 120),
-                'timestamp' => $base_ts + 120,
-                'text'      => __('se coordinó el envío', 'emp-caja'),
-                'icon'      => '⏳',
-                'type'      => 'shipping_coord'
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => __('se coordinó el envío', 'emp-caja'),
+                'icon'           => '⏳',
+                'type'           => 'shipping_coord'
             );
         }
 
         if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+            $ts = $base_ts + 360;
             $timeline[] = array(
-                'time'      => date_i18n('H:i', $base_ts + 360),
-                'date'      => date_i18n('d/m', $base_ts + 360),
-                'timestamp' => $base_ts + 360,
-                'text'      => __('el envío salió a su destino', 'emp-caja'),
-                'icon'      => '🛵',
-                'type'      => 'shipping_out'
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => __('el envío salió a su destino', 'emp-caja'),
+                'icon'           => '🛵',
+                'type'           => 'shipping_out'
             );
         }
 
         if (!$has_dest && in_array($shipping, array('entregado', 'entregado_problemas'))) {
+            $ts = $base_ts + 900;
             $timeline[] = array(
-                'time'      => date_i18n('H:i', $base_ts + 900),
-                'date'      => date_i18n('d/m', $base_ts + 900),
-                'timestamp' => $base_ts + 900,
-                'text'      => $shipping === 'entregado' ? __('llegó a destino (sin inconvenientes)', 'emp-caja') : __('llegó a destino (con inconvenientes)', 'emp-caja'),
-                'icon'      => $shipping === 'entregado' ? '🏁' : '🛑',
-                'type'      => 'shipping_dest'
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => $shipping === 'entregado' ? __('llegó a destino (sin inconvenientes)', 'emp-caja') : __('llegó a destino (con inconvenientes)', 'emp-caja'),
+                'icon'           => $shipping === 'entregado' ? '🏁' : '🛑',
+                'type'           => 'shipping_dest'
             );
         }
 
         if (!$has_comp && in_array($status, array('completed', 'recibido-problema'))) {
+            $ts = $base_ts + 900;
             $timeline[] = array(
-                'time'      => date_i18n('H:i', $base_ts + 900),
-                'date'      => date_i18n('d/m', $base_ts + 900),
-                'timestamp' => $base_ts + 900,
-                'text'      => $status === 'completed' ? __('pedido completado', 'emp-caja') : __('pedido completado con inconvenientes', 'emp-caja'),
-                'icon'      => '✅',
-                'type'      => 'status_comp'
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => $status === 'completed' ? __('pedido completado', 'emp-caja') : __('pedido completado con inconvenientes', 'emp-caja'),
+                'icon'           => '✅',
+                'type'           => 'status_comp'
             );
         }
 
@@ -1523,15 +1567,14 @@ class Batllie_Caja_Orders {
         foreach ($timeline as &$ev) {
             $ev_ts = isset($ev['timestamp']) && is_numeric($ev['timestamp']) ? (int)$ev['timestamp'] : 0;
             if ($ev_ts > 0) {
-                if (empty($ev['date_formatted'])) {
-                    $day_name = date_i18n('l', $ev_ts);
-                    $day_cap  = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
-                    $d_str    = date_i18n('d/m/Y', $ev_ts);
-                    $ev['date_formatted'] = $day_cap . ' ' . $d_str;
-                }
-                if (empty($ev['date_key'])) {
-                    $ev['date_key'] = date_i18n('Y-m-d', $ev_ts);
-                }
+                // Re-formatear estrictamente con zona horaria de Argentina (America/Argentina/Buenos_Aires)
+                $day_name = self::format_datetime('l', $ev_ts);
+                $day_cap  = mb_convert_case($day_name, MB_CASE_TITLE, 'UTF-8');
+                $d_str    = self::format_datetime('d/m/Y', $ev_ts);
+                $ev['date_formatted'] = $day_cap . ' ' . $d_str;
+                $ev['date_key']       = self::format_datetime('Y-m-d', $ev_ts);
+                $ev['time']           = self::format_datetime('H:i', $ev_ts);
+                $ev['date']           = self::format_datetime('d/m', $ev_ts);
             }
         }
         unset($ev);

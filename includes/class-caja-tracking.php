@@ -115,14 +115,19 @@ class Batllie_Caja_Tracking {
         $date_formatted = '';
         if ($created) {
             $timestamp = $created->getTimestamp();
-            $is_today = (date('Y-m-d', $timestamp) === current_time('Y-m-d'));
-            $is_yesterday = (date('Y-m-d', $timestamp) === date('Y-m-d', current_time('timestamp') - DAY_IN_SECONDS));
-            if ($is_today) {
-                $date_formatted = sprintf(__('Hoy, %s hs', 'emp-caja'), $created->date_i18n('H:i'));
-            } elseif ($is_yesterday) {
-                $date_formatted = sprintf(__('Ayer, %s hs', 'emp-caja'), $created->date_i18n('H:i'));
+            $now = time();
+            $today_str     = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_datetime('Y-m-d', $now) : date('Y-m-d', $now);
+            $yesterday_str = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_datetime('Y-m-d', $now - DAY_IN_SECONDS) : date('Y-m-d', $now - DAY_IN_SECONDS);
+            $order_day_str = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_datetime('Y-m-d', $timestamp) : date('Y-m-d', $timestamp);
+            $time_str      = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_datetime('H:i', $timestamp) : date('H:i', $timestamp);
+
+            if ($order_day_str === $today_str) {
+                $date_formatted = sprintf(__('Hoy, %s hs', 'emp-caja'), $time_str);
+            } elseif ($order_day_str === $yesterday_str) {
+                $date_formatted = sprintf(__('Ayer, %s hs', 'emp-caja'), $time_str);
             } else {
-                $date_formatted = $created->date_i18n('d/m/Y H:i') . ' hs';
+                $full_date = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_datetime('d/m/Y H:i', $timestamp) : date('d/m/Y H:i', $timestamp);
+                $date_formatted = $full_date . ' hs';
             }
         }
 
