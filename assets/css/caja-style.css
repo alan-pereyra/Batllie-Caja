@@ -1721,6 +1721,27 @@ body.batllie-caja-active .container {
     color: var(--caja-status-enviando, #8b5cf6) !important;
 }
 
+/* Una vez verificado el pedido: Enviando pasa a ser nuevamente el botón principal sólido */
+.caja-main-status-dropdown.status-bg-enviando.is-verified-primary,
+.caja-main-status-dropdown.status-bg-on-hold.is-verified-primary {
+    background-color: var(--caja-status-enviando, #8b5cf6) !important;
+    background: var(--caja-status-enviando, #8b5cf6) !important;
+    border: 2px solid transparent !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3) !important;
+}
+.caja-main-status-dropdown.status-bg-enviando.is-verified-primary:hover,
+.caja-main-status-dropdown.status-bg-on-hold.is-verified-primary:hover {
+    background-color: var(--caja-status-enviando, #8b5cf6) !important;
+    filter: brightness(1.08) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45) !important;
+}
+.caja-main-status-dropdown.status-bg-enviando.is-verified-primary + .caja-dropdown-arrow,
+.caja-main-status-dropdown.status-bg-on-hold.is-verified-primary + .caja-dropdown-arrow {
+    color: #ffffff !important;
+}
+
 .caja-main-status-dropdown.status-bg-completed {
     background-color: var(--caja-status-completed, #10b981) !important;
     color: #ffffff !important;
@@ -3466,12 +3487,12 @@ span#edit-grouped-selected-badge {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 13px 18px;
+    padding: 12px 18px;
     border-radius: 8px;
     font-size: 0.95rem;
     font-weight: 800;
     cursor: pointer;
-    border: none;
+    border: 2px solid transparent;
     outline: none;
     text-align: center;
     letter-spacing: 0.3px;
@@ -3479,12 +3500,29 @@ span#edit-grouped-selected-badge {
     color: #ffffff !important;
     transition: all 0.2s ease;
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+    box-sizing: border-box;
 }
 
 .caja-btn-control-pedido:hover {
     filter: brightness(1.08);
     transform: translateY(-1px);
     box-shadow: 0 4px 14px rgba(139, 92, 246, 0.45);
+}
+
+/* Una vez verificado el pedido: Control de pedido pasa a ser el botón secundario (outline/transparente) */
+.caja-btn-control-pedido.is-verified {
+    background-color: transparent !important;
+    background: transparent !important;
+    border: 2px solid var(--caja-status-enviando, #8b5cf6) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+.caja-btn-control-pedido.is-verified:hover {
+    background-color: rgba(139, 92, 246, 0.12) !important;
+    filter: none !important;
+    transform: translateY(-1px) !important;
+    box-shadow: none !important;
 }
 
 /* ==========================================================================

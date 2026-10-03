@@ -324,6 +324,12 @@
                     setVisible($pkgBox, !isPkgVerified);
                     setVisible($shipBox, true);
                     $controlBtnWrap.show();
+                    const $controlBtn = $controlBtnWrap.find('.caja-btn-control-pedido');
+                    if (isPkgVerified) {
+                        $controlBtn.addClass('is-verified').removeClass('status-bg-enviando');
+                    } else {
+                        $controlBtn.removeClass('is-verified').addClass('status-bg-enviando');
+                    }
                 } else if (newStatus === 'completed') {
                     setVisible($payBox, false);
                     setVisible($pkgBox, false);
@@ -352,8 +358,11 @@
                 const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
                 setVisible($grid, hasVisibleMeta);
 
-                select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed');
+                select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
                 select.addClass('status-bg-' + newStatus);
+                if (isPkgVerified && (newStatus === 'enviando' || newStatus === 'on-hold')) {
+                    select.addClass('is-verified-primary');
+                }
                 self.updateOrderStatus(orderId, newStatus, select);
             });
 
@@ -2377,15 +2386,15 @@ $('#caja-modal-new-product').fadeIn(200);
 
                             <!-- Botón previo a darle el paquete al repartidor: Control de pedido (solo se muestra cuando el estado es enviando) -->
                             <div class="caja-control-pedido-btn-wrap" style="display:${showControlPedidoBtn ? 'block' : 'none'};">
-                                <button type="button" class="caja-btn-control-pedido status-bg-enviando" data-order-id="${order.id}">
-                                    📋 Control de pedido${order.control_pedido_verified ? ' (✓ Verificado)' : ''}
+                                <button type="button" class="caja-btn-control-pedido ${isVerified ? 'is-verified' : 'status-bg-enviando'}" data-order-id="${order.id}">
+                                    📋 Control de pedido${isVerified ? ' (✓ Verificado)' : ''}
                                 </button>
                             </div>
 
                             <!-- Selector de Pasos Principal (ubicado ABAJO) -->
                             <div class="caja-order-status-select-wrap">
                                 <div class="caja-dropdown-relative">
-                                    <select class="caja-main-status-dropdown status-bg-${order.status}" data-order-id="${order.id}">
+                                    <select class="caja-main-status-dropdown status-bg-${order.status} ${isVerified && (order.status === 'enviando' || order.status === 'on-hold') ? 'is-verified-primary' : ''}" data-order-id="${order.id}">
                                         <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
                                         <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>En preparación${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                         <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Enviando${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
