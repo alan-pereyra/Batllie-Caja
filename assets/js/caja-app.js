@@ -241,6 +241,13 @@
                 $(this).removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
                        .addClass('status-ship-' + val);
 
+                const isShippingEnviando = (val === 'enviando' || val === 'demorado' || val === 'entregado' || val === 'entregado_problemas');
+                if (isShippingEnviando) {
+                    $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideUp(200);
+                } else {
+                    $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideDown(200);
+                }
+
                 if (val === 'entregado') {
                     // Sincronización: El botón grande cambia a Recibido (completed)
                     $mainDropdown.val('completed');
@@ -363,6 +370,12 @@
                 if (isPkgVerified && (newStatus === 'enviando' || newStatus === 'on-hold')) {
                     select.addClass('is-verified-primary');
                 }
+
+                const isMainFinished = (newStatus === 'completed' || newStatus === 'recibido-problema' || newStatus === 'cancelled' || newStatus === 'refunded');
+                if (isMainFinished) {
+                    $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideUp(200);
+                }
+
                 self.updateOrderStatus(orderId, newStatus, select);
             });
 
@@ -1888,6 +1901,17 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             orders.forEach(order => {
+                const hasShippedOrFinished = (
+                    order.shipping_status === 'enviando' || 
+                    order.shipping_status === 'demorado' || 
+                    order.shipping_status === 'entregado' || 
+                    order.shipping_status === 'entregado_problemas' || 
+                    order.status === 'completed' || 
+                    order.status === 'recibido-problema' || 
+                    order.status === 'cancelled' || 
+                    order.status === 'refunded'
+                );
+
                 let itemsHtml = '';
                 let renderedBoxFelicitacion = false;
                 if (order.items && order.items.length) {
@@ -1917,7 +1941,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
                             let isAumento = Boolean(item.has_aumento_pedido || item.has_decision_correcta);
                             let boxFelicitacionHtml = '';
-                            if (isAumento) {
+                            if (isAumento && !hasShippedOrFinished) {
                                 renderedBoxFelicitacion = true;
                                 boxFelicitacionHtml = `
                                     <div class="caja-box-felicitacion-card caja-box-aumento-card ${order.tarjeta_incluida ? 'is-included' : ''}">
@@ -2155,7 +2179,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const showControlPedidoBtn = (order.status === 'enviando' || order.status === 'on-hold');
 
                 let felicitacionHtml = '';
-                if (order.aumento_pedido || order.decision_correcta) {
+                if ((order.aumento_pedido || order.decision_correcta) && !hasShippedOrFinished) {
                     felicitacionHtml = `
                         <div class="caja-felicitacion-card caja-box-aumento-card ${order.tarjeta_incluida ? 'is-included' : ''}">
                             <div class="caja-felicitacion-header">
