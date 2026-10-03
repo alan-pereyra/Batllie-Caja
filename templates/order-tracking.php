@@ -154,7 +154,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 <?php endif; ?>
             </div>
 
-            <a href="<?php echo esc_url($tracking['whatsapp_url']); ?>" 
+            <a href="<?php echo esc_attr($tracking['whatsapp_url']); ?>" 
                target="_blank" 
                rel="noopener noreferrer" 
                class="batllie-receipt-wa-btn">
