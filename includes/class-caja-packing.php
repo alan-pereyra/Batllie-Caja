@@ -117,6 +117,13 @@ class Batllie_Caja_Packing {
             update_option($opt_key, $new_id);
             update_post_meta($new_id, '_batllie_box_capacity', $capacity);
             update_post_meta($new_id, '_batllie_is_official_box', 'box_' . $capacity);
+
+            // Auto-asignar imagen representativa si existe en la biblioteca de medios
+            $default_img_id = ($capacity == 12) ? 269 : 156;
+            if ($default_img_id && function_exists('wp_get_attachment_image_url') && wp_get_attachment_image_url($default_img_id)) {
+                set_post_thumbnail($new_id, $default_img_id);
+            }
+
             return (int) $new_id;
         }
 
@@ -153,6 +160,56 @@ class Batllie_Caja_Packing {
             }
         }
         return sprintf(__('Caja Batllié x %d unidades', 'emp-caja'), $capacity);
+    }
+
+    /**
+     * Obtener la URL de imagen de la Caja Oficial (con búsqueda de respaldo si el producto no tiene imagen)
+     */
+    public static function get_official_box_image_url($capacity, $size = 'medium') {
+        $capacity = ($capacity == 12) ? 12 : 6;
+        $id = self::get_official_box_id($capacity);
+        if ($id && function_exists('wc_get_product')) {
+            $p = wc_get_product($id);
+            if ($p && $p->get_image_id()) {
+                $url = wp_get_attachment_image_url($p->get_image_id(), $size);
+                if ($url) return $url;
+            }
+        }
+
+        // Si la caja de 6 no tiene imagen directa, buscar producto de 6 alternativo con imagen
+        if ($capacity === 6) {
+            $candidates = array(35, 182);
+            foreach ($candidates as $cand_id) {
+                if (function_exists('wc_get_product')) {
+                    $cand = wc_get_product($cand_id);
+                    if ($cand && $cand->get_image_id()) {
+                        $url = wp_get_attachment_image_url($cand->get_image_id(), $size);
+                        if ($url) return $url;
+                    }
+                }
+            }
+            if (function_exists('wp_get_attachment_image_url')) {
+                $att_url = wp_get_attachment_image_url(156, $size);
+                if ($att_url) return $att_url;
+            }
+        } elseif ($capacity === 12) {
+            $candidates = array(246, 270, 221);
+            foreach ($candidates as $cand_id) {
+                if (function_exists('wc_get_product')) {
+                    $cand = wc_get_product($cand_id);
+                    if ($cand && $cand->get_image_id()) {
+                        $url = wp_get_attachment_image_url($cand->get_image_id(), $size);
+                        if ($url) return $url;
+                    }
+                }
+            }
+            if (function_exists('wp_get_attachment_image_url')) {
+                $att_url = wp_get_attachment_image_url(269, $size);
+                if ($att_url) return $att_url;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -1016,6 +1073,9 @@ class Batllie_Caja_Packing {
                 $current_box_capacity = 6;
                 $message_type     = 'recommendation';
                 $is_blocked       = false; // No bloquea si supera el mínimo de tienda con otros productos
+                $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
+                $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_units);
                 $message          = sprintf(
                     __('Tomaste una decisión muy valiosa al elegir nuestros productos. Pero tu experiencia podría ser aún mejor: sumando solo %d alfajor(es) más, recibís tu primera Caja Oficial Batllié.', 'emp-caja'),
                     $missing_units

@@ -557,12 +557,14 @@
         // 3. Títulos, Mensajes y Badges
         const targetCap = parseInt(packing.current_box_capacity, 10) || 6;
         const chosenBoxImg = (targetCap === 12) 
-            ? (config.box12Image || config.priorityBoxImage) 
-            : (config.box6Image || config.priorityBoxImage);
+            ? (config.box12Image || '') 
+            : (config.box6Image || '');
 
         if (chosenBoxImg) {
             $('#batllie-modal-box-image').attr('src', chosenBoxImg);
             $('#batllie-modal-box-image-wrap').show();
+        } else {
+            $('#batllie-modal-box-image-wrap').hide();
         }
 
         if (packing.status === 'all_boxed') {
