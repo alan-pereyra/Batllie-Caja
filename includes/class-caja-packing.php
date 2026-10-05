@@ -1113,24 +1113,10 @@ class Batllie_Caja_Packing {
                     $message      = __('¡Tus alfajores forman cajas completas!', 'emp-caja');
                 } else {
                     // Hay un remanente que no llena una caja exacta
-                    if ($rem > 6) {
-                        // Llena 1 de 6 y sobran (rem - 6) alfajores
-                        $boxes_from_loose['box_6'] = 1;
-                        $extra = $rem - 6; // Entre 1 y 5
-                    } else {
-                        // Sobran rem alfajores (entre 1 y 5)
-                        $extra = $rem;
-                    }
-
-                    // Faltantes para completar la siguiente caja de 6
-                    $missing_to_6  = 6 - $extra;
-                    $missing_units = $missing_to_6;
-                    $missing_for_12 = 12 - $extra;
-
-                    $completed_boxes_desc = array();
                     $b12_count = $boxes_from_packs['box_12'] + $boxes_from_loose['box_12'];
                     $b6_count  = $boxes_from_packs['box_6'] + $boxes_from_loose['box_6'];
 
+                    $completed_boxes_desc = array();
                     if ($b12_count > 0) {
                         $completed_boxes_desc[] = sprintf(_n('%d Caja x 12', '%d Cajas x 12', $b12_count, 'emp-caja'), $b12_count);
                     }
@@ -1139,32 +1125,73 @@ class Batllie_Caja_Packing {
                     }
                     $completed_boxes_text = !empty($completed_boxes_desc) ? (implode(' y ', $completed_boxes_desc) . __(' ya armada', 'emp-caja')) : '';
                     $current_box_num = ($b12_count + $b6_count) + 1;
-                    $current_box_units = $extra;
-                    $current_box_capacity = 6;
 
-                    // REGLA: Sugerencia para completar caja (sin bloqueo obligatorio de checkout)
-                    $status           = 'courtesy_available';
-                    $is_blocked       = false;
-                    $courtesy_allowed = true;
-                    $boxes_from_loose['courtesy'] = 1;
-                    $message_type     = 'upsell';
+                    if ($rem > 6) {
+                        // Remanente entre 7 y 11 alfajores: su objetivo natural es completar una Caja de 12
+                        $current_box_units    = $rem;
+                        $current_box_capacity = 12;
+                        $missing_to_12        = 12 - $rem;
+                        $missing_units        = $missing_to_12;
+                        $missing_for_12       = $missing_to_12;
 
-                    if (!empty($completed_boxes_text)) {
-                        $message = sprintf(
-                            __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6. Con solo %d más completás tu caja (o +%d para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
-                            $total_alfajores,
-                            $completed_boxes_text,
-                            $current_box_num,
-                            $extra,
-                            $missing_to_6,
-                            $missing_for_12
-                        );
+                        $status           = 'courtesy_available';
+                        $is_blocked       = false;
+                        $courtesy_allowed = true;
+                        $boxes_from_loose['courtesy'] = 1;
+                        $message_type     = 'upsell';
+                        $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                        $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
+                        $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_12);
+
+                        if (!empty($completed_boxes_text)) {
+                            $message = sprintf(
+                                __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 12. Con solo %d más completás tu Caja de 12.', 'emp-caja'),
+                                $total_alfajores,
+                                $completed_boxes_text,
+                                $current_box_num,
+                                $rem,
+                                $missing_to_12
+                            );
+                        } else {
+                            $message = sprintf(
+                                __('Tomaste una buena decisión al elegir nuestros alfajores, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu Caja Oficial de 12.', 'emp-caja'),
+                                $missing_to_12
+                            );
+                        }
                     } else {
-                        $message = sprintf(
-                            __('Tomaste una buena decisión al elegir nuestros alfajores, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu caja (o +%d para la Caja Premium de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
-                            $missing_to_6,
-                            $missing_for_12
-                        );
+                        // Remanente entre 1 y 5 alfajores: su objetivo natural es completar una Caja de 6
+                        $current_box_units    = $rem;
+                        $current_box_capacity = 6;
+                        $missing_to_6         = 6 - $rem;
+                        $missing_units        = $missing_to_6;
+                        $missing_for_12       = 12 - $rem;
+
+                        $status           = 'courtesy_available';
+                        $is_blocked       = false;
+                        $courtesy_allowed = true;
+                        $boxes_from_loose['courtesy'] = 1;
+                        $message_type     = 'upsell';
+                        $custom_title     = __('Tomaste una buena decisión', 'emp-caja');
+                        $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
+                        $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_to_6);
+
+                        if (!empty($completed_boxes_text)) {
+                            $message = sprintf(
+                                __('Tenés %d alfajores en total (%s). Tu %dª caja tiene %d de 6. Con solo %d más completás tu caja (o +%d para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
+                                $total_alfajores,
+                                $completed_boxes_text,
+                                $current_box_num,
+                                $rem,
+                                $missing_to_6,
+                                $missing_for_12
+                            );
+                        } else {
+                            $message = sprintf(
+                                __('Tomaste una buena decisión al elegir nuestros alfajores, pero podría ser aún mejor: con solo %d alfajor(es) más completás tu caja (o +%d para la Caja Premium de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!', 'emp-caja'),
+                                $missing_to_6,
+                                $missing_for_12
+                            );
+                        }
                     }
                 }
             }
@@ -1206,6 +1233,7 @@ class Batllie_Caja_Packing {
             'current_box_num'         => $current_box_num,
             'current_box_units'       => $current_box_units,
             'current_box_capacity'    => $current_box_capacity,
+            'target_box_capacity'     => ($has_mixed_box && $shared_cap == 12) ? 12 : $current_box_capacity,
             'status'                  => $status,
             'is_blocked'              => $is_blocked,
             'courtesy_allowed'        => $courtesy_allowed,

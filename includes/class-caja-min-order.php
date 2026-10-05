@@ -467,12 +467,24 @@ class Batllie_Caja_Min_Order {
         $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array();
         $box6Img = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(6, 'medium') : '';
         $box12Img = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(12, 'medium') : '';
-        $cur_cap   = !empty($packing['current_box_capacity']) ? intval($packing['current_box_capacity']) : 6;
+        $cur_cap   = !empty($packing['target_box_capacity']) ? intval($packing['target_box_capacity']) : (!empty($packing['current_box_capacity']) ? intval($packing['current_box_capacity']) : 6);
+        $total_alf = !empty($packing['total_alfajores']) ? intval($packing['total_alfajores']) : 0;
+        if (empty($packing['target_box_capacity']) && $total_alf > 0) {
+            $rem_12 = $total_alf % 12;
+            if ($rem_12 > 6) {
+                $cur_cap = 12;
+            } elseif ($rem_12 > 0 && $rem_12 <= 6 && empty($packing['has_mixed_box'])) {
+                $cur_cap = 6;
+            }
+        }
+        if (!empty($packing['has_mixed_box']) && !empty($packing['mixed_box_info']['box_capacity'])) {
+            $cur_cap = intval($packing['mixed_box_info']['box_capacity']);
+        }
         $cur_units = isset($packing['current_box_units']) ? intval($packing['current_box_units']) : 0;
         if ($cur_units <= 0 && !empty($packing['missing_units']) && intval($packing['missing_units']) < $cur_cap) {
             $cur_units = max(0, $cur_cap - intval($packing['missing_units']));
-        } elseif ($cur_units <= 0 && !empty($packing['total_alfajores'])) {
-            $cur_units = ($packing['total_alfajores'] % $cur_cap) ?: $cur_cap;
+        } elseif ($cur_units <= 0 && $total_alf > 0) {
+            $cur_units = ($total_alf % $cur_cap) ?: $cur_cap;
         }
         $pct_box       = ($cur_cap > 0) ? min(100, round(($cur_units / $cur_cap) * 100)) : 0;
         $initialBoxImg = ($cur_cap == 12) ? $box12Img : $box6Img;

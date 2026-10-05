@@ -321,17 +321,6 @@
                     completed_boxes_text = (c12 > 0 ? (c12 + ' Caja x 12 + ') : '') + '1 Caja x 6 armada';
                     message = '¡Tus alfajores forman cajas completas!';
                 } else {
-                    let extra = 0;
-                    if (rem > 6) {
-                        boxes.box_6 = 1;
-                        completed_boxes_6 = 1;
-                        extra = rem - 6; // Entre 1 y 5
-                    } else {
-                        extra = rem;
-                    }
-
-                    current_box_units = extra;
-                    current_box_capacity = 6;
                     const totalCompleted = completed_boxes_12 + completed_boxes_6;
                     current_box_num = totalCompleted + 1;
 
@@ -343,23 +332,32 @@
                         completed_boxes_text = completed_boxes_6 + (completed_boxes_6 > 1 ? ' Cajas x 6' : ' Caja x 6') + ' ya completa';
                     }
 
-                    const missing_to_6 = 6 - extra;
-                    missing_units = missing_to_6;
-                    missing_for_12 = 12 - extra;
+                    if (rem > 6) {
+                        // Remanente entre 7 y 11 alfajores -> Completa Caja de 12
+                        current_box_units = rem;
+                        current_box_capacity = 12;
+                        const missing_to_12 = 12 - rem;
+                        missing_units = missing_to_12;
+                        missing_for_12 = missing_to_12;
 
-                    if (missing_to_6 < 3) {
-                        // Faltan 1 o 2 unidades -> BLOQUEO IMPERATIVO
-                        status = 'imperative_missing';
-                        is_blocked = true;
-                        courtesy_allowed = false;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores en total (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6 alfajores. Agregá ' + (missing_to_6 === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
-                    } else {
-                        // Faltan 3 o más -> CORTESÍA DISPONIBLE
                         status = 'courtesy_available';
                         is_blocked = false;
                         courtesy_allowed = true;
                         boxes.courtesy = 1;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + extra + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + rem + ' de 12. Con solo ' + missing_to_12 + ' más completás tu Caja de 12. Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                    } else {
+                        // Remanente entre 1 y 5 alfajores -> Completa Caja de 6
+                        current_box_units = rem;
+                        current_box_capacity = 6;
+                        const missing_to_6 = 6 - rem;
+                        missing_units = missing_to_6;
+                        missing_for_12 = 12 - rem;
+
+                        status = 'courtesy_available';
+                        is_blocked = false;
+                        courtesy_allowed = true;
+                        boxes.courtesy = 1;
+                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + rem + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
                     }
                 }
             }
@@ -376,6 +374,7 @@
             current_box_num: current_box_num,
             current_box_units: current_box_units,
             current_box_capacity: current_box_capacity,
+            target_box_capacity: current_box_capacity,
             status: status,
             is_blocked: is_blocked,
             courtesy_allowed: courtesy_allowed,
@@ -536,13 +535,28 @@
         $('#batllie-packing-summary-wrap').hide();
 
         // 2. Barra de progreso de la caja actual
-        const curCap = parseInt(packing.current_box_capacity, 10) || 6;
+        let curCap = parseInt(packing.target_box_capacity || packing.current_box_capacity, 10) || 6;
         let curUnits = parseInt(packing.current_box_units, 10);
+        const totalAlf = parseInt(packing.total_alfajores, 10) || 0;
+
+        // Auto-detección estricta de capacidad objetivo si hay más de 6 alfajores
+        if (totalAlf > 0) {
+            const r12 = totalAlf % 12;
+            if (r12 > 6) {
+                curCap = 12;
+            } else if (r12 > 0 && r12 <= 6 && !packing.has_mixed_box) {
+                curCap = 6;
+            }
+        }
+        if (packing.has_mixed_box && packing.mixed_box_info && packing.mixed_box_info.box_capacity) {
+            curCap = parseInt(packing.mixed_box_info.box_capacity, 10);
+        }
+
         if (isNaN(curUnits) || curUnits <= 0) {
             if (packing.missing_units !== undefined && parseInt(packing.missing_units, 10) < curCap && parseInt(packing.missing_units, 10) > 0) {
                 curUnits = Math.max(0, curCap - parseInt(packing.missing_units, 10));
-            } else if (packing.total_alfajores) {
-                curUnits = (packing.total_alfajores % curCap) || curCap;
+            } else if (totalAlf > 0) {
+                curUnits = (totalAlf % curCap) || curCap;
             } else {
                 curUnits = 0;
             }
@@ -555,7 +569,11 @@
         });
 
         // 3. Títulos, Mensajes y Badges
-        const targetCap = parseInt(packing.current_box_capacity, 10) || 6;
+        let targetCap = parseInt(packing.target_box_capacity || curCap, 10) || 6;
+        if (packing.has_mixed_box && packing.mixed_box_info && packing.mixed_box_info.box_capacity) {
+            targetCap = parseInt(packing.mixed_box_info.box_capacity, 10);
+        }
+
         const chosenBoxImg = (targetCap === 12) 
             ? (config.box12Image || '') 
             : (config.box6Image || '');
@@ -576,7 +594,7 @@
             const subTitle = 'pero podría ser aún mejor';
             $('#batllie-packing-title').html('<span class="batllie-packing-title-main">' + mainTitle + '</span> <span class="batllie-packing-title-sub">' + subTitle + '</span>');
 
-            const missingUnits = packing.missing_units || (6 - (curUnits % 6 || 6));
+            const missingUnits = (packing.missing_units !== undefined) ? packing.missing_units : Math.max(0, curCap - curUnits);
             const badgeText = packing.custom_badge || ('Faltan ' + missingUnits + ' para completar');
             $('#batllie-packing-badge').text(badgeText).removeClass('is-complete').addClass('is-missing');
 
@@ -748,7 +766,18 @@
      */
     function optimisticQuickAddStep() {
         const curPacking = config.packing || {};
-        const cap = parseInt(curPacking.current_box_capacity, 10) || 6;
+        let cap = parseInt(curPacking.target_box_capacity || curPacking.current_box_capacity, 10) || 6;
+        let totalAlf = (parseInt(curPacking.total_alfajores, 10) || 0) + 1;
+        const r12 = totalAlf % 12;
+        if (r12 > 6) {
+            cap = 12;
+        } else if (r12 > 0 && r12 <= 6 && !curPacking.has_mixed_box) {
+            cap = 6;
+        }
+        if (curPacking.has_mixed_box && curPacking.mixed_box_info && curPacking.mixed_box_info.box_capacity) {
+            cap = parseInt(curPacking.mixed_box_info.box_capacity, 10);
+        }
+
         let curUnits = parseInt(curPacking.current_box_units, 10);
         if (isNaN(curUnits) || curUnits <= 0) {
             if (curPacking.missing_units !== undefined && parseInt(curPacking.missing_units, 10) < cap && parseInt(curPacking.missing_units, 10) > 0) {
@@ -760,7 +789,6 @@
             }
         }
         curUnits += 1;
-        let totalAlf = (parseInt(curPacking.total_alfajores, 10) || 0) + 1;
         let missingUnits = Math.max(0, cap - curUnits);
 
         let status = curPacking.status;
@@ -776,7 +804,7 @@
         } else if (missingUnits < 3) {
             status = 'imperative_missing';
             isBlocked = true;
-            message = 'Tenés ' + totalAlf + ' alfajores en total. Tu ' + (curPacking.current_box_num > 1 ? curPacking.current_box_num + 'ª caja' : 'caja') + ' tiene ' + curUnits + ' de 6 alfajores. Agregá ' + (missingUnits === 1 ? 'el alfajor faltante' : 'los 2 alfajores faltantes') + ' para poder despachar en caja cerrada.';
+            message = 'Tenés ' + totalAlf + ' alfajores en total. Tu ' + (curPacking.current_box_num > 1 ? curPacking.current_box_num + 'ª caja' : 'caja') + ' tiene ' + curUnits + ' de ' + cap + ' alfajores. Agregá ' + (missingUnits === 1 ? 'el alfajor faltante' : ('los ' + missingUnits + ' alfajores faltantes')) + ' para poder despachar en caja cerrada.';
         }
 
         const optimisticPacking = Object.assign({}, curPacking, {
@@ -784,8 +812,10 @@
             total_alfajores: totalAlf,
             current_box_units: curUnits,
             current_box_capacity: cap,
+            target_box_capacity: cap,
             current_box_num: curPacking.current_box_num || 1,
             missing_units: missingUnits,
+            custom_badge: (missingUnits > 0) ? ('Faltan ' + missingUnits + ' para completar') : '¡Caja al 100%! 💌',
             status: status,
             is_blocked: isBlocked,
             message: message
