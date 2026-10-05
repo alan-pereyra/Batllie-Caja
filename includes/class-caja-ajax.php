@@ -106,14 +106,15 @@ class Batllie_Caja_Ajax {
     public static function ajax_update_status() {
         self::check_auth();
 
-        $order_id   = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
-        $new_status = isset($_POST['new_status']) ? sanitize_key($_POST['new_status']) : '';
+        $order_id          = isset($_POST['order_id']) ? intval($_POST['order_id']) : 0;
+        $new_status        = isset($_POST['new_status']) ? sanitize_key($_POST['new_status']) : '';
+        $restore_box_stock = isset($_POST['restore_box_stock']) ? sanitize_key($_POST['restore_box_stock']) : null;
 
         if (!$order_id || empty($new_status)) {
             wp_send_json_error(array('message' => __('Datos incompletos para actualizar el pedido.', 'emp-caja')));
         }
 
-        $updated_order = Batllie_Caja_Orders::update_status($order_id, $new_status);
+        $updated_order = Batllie_Caja_Orders::update_status($order_id, $new_status, $restore_box_stock);
 
         if (is_wp_error($updated_order)) {
             wp_send_json_error(array('message' => $updated_order->get_error_message()));

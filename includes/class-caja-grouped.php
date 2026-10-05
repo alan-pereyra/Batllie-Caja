@@ -35,6 +35,12 @@ class Batllie_Caja_Grouped {
         add_filter('woocommerce_grouped_price_html', array(__CLASS__, 'filter_grouped_price_html'), 10, 2);
         add_filter('woocommerce_get_price_html', array(__CLASS__, 'filter_grouped_get_price_html'), 10, 2);
 
+        // Filtrar productos hijos para combos predeterminados (ocultar estrictamente los que tienen 0 unidades)
+        add_filter('woocommerce_grouped_children', array(__CLASS__, 'filter_grouped_children'), 20, 2);
+
+        // Sobrescribir la plantilla de productos agrupados para mostrar una lista limpia no personalizable si es combo fijo
+        add_filter('woocommerce_locate_template', array(__CLASS__, 'override_grouped_template'), 20, 3);
+
         // --- GESTIÓN DE CAJA DE EMPAQUE EXTRA Y PRECIOS ---
         // Asociar pack a los ítems elegidos
         add_filter('woocommerce_add_cart_item_data', array(__CLASS__, 'tag_grouped_child_cart_item'), 10, 4);
@@ -287,6 +293,44 @@ class Batllie_Caja_Grouped {
         }
         $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
         return is_array($qtys) ? $qtys : array();
+    }
+
+    /**
+     * Filtrar productos hijos de agrupados para combos predeterminados (excluir unidades <= 0)
+     */
+    public static function filter_grouped_children($children, $product) {
+        if (!$product || !is_a($product, 'WC_Product') || !$product->is_type('grouped')) {
+            return $children;
+        }
+
+        if (self::is_predefined_combo($product)) {
+            $predefined = self::get_predefined_quantities($product);
+            if (!empty($predefined) && is_array($predefined)) {
+                $filtered = array();
+                foreach ((array) $children as $child_id) {
+                    $cid = absint($child_id);
+                    if (isset($predefined[$cid]) && absint($predefined[$cid]) > 0) {
+                        $filtered[] = $cid;
+                    }
+                }
+                return $filtered;
+            }
+        }
+
+        return $children;
+    }
+
+    /**
+     * Sobrescribir la plantilla single-product/add-to-cart/grouped.php para productos agrupados
+     */
+    public static function override_grouped_template($template, $template_name, $template_path) {
+        if ($template_name === 'single-product/add-to-cart/grouped.php') {
+            $custom_template = EMP_CAJA_PATH . 'templates/woocommerce/single-product/add-to-cart/grouped.php';
+            if (file_exists($custom_template)) {
+                return $custom_template;
+            }
+        }
+        return $template;
     }
 
     /**
@@ -1237,27 +1281,32 @@ class Batllie_Caja_Grouped {
                 </div>
             </div>
 
-            <?php if ($target_qty > 0) : ?>
-            <!-- Contador y Barra de Progreso -->
+            <?php if ($is_predefined) : ?>
+            <!-- Resumen limpio de Combo Predeterminado / Fijo -->
+            <div class="batllie-box-predefined-banner" style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 14px; margin:10px 0 14px 0; display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px; line-height:1;">🎁</span>
+                <div style="font-size:13px; color:#166534; line-height:1.4;">
+                    <strong style="font-size:14px; display:block; color:#14532d;"><?php printf(esc_html__('Combo predeterminado (%d unidades incluidas)', 'emp-caja'), $target_qty); ?></strong>
+                    <?php _e('Esta caja viene armada con las unidades detalladas. ¡Hacé clic abajo para añadirla al carrito!', 'emp-caja'); ?>
+                </div>
+            </div>
+            <?php elseif ($target_qty > 0) : ?>
+            <!-- Contador y Barra de Progreso para Cajas Personalizables -->
             <div class="batllie-box-progress-wrap">
                 <div class="batllie-box-count-text">
-                    <span class="batllie-box-selected" id="batllie-box-current"><?php echo $is_predefined ? esc_html($target_qty) : '0'; ?></span>
+                    <span class="batllie-box-selected" id="batllie-box-current">0</span>
                     <span class="batllie-box-divider">/</span>
                     <span class="batllie-box-total" id="batllie-box-target"><?php echo esc_html($target_qty); ?></span>
-                    <span class="batllie-box-label"><?php echo $is_predefined ? __('unidades incluidas', 'emp-caja') : __('unidades elegidas', 'emp-caja'); ?></span>
+                    <span class="batllie-box-label"><?php echo esc_html__('unidades elegidas', 'emp-caja'); ?></span>
                 </div>
                 <div class="batllie-box-progress-bar">
-                    <div class="batllie-box-progress-fill <?php echo $is_predefined ? 'fill-complete' : ''; ?>" id="batllie-box-progress-fill" style="width: <?php echo $is_predefined ? '100%' : '0%'; ?>;"></div>
+                    <div class="batllie-box-progress-fill" id="batllie-box-progress-fill" style="width: 0%;"></div>
                 </div>
             </div>
 
             <!-- Mensaje Dinámico de Estado -->
             <div class="batllie-box-message" id="batllie-box-message">
-                <?php if ($is_predefined) : ?>
-                    <?php _e('🎁 Este combo incluye los productos detallados en las cantidades indicadas.', 'emp-caja'); ?>
-                <?php else : ?>
-                    <?php printf(esc_html__('Seleccioná %d unidades para armar tu caja personalizada.', 'emp-caja'), $target_qty); ?>
-                <?php endif; ?>
+                <?php printf(esc_html__('Seleccioná %d unidades para armar tu caja personalizada.', 'emp-caja'), $target_qty); ?>
             </div>
             <?php endif; ?>
 

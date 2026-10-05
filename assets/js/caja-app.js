@@ -355,11 +355,15 @@
                     $shipSelect.val('entregado_problemas');
                     $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-en_puerta status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado_problemas');
-                } else if (newStatus === 'cancelled' || newStatus === 'refunded') {
+                } else if (newStatus === 'cancelled') {
                     setVisible($payBox, true);
                     setVisible($pkgBox, false);
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
+                } else if (newStatus === 'refunded') {
+                    // Si se reembolsa, se debe elegir entre devolver el stock de los paquetes o no
+                    self.openRefundStockModal(orderId, cachedOrder, select, currentStatus);
+                    return;
                 }
 
                 const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
@@ -2658,9 +2662,88 @@ $('#caja-modal-new-product').fadeIn(200);
             });
         },
 
-        updateOrderStatus: function(orderId, newStatus, $btn) {
+        openRefundStockModal: function(orderId, order, $select, currentStatus) {
+            const self = this;
+            const $modal = $('#caja-modal-refund-stock');
+            const $details = $('#caja-refund-modal-details');
+
+            let pkgInfo = '';
+            if (order && order.packaging_summary_text) {
+                pkgInfo = `<strong>📦 Empaque del pedido:</strong> ${order.packaging_summary_text}`;
+            } else if (order && (order.boxes_12_qty > 0 || order.boxes_6_qty > 0)) {
+                const parts = [];
+                if (order.boxes_12_qty > 0) parts.push(`${order.boxes_12_qty}x Caja Oficial x 12`);
+                if (order.boxes_6_qty > 0) parts.push(`${order.boxes_6_qty}x Caja Oficial x 6`);
+                pkgInfo = `<strong>📦 Cajas asociadas:</strong> ${parts.join(', ')}`;
+            } else {
+                pkgInfo = '<strong>📦 Cajas físicas:</strong> Cajas de empaque asociadas al pedido.';
+            }
+
+            $details.html(pkgInfo);
+
+            const closeModal = function() {
+                $modal.fadeOut(150);
+                $('#caja-btn-refund-restore-yes, #caja-btn-refund-restore-no, #caja-btn-refund-cancel, #caja-refund-modal-close-btn').off('.refundModal');
+            };
+
+            $('#caja-btn-refund-restore-yes').off('.refundModal').on('click.refundModal', function(e) {
+                e.preventDefault();
+                closeModal();
+                self.applyRefundStatus(orderId, 'refunded', $select, 'yes');
+            });
+
+            $('#caja-btn-refund-restore-no').off('.refundModal').on('click.refundModal', function(e) {
+                e.preventDefault();
+                closeModal();
+                self.applyRefundStatus(orderId, 'refunded', $select, 'no');
+            });
+
+            $('#caja-btn-refund-cancel, #caja-refund-modal-close-btn, #caja-modal-refund-stock .caja-modal-backdrop').off('.refundModal').on('click.refundModal', function(e) {
+                e.preventDefault();
+                closeModal();
+                $select.val(currentStatus);
+            });
+
+            $modal.fadeIn(200);
+        },
+
+        applyRefundStatus: function(orderId, newStatus, $select, restoreBoxStock) {
             const self = this;
             const $card = $(`#caja-order-card-${orderId}`);
+            const $grid = $(`#caja-meta-grid-${orderId}`);
+            const $payBox = $(`#caja-meta-payment-${orderId}`);
+            const $pkgBox = $(`#caja-meta-packaging-${orderId}`);
+            const $shipBox = $(`#caja-meta-shipping-${orderId}`);
+            const $controlBtnWrap = $card.find('.caja-control-pedido-btn-wrap');
+
+            const setVisible = ($el, show) => {
+                if (show) {
+                    $el.removeClass('caja-meta-hidden').show();
+                } else {
+                    $el.addClass('caja-meta-hidden').hide();
+                }
+            };
+
+            setVisible($payBox, true);
+            setVisible($pkgBox, false);
+            setVisible($shipBox, false);
+            $controlBtnWrap.hide();
+
+            const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
+            setVisible($grid, hasVisibleMeta);
+
+            $select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
+            $select.addClass('status-bg-refunded');
+
+            $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideUp(200);
+
+            self.updateOrderStatus(orderId, 'refunded', $select, { restore_box_stock: restoreBoxStock });
+        },
+
+        updateOrderStatus: function(orderId, newStatus, $btn, extraData) {
+            const self = this;
+            const $card = $(`#caja-order-card-${orderId}`);
+            extraData = extraData || {};
 
             $card.addClass('caja-card-updating');
 
@@ -2673,15 +2756,17 @@ $('#caja-modal-new-product').fadeIn(200);
                 $shipSelect.val('entregado_problemas');
             }
 
+            const postData = $.extend({
+                action: 'emp_caja_update_status',
+                security: self.config.nonce,
+                order_id: orderId,
+                new_status: newStatus
+            }, extraData);
+
             $.ajax({
                 url: self.config.ajaxUrl,
                 type: 'POST',
-                data: {
-                    action: 'emp_caja_update_status',
-                    security: self.config.nonce,
-                    order_id: orderId,
-                    new_status: newStatus
-                },
+                data: postData,
                 success: function(res) {
                     if (res.success && res.data && res.data.order) {
                         const updated = res.data.order;

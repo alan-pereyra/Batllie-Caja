@@ -575,26 +575,30 @@ class Batllie_Caja_Products {
             update_post_meta($product_id, '_batllie_grouped_is_predefined', $is_pred);
         }
 
+        $is_pred = get_post_meta($product_id, '_batllie_grouped_is_predefined', true) === 'yes';
+
+        $clean_qtys = array();
+        $total_units = 0;
         if (isset($data['predefined_quantities']) && is_array($data['predefined_quantities'])) {
-            $clean_qtys = array();
-            $total_units = 0;
             foreach ($data['predefined_quantities'] as $child_id => $c_qty) {
                 $c_id = absint($child_id);
-                $c_val = max(1, absint($c_qty));
-                if ($c_id > 0) {
+                $c_val = absint($c_qty);
+                if ($c_id > 0 && $c_val > 0) {
                     $clean_qtys[$c_id] = $c_val;
                     $total_units += $c_val;
                 }
             }
             update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
-            if (get_post_meta($product_id, '_batllie_grouped_is_predefined', true) === 'yes' && $total_units > 0) {
-                update_post_meta($product_id, '_batllie_grouped_target_qty', $total_units);
-            }
         }
 
-        if ($product->is_type('grouped') && isset($data['children'])) {
-            $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
-            $product->set_children($children);
+        if ($product->is_type('grouped')) {
+            if ($is_pred && !empty($clean_qtys)) {
+                // En combo predeterminado, los hijos son únicamente los alfajores con cantidad > 0
+                $product->set_children(array_keys($clean_qtys));
+            } elseif (isset($data['children'])) {
+                $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
+                $product->set_children($children);
+            }
         }
 
         if (isset($data['packaging_box_product_id'])) {
@@ -603,7 +607,9 @@ class Batllie_Caja_Products {
         }
 
         // Metadatos de Configuración de Caja Batllié (Pack Agrupado)
-        if (isset($data['grouped_target_qty'])) {
+        if ($is_pred && $total_units > 0) {
+            update_post_meta($product_id, '_batllie_grouped_target_qty', $total_units);
+        } elseif (isset($data['grouped_target_qty'])) {
             $t_qty = sanitize_text_field($data['grouped_target_qty']);
             if ($t_qty === '') {
                 delete_post_meta($product_id, '_batllie_grouped_target_qty');

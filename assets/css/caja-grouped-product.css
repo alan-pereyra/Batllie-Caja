@@ -377,21 +377,59 @@ form.cart.grouped_form table.woocommerce-grouped-product-list td.woocommerce-gro
    ========================================================================== */
 .batllie-is-predefined-combo .quantity .emp-qty-btn,
 .batllie-is-predefined-combo .quantity .plus,
-.batllie-is-predefined-combo .quantity .minus {
+.batllie-is-predefined-combo .quantity .minus,
+.batllie-is-predefined-combo .quantity input[type="number"],
+.batllie-is-predefined-combo-table .quantity {
     display: none !important;
 }
 
-.batllie-is-predefined-combo .quantity input.qty {
-    pointer-events: none !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    font-size: 1.15rem !important;
-    font-weight: 700 !important;
-    color: #065f46 !important;
-    width: auto !important;
-    min-width: 36px !important;
-    text-align: center !important;
+.batllie-combo-fixed-qty-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.batllie-combo-fixed-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #065f46;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.03em;
+    box-shadow: 0 1px 3px rgba(6, 95, 70, 0.2);
+    min-width: 48px;
+}
+
+.batllie-is-predefined-combo-table tr.batllie-combo-fixed-item {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: background 0.2s ease;
+}
+
+.batllie-is-predefined-combo-table tr.batllie-combo-fixed-item:hover {
+    background: #f8fafc;
+}
+
+.batllie-is-predefined-combo-table td.woocommerce-grouped-product-list-item__label {
+    padding-left: 16px !important;
+}
+
+.batllie-is-predefined-combo-table td.woocommerce-grouped-product-list-item__label label {
+    font-size: 1.12rem !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+}
+
+.batllie-is-predefined-combo .single_add_to_cart_button {
+    background-color: #065f46 !important;
+    border-color: #065f46 !important;
+    color: #ffffff !important;
+    opacity: 1 !important;
+    cursor: pointer !important;
 }
 
 .batllie-combo-qty-badge {

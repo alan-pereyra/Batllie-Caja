@@ -1006,7 +1006,11 @@ class Batllie_Caja_Orders {
         unset($box);
 
         // Si no se descontó el stock de empaque todavía, procesarlo ahora para asegurar sincronización y metadatos
-        if ($order->get_meta('_batllie_box_stock_deducted') !== 'yes' && class_exists('Batllie_Caja_Packing')) {
+        // NUNCA descontar en pedidos inactivos (cancelados, reembolsados, etc.) ni si ya fue descontado o restaurado
+        $current_order_status = $order->get_status();
+        $is_order_inactive = in_array($current_order_status, array('cancelled', 'refunded', 'failed', 'trash'), true);
+        $deducted_state = $order->get_meta('_batllie_box_stock_deducted');
+        if (!$is_order_inactive && !in_array($deducted_state, array('yes', 'restored', 'kept_deducted'), true) && class_exists('Batllie_Caja_Packing')) {
             Batllie_Caja_Packing::handle_order_box_stock_deduction($order->get_id(), array(), $order);
         }
 
@@ -1139,6 +1143,8 @@ class Batllie_Caja_Orders {
             'has_mixed_box'        => ($order->get_meta('_batllie_has_mixed_box') === 'yes'),
             'mixed_box_info'       => $order->get_meta('_batllie_mixed_box_info'),
             'packaging_summary_text' => $order->get_meta('_batllie_packaging_summary_text'),
+            'box_stock_deducted'   => (string) $order->get_meta('_batllie_box_stock_deducted'),
+            'box_deducted_details' => $order->get_meta('_batllie_box_stock_deducted_details'),
             'boxes_used'           => $boxes_used,
             'boxes_6_qty'          => isset($boxes_used['box_6']) ? intval($boxes_used['box_6']) : (!empty($packing_summary['box_6']) ? intval($packing_summary['box_6']) : 0),
             'boxes_12_qty'         => isset($boxes_used['box_12']) ? intval($boxes_used['box_12']) : (!empty($packing_summary['box_12']) ? intval($packing_summary['box_12']) : 0),
@@ -1186,7 +1192,7 @@ class Batllie_Caja_Orders {
     /**
      * Actualizar estado de un pedido
      */
-    public static function update_status($order_id, $new_status) {
+    public static function update_status($order_id, $new_status, $restore_box_stock = null) {
         if (!class_exists('WooCommerce')) {
             return false;
         }
@@ -1204,6 +1210,22 @@ class Batllie_Caja_Orders {
             $payment_status = $order->get_meta('_caja_payment_status');
             if ($payment_status !== 'pagado' && $payment_status !== 'efectivo_entrega') {
                 return new WP_Error('payment_required', __('Para iniciar los siguientes pasos, primero debes chequear y confirmar el pago (Pagado o Efectivo en entrega).', 'emp-caja'));
+            }
+        }
+
+        // Manejo explícito de la restitución de stock de cajas físicas en cancelación o reembolso
+        if (in_array($clean_status, array('refunded', 'cancelled'), true)) {
+            if ($restore_box_stock === 'no') {
+                $order->update_meta_data('_batllie_skip_box_stock_restoration', 'yes');
+                $order->update_meta_data('_batllie_box_stock_deducted', 'kept_deducted');
+                $order->save();
+            } elseif ($restore_box_stock === 'yes') {
+                $order->delete_meta_data('_batllie_skip_box_stock_restoration');
+                // Si estaba en 'kept_deducted', permitir que se restaure cambiando a 'yes' temporalmente
+                if ($order->get_meta('_batllie_box_stock_deducted') === 'kept_deducted') {
+                    $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
+                }
+                $order->save();
             }
         }
 

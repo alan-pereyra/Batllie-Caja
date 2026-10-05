@@ -103,4 +103,42 @@ $label_2days = $dias_esp[(int) $dt_2days->format('w')] . ' ' . $dt_2days->format
         <h3><?php _e('No hay pedidos en esta sección', 'emp-caja'); ?></h3>
         <p><?php _e('Los nuevos pedidos recibidos en WooCommerce aparecerán aquí de forma automática.', 'emp-caja'); ?></p>
     </div>
+
+    <!-- Modal para Confirmar Reembolso de Stock de Paquetes -->
+    <div id="caja-modal-refund-stock" class="caja-modal" style="display:none;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog" style="max-width: 480px;">
+            <div class="caja-modal-header" style="background:#1e293b; color:#fff; border-bottom:1px solid #334155;">
+                <h3 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <span>📦</span> <?php _e('Reembolso de Stock de Paquetes', 'emp-caja'); ?>
+                </h3>
+                <button type="button" class="caja-modal-close" id="caja-refund-modal-close-btn">&times;</button>
+            </div>
+            <div class="caja-modal-body" style="padding: 20px; font-size:14px; color:#334155;">
+                <p style="margin-top:0; font-size:15px; font-weight:600; color:#0f172a;">
+                    <?php _e('¿Deseas devolver al inventario el stock de los paquetes de este pedido?', 'emp-caja'); ?>
+                </p>
+                <p style="color:#64748b; font-size:13px; line-height:1.5; margin-bottom:12px;">
+                    <?php _e('Indica si las cajas físicas de empaque deben retornar al stock disponible o mantenerse descontadas:', 'emp-caja'); ?>
+                </p>
+                <div id="caja-refund-modal-details" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin:14px 0; font-size:13px; color:#1e293b;">
+                    <!-- Se llena dinámicamente con JS -->
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
+                    <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-refund-restore-yes" style="background:#059669; border-color:#059669; justify-content:center; padding:12px; font-weight:600; font-size:14px; color:#fff;">
+                        ↩️ <?php _e('Sí, devolver stock de paquetes', 'emp-caja'); ?>
+                    </button>
+                    <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-refund-restore-no" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; justify-content:center; padding:12px; font-weight:600; font-size:14px;">
+                        📦 <?php _e('No devolver, mantener descontado', 'emp-caja'); ?>
+                    </button>
+                </div>
+            </div>
+            <div class="caja-modal-footer" style="padding:12px 20px; justify-content:flex-end; border-top:1px solid #e2e8f0;">
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-refund-cancel" style="padding:8px 16px;">
+                    <?php _e('Cancelar cambio de estado', 'emp-caja'); ?>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
+

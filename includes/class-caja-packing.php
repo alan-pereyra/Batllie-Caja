@@ -1637,6 +1637,21 @@ class Batllie_Caja_Packing {
             return;
         }
 
+        // Si el operador eligió expresamente NO devolver el stock de las cajas de empaque
+        if ($order->get_meta('_batllie_skip_box_stock_restoration') === 'yes' || $order->get_meta('_batllie_box_stock_deducted') === 'kept_deducted') {
+            $order->update_meta_data('_batllie_box_stock_deducted', 'kept_deducted');
+            if (class_exists('Batllie_Caja_Orders')) {
+                Batllie_Caja_Orders::add_timeline_event(
+                    $order,
+                    __('Stock de cajas físicas conservado como descontado (no devuelto al inventario).', 'emp-caja'),
+                    '📦',
+                    'system'
+                );
+            }
+            $order->save();
+            return;
+        }
+
         $details = $order->get_meta('_batllie_box_stock_deducted_details');
         if (!empty($details) && is_array($details)) {
             foreach ($details as $box_id => $qty) {
@@ -1670,8 +1685,15 @@ class Batllie_Caja_Packing {
         }
         if (!$order) return;
 
-        // Evitar doble descuento si ya fue procesado
-        if ($order->get_meta('_batllie_box_stock_deducted') === 'yes') {
+        // Si el pedido está cancelado, reembolsado o fallido, NUNCA descontar stock de empaque
+        $order_status = $order->get_status();
+        if (in_array($order_status, array('cancelled', 'refunded', 'failed', 'trash'), true)) {
+            return;
+        }
+
+        // Evitar doble descuento si ya fue procesado, restaurado o conservado como descontado
+        $deducted_status = $order->get_meta('_batllie_box_stock_deducted');
+        if (in_array($deducted_status, array('yes', 'restored', 'kept_deducted'), true)) {
             return;
         }
 

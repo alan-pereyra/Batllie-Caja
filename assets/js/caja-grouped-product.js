@@ -213,8 +213,9 @@
                 $badge.removeClass('badge-empty badge-incomplete').addClass('badge-complete').text(i18n.boxComplete || '¡Combo completo!');
                 $msg.text(i18n.selectPrompt || 'Este combo incluye los productos seleccionados en las cantidades indicadas.');
                 $totalDisplay.html(formatMoney(totalPrice));
-                $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled');
+                $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled').prop('disabled', false);
                 $table.find('.emp-qty-plus, .plus, .emp-qty-minus, .minus').hide();
+                $table.find('.quantity input[type="number"]').hide();
                 return;
             }
 
@@ -388,23 +389,26 @@
         // Si es un combo predeterminado / fijo, poblar los inputs con sus cantidades predefinidas
         if (isPredefined) {
             $form.addClass('batllie-is-predefined-combo');
-            $table.find('input.qty').each(function () {
-                const $inp = $(this);
+            $table.addClass('batllie-is-predefined-combo-table');
+            $table.find('.woocommerce-grouped-product-list-item').each(function () {
+                const $row = $(this);
+                const $inp = $row.find('input.qty');
                 const childId = getChildId($inp);
-                const $row = $inp.closest('tr, .woocommerce-grouped-product-list-item');
-                const fixedQty = (childId && typeof predefinedQtys[childId] !== 'undefined') ? parseInt(predefinedQtys[childId], 10) : 0;
+                const fixedQty = (childId && typeof predefinedQtys[childId] !== 'undefined') ? parseInt(predefinedQtys[childId], 10) : parseInt($inp.val(), 10);
 
                 if (fixedQty > 0) {
                     $inp.val(fixedQty).prop('readonly', true);
-                    const $labelTd = $row.find('.woocommerce-grouped-product-list-item__label');
-                    if ($labelTd.length && !$labelTd.find('.batllie-combo-qty-badge').length) {
-                        $labelTd.find('label, a').first().append(` <span class="batllie-combo-qty-badge">x${fixedQty} u.</span>`);
+                    // Si el tema tiene input visible, transformarlo en badge limpio
+                    const $qtyWrap = $row.find('.woocommerce-grouped-product-list-item__quantity');
+                    if (!$qtyWrap.find('.batllie-combo-fixed-badge').length) {
+                        $qtyWrap.find('.quantity').hide();
+                        $qtyWrap.prepend(`<div class="batllie-combo-fixed-qty-wrap"><span class="batllie-combo-fixed-badge">${fixedQty} u.</span></div>`);
                     }
                 } else {
-                    $inp.val(0);
-                    $row.hide();
+                    $row.remove(); // Los que tengan 0 unidades directamente no deben aparecer
                 }
             });
+            $submitBtn.removeClass('batllie-btn-disabled').removeAttr('aria-disabled').prop('disabled', false);
         }
 
         // Asegurar que todos los inputs tengan un 0 inicial limpio si vienen vacíos
