@@ -1151,6 +1151,8 @@ class Batllie_Caja_Orders {
             'bag_large'            => isset($saved_bags['large']) ? intval($saved_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1),
             'bag_small'            => isset($saved_bags['small']) ? intval($saved_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0),
             'control_pedido_verified' => ($order->get_meta('_batllie_control_pedido_verified') === 'yes'),
+            'packing_theme'        => (string) ($order->get_meta('_batllie_packing_theme') ?: ''),
+            'is_thematic_packaging' => ($order->get_meta('_batllie_is_thematic_packaging') === 'yes' || !empty($order->get_meta('_batllie_packing_theme'))),
             'packing_summary'      => $packing_summary,
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
@@ -1709,6 +1711,18 @@ class Batllie_Caja_Orders {
         $order->update_meta_data('_batllie_bags_large_qty', $bags_large);
         $order->update_meta_data('_batllie_bags_small_qty', $bags_small);
 
+        // Opcional: Actualizar temática si viene en la petición
+        if (isset($_POST['packing_theme'])) {
+            $theme_to_set = sanitize_text_field(wp_unslash($_POST['packing_theme']));
+            if (!empty($theme_to_set)) {
+                $order->update_meta_data('_batllie_packing_theme', $theme_to_set);
+                $order->update_meta_data('_batllie_is_thematic_packaging', 'yes');
+            } else {
+                $order->delete_meta_data('_batllie_packing_theme');
+                $order->update_meta_data('_batllie_is_thematic_packaging', 'no');
+            }
+        }
+
         $order->save();
 
         self::add_timeline_event(
@@ -1722,6 +1736,102 @@ class Batllie_Caja_Orders {
             'order'   => self::format_order($order),
             'message' => __('Control de empaque guardado con éxito.', 'emp-caja'),
         ));
+    }
+
+    /**
+     * Obtener listado global de temáticas de empaque
+     */
+    public static function get_packing_themes() {
+        $themes = get_option('_batllie_packing_themes', null);
+        if (!is_array($themes)) {
+            // Temáticas sugeridas por defecto
+            $themes = array(
+                'Cumpleaños',
+                'Aniversario',
+                'San Valentín',
+                'Día de la Madre',
+                'Día del Padre',
+                'Navidad',
+                'Empresarial',
+                'Agradecimiento',
+            );
+            update_option('_batllie_packing_themes', $themes, 'yes');
+        }
+        return array_values(array_filter(array_map('trim', $themes)));
+    }
+
+    /**
+     * Agregar una nueva temática al listado global
+     */
+    public static function add_packing_theme($theme_name) {
+        $theme_name = sanitize_text_field(wp_unslash(trim($theme_name)));
+        if (empty($theme_name)) {
+            return false;
+        }
+        $themes = self::get_packing_themes();
+        foreach ($themes as $existing) {
+            if (mb_strtolower($existing, 'UTF-8') === mb_strtolower($theme_name, 'UTF-8')) {
+                return $themes; // Ya existía
+            }
+        }
+        $themes[] = $theme_name;
+        update_option('_batllie_packing_themes', $themes, 'yes');
+        return $themes;
+    }
+
+    /**
+     * Eliminar una temática del listado global
+     */
+    public static function delete_packing_theme($theme_name) {
+        $theme_name = sanitize_text_field(wp_unslash(trim($theme_name)));
+        if (empty($theme_name)) {
+            return false;
+        }
+        $themes = self::get_packing_themes();
+        $themes = array_values(array_filter($themes, function($t) use ($theme_name) {
+            return mb_strtolower($t, 'UTF-8') !== mb_strtolower($theme_name, 'UTF-8');
+        }));
+        update_option('_batllie_packing_themes', $themes, 'yes');
+        return $themes;
+    }
+
+    /**
+     * Asignar o quitar temática de empaque en un pedido
+     */
+    public static function set_order_packing_theme($order_id, $theme) {
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return false;
+        }
+        $theme = sanitize_text_field(wp_unslash(trim($theme)));
+        $prev_theme = (string) $order->get_meta('_batllie_packing_theme');
+
+        if (!empty($theme)) {
+            $order->update_meta_data('_batllie_packing_theme', $theme);
+            $order->update_meta_data('_batllie_is_thematic_packaging', 'yes');
+            if ($prev_theme !== $theme) {
+                self::add_timeline_event(
+                    $order,
+                    sprintf(__('🎁 Paquetería temática especial asignada: %s', 'emp-caja'), $theme),
+                    '🎁',
+                    'packing'
+                );
+            }
+        } else {
+            $order->delete_meta_data('_batllie_packing_theme');
+            $order->update_meta_data('_batllie_is_thematic_packaging', 'no');
+            if (!empty($prev_theme)) {
+                self::add_timeline_event(
+                    $order,
+                    __('Paquetería temática especial desactivada (empaque estándar).', 'emp-caja'),
+                    '📦',
+                    'packing'
+                );
+            }
+        }
+
+        $order->save();
+        return $order;
     }
 
     /**

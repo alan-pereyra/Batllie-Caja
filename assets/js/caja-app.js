@@ -50,6 +50,7 @@
                 if (o.bag_large !== n.bag_large) return true;
                 if (o.bag_small !== n.bag_small) return true;
                 if (o.control_pedido_verified !== n.control_pedido_verified) return true;
+                if ((o.packing_theme || '') !== (n.packing_theme || '')) return true;
                 const oLen = (o.timeline && Array.isArray(o.timeline)) ? o.timeline.length : 0;
                 const nLen = (n.timeline && Array.isArray(n.timeline)) ? n.timeline.length : 0;
                 if (oLen !== nLen) return true;
@@ -57,6 +58,7 @@
             return false;
         },
         init: function() {
+            this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
             this.bindEvents();
 
             if (this.config.isUserLoggedIn) {
@@ -476,6 +478,99 @@
                 const bagSmall = parseInt($(`#pkg-input-bag-small-${orderId}`).val(), 10) || 0;
 
                 self.savePackaging(orderId, box6, box12, bagLarge, bagSmall);
+            });
+
+            // -------------------------------------------------------------
+            // EVENTOS DE PAQUETERÍA TEMÁTICA ESPECIAL (COLAPSABLE Y OPCIONAL)
+            // -------------------------------------------------------------
+            // Toggle sección paquetería temática
+            $(document).on('click', '.caja-btn-thematic-toggle', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $content = $(`#caja-thematic-content-${orderId}`);
+                const $arrow = $(this).find('.caja-thematic-toggle-arrow');
+                $(this).toggleClass('active');
+                $arrow.toggleClass('open');
+                $content.stop(true, true).slideToggle(180);
+            });
+
+            // Checkbox "Es un paquete con temática especial"
+            $(document).on('change', '.caja-chk-is-thematic', function() {
+                const orderId = $(this).data('order-id');
+                const isChecked = $(this).is(':checked');
+                const $fields = $(`#caja-thematic-fields-${orderId}`);
+                const $select = $(`#caja-select-theme-${orderId}`);
+
+                if (isChecked) {
+                    $fields.stop(true, true).slideDown(150);
+                    const currentTheme = $select.val();
+                    if (currentTheme) {
+                        self.setOrderPackingTheme(orderId, currentTheme);
+                    }
+                } else {
+                    $fields.stop(true, true).slideUp(150);
+                    $select.val('');
+                    self.setOrderPackingTheme(orderId, '');
+                }
+            });
+
+            // Cambio en el desplegable de temática
+            $(document).on('change', '.caja-select-packing-theme', function() {
+                const orderId = $(this).data('order-id');
+                const theme = $(this).val();
+                const $chk = $(`.caja-chk-is-thematic[data-order-id="${orderId}"]`);
+                const $delBtn = $(`.caja-btn-del-theme[data-order-id="${orderId}"]`);
+
+                if (theme) {
+                    $chk.prop('checked', true);
+                    if ($delBtn.length) {
+                        $delBtn.data('theme', theme).show();
+                    }
+                    self.setOrderPackingTheme(orderId, theme);
+                } else {
+                    $chk.prop('checked', false);
+                    if ($delBtn.length) {
+                        $delBtn.hide();
+                    }
+                    $(`#caja-thematic-fields-${orderId}`).stop(true, true).slideUp(150);
+                    self.setOrderPackingTheme(orderId, '');
+                }
+            });
+
+            // Botón agregar nueva temática
+            $(document).on('click', '.caja-btn-add-theme', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $input = $(`#caja-input-new-theme-${orderId}`);
+                const themeName = $.trim($input.val());
+                if (!themeName) {
+                    alert('Por favor ingrese el nombre de la temática especial.');
+                    $input.focus();
+                    return;
+                }
+                self.addNewPackingTheme(themeName, orderId);
+            });
+
+            // Enter en el campo de texto de nueva temática
+            $(document).on('keypress', '.caja-input-new-theme', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    const orderId = $(this).closest('.caja-thematic-add-row').find('.caja-btn-add-theme').data('order-id');
+                    const themeName = $.trim($(this).val());
+                    if (!themeName) return;
+                    self.addNewPackingTheme(themeName, orderId);
+                }
+            });
+
+            // Botón eliminar temática de la lista global
+            $(document).on('click', '.caja-btn-del-theme', function(e) {
+                e.preventDefault();
+                const theme = $(this).data('theme') || $(`#caja-select-theme-${$(this).data('order-id')}`).val();
+                const orderId = $(this).data('order-id');
+                if (!theme) return;
+                if (confirm(`¿Eliminar la temática "${theme}" de la lista disponible?`)) {
+                    self.deletePackingTheme(theme, orderId);
+                }
             });
 
             // -------------------------------------------------------------
@@ -1556,6 +1651,14 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
+            const openThematicIds = [];
+            $('.caja-thematic-content:visible').each(function() {
+                const id = $(this).attr('id');
+                if (id && id.startsWith('caja-thematic-content-')) {
+                    openThematicIds.push(id.replace('caja-thematic-content-', ''));
+                }
+            });
+
             const draftNotes = {};
             $('.caja-order-note-textarea').each(function() {
                 const id = $(this).data('order-id');
@@ -2399,6 +2502,59 @@ $('#caja-modal-new-product').fadeIn(200);
                                             `}
                                         </div>
                                     </div>
+
+                                    <!-- SECCIÓN PAQUETERÍA TEMÁTICA ESPECIAL (COLAPSABLE Y OPCIONAL) -->
+                                    <div class="caja-pkg-thematic-wrap">
+                                        <button type="button" class="caja-btn-thematic-toggle ${order.packing_theme ? 'has-theme' : ''}" data-order-id="${order.id}">
+                                            <span class="caja-thematic-toggle-title">
+                                                <span class="caja-thematic-icon">🎁</span>
+                                                <span>Paquetería temática</span>
+                                                ${order.packing_theme ? `
+                                                    <span class="caja-thematic-active-tag" id="caja-thematic-tag-${order.id}">${self.escapeHtml(order.packing_theme)}</span>
+                                                ` : `
+                                                    <span class="caja-thematic-opt-tag" id="caja-thematic-tag-${order.id}">(Opcional)</span>
+                                                `}
+                                            </span>
+                                            <span class="caja-thematic-toggle-arrow">▼</span>
+                                        </button>
+
+                                        <div class="caja-thematic-content" id="caja-thematic-content-${order.id}" style="display:none;">
+                                            <!-- Opción extra: checkbox 'Es un paquete con temática especial' -->
+                                            <label class="caja-thematic-checkbox-label">
+                                                <input type="checkbox" class="caja-chk-is-thematic" data-order-id="${order.id}" ${order.packing_theme ? 'checked' : ''} ${isVerified ? 'disabled' : ''} />
+                                                <span>Es un paquete con temática especial</span>
+                                            </label>
+
+                                            <!-- Zona de selección y creación de temáticas -->
+                                            <div class="caja-thematic-fields" id="caja-thematic-fields-${order.id}" style="${order.packing_theme ? '' : 'display:none;'}">
+                                                <div class="caja-thematic-select-row">
+                                                    <label class="caja-thematic-sublabel" for="caja-select-theme-${order.id}">Seleccionar temática:</label>
+                                                    <div style="display:flex; gap:6px; align-items:center;">
+                                                        <select class="caja-select-packing-theme" id="caja-select-theme-${order.id}" data-order-id="${order.id}" ${isVerified ? 'disabled' : ''}>
+                                                            <option value="">-- Sin temática especial (Estándar) --</option>
+                                                            ${(self.cachedPackingThemes || []).map(t => `
+                                                                <option value="${self.escapeHtml(t)}" ${order.packing_theme === t ? 'selected' : ''}>${self.escapeHtml(t)}</option>
+                                                            `).join('')}
+                                                        </select>
+                                                        ${!isVerified ? `
+                                                            <button type="button" class="caja-btn-del-theme" data-order-id="${order.id}" data-theme="${self.escapeHtml(order.packing_theme || '')}" title="Eliminar temática seleccionada de la lista" style="${order.packing_theme ? '' : 'display:none;'} background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; border-radius:5px; padding:5px 8px; font-size:0.75rem; cursor:pointer;">🗑️</button>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+
+                                                ${!isVerified ? `
+                                                    <!-- Agregar temáticas directamente desde ahí -->
+                                                    <div class="caja-thematic-add-row" style="margin-top:6px;">
+                                                        <label class="caja-thematic-sublabel">+ Crear nueva temática:</label>
+                                                        <div class="caja-thematic-add-inline">
+                                                            <input type="text" class="caja-input-new-theme" id="caja-input-new-theme-${order.id}" placeholder="Ej: Cumpleaños, San Valentín..." maxlength="40" />
+                                                            <button type="button" class="caja-btn-add-theme" data-order-id="${order.id}">+ Agregar</button>
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Recuadro 3: Estado del Envío -->
@@ -2468,6 +2624,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     </div>
                                     ${order.billing_email ? `<div class="caja-details-subinfo"><span>✉️ Email:</span> <strong>${order.billing_email}</strong></div>` : ''}
                                     ${order.shipping_total ? `<div class="caja-details-subinfo"><span>🛵 Costo de envío:</span> <strong>${order.shipping_total}</strong></div>` : ''}
+                                    ${order.packing_theme ? `<div class="caja-details-subinfo" style="color:#fef08a;"><span>🎁 Paquetería temática:</span> <strong>${self.escapeHtml(order.packing_theme)}</strong></div>` : ''}
                                 </div>
                             </div>
 
@@ -2530,6 +2687,17 @@ $('#caja-modal-new-product').fadeIn(200);
                 const $ta = $(`.caja-order-note-textarea[data-order-id="${id}"]`);
                 if ($ta.length && draftNotes[id] !== undefined) {
                     $ta.val(draftNotes[id]);
+                }
+            });
+
+            // Restaurar paneles de paquetería temática abiertos
+            openThematicIds.forEach(id => {
+                const $panel = $(`#caja-thematic-content-${id}`);
+                if ($panel.length) {
+                    $panel.show();
+                    const $btn = $(`.caja-btn-thematic-toggle[data-order-id="${id}"]`);
+                    $btn.addClass('active');
+                    $btn.find('.caja-thematic-toggle-arrow').addClass('open');
                 }
             });
         },
@@ -3261,6 +3429,152 @@ $('#caja-modal-new-product').fadeIn(200);
             });
         },
 
+        setOrderPackingTheme: function(orderId, theme, callback) {
+            const self = this;
+            const $tag = $(`#caja-thematic-tag-${orderId}`);
+            const $btn = $(`.caja-btn-thematic-toggle[data-order-id="${orderId}"]`);
+            const $delBtn = $(`.caja-btn-del-theme[data-order-id="${orderId}"]`);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_set_order_packing_theme',
+                    security: self.config.nonce,
+                    order_id: orderId,
+                    theme: theme
+                },
+                success: function(res) {
+                    if (res.success && res.data) {
+                        const updated = res.data.order;
+                        const idx = self.cachedOrders.findIndex(o => o.id == orderId);
+                        if (idx !== -1) {
+                            self.cachedOrders[idx].packing_theme = updated.packing_theme;
+                            self.cachedOrders[idx].is_thematic_packaging = updated.is_thematic_packaging;
+                            if (updated.timeline) {
+                                self.cachedOrders[idx].timeline = updated.timeline;
+                            }
+                        }
+
+                        if (theme) {
+                            $btn.addClass('has-theme');
+                            $tag.removeClass('caja-thematic-opt-tag').addClass('caja-thematic-active-tag').text(theme);
+                            if ($delBtn.length) {
+                                $delBtn.data('theme', theme).show();
+                            }
+                            self.showToast(`🎁 Temática "${theme}" asignada.`);
+                        } else {
+                            $btn.removeClass('has-theme');
+                            $tag.removeClass('caja-thematic-active-tag').addClass('caja-thematic-opt-tag').text('(Opcional)');
+                            if ($delBtn.length) {
+                                $delBtn.hide();
+                            }
+                            self.showToast('📦 Empaque restablecido a estándar.');
+                        }
+                        if (typeof callback === 'function') callback(true, updated);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al guardar la temática.');
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al guardar la temática.');
+                    if (typeof callback === 'function') callback(false);
+                }
+            });
+        },
+
+        addNewPackingTheme: function(themeName, orderId) {
+            const self = this;
+            const $input = $(`#caja-input-new-theme-${orderId}`);
+            const $btn = $(`.caja-btn-add-theme[data-order-id="${orderId}"]`);
+            $btn.prop('disabled', true).text('Guardando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_add_packing_theme',
+                    security: self.config.nonce,
+                    theme_name: themeName
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).text('+ Agregar');
+                    if (res.success && res.data) {
+                        if (res.data.themes) {
+                            self.cachedPackingThemes = res.data.themes;
+                        }
+                        $input.val('');
+                        self.refreshAllThemeSelects(themeName);
+                        if (orderId) {
+                            $(`#caja-select-theme-${orderId}`).val(themeName);
+                            $(`.caja-chk-is-thematic[data-order-id="${orderId}"]`).prop('checked', true);
+                            $(`#caja-thematic-fields-${orderId}`).show();
+                            self.setOrderPackingTheme(orderId, themeName);
+                        }
+                        self.showToast(`✨ Temática "${themeName}" creada exitosamente.`);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al crear la temática.');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).text('+ Agregar');
+                    alert('Error de conexión al agregar la temática.');
+                }
+            });
+        },
+
+        deletePackingTheme: function(themeName, orderId) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_delete_packing_theme',
+                    security: self.config.nonce,
+                    theme_name: themeName
+                },
+                success: function(res) {
+                    if (res.success && res.data) {
+                        if (res.data.themes) {
+                            self.cachedPackingThemes = res.data.themes;
+                        }
+                        self.refreshAllThemeSelects();
+                        if (orderId) {
+                            $(`#caja-select-theme-${orderId}`).val('');
+                            $(`.caja-chk-is-thematic[data-order-id="${orderId}"]`).prop('checked', false);
+                            $(`#caja-thematic-fields-${orderId}`).slideUp(150);
+                            self.setOrderPackingTheme(orderId, '');
+                        }
+                        self.showToast(`🗑️ Temática "${themeName}" eliminada.`);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al eliminar la temática.');
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al eliminar la temática.');
+                }
+            });
+        },
+
+        refreshAllThemeSelects: function(selectedThemeToPreserve) {
+            const self = this;
+            $('.caja-select-packing-theme').each(function() {
+                const $sel = $(this);
+                const currentVal = $sel.val();
+                let optionsHtml = '<option value="">-- Sin temática especial (Estándar) --</option>';
+                (self.cachedPackingThemes || []).forEach(t => {
+                    optionsHtml += `<option value="${self.escapeHtml(t)}">${self.escapeHtml(t)}</option>`;
+                });
+                $sel.html(optionsHtml);
+                if (selectedThemeToPreserve) {
+                    $sel.val(selectedThemeToPreserve);
+                } else if (currentVal) {
+                    $sel.val(currentVal);
+                }
+            });
+        },
+
         openControlPedidoModal: function(order) {
             const self = this;
             self.currentControlOrderId = order.id;
@@ -3410,6 +3724,33 @@ $('#caja-modal-new-product').fadeIn(200);
                     </div>
                 </div>
             `;
+
+            // 4. Paquetería temática especial (si aplica al pedido)
+            if (order.packing_theme) {
+                html += `
+                    <div class="caja-control-box-card caja-control-theme-card" style="border: 1px solid rgba(234, 179, 8, 0.4); background: rgba(234, 179, 8, 0.08);">
+                        <div class="caja-control-box-header" style="background: rgba(234, 179, 8, 0.18);">
+                            <span class="caja-control-box-icon">🎁</span>
+                            <span class="caja-control-box-title" style="color:#fef08a;">Paquetería Temática Especial</span>
+                            <span class="caja-control-box-badge" style="background:#eab308; color:#0f172a; font-weight:700;">¡Atención!</span>
+                        </div>
+                        <div class="caja-control-subitems-list">
+                            <div class="caja-control-item-row" style="background:transparent;">
+                                <div class="caja-control-item-left">
+                                    <span class="caja-control-no-thumb" style="font-size:1.3rem;">🎀</span>
+                                    <div class="caja-control-item-info">
+                                        <span class="caja-control-item-qty" style="color:#eab308; font-weight:700;">Temática:</span>
+                                        <span class="caja-control-item-name" style="font-size:0.95rem; font-weight:600; color:#ffffff;">${self.escapeHtml(order.packing_theme)}</span>
+                                    </div>
+                                </div>
+                                <label class="caja-control-check-wrap" title="Verificar paquetería temática">
+                                    <input type="checkbox" class="caja-control-chk" />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
             $body.html(html);
 

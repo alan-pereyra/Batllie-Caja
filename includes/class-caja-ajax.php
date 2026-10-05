@@ -36,6 +36,11 @@ class Batllie_Caja_Ajax {
         // Control de empaque y verificación de pedido previo a envío
         add_action('wp_ajax_emp_caja_update_packaging', array(__CLASS__, 'ajax_update_packaging'));
         add_action('wp_ajax_emp_caja_verify_control_pedido', array(__CLASS__, 'ajax_verify_control_pedido'));
+        // Temáticas de paquetería especial
+        add_action('wp_ajax_emp_caja_get_packing_themes', array(__CLASS__, 'ajax_get_packing_themes'));
+        add_action('wp_ajax_emp_caja_add_packing_theme', array(__CLASS__, 'ajax_add_packing_theme'));
+        add_action('wp_ajax_emp_caja_delete_packing_theme', array(__CLASS__, 'ajax_delete_packing_theme'));
+        add_action('wp_ajax_emp_caja_set_order_packing_theme', array(__CLASS__, 'ajax_set_order_packing_theme'));
     }
 
     /**
@@ -362,6 +367,87 @@ class Batllie_Caja_Ajax {
         self::check_auth();
         if (class_exists('Batllie_Caja_Orders')) {
             Batllie_Caja_Orders::ajax_verify_control_pedido();
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Obtener temáticas de paquetería
+     */
+    public static function ajax_get_packing_themes() {
+        self::check_auth();
+        if (class_exists('Batllie_Caja_Orders')) {
+            $themes = Batllie_Caja_Orders::get_packing_themes();
+            wp_send_json_success(array('themes' => $themes));
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Agregar nueva temática de paquetería
+     */
+    public static function ajax_add_packing_theme() {
+        self::check_auth();
+        $name = isset($_POST['theme_name']) ? sanitize_text_field(wp_unslash($_POST['theme_name'])) : '';
+        if (empty($name)) {
+            wp_send_json_error(array('message' => __('El nombre de la temática no puede estar vacío.', 'emp-caja')));
+        }
+        if (class_exists('Batllie_Caja_Orders')) {
+            $themes = Batllie_Caja_Orders::add_packing_theme($name);
+            wp_send_json_success(array(
+                'themes'  => $themes,
+                'added'   => $name,
+                'message' => sprintf(__('Temática "%s" agregada con éxito.', 'emp-caja'), $name)
+            ));
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Eliminar temática de paquetería
+     */
+    public static function ajax_delete_packing_theme() {
+        self::check_auth();
+        $name = isset($_POST['theme_name']) ? sanitize_text_field(wp_unslash($_POST['theme_name'])) : '';
+        if (empty($name)) {
+            wp_send_json_error(array('message' => __('El nombre de la temática no puede estar vacío.', 'emp-caja')));
+        }
+        if (class_exists('Batllie_Caja_Orders')) {
+            $themes = Batllie_Caja_Orders::delete_packing_theme($name);
+            wp_send_json_success(array(
+                'themes'  => $themes,
+                'deleted' => $name,
+                'message' => sprintf(__('Temática "%s" eliminada.', 'emp-caja'), $name)
+            ));
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Asignar o quitar temática de paquetería a un pedido
+     */
+    public static function ajax_set_order_packing_theme() {
+        self::check_auth();
+        $order_id = isset($_POST['order_id']) ? absint($_POST['order_id']) : 0;
+        $theme    = isset($_POST['theme']) ? sanitize_text_field(wp_unslash($_POST['theme'])) : '';
+
+        if (!$order_id) {
+            wp_send_json_error(array('message' => __('ID de pedido inválido.', 'emp-caja')));
+        }
+
+        if (class_exists('Batllie_Caja_Orders')) {
+            $order = Batllie_Caja_Orders::set_order_packing_theme($order_id, $theme);
+            if (!$order) {
+                wp_send_json_error(array('message' => __('No se pudo actualizar el pedido.', 'emp-caja')));
+            }
+            wp_send_json_success(array(
+                'order'   => Batllie_Caja_Orders::format_order($order),
+                'message' => !empty($theme) ? sprintf(__('Temática "%s" asignada al pedido.', 'emp-caja'), $theme) : __('Empaque temático desactivado.', 'emp-caja')
+            ));
         } else {
             wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
         }

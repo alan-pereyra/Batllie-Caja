@@ -3963,5 +3963,208 @@ body.caja-modal-locked {
     pointer-events: none;
 }
 
+/* ==========================================================================
+   PAQUETERÍA TEMÁTICA ESPECIAL (CONTROL DE EMPAQUE)
+   ========================================================================== */
+.caja-pkg-thematic-wrap {
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.caja-btn-thematic-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 6px 9px;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.caja-btn-thematic-toggle:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.caja-btn-thematic-toggle.has-theme {
+    background: rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.35);
+    color: #fef08a;
+}
+
+.caja-btn-thematic-toggle.has-theme:hover {
+    background: rgba(234, 179, 8, 0.18);
+    border-color: rgba(234, 179, 8, 0.5);
+}
+
+.caja-thematic-toggle-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.caja-thematic-icon {
+    font-size: 0.9rem;
+}
+
+.caja-thematic-active-tag {
+    display: inline-block;
+    background: #eab308;
+    color: #0f172a;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+    letter-spacing: 0.02em;
+}
+
+.caja-thematic-opt-tag {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+    font-style: italic;
+}
+
+.caja-thematic-toggle-arrow {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+.caja-thematic-toggle-arrow.open {
+    transform: rotate(180deg);
+}
+
+.caja-thematic-content {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 6px;
+    box-sizing: border-box;
+}
+
+.caja-thematic-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+}
+
+.caja-thematic-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #eab308;
+    margin: 0;
+}
+
+.caja-thematic-fields {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.caja-thematic-sublabel {
+    display: block;
+    font-size: 0.76rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.caja-select-packing-theme {
+    flex: 1;
+    min-width: 0;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #f8fafc;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+}
+
+.caja-select-packing-theme:focus {
+    outline: none;
+    border-color: #eab308;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.2);
+}
+
+.caja-thematic-add-inline {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.caja-input-new-theme {
+    flex: 1;
+    min-width: 0;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #fff;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    box-sizing: border-box;
+}
+
+.caja-input-new-theme:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.caja-btn-add-theme {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.caja-btn-add-theme:hover {
+    background: rgba(59, 130, 246, 0.35);
+    color: #fff;
+    border-color: #3b82f6;
+}
+
+.caja-btn-add-theme:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.caja-control-theme-card {
+    border: 1px solid rgba(234, 179, 8, 0.4) !important;
+    background: rgba(234, 179, 8, 0.08) !important;
+}
+
+.caja-control-theme-card .caja-control-box-header {
+    background: rgba(234, 179, 8, 0.18) !important;
+}
+
 
 
