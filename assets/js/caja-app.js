@@ -238,10 +238,10 @@
                 }
 
                 // Actualizar clases de color status-ship-*
-                $(this).removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                $(this).removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-en_puerta status-ship-entregado status-ship-entregado_problemas')
                        .addClass('status-ship-' + val);
 
-                const isShippingEnviando = (val === 'enviando' || val === 'demorado' || val === 'entregado' || val === 'entregado_problemas');
+                const isShippingEnviando = (val === 'enviando' || val === 'demorado' || val === 'en_puerta' || val === 'entregado' || val === 'entregado_problemas');
                 if (isShippingEnviando) {
                     $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideUp(200);
                 } else {
@@ -344,7 +344,7 @@
                     $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido sin problemas
                     $shipSelect.val('entregado');
-                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-en_puerta status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado');
                 } else if (newStatus === 'recibido-problema') {
                     setVisible($payBox, false);
@@ -353,7 +353,7 @@
                     $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido con problemas
                     $shipSelect.val('entregado_problemas');
-                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-entregado status-ship-entregado_problemas')
+                    $shipSelect.removeClass('status-ship-no_gestionado status-ship-esperando_repartidor status-ship-enviando status-ship-demorado status-ship-en_puerta status-ship-entregado status-ship-entregado_problemas')
                                .addClass('status-ship-entregado_problemas');
                 } else if (newStatus === 'cancelled' || newStatus === 'refunded') {
                     setVisible($payBox, true);
@@ -1904,6 +1904,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const hasShippedOrFinished = (
                     order.shipping_status === 'enviando' || 
                     order.shipping_status === 'demorado' || 
+                    order.shipping_status === 'en_puerta' || 
                     order.shipping_status === 'entregado' || 
                     order.shipping_status === 'entregado_problemas' || 
                     order.status === 'completed' || 
@@ -2408,6 +2409,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                             <option value="esperando_repartidor" ${order.shipping_status === 'esperando_repartidor' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>⏳ Esperando al repartidor${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                             <option value="enviando" ${order.shipping_status === 'enviando' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🚀 Repartidor enviando${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                             <option value="demorado" ${order.shipping_status === 'demorado' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>⚠️ Repartidor con demora${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="en_puerta" ${order.shipping_status === 'en_puerta' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🚪 El repartidor está en la puerta${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                             <option value="entregado" ${order.shipping_status === 'entregado' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🏁 Recibido sin problemas${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                             <option value="entregado_problemas" ${order.shipping_status === 'entregado_problemas' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>🛑 Recibido con problemas${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                         </select>

@@ -1099,9 +1099,9 @@ class Batllie_Caja_Orders {
         }
 
         // Si el estado principal es Recibido (completed), sincronizar automáticamente el envío a recibido sin problemas
-        if ($status === 'completed' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado')) {
+        if ($status === 'completed' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado' || $shipping_status === 'en_puerta')) {
             $shipping_status = 'entregado';
-        } elseif ($status === 'recibido-problema' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado')) {
+        } elseif ($status === 'recibido-problema' && ($shipping_status === 'no_gestionado' || $shipping_status === 'esperando_repartidor' || $shipping_status === 'enviando' || $shipping_status === 'demorado' || $shipping_status === 'en_puerta')) {
             $shipping_status = 'entregado_problemas';
         }
 
@@ -1286,7 +1286,7 @@ class Batllie_Caja_Orders {
                 self::add_timeline_event($order, __('devolución confirmada', 'emp-caja'), '🔄', 'payment');
             }
         } elseif ($clean_field === 'shipping_status') {
-            $allowed = array('no_gestionado', 'esperando_repartidor', 'enviando', 'demorado', 'entregado', 'entregado_problemas');
+            $allowed = array('no_gestionado', 'esperando_repartidor', 'enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas');
             if (!in_array($clean_val, $allowed)) {
                 return false;
             }
@@ -1312,6 +1312,8 @@ class Batllie_Caja_Orders {
                 self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
             } elseif ($clean_val === 'demorado') {
                 self::add_timeline_event($order, __('el repartidor con demora', 'emp-caja'), '⚠️', 'shipping_delay');
+            } elseif ($clean_val === 'en_puerta') {
+                self::add_timeline_event($order, __('el repartidor está en la puerta', 'emp-caja'), '🚪', 'shipping_door');
             } elseif ($clean_val === 'entregado') {
                 $order->update_status('completed', __('Pedido marcado como recibido sin problemas desde terminal Batllie Caja', 'emp-caja'));
                 self::add_timeline_event($order, __('llegó a destino (sin inconvenientes)', 'emp-caja'), '🏁', 'shipping_dest');
@@ -1499,7 +1501,7 @@ class Batllie_Caja_Orders {
             );
         }
 
-        if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+        if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas'))) {
             $ts = $base_ts + 120;
             $timeline[] = array(
                 'time'           => self::format_datetime('H:i', $ts),
@@ -1513,7 +1515,7 @@ class Batllie_Caja_Orders {
             );
         }
 
-        if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'entregado', 'entregado_problemas'))) {
+        if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas'))) {
             $ts = $base_ts + 360;
             $timeline[] = array(
                 'time'           => self::format_datetime('H:i', $ts),
@@ -1524,6 +1526,27 @@ class Batllie_Caja_Orders {
                 'text'           => __('el envío salió a su destino', 'emp-caja'),
                 'icon'           => '🛵',
                 'type'           => 'shipping_out'
+            );
+        }
+
+        $has_door = false;
+        foreach ($timeline as $ev) {
+            if (!empty($ev['type']) && $ev['type'] === 'shipping_door') {
+                $has_door = true;
+                break;
+            }
+        }
+        if (!$has_door && in_array($shipping, array('en_puerta', 'entregado', 'entregado_problemas')) && $shipping === 'en_puerta') {
+            $ts = $base_ts + 600;
+            $timeline[] = array(
+                'time'           => self::format_datetime('H:i', $ts),
+                'date'           => self::format_datetime('d/m', $ts),
+                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
+                'date_key'       => self::format_datetime('Y-m-d', $ts),
+                'timestamp'      => $ts,
+                'text'           => __('el repartidor está en la puerta', 'emp-caja'),
+                'icon'           => '🚪',
+                'type'           => 'shipping_door'
             );
         }
 

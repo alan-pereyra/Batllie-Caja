@@ -19,6 +19,10 @@ $order_id = isset($tracking['order_id']) ? $tracking['order_id'] : $order->get_i
 $order_key = isset($tracking['order_key']) ? $tracking['order_key'] : $order->get_order_key();
 $order_number = isset($tracking['order_number']) ? $tracking['order_number'] : $order->get_order_number();
 
+$current_shipping = isset($tracking['shipping_status']) ? $tracking['shipping_status'] : '';
+$is_door = ($current_shipping === 'en_puerta') || !empty($tracking['is_door']);
+$door_active_class = $is_door ? ' is-door-active' : '';
+
 // Porcentaje de la barra de avance
 $fill_percent = 0;
 if ($current_step === 2) {
@@ -55,13 +59,14 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 </style>
 
 <div id="batllie-order-tracking-<?php echo esc_attr($order_id); ?>" 
-     class="batllie-order-tracking-card" 
+     class="batllie-order-tracking-card<?php echo esc_attr($door_active_class); ?>" 
      data-order-id="<?php echo esc_attr($order_id); ?>" 
      data-order-number="<?php echo esc_attr($order_number); ?>" 
      data-order-key="<?php echo esc_attr($order_key); ?>" 
      data-current-step="<?php echo esc_attr($current_step); ?>"
      data-order-status="<?php echo esc_attr(isset($tracking['status']) ? $tracking['status'] : ''); ?>"
-     data-shipping-status="<?php echo esc_attr(isset($tracking['shipping_status']) ? $tracking['shipping_status'] : ''); ?>"
+     data-shipping-status="<?php echo esc_attr($current_shipping); ?>"
+     data-is-door="<?php echo $is_door ? '1' : '0'; ?>"
      data-is-paid="<?php echo !empty($tracking['is_paid']) ? '1' : '0'; ?>">
 
     <!-- Barra de Selector Rápido Multi-Pedido (Opción 1) -->
@@ -95,6 +100,22 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 </a>
             <?php endforeach; ?>
         </div>
+    </div>
+
+    <!-- Cartel Especial: El repartidor está en la puerta -->
+    <div class="batllie-tracking-door-screen" id="batllie-door-screen-<?php echo esc_attr($order_id); ?>" style="<?php echo $is_door ? 'display:flex;' : 'display:none;'; ?>">
+        <div class="batllie-door-beacon">
+            <div class="batllie-door-icon-circle">
+                <svg class="batllie-door-bell-icon" viewBox="0 0 24 24" width="46" height="46" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+            </div>
+            <div class="batllie-door-ripple-1"></div>
+            <div class="batllie-door-ripple-2"></div>
+        </div>
+        <h2 class="batllie-door-title"><?php _e('El repartidor está en la puerta', 'emp-caja'); ?></h2>
+        <p class="batllie-door-subtitle"><?php _e('Que disfrutes tu pedido', 'emp-caja'); ?></p>
     </div>
 
     <!-- Encabezado con título e indicación de tiempo real -->

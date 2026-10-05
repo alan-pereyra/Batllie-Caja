@@ -536,6 +536,9 @@ class Batllie_Caja_Tracking {
         } elseif ($status === 'completed' || $status === 'recibido-problema' || $shipping_status === 'entregado' || $shipping_status === 'entregado_problemas') {
             $step = 4;
             $step_label = __('Pedido recibido, que lo disfrutes', 'emp-caja');
+        } elseif ($shipping_status === 'en_puerta') {
+            $step = 3;
+            $step_label = __('El repartidor está en la puerta', 'emp-caja');
         } elseif ($shipping_status === 'enviando' || $shipping_status === 'demorado' || $status === 'enviando') {
             $step = 3;
             $step_label = __('El repartidor está enviando tu pedido', 'emp-caja');
@@ -610,6 +613,7 @@ class Batllie_Caja_Tracking {
             'step_label'           => $step_label,
             'status'               => $status,
             'shipping_status'      => $shipping_status,
+            'is_door'              => ($shipping_status === 'en_puerta'),
             'payment_status'       => $caja_pay_status,
             'is_bacs'              => $is_bacs,
             'is_paid'              => $is_paid,
@@ -801,6 +805,7 @@ class Batllie_Caja_Tracking {
             'step_label'           => $tracking['step_label'],
             'status'               => $tracking['status'],
             'shipping_status'      => $tracking['shipping_status'],
+            'is_door'              => !empty($tracking['is_door']),
             'payment_status'       => $tracking['payment_status'],
             'is_paid'              => $tracking['is_paid'],
             'show_receipt_pending' => $tracking['show_receipt_pending'],

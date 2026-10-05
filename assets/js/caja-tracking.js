@@ -223,6 +223,7 @@
             var currentLabel = $card.find('.status-highlight').text().trim();
             var currentStatus = $card.data('order-status') || '';
             var currentShipping = $card.data('shipping-status') || '';
+            var isDoor = ($card.data('is-door') == '1') || (currentShipping === 'en_puerta');
             var isPaid = ($card.data('is-paid') == '1');
 
             if (!orderId || !orderKey) {
@@ -257,8 +258,13 @@
                         $stepElem.addClass('is-completed');
                         $badge.html(checkmarkSvg);
                     } else if (stepNum === step) {
-                        $stepElem.addClass('is-active');
-                        $badge.text(stepNum);
+                        if (step >= 4) {
+                            $stepElem.addClass('is-active is-completed');
+                            $badge.html(checkmarkSvg);
+                        } else {
+                            $stepElem.addClass('is-active');
+                            $badge.text(stepNum);
+                        }
                     } else {
                         $stepElem.addClass('is-pending');
                         $badge.text(stepNum);
@@ -292,37 +298,62 @@
                             var newStatus = response.data.status || '';
                             var newShipping = response.data.shipping_status || '';
                             var newIsPaid = Boolean(response.data.is_paid);
+                            var newIsDoor = Boolean(response.data.is_door) || (newShipping === 'en_puerta');
 
                             var stepChanged = (!isNaN(newStep) && newStep !== currentStep);
                             var labelChanged = (newLabel && newLabel !== currentLabel);
                             var statusChanged = (newStatus && newStatus !== currentStatus);
                             var shippingChanged = (newShipping && newShipping !== currentShipping);
+                            var doorStateChanged = (newIsDoor !== isDoor);
                             var paymentBecamePaid = (!isPaid && newIsPaid);
 
-                            if (stepChanged || labelChanged || statusChanged || shippingChanged) {
-                                updateUI(newStep, newLabel);
+                            if (stepChanged || labelChanged || statusChanged || shippingChanged || doorStateChanged) {
+                                // Transición: Repartidor en la puerta
+                                if (newIsDoor) {
+                                    isDoor = true;
+                                    $card.data('is-door', '1');
+                                    $card.addClass('is-door-active');
+                                    $card.find('.batllie-tracking-header, .batllie-tracking-stepper, .batllie-tracking-footer-bar, .batllie-tracking-receipt-pending').slideUp(250);
+                                    $card.find('.batllie-tracking-door-screen').slideDown(350).css('display', 'flex');
+
+                                    // Alertas y notificaciones para el cliente
+                                    playNotificationSound();
+                                    showStatusToast('Que disfrutes tu pedido', '🚪 ¡El repartidor está en la puerta!');
+                                    flashTabTitle('🚪 ¡El repartidor está en la puerta!');
+                                    sendBrowserNotification('El repartidor está en la puerta. Que disfrutes tu pedido.', orderNumber);
+                                } else if (isDoor && !newIsDoor) {
+                                    // Transición: Salida de estado en la puerta (se marca recibido en caja)
+                                    isDoor = false;
+                                    $card.data('is-door', '0');
+                                    $card.removeClass('is-door-active');
+                                    $card.find('.batllie-tracking-door-screen').slideUp(250, function() {
+                                        $(this).hide();
+                                    });
+                                    $card.find('.batllie-tracking-header, .batllie-tracking-stepper, .batllie-tracking-footer-bar').slideDown(350);
+
+                                    updateUI(newStep, newLabel);
+                                    playNotificationSound();
+                                    showStatusToast(newLabel, '¡Pedido #' + orderNumber + ' recibido!');
+                                    flashTabTitle(newLabel);
+                                    sendBrowserNotification(newLabel, orderNumber);
+                                } else {
+                                    updateUI(newStep, newLabel);
+                                    playNotificationSound();
+                                    showStatusToast(newLabel, '¡Pedido #' + orderNumber + ' actualizado!');
+                                    flashTabTitle(newLabel);
+                                    sendBrowserNotification(newLabel, orderNumber);
+                                }
+
                                 currentStep = newStep;
                                 currentLabel = newLabel;
                                 currentStatus = newStatus;
                                 currentShipping = newShipping;
 
-                                // Reproducir sonido de notificación
-                                playNotificationSound();
-
-                                // Mostrar notificación visual flotante
-                                showStatusToast(newLabel, '¡Pedido #' + orderNumber + ' actualizado!');
-
-                                // Flashear título de la pestaña si el usuario está en otra ventana
-                                flashTabTitle(newLabel);
-
-                                // Notificación nativa del navegador
-                                sendBrowserNotification(newLabel, orderNumber);
-
                                 // Resaltar tarjeta visualmente
                                 $card.addClass('has-updated-pulse');
                                 setTimeout(function() {
                                     $card.removeClass('has-updated-pulse');
-                                }, 2400);
+                                    }, 2400);
 
                                 // Sincronizar actualización con localStorage y chips del selector
                                 try {
@@ -333,7 +364,7 @@
                                             for (var i = 0; i < orders.length; i++) {
                                                 if (String(orders[i].id) === String(orderId)) {
                                                     orders[i].step = newStep;
-                                                    orders[i].step_label = newLabel;
+                                                    orders[i].step_label = newIsDoor ? 'El repartidor está en la puerta' : newLabel;
                                                     break;
                                                 }
                                             }
@@ -342,8 +373,8 @@
                                     }
                                     var $chip = $('#batllie-orders-switcher .batllie-switcher-chip[data-order-id="' + orderId + '"]');
                                     if ($chip.length) {
-                                        $chip.find('.batllie-chip-dot').attr('class', 'batllie-chip-dot step-' + newStep);
-                                        $chip.find('.batllie-chip-step-txt').text(newLabel);
+                                        $chip.find('.batllie-chip-dot').attr('class', 'batllie-chip-dot ' + (newIsDoor ? 'step-3 is-door' : ('step-' + newStep)));
+                                        $chip.find('.batllie-chip-step-txt').text(newIsDoor ? 'El repartidor está en la puerta' : newLabel);
                                     }
                                 } catch (err) {}
                             } else if (paymentBecamePaid) {
@@ -364,9 +395,9 @@
                                 }
                             }
 
-                            // Si el pedido ya llegó al paso 4 (recibido) Y no tiene comprobante pendiente, detener sondeo
+                            // Si el pedido ya llegó al paso 4 (recibido) Y no está en puerta Y no tiene comprobante pendiente, detener sondeo
                             var stillPendingReceipt = (response.data.show_receipt_pending === true);
-                            if (currentStep >= 4 && !stillPendingReceipt) {
+                            if (currentStep >= 4 && !newIsDoor && !stillPendingReceipt) {
                                 clearInterval(timer);
                             }
                         }
