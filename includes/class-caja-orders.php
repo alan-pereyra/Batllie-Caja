@@ -107,6 +107,17 @@ class Batllie_Caja_Orders {
 
         // Mostrar tanda en vista de pedido del admin de WooCommerce
         add_action('woocommerce_admin_order_data_after_shipping_address', array(__CLASS__, 'display_shipping_slot_in_admin_order'), 15, 1);
+
+        // Script frontend para soporte completo en Checkout de Bloques (Gutenberg) y Clásico
+        add_action('wp_footer', array(__CLASS__, 'render_checkout_shipping_slot_script'), 998);
+
+        // Endpoint AJAX para guardar la tanda elegida en sesión
+        add_action('wc_ajax_batllie_set_shipping_slot', array(__CLASS__, 'ajax_set_shipping_slot'));
+        add_action('wp_ajax_batllie_set_shipping_slot', array(__CLASS__, 'ajax_set_shipping_slot'));
+        add_action('wp_ajax_nopriv_batllie_set_shipping_slot', array(__CLASS__, 'ajax_set_shipping_slot'));
+
+        // Guardar metadatos en Checkout de Bloques (WooCommerce Store API)
+        add_action('woocommerce_store_api_checkout_update_order_from_request', array(__CLASS__, 'save_store_api_shipping_slot'), 20, 2);
     }
 
     /**
@@ -309,17 +320,44 @@ class Batllie_Caja_Orders {
     }
 
     /**
-     * Guardar metadatos de la tanda al crear el pedido
+     * Endpoint AJAX para guardar la tanda elegida en la sesión del cliente
      */
-    public static function save_shipping_slot_to_order($order, $data) {
+    public static function ajax_set_shipping_slot() {
+        $slot = isset($_POST['slot']) ? sanitize_text_field($_POST['slot']) : '';
+        if (!empty($slot) && function_exists('WC') && WC()->session) {
+            WC()->session->set('batllie_shipping_slot', $slot);
+        }
+        wp_send_json_success(array('slot' => $slot));
+    }
+
+    /**
+     * Aplicar tanda y horario de envío al pedido (tanto clásico como Blocks)
+     */
+    public static function apply_shipping_slot_to_order($order, $chosen_slot = '') {
+        if (!is_a($order, 'WC_Order')) {
+            $order = wc_get_order($order);
+        }
+        if (!$order) {
+            return;
+        }
+
         $config = self::get_shipping_slots_config();
         if (!$config['enabled']) {
             return;
         }
 
-        $chosen_slot = isset($_POST['batllie_shipping_slot']) 
-            ? sanitize_text_field($_POST['batllie_shipping_slot']) 
-            : (function_exists('WC') && WC()->session ? WC()->session->get('batllie_shipping_slot') : '');
+        if (empty($chosen_slot)) {
+            $chosen_slot = isset($_POST['batllie_shipping_slot']) 
+                ? sanitize_text_field($_POST['batllie_shipping_slot']) 
+                : (function_exists('WC') && WC()->session ? WC()->session->get('batllie_shipping_slot') : '');
+        }
+
+        if (empty($chosen_slot)) {
+            $available = self::get_available_shipping_slots();
+            if (!empty($available)) {
+                $chosen_slot = $available[0]['key'];
+            }
+        }
 
         if (!empty($chosen_slot) && strpos($chosen_slot, '_') !== false) {
             list($slot_date, $slot_time) = explode('_', $chosen_slot, 2);
@@ -346,6 +384,200 @@ class Batllie_Caja_Orders {
             $order->update_meta_data('_caja_shipping_slot_label', $label);
             $order->update_meta_data('_caja_shipping_slot_badge', $badge);
         }
+    }
+
+    /**
+     * Guardar metadatos de la tanda al crear el pedido (Checkout Clásico)
+     */
+    public static function save_shipping_slot_to_order($order, $data = null) {
+        self::apply_shipping_slot_to_order($order);
+    }
+
+    /**
+     * Guardar metadatos de la tanda en WooCommerce Store API (Checkout de Bloques)
+     */
+    public static function save_store_api_shipping_slot($order, $request) {
+        $chosen_slot = '';
+        if (is_object($request) && method_exists($request, 'get_param')) {
+            $chosen_slot = $request->get_param('batllie_shipping_slot');
+        }
+        if (empty($chosen_slot) && function_exists('WC') && WC()->session) {
+            $chosen_slot = WC()->session->get('batllie_shipping_slot');
+        }
+        if (empty($chosen_slot) && !empty($_POST['batllie_shipping_slot'])) {
+            $chosen_slot = sanitize_text_field($_POST['batllie_shipping_slot']);
+        }
+        self::apply_shipping_slot_to_order($order, $chosen_slot);
+    }
+
+    /**
+     * Script frontend que asegura la visualización e interactividad en Checkout de Bloques y Clásico
+     */
+    public static function render_checkout_shipping_slot_script() {
+        if (!is_checkout() || (function_exists('is_order_received_page') && is_order_received_page())) {
+            return;
+        }
+
+        $config = self::get_shipping_slots_config();
+        if (!$config['enabled'] || empty($config['slots'])) {
+            return;
+        }
+
+        $available = self::get_available_shipping_slots();
+        if (empty($available)) {
+            return;
+        }
+
+        $selected_key = '';
+        if (function_exists('WC') && WC()->session && WC()->session->get('batllie_shipping_slot')) {
+            $selected_key = WC()->session->get('batllie_shipping_slot');
+        }
+        $valid_keys = array_column($available, 'key');
+        if (empty($selected_key) || !in_array($selected_key, $valid_keys)) {
+            $selected_key = $available[0]['key'];
+            if (function_exists('WC') && WC()->session) {
+                WC()->session->set('batllie_shipping_slot', $selected_key);
+            }
+        }
+
+        $apply_to = $config['apply_to'];
+        $ajax_url = home_url('/?wc-ajax=batllie_set_shipping_slot');
+        ?>
+        <script>
+        (function() {
+            var slots = <?php echo json_encode($available); ?>;
+            var initialSelected = <?php echo json_encode($selected_key); ?>;
+            var applyTo = <?php echo json_encode($apply_to); ?>;
+            var setSlotUrl = <?php echo json_encode($ajax_url); ?>;
+            var currentSelected = initialSelected;
+
+            function isPickupSelected() {
+                if (applyTo === 'all') return false;
+                var checkedInputs = document.querySelectorAll('input[type="radio"]:checked, input[type="checkbox"]:checked');
+                for (var i = 0; i < checkedInputs.length; i++) {
+                    var inp = checkedInputs[i];
+                    var val = (inp.value || '').toLowerCase();
+                    var name = (inp.name || '').toLowerCase();
+                    var label = inp.closest('label') ? (inp.closest('label').textContent || '').toLowerCase() : '';
+                    if (name.indexOf('shipping') !== -1 || name.indexOf('delivery') !== -1 || name.indexOf('pickup') !== -1) {
+                        if (val.indexOf('pickup') !== -1 || val.indexOf('local') !== -1 || label.indexOf('retiro') !== -1 || label.indexOf('local') !== -1) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            function sendSlotToServer(slotKey) {
+                currentSelected = slotKey;
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', setSlotUrl, true);
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    xhr.send('slot=' + encodeURIComponent(slotKey));
+                } catch(e) {}
+
+                var allSelects = document.querySelectorAll('select.batllie-slot-select, select#batllie_shipping_slot');
+                allSelects.forEach(function(sel) {
+                    if (sel.value !== slotKey) sel.value = slotKey;
+                });
+                var allHidden = document.querySelectorAll('input[name="batllie_shipping_slot"]');
+                allHidden.forEach(function(hid) {
+                    hid.value = slotKey;
+                });
+            }
+
+            function createSlotBox() {
+                var box = document.createElement('div');
+                box.id = 'batllie-block-shipping-slot-box';
+                box.className = 'batllie-shipping-slot-box';
+                box.style.cssText = 'background: rgba(16, 185, 129, 0.08); border: 1.5px solid #10b981; border-radius: 8px; padding: 14px 16px; margin: 16px 0; clear: both; width: 100%; box-sizing: border-box;';
+
+                var html = '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">' +
+                    '<span style="font-size: 1.25rem;">🕒</span>' +
+                    '<strong style="font-size: 0.95rem; color: #0f172a;">Horario estimado de despacho / envío</strong>' +
+                    '</div>' +
+                    '<p style="font-size: 0.85rem; color: #334155; margin: 0 0 10px 0; line-height: 1.4;">' +
+                    'Seleccioná en qué tanda querés que despachemos tu paquete:' +
+                    '</p>' +
+                    '<select class="batllie-slot-select" style="width: 100%; border-radius: 6px; padding: 10px 12px; font-weight: 600; font-size: 0.92rem; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a; cursor: pointer;">';
+
+                slots.forEach(function(s) {
+                    var sel = (s.key === currentSelected) ? ' selected="selected"' : '';
+                    html += '<option value="' + s.key + '"' + sel + '>' + s.label + '</option>';
+                });
+
+                html += '</select>' +
+                    '<input type="hidden" name="batllie_shipping_slot" value="' + currentSelected + '" />';
+
+                box.innerHTML = html;
+
+                var selectEl = box.querySelector('select');
+                if (selectEl) {
+                    selectEl.addEventListener('change', function() {
+                        sendSlotToServer(this.value);
+                    });
+                }
+
+                return box;
+            }
+
+            function injectSlotSelector() {
+                var pickup = isPickupSelected();
+
+                var existingBlockBox = document.getElementById('batllie-block-shipping-slot-box');
+                var existingClassicRow = document.querySelector('.batllie-shipping-slot-row');
+
+                if (pickup) {
+                    if (existingBlockBox) existingBlockBox.style.display = 'none';
+                    if (existingClassicRow) existingClassicRow.style.display = 'none';
+                    return;
+                } else {
+                    if (existingBlockBox) existingBlockBox.style.display = 'block';
+                    if (existingClassicRow) existingClassicRow.style.display = '';
+                }
+
+                if (existingClassicRow || existingBlockBox) {
+                    return;
+                }
+
+                var target = document.querySelector('.wc-block-checkout__shipping-options') ||
+                             document.querySelector('.wc-block-components-shipping-rates-control') ||
+                             document.querySelector('fieldset.wc-block-checkout__shipping-method') ||
+                             document.querySelector('.wc-block-components-checkout-step--shipping') ||
+                             document.querySelector('.wc-block-checkout__shipping-fields');
+
+                if (target) {
+                    var box = createSlotBox();
+                    if (target.nextSibling) {
+                        target.parentNode.insertBefore(box, target.nextSibling);
+                    } else {
+                        target.parentNode.appendChild(box);
+                    }
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', injectSlotSelector);
+            } else {
+                injectSlotSelector();
+            }
+
+            document.addEventListener('change', function(e) {
+                if (e.target && (e.target.name || '').indexOf('shipping') !== -1) {
+                    setTimeout(injectSlotSelector, 50);
+                }
+            });
+
+            if (window.MutationObserver) {
+                var observer = new MutationObserver(function() {
+                    injectSlotSelector();
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
+            }
+        })();
+        </script>
+        <?php
     }
 
     /**
