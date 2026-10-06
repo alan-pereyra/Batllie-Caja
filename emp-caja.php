@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.52
+ * Version: 1.8.53
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.52');
+define('EMP_CAJA_VERSION', '1.8.53');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -473,13 +473,276 @@ class Batllie_Caja_Plugin {
         if ($hook !== 'toplevel_page_batllie-caja-settings') {
             return;
         }
+        wp_enqueue_media();
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_script('wp-color-picker');
-        wp_add_inline_script('wp-color-picker', "
-            jQuery(document).ready(function($){
-                $('.caja-color-field').wpColorPicker();
+
+        $admin_css = "
+        .caja-admin-settings-wrap {
+            --caja-primary: #10b981;
+            --caja-primary-hover: #059669;
+            --caja-card-border: #cbd5e1;
+            margin-top: 20px;
+        }
+        .caja-settings-topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .caja-settings-title {
+            margin: 0;
+            font-size: 1.45rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1e293b;
+        }
+        .caja-settings-subtitle {
+            margin: 6px 0 0 0;
+            font-size: 0.92rem;
+            color: #64748b;
+        }
+        .caja-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+            line-height: 1.4;
+        }
+        .caja-btn-primary {
+            background: #10b981 !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+        }
+        .caja-btn-primary:hover, .caja-btn-primary:focus {
+            background: #059669 !important;
+            color: #ffffff !important;
+        }
+        .caja-btn-secondary {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+        .caja-btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .caja-btn-lg {
+            padding: 12px 24px;
+            font-size: 15px;
+        }
+        .caja-settings-notice-info {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 8px;
+            padding: 12px 18px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .caja-settings-notice-info code {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .caja-settings-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .caja-settings-card-header {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .caja-settings-card-header h2 {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #1e293b;
+        }
+        .caja-settings-card-desc {
+            margin: 4px 0 0 0;
+            font-size: 0.88rem;
+            color: #64748b;
+        }
+        .caja-settings-card-body {
+            padding: 20px;
+        }
+        .caja-settings-card-body .form-table {
+            margin: 0;
+        }
+        .caja-settings-card-body .form-table th {
+            width: 280px;
+            padding: 15px 10px 15px 0;
+            font-weight: 600;
+            color: #334155;
+        }
+        .caja-settings-card-body .form-table td {
+            padding: 15px 0;
+        }
+        .caja-input, .caja-settings-container input[type='text'], .caja-settings-container input[type='number'] {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .caja-slot-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .caja-slot-remove-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 0 0 4px;
+            font-size: 14px;
+            line-height: 1;
+        }
+        .caja-slot-remove-btn:hover {
+            color: #b91c1c;
+        }
+        .caja-settings-submit-bar {
+            margin-top: 24px;
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .caja-settings-feedback {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .caja-settings-feedback.is-success {
+            color: #10b981;
+        }
+        .caja-settings-feedback.is-error {
+            color: #ef4444;
+        }
+        ";
+        wp_add_inline_style('wp-color-picker', $admin_css);
+
+        $admin_js = "
+        jQuery(document).ready(function($) {
+            $('.caja-color-field').wpColorPicker();
+
+            // Horarios de despacho (Shipping Slots)
+            $('#caja-btn-add-slot').on('click', function(e) {
+                e.preventDefault();
+                var val = ($('#caja-new-slot-input').val() || '').trim();
+                if (!val || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(val)) {
+                    alert('Por favor ingresá un horario válido en formato HH:MM (ej: 20:00)');
+                    return;
+                }
+                var parts = val.split(':');
+                var formatted = ('0' + parseInt(parts[0], 10)).slice(-2) + ':' + ('0' + parseInt(parts[1], 10)).slice(-2);
+                
+                var exists = false;
+                $('.caja-slot-chip').each(function() {
+                    if ($(this).attr('data-slot') === formatted) exists = true;
+                });
+                if (exists) {
+                    alert('El horario ' + formatted + ' ya está en la lista.');
+                    return;
+                }
+
+                var chipHtml = '<div class=\"caja-slot-chip\" data-slot=\"' + formatted + '\">' +
+                    '<input type=\"hidden\" name=\"batllie_caja_options[shipping_slots][]\" value=\"' + formatted + '\" />' +
+                    '<span class=\"caja-slot-icon\">🕒</span> ' +
+                    '<span class=\"caja-slot-text\">' + formatted + ' hs</span> ' +
+                    '<button type=\"button\" class=\"caja-slot-remove-btn\" title=\"Eliminar horario\">✕</button>' +
+                '</div>';
+
+                $('#caja-slots-list').append(chipHtml);
+                $('#caja-new-slot-input').val('');
             });
-        ");
+
+            $(document).on('click', '.caja-slot-remove-btn', function(e) {
+                e.preventDefault();
+                $(this).closest('.caja-slot-chip').remove();
+            });
+
+            // Guardar configuración vía AJAX o Fallback
+            $('#caja-settings-form').on('submit', function(e) {
+                e.preventDefault();
+                var $form = $(this);
+                var $btns = $('.caja-btn-save-settings');
+                var $feedback = $('#caja-settings-feedback');
+
+                $btns.prop('disabled', true).css('opacity', '0.7');
+                $feedback.removeClass('is-success is-error').text('Guardando configuración...').fadeIn(150);
+
+                var dataObj = $form.serializeArray();
+                var hasAction = false;
+                for (var i = 0; i < dataObj.length; i++) {
+                    if (dataObj[i].name === 'action') {
+                        dataObj[i].value = 'emp_caja_save_settings';
+                        hasAction = true;
+                        break;
+                    }
+                }
+                if (!hasAction) {
+                    dataObj.push({ name: 'action', value: 'emp_caja_save_settings' });
+                }
+
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: $.param(dataObj),
+                    dataType: 'json',
+                    success: function(res) {
+                        $btns.prop('disabled', false).css('opacity', '1');
+                        if (res && res.success) {
+                            var msg = (res.data && res.data.message) ? res.data.message : 'Configuración guardada exitosamente.';
+                            $feedback.addClass('is-success').text('✅ ' + msg);
+                            setTimeout(function() {
+                                $feedback.fadeOut(400);
+                            }, 4000);
+                        } else {
+                            // Fallback nativo
+                            $form.off('submit').submit();
+                        }
+                    },
+                    error: function() {
+                        // Fallback nativo
+                        $btns.prop('disabled', false).css('opacity', '1');
+                        $form.off('submit').submit();
+                    }
+                });
+            });
+        });
+        ";
+        wp_add_inline_script('wp-color-picker', $admin_js);
     }
 
     public function register_settings() {
@@ -489,7 +752,7 @@ class Batllie_Caja_Plugin {
     }
 
     public function sanitize_settings($input) {
-        $output = array();
+        $output = self::get_color_settings();
         $color_keys = array(
             'bg_color', 'header_bg', 'card_bg', 'card_border', 
             'text_color', 'text_muted', 'primary_color', 'primary_hover', 
@@ -504,16 +767,30 @@ class Batllie_Caja_Plugin {
             }
         }
 
-        $output['whatsapp_number']      = isset($input['whatsapp_number']) ? preg_replace('/[^0-9]/', '', trim($input['whatsapp_number'])) : '5491149472377';
-        if (empty($output['whatsapp_number'])) {
-            $output['whatsapp_number'] = '5491149472377';
+        if (isset($input['whatsapp_number'])) {
+            $clean_num = preg_replace('/[^0-9]/', '', trim($input['whatsapp_number']));
+            if (!empty($clean_num)) {
+                $output['whatsapp_number'] = $clean_num;
+            }
         }
-        $output['poll_interval']        = isset($input['poll_interval']) ? max(5, intval($input['poll_interval'])) : 10;
-        $output['sound_enabled']        = (isset($input['sound_enabled']) && $input['sound_enabled'] === 'yes') ? 'yes' : 'no';
-        $output['force_isolated']       = (isset($input['force_isolated']) && $input['force_isolated'] === 'yes') ? 'yes' : 'no';
-        $output['min_purchase_amount']  = isset($input['min_purchase_amount']) ? max(0, floatval(str_replace(',', '.', trim($input['min_purchase_amount'])))) : 0;
-        $output['packing_priority']     = (isset($input['packing_priority']) && $input['packing_priority'] === '6') ? '6' : '12';
-        $output['packing_stock_sync']   = (isset($input['packing_stock_sync']) && $input['packing_stock_sync'] === 'no') ? 'no' : 'yes';
+        if (isset($input['poll_interval'])) {
+            $output['poll_interval'] = max(5, intval($input['poll_interval']));
+        }
+        if (isset($input['sound_enabled'])) {
+            $output['sound_enabled'] = ($input['sound_enabled'] === 'yes') ? 'yes' : 'no';
+        }
+        if (isset($input['force_isolated'])) {
+            $output['force_isolated'] = ($input['force_isolated'] === 'yes') ? 'yes' : 'no';
+        }
+        if (isset($input['min_purchase_amount'])) {
+            $output['min_purchase_amount'] = max(0, floatval(str_replace(',', '.', trim($input['min_purchase_amount']))));
+        }
+        if (isset($input['packing_priority'])) {
+            $output['packing_priority'] = ($input['packing_priority'] === '6') ? '6' : '12';
+        }
+        if (isset($input['packing_stock_sync'])) {
+            $output['packing_stock_sync'] = ($input['packing_stock_sync'] === 'no') ? 'no' : 'yes';
+        }
 
         if (isset($input['box_6_product_id']) && class_exists('Batllie_Caja_Packing') && intval($input['box_6_product_id']) > 0) {
             $output['box_6_product_id'] = intval($input['box_6_product_id']);
@@ -533,13 +810,19 @@ class Batllie_Caja_Plugin {
         }
 
         // Tandas y Horarios de Despacho
-        $output['shipping_slots_enabled']  = (isset($input['shipping_slots_enabled']) && $input['shipping_slots_enabled'] === 'yes') ? 'yes' : 'no';
-        $output['shipping_slots_cutoff']   = isset($input['shipping_slots_cutoff']) ? max(0, intval($input['shipping_slots_cutoff'])) : 5;
-        $output['shipping_slots_apply_to'] = (isset($input['shipping_slots_apply_to']) && in_array($input['shipping_slots_apply_to'], array('all', 'shipping_only'))) ? $input['shipping_slots_apply_to'] : 'shipping_only';
+        if (isset($input['shipping_slots_enabled'])) {
+            $output['shipping_slots_enabled'] = ($input['shipping_slots_enabled'] === 'yes') ? 'yes' : 'no';
+        }
+        if (isset($input['shipping_slots_cutoff'])) {
+            $output['shipping_slots_cutoff'] = max(0, intval($input['shipping_slots_cutoff']));
+        }
+        if (isset($input['shipping_slots_apply_to'])) {
+            $output['shipping_slots_apply_to'] = in_array($input['shipping_slots_apply_to'], array('all', 'shipping_only')) ? $input['shipping_slots_apply_to'] : 'shipping_only';
+        }
 
-        $slots = array();
         if (isset($input['shipping_slots'])) {
             $raw_slots = is_array($input['shipping_slots']) ? $input['shipping_slots'] : explode(',', (string) $input['shipping_slots']);
+            $slots = array();
             foreach ($raw_slots as $s) {
                 $s = trim(sanitize_text_field($s));
                 if (preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $s)) {
@@ -550,13 +833,11 @@ class Batllie_Caja_Plugin {
                     }
                 }
             }
-        } elseif (!isset($input['shipping_slots_present'])) {
-            // Si el campo no vino en el formulario y no se envió indicador de presencia, mantener los guardados o defecto
-            $existing = get_option('batllie_caja_options', array());
-            $slots = $existing['shipping_slots'] ?? array('09:00', '12:00', '18:00');
+            sort($slots);
+            $output['shipping_slots'] = $slots;
+        } elseif (isset($input['shipping_slots_present'])) {
+            $output['shipping_slots'] = array();
         }
-        sort($slots);
-        $output['shipping_slots'] = $slots;
 
         return $output;
     }
