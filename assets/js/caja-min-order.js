@@ -731,6 +731,50 @@
     }
 
     /**
+     * Renderizar reactivamente la lista de alfajores disponibles para upsell en el modal
+     */
+    function renderAvailableAlfajores(alfajores) {
+        if (!Array.isArray(alfajores)) return;
+        const $grid = $('#batllie-packing-flavors-grid');
+        if (!$grid.length) return;
+
+        const newIds = alfajores.map(function(a) { return String(a.id); }).join(',');
+        const curIds = $grid.find('.batllie-flavor-chip').map(function() { return String($(this).data('id')); }).get().join(',');
+        if (newIds === curIds) return;
+
+        alfajorIdSet.clear();
+        alfajores.forEach(function (a) {
+            alfajorIdSet.add(parseInt(a.id, 10));
+        });
+
+        let html = '';
+        alfajores.forEach(function (alf) {
+            html += '<div class="batllie-flavor-chip" data-id="' + alf.id + '">';
+            if (alf.image) {
+                html += '<img src="' + alf.image + '" alt="' + (alf.clean_name || alf.name) + '" class="batllie-flavor-thumb" />';
+            }
+            html += '<div class="batllie-flavor-info">';
+            html += '<span class="batllie-flavor-name">' + (alf.clean_name || alf.name) + '</span>';
+            html += '<span class="batllie-flavor-price">' + (alf.price_fmt || formatMoney(alf.price)) + '</span>';
+            html += '</div>';
+            html += '<button type="button" class="batllie-flavor-add-btn" data-id="' + alf.id + '" aria-label="Agregar ' + (alf.clean_name || alf.name) + '">';
+            html += '<span class="btn-icon">+</span><span class="btn-txt">1</span>';
+            html += '</button>';
+            html += '</div>';
+        });
+        $grid.html(html);
+
+        const $head = $('.batllie-packing-flavors-head');
+        if (alfajores.length === 0) {
+            $grid.hide();
+            $head.hide();
+        } else {
+            $grid.show();
+            $head.show();
+        }
+    }
+
+    /**
      * Sincronizar estado del mínimo de compra y empaque vía AJAX con el servidor
      */
     let isSyncing = false;
@@ -751,6 +795,9 @@
                     lastKnownAmount = res.data.current_amount;
                     if (res.data.packing && (!isModalOpen || modalAddedAlfajores === 0)) {
                         updatePackingUI(res.data.packing);
+                    }
+                    if (res.data.availableAlfajores) {
+                        renderAvailableAlfajores(res.data.availableAlfajores);
                     }
                     applyCartState(res.data.current_amount);
                 }
@@ -867,6 +914,9 @@
                         if (res.data.analysis) {
                             config.packing = res.data.analysis;
                             updatePackingUI(res.data.analysis);
+                        }
+                        if (res.data.availableAlfajores) {
+                            renderAvailableAlfajores(res.data.availableAlfajores);
                         }
 
                         const analysis = res.data.analysis;

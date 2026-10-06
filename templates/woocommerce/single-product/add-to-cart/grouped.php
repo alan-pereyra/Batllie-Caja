@@ -37,6 +37,14 @@ do_action( 'woocommerce_before_add_to_cart_form' ); ?>
                     continue;
                 }
 
+                // En cajas personalizables: los alfajores ocultos no deben ser seleccionables
+                if ( ! $is_predefined_combo ) {
+                    $child_vis = method_exists( $grouped_product_child, 'get_catalog_visibility' ) ? $grouped_product_child->get_catalog_visibility() : 'visible';
+                    if ( $child_vis === 'hidden' || ! $grouped_product_child->is_visible() ) {
+                        continue;
+                    }
+                }
+
                 if ( $grouped_product_child->is_purchasable() ) {
                     $show_add_to_cart_button = true;
                 }

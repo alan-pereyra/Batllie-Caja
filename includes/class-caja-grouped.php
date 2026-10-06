@@ -483,6 +483,10 @@ class Batllie_Caja_Grouped {
                     if (!$child || !$child->is_purchasable() || !$child->is_in_stock()) {
                         continue;
                     }
+                    $child_vis = method_exists($child, 'get_catalog_visibility') ? $child->get_catalog_visibility() : 'visible';
+                    if ($child_vis === 'hidden' || !$child->is_visible()) {
+                        continue;
+                    }
                     $any_available = true;
                     if ($child->managing_stock()) {
                         $has_managed = true;
