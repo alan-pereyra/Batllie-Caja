@@ -361,9 +361,19 @@ body.batllie-caja-active .container {
     animation: cajaPulse 1.8s infinite;
 }
 
+.caja-pulse-dot.dot-green {
+    background: #10b981;
+    animation: cajaPulse 1.8s infinite;
+}
+
 .caja-pulse-dot.dot-blue {
     background: #3b82f6;
     animation: cajaPulseBlue 1.8s infinite;
+}
+
+.caja-pulse-dot.dot-purple {
+    background: #a855f7;
+    animation: cajaPulsePurple 1.8s infinite;
 }
 
 @keyframes cajaPulse {
@@ -376,6 +386,97 @@ body.batllie-caja-active .container {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
     70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes cajaPulsePurple {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+/* Desplegable Selector Rápido de Pantallas en Cabecera */
+.caja-screen-switcher-wrap {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    background: rgba(16, 185, 129, 0.16);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    border-radius: 20px;
+    padding: 0 10px 0 10px;
+    height: 32px;
+    transition: all 0.22s ease;
+    cursor: pointer;
+    box-sizing: border-box;
+    gap: 6px;
+    user-select: none;
+}
+
+.caja-screen-switcher-wrap:hover {
+    background: rgba(16, 185, 129, 0.28);
+    border-color: var(--caja-primary);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+}
+
+.caja-screen-switcher-wrap.is-products {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.55);
+}
+
+.caja-screen-switcher-wrap.is-products:hover {
+    background: rgba(59, 130, 246, 0.32);
+    border-color: #3b82f6;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+.caja-screen-switcher-wrap.is-settings {
+    background: rgba(168, 85, 247, 0.18);
+    border-color: rgba(168, 85, 247, 0.55);
+}
+
+.caja-screen-switcher-wrap.is-settings:hover {
+    background: rgba(168, 85, 247, 0.32);
+    border-color: #a855f7;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
+.caja-screen-select {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    padding: 0 14px 0 2px !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    margin: 0 !important;
+    line-height: 32px !important;
+    box-shadow: none !important;
+}
+
+.caja-screen-select option {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    font-size: 0.9rem !important;
+    padding: 8px 12px !important;
+}
+
+.caja-screen-select-arrow {
+    display: inline-flex;
+    align-items: center;
+    color: var(--caja-text-muted);
+    pointer-events: none;
+    margin-left: -8px;
+}
+
+/* Control de etiquetas responsivas en pestañas */
+.caja-tab-label-full {
+    display: inline;
+}
+.caja-tab-label-short {
+    display: none;
 }
 
 /* Pestañas */
@@ -2969,12 +3070,12 @@ span#edit-grouped-selected-badge {
         font-size: 0.8rem !important;
     }
 
-    /* Pestañas de navegación en móvil: Fila propia a todo el ancho (50% y 50%) */
+    /* Pestañas de navegación en móvil: Fila propia a todo el ancho (3 pestañas) */
     .caja-nav-tabs {
         order: 3 !important;
         width: 100% !important;
         display: flex !important;
-        gap: 6px !important;
+        gap: 4px !important;
         padding: 4px !important;
         background: rgba(15, 23, 42, 0.85) !important;
         border: 1px solid var(--caja-card-border) !important;
@@ -2984,14 +3085,67 @@ span#edit-grouped-selected-badge {
     }
 
     .caja-tab-btn {
-        flex: 1 1 50% !important;
+        flex: 1 1 calc(33.333% - 4px) !important;
+        min-width: 0 !important;
         justify-content: center !important;
         text-align: center !important;
-        padding: 9px 4px !important;
-        font-size: 0.82rem !important;
+        padding: 8px 3px !important;
+        font-size: 0.78rem !important;
         border-radius: 8px !important;
         box-sizing: border-box !important;
         white-space: nowrap !important;
+    }
+
+    .caja-tab-label-full {
+        display: none !important;
+    }
+
+    .caja-tab-label-short {
+        display: inline !important;
+    }
+
+    /* Adaptación responsiva de la pantalla de configuración en móvil */
+    .caja-settings-container {
+        padding: 12px 4px 80px 4px !important;
+    }
+    .caja-settings-container .form-table,
+    .caja-settings-container .form-table tbody,
+    .caja-settings-container .form-table tr,
+    .caja-settings-container .form-table th,
+    .caja-settings-container .form-table td {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .caja-settings-container .form-table th {
+        padding: 12px 0 4px 0 !important;
+        border-bottom: none !important;
+    }
+    .caja-settings-container .form-table td {
+        padding: 4px 0 14px 0 !important;
+    }
+    .caja-settings-container .regular-text,
+    .caja-settings-container .caja-select {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    .caja-settings-card-body {
+        padding: 14px 14px !important;
+    }
+    .caja-settings-topbar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    .caja-settings-topbar-actions {
+        width: 100% !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+    }
+    .caja-settings-submit-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
     }
 
     .caja-main-content {

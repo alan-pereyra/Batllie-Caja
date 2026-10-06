@@ -123,6 +123,14 @@
                 self.switchTab(tabId);
             });
 
+            // Selector desplegable rápido de pantallas en cabecera
+            $(document).on('change', '#caja-screen-select', function() {
+                const target = $(this).val();
+                if (target) {
+                    self.switchTab(target);
+                }
+            });
+
             // Botón 'En Vivo' / 'Ir a Caja': Alterna entre Pedidos y Productos en la misma posición
             $(document).on('click', '#caja-live-status', function(e) {
                 e.preventDefault();
@@ -1557,22 +1565,48 @@ $('#caja-modal-new-product').fadeIn(200);
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
 
-            // Actualizar el botón 'En Vivo' / 'Ir a Caja' en la misma posición exacta
+            // Sincronizar el selector desplegable rápido de pantallas
+            const $screenSelect = $('#caja-screen-select');
+            if ($screenSelect.length && $screenSelect.val() !== tabId) {
+                $screenSelect.val(tabId);
+            }
+
+            const $switcherWrap = $('#caja-screen-switcher-wrap');
+            const $screenDot = $('#caja-screen-dot');
+            if ($switcherWrap.length) {
+                $switcherWrap.removeClass('is-orders is-products is-settings');
+                $screenDot.removeClass('dot-blue dot-purple dot-green');
+
+                if (tabId === 'tab-products') {
+                    $switcherWrap.addClass('is-products');
+                    $screenDot.addClass('dot-blue');
+                } else if (tabId === 'tab-settings') {
+                    $switcherWrap.addClass('is-settings');
+                    $screenDot.addClass('dot-purple');
+                } else {
+                    $switcherWrap.addClass('is-orders');
+                    $screenDot.addClass('dot-green');
+                }
+            }
+
+            // Actualizar el botón 'En Vivo' / 'Ir a Caja' si existe
             const $livePill = $('#caja-live-status');
-            if (tabId === 'tab-products' || tabId === 'tab-settings') {
-                $livePill.addClass('caja-live-pill-products');
-                $livePill.attr('title', 'Toca para ir a la Caja');
-                $livePill.html(`
-                    <span class="caja-pulse-dot dot-blue"></span>
-                    <span class="caja-live-text">Ir a Caja</span>
-                `);
-            } else {
-                $livePill.removeClass('caja-live-pill-products');
-                $livePill.attr('title', 'Toca para ir a Productos');
-                $livePill.html(`
-                    <span class="caja-pulse-dot"></span>
-                    <span class="caja-live-text">En Vivo</span>
-                `);
+            if ($livePill.length) {
+                if (tabId === 'tab-products' || tabId === 'tab-settings') {
+                    $livePill.addClass('caja-live-pill-products');
+                    $livePill.attr('title', 'Toca para ir a la Caja');
+                    $livePill.html(`
+                        <span class="caja-pulse-dot dot-blue"></span>
+                        <span class="caja-live-text">Ir a Caja</span>
+                    `);
+                } else {
+                    $livePill.removeClass('caja-live-pill-products');
+                    $livePill.attr('title', 'Toca para ir a Productos');
+                    $livePill.html(`
+                        <span class="caja-pulse-dot"></span>
+                        <span class="caja-live-text">En Vivo</span>
+                    `);
+                }
             }
 
             // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
@@ -4698,7 +4732,59 @@ $('#caja-modal-new-product').fadeIn(200);
                         $(this).wpColorPicker();
                     }
                 });
+            } else {
+                // Fallback con swatch de color nativo interactivo para navegadores móviles
+                $('#tab-settings .caja-color-field').each(function() {
+                    const $input = $(this);
+                    if (!$input.next('.caja-color-native-swatch').length) {
+                        const val = $input.val() || '#000000';
+                        const $colorInput = $('<input type="color" class="caja-color-native-swatch" style="margin-left:8px; vertical-align:middle; width:36px; height:32px; padding:0; border:1px solid rgba(255,255,255,0.2); border-radius:6px; cursor:pointer; background:none;">').val(val);
+                        $colorInput.on('input change', function() {
+                            $input.val($(this).val());
+                        });
+                        $input.on('input change', function() {
+                            $colorInput.val($(this).val());
+                        });
+                        $input.after($colorInput);
+                    }
+                });
             }
+
+            // Horarios de despacho (Shipping Slots) en pantalla POS
+            $(document).off('click.cajaSlotAdd', '#caja-btn-add-slot').on('click.cajaSlotAdd', '#caja-btn-add-slot', function(e) {
+                e.preventDefault();
+                const val = ($('#caja-new-slot-input').val() || '').trim();
+                if (!val || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(val)) {
+                    alert('Por favor ingresá un horario válido en formato HH:MM (ej: 20:00)');
+                    return;
+                }
+                const parts = val.split(':');
+                const formatted = ('0' + parseInt(parts[0], 10)).slice(-2) + ':' + ('0' + parseInt(parts[1], 10)).slice(-2);
+                
+                let exists = false;
+                $('.caja-slot-chip').each(function() {
+                    if ($(this).attr('data-slot') === formatted) exists = true;
+                });
+                if (exists) {
+                    alert('El horario ' + formatted + ' ya está en la lista.');
+                    return;
+                }
+
+                const chipHtml = '<div class="caja-slot-chip" data-slot="' + formatted + '">' +
+                    '<input type="hidden" name="batllie_caja_options[shipping_slots][]" value="' + formatted + '" />' +
+                    '<span class="caja-slot-icon">🕒</span> ' +
+                    '<span class="caja-slot-text">' + formatted + ' hs</span> ' +
+                    '<button type="button" class="caja-slot-remove-btn" title="Eliminar horario">✕</button>' +
+                '</div>';
+
+                $('#caja-slots-list').append(chipHtml);
+                $('#caja-new-slot-input').val('');
+            });
+
+            $(document).off('click.cajaSlotRemove', '.caja-slot-remove-btn').on('click.cajaSlotRemove', '.caja-slot-remove-btn', function(e) {
+                e.preventDefault();
+                $(this).closest('.caja-slot-chip').remove();
+            });
 
             // Eventos de guardado
             $('#caja-settings-form').off('submit.cajaSettings').on('submit.cajaSettings', function(e) {
@@ -4728,6 +4814,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else {
                     formData += '&action=emp_caja_save_settings';
                 }
+            }
+            if (formData.indexOf('security=') === -1 && typeof batllieCajaConfig !== 'undefined' && batllieCajaConfig.nonce) {
+                formData += '&security=' + encodeURIComponent(batllieCajaConfig.nonce);
             }
 
             $.ajax({

@@ -20,15 +20,25 @@ if (!defined('ABSPATH')) {
                 </svg>
             </div>
             <span class="caja-title"><?php _e('Batllie Caja', 'emp-caja'); ?></span>
-            <button type="button" class="caja-live-pill" id="caja-live-status" title="<?php esc_attr_e('Toca para ir a Productos', 'emp-caja'); ?>">
-                <span class="caja-pulse-dot"></span>
-                <span class="caja-live-text"><?php _e('En Vivo', 'emp-caja'); ?></span>
-            </button>
+            <!-- Desplegable Rápido de Pantallas: En Vivo / Productos / Configuración General -->
+            <div class="caja-screen-switcher-wrap" id="caja-screen-switcher-wrap" title="<?php esc_attr_e('Seleccionar pantalla', 'emp-caja'); ?>">
+                <span class="caja-pulse-dot" id="caja-screen-dot"></span>
+                <select id="caja-screen-select" class="caja-screen-select" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
+                    <option value="tab-orders">🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
+                    <option value="tab-products">📦 <?php _e('Productos', 'emp-caja'); ?></option>
+                    <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
+                </select>
+                <span class="caja-screen-select-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
+            </div>
         </div>
 
         <!-- Pestañas Principales -->
         <nav class="caja-nav-tabs">
-            <button class="caja-tab-btn active" data-tab="tab-orders">
+            <button class="caja-tab-btn active" data-tab="tab-orders" id="caja-tab-nav-orders">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
@@ -36,22 +46,25 @@ if (!defined('ABSPATH')) {
                     <line x1="16" y1="17" x2="8" y2="17"></line>
                     <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
-                <span><?php _e('Pedidos en Vivo', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-full"><?php _e('Pedidos en Vivo', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Pedidos', 'emp-caja'); ?></span>
                 <span class="caja-badge-count" id="caja-orders-count">0</span>
             </button>
             <button class="caja-tab-btn" data-tab="tab-products" id="caja-tab-nav-products">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                 </svg>
-                <span><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-full"><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Productos', 'emp-caja'); ?></span>
             </button>
-            <!-- Pestaña 3: Configuración -->
+            <!-- Pestaña 3: Configuración General -->
             <button class="caja-tab-btn" data-tab="tab-settings" id="caja-tab-nav-settings">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
-                <span><?php _e('Configuración', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-full"><?php _e('Configuración General', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Configuración', 'emp-caja'); ?></span>
             </button>
         </nav>
 
