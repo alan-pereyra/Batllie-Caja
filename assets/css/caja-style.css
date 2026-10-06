@@ -678,7 +678,7 @@ body.batllie-caja-active .container {
 }
 
 .caja-filter-select-col {
-    flex: 1 1 50%;
+    flex: 1 1 0;
     min-width: 0;
 }
 
@@ -838,6 +838,92 @@ body.batllie-caja-active .container {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+/* Cabecera de la tarjeta con badges múltiples */
+.caja-card-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+/* Badge de Tanda y Horario de Despacho */
+.caja-dispatch-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(14, 165, 233, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.6);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+}
+
+.caja-dispatch-pill.caja-dispatch-pickup {
+    background: rgba(148, 163, 184, 0.15);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.caja-dispatch-pill .caja-dispatch-icon {
+    font-size: 0.9rem;
+}
+
+/* Chips del gestor de tandas en configuración */
+.caja-slot-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 20px;
+    padding: 6px 14px;
+    color: var(--caja-text, #ffffff);
+    font-size: 0.92rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.caja-slot-chip:hover {
+    border-color: var(--caja-primary, #10b981);
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.caja-slot-chip .caja-slot-icon {
+    font-size: 0.95rem;
+}
+
+.caja-slot-chip .caja-slot-remove-btn {
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    margin-left: 2px;
+    transition: all 0.2s ease;
+}
+
+.caja-slot-chip .caja-slot-remove-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: scale(1.1);
 }
 
 .caja-badge-pending {
@@ -2956,11 +3042,12 @@ span#edit-grouped-selected-badge {
         gap: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        flex-wrap: wrap !important;
     }
 
     .caja-filter-select-col {
-        flex: 1 1 50% !important;
-        min-width: 0 !important;
+        flex: 1 1 calc(50% - 4px) !important;
+        min-width: 120px !important;
         box-sizing: border-box !important;
     }
 

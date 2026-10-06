@@ -341,6 +341,82 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
             </div>
         </div>
 
+        <!-- Tarjeta 5: Tandas y Horarios de Envío -->
+        <div class="caja-settings-card">
+            <div class="caja-settings-card-header">
+                <span class="caja-settings-card-icon">🚚</span>
+                <h2><?php _e('Gestión de Tandas y Horarios de Envío', 'emp-caja'); ?></h2>
+            </div>
+            <div class="caja-settings-card-body">
+                <table class="form-table caja-form-table">
+                    <tr>
+                        <th scope="row"><?php _e('Habilitar selección de horarios', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="hidden" name="batllie_caja_options[shipping_slots_enabled]" value="no" />
+                            <label class="caja-switch-label">
+                                <input type="checkbox" name="batllie_caja_options[shipping_slots_enabled]" value="yes" <?php checked($options['shipping_slots_enabled'] ?? 'yes', 'yes'); ?> />
+                                <span><?php _e('Permitir a los clientes elegir tanda de despacho al momento de comprar en la tienda.', 'emp-caja'); ?></span>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Margen límite de corte', 'emp-caja'); ?></th>
+                        <td>
+                            <select name="batllie_caja_options[shipping_slots_cutoff]" class="caja-select" style="max-width: 350px;">
+                                <option value="5" <?php selected($options['shipping_slots_cutoff'] ?? 5, 5); ?>><?php _e('5 minutos antes del horario (Recomendado)', 'emp-caja'); ?></option>
+                                <option value="10" <?php selected($options['shipping_slots_cutoff'] ?? 5, 10); ?>><?php _e('10 minutos antes del horario', 'emp-caja'); ?></option>
+                                <option value="15" <?php selected($options['shipping_slots_cutoff'] ?? 5, 15); ?>><?php _e('15 minutos antes del horario', 'emp-caja'); ?></option>
+                                <option value="30" <?php selected($options['shipping_slots_cutoff'] ?? 5, 30); ?>><?php _e('30 minutos antes del horario', 'emp-caja'); ?></option>
+                                <option value="60" <?php selected($options['shipping_slots_cutoff'] ?? 5, 60); ?>><?php _e('1 hora antes del horario', 'emp-caja'); ?></option>
+                            </select>
+                            <p class="description"><?php _e('Si la compra se realiza después del corte (ej. a las 11:56 para la tanda de las 12:00 con 5 min de margen), esa tanda se cierra y se ofrecen las siguientes.', 'emp-caja'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Aplicar a', 'emp-caja'); ?></th>
+                        <td>
+                            <select name="batllie_caja_options[shipping_slots_apply_to]" class="caja-select" style="max-width: 350px;">
+                                <option value="shipping_only" <?php selected($options['shipping_slots_apply_to'] ?? 'shipping_only', 'shipping_only'); ?>><?php _e('Solo a envíos a domicilio (no aplica si eligen retiro en local)', 'emp-caja'); ?></option>
+                                <option value="all" <?php selected($options['shipping_slots_apply_to'] ?? 'shipping_only', 'all'); ?>><?php _e('A todos los pedidos (incluido retiro en tienda)', 'emp-caja'); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Horarios de despacho configurados', 'emp-caja'); ?></th>
+                        <td>
+                            <div id="caja-slots-manager" class="caja-slots-manager">
+                                <input type="hidden" name="batllie_caja_options[shipping_slots_present]" value="1" />
+                                <div class="caja-slots-list" id="caja-slots-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                                    <?php 
+                                    $curr_slots = $options['shipping_slots'] ?? array('09:00', '12:00', '18:00');
+                                    if (is_string($curr_slots)) $curr_slots = explode(',', $curr_slots);
+                                    sort($curr_slots);
+                                    foreach ($curr_slots as $slot_val): 
+                                        $slot_val = trim($slot_val);
+                                        if (empty($slot_val)) continue;
+                                    ?>
+                                        <div class="caja-slot-chip" data-slot="<?php echo esc_attr($slot_val); ?>">
+                                            <input type="hidden" name="batllie_caja_options[shipping_slots][]" value="<?php echo esc_attr($slot_val); ?>" />
+                                            <span class="caja-slot-icon">🕒</span>
+                                            <span class="caja-slot-text"><?php echo esc_html($slot_val); ?> hs</span>
+                                            <button type="button" class="caja-slot-remove-btn" title="<?php esc_attr_e('Eliminar horario', 'emp-caja'); ?>">✕</button>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <div class="caja-slot-add-bar" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <input type="time" id="caja-new-slot-input" class="caja-input" style="max-width: 140px; height: 38px;" />
+                                    <button type="button" id="caja-btn-add-slot" class="caja-btn caja-btn-secondary" style="height: 38px;">
+                                        <span>➕ <?php _e('Agregar Horario', 'emp-caja'); ?></span>
+                                    </button>
+                                </div>
+                                <p class="description" style="margin-top:8px;"><?php _e('Podés agregar nuevos horarios (ej: 20:00) o eliminar los existentes haciendo click en ✕. Recordá hacer click en "Guardar Cambios".', 'emp-caja'); ?></p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
         <!-- Barra Inferior de Guardar -->
         <div class="caja-settings-submit-bar">
             <button type="submit" class="caja-btn caja-btn-primary caja-btn-lg caja-btn-save-settings" id="caja-btn-save-settings">

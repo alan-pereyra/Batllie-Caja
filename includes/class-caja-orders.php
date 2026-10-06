@@ -85,6 +85,293 @@ class Batllie_Caja_Orders {
         add_action('wp_footer', array(__CLASS__, 'render_checkout_phone_fix_script'), 999);
     }
 
+    /**
+     * Inicializar hooks de tandas y horarios de envío en checkout
+     */
+    public static function init_shipping_slots_hooks() {
+        // Renderizar selector de tanda en la tabla de revisión de envío
+        add_action('woocommerce_review_order_after_shipping', array(__CLASS__, 'render_checkout_shipping_slot_field'), 20);
+
+        // Guardar la tanda seleccionada en sesión durante actualizaciones AJAX de WooCommerce
+        add_action('woocommerce_checkout_update_order_review', array(__CLASS__, 'update_checkout_order_review_shipping_slot'), 10, 1);
+
+        // Validar que se haya seleccionado una tanda válida y vigente
+        add_action('woocommerce_after_checkout_validation', array(__CLASS__, 'validate_checkout_shipping_slot'), 20, 2);
+
+        // Guardar metadatos de la tanda al crear el pedido
+        add_action('woocommerce_checkout_create_order', array(__CLASS__, 'save_shipping_slot_to_order'), 25, 2);
+
+        // Mostrar tanda en detalle del pedido (cliente y emails)
+        add_action('woocommerce_order_details_after_order_table', array(__CLASS__, 'display_shipping_slot_in_order_details'), 15, 1);
+        add_action('woocommerce_email_after_order_table', array(__CLASS__, 'display_shipping_slot_in_order_details'), 15, 1);
+
+        // Mostrar tanda en vista de pedido del admin de WooCommerce
+        add_action('woocommerce_admin_order_data_after_shipping_address', array(__CLASS__, 'display_shipping_slot_in_admin_order'), 15, 1);
+    }
+
+    /**
+     * Obtener configuración activa de tandas y horarios de envío
+     */
+    public static function get_shipping_slots_config() {
+        $options = class_exists('Batllie_Caja_Plugin') ? Batllie_Caja_Plugin::get_color_settings() : array();
+        $enabled = ($options['shipping_slots_enabled'] ?? 'yes') === 'yes';
+        $slots = isset($options['shipping_slots']) && is_array($options['shipping_slots']) && !empty($options['shipping_slots'])
+            ? $options['shipping_slots']
+            : array('09:00', '12:00', '18:00');
+        $cutoff = isset($options['shipping_slots_cutoff']) ? max(0, intval($options['shipping_slots_cutoff'])) : 5;
+        $apply_to = $options['shipping_slots_apply_to'] ?? 'shipping_only';
+
+        return array(
+            'enabled'  => $enabled,
+            'slots'    => $slots,
+            'cutoff'   => $cutoff,
+            'apply_to' => $apply_to,
+        );
+    }
+
+    /**
+     * Calcular las tandas de envío disponibles según la hora actual y margen de corte
+     */
+    public static function get_available_shipping_slots($reference_timestamp = null) {
+        $config = self::get_shipping_slots_config();
+        if (!$config['enabled'] || empty($config['slots'])) {
+            return array();
+        }
+
+        $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+        $now = new DateTime('now', $tz);
+        if ($reference_timestamp) {
+            $now->setTimestamp($reference_timestamp);
+        }
+
+        $slots = $config['slots'];
+        sort($slots);
+        $cutoff_minutes = $config['cutoff'];
+
+        $available = array();
+
+        // 1. Evaluar tandas para HOY
+        $today_date = $now->format('Y-m-d');
+        foreach ($slots as $slot) {
+            $parts = explode(':', $slot);
+            if (count($parts) !== 2) continue;
+            $hour = intval($parts[0]);
+            $min  = intval($parts[1]);
+
+            $slot_dt = clone $now;
+            $slot_dt->setTime($hour, $min, 0);
+
+            // Hora límite de corte: slot_dt - cutoff_minutes
+            $cutoff_dt = clone $slot_dt;
+            if ($cutoff_minutes > 0) {
+                $cutoff_dt->modify("-{$cutoff_minutes} minutes");
+            }
+
+            // Si aún no se superó el límite de corte, la tanda está disponible para HOY
+            if ($now <= $cutoff_dt) {
+                $available[] = array(
+                    'key'         => $today_date . '_' . $slot,
+                    'date'        => $today_date,
+                    'time'        => $slot,
+                    'is_today'    => true,
+                    'is_tomorrow' => false,
+                    'label'       => sprintf(__('Hoy a las %s hs (Tanda programada)', 'emp-caja'), $slot),
+                    'badge'       => sprintf(__('Hoy %s hs', 'emp-caja'), $slot),
+                );
+            }
+        }
+
+        // 2. Agregar tandas para MAÑANA
+        $tomorrow_dt = clone $now;
+        $tomorrow_dt->modify('+1 day');
+        $tomorrow_date = $tomorrow_dt->format('Y-m-d');
+        $dias_semana = array('Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado');
+        $dia_manana_nombre = $dias_semana[(int)$tomorrow_dt->format('w')];
+
+        foreach ($slots as $slot) {
+            $available[] = array(
+                'key'         => $tomorrow_date . '_' . $slot,
+                'date'        => $tomorrow_date,
+                'time'        => $slot,
+                'is_today'    => false,
+                'is_tomorrow' => true,
+                'label'       => sprintf(__('Mañana (%s %s) a las %s hs', 'emp-caja'), $dia_manana_nombre, $tomorrow_dt->format('d/m'), $slot),
+                'badge'       => sprintf(__('Mañana %s hs', 'emp-caja'), $slot),
+            );
+        }
+
+        return $available;
+    }
+
+    /**
+     * Renderizar selector de tanda en la tabla del checkout
+     */
+    public static function render_checkout_shipping_slot_field() {
+        $config = self::get_shipping_slots_config();
+        if (!$config['enabled'] || empty($config['slots'])) {
+            return;
+        }
+
+        // Si aplica solo a envíos y el método seleccionado es retiro en tienda, ocultar
+        if ($config['apply_to'] === 'shipping_only' && function_exists('WC') && WC()->session) {
+            $chosen_methods = WC()->session->get('chosen_shipping_methods', array());
+            $chosen_method = !empty($chosen_methods[0]) ? $chosen_methods[0] : '';
+            if (strpos($chosen_method, 'local_pickup') !== false) {
+                return;
+            }
+        }
+
+        $available = self::get_available_shipping_slots();
+        if (empty($available)) {
+            return;
+        }
+
+        $selected_key = '';
+        if (function_exists('WC') && WC()->session && WC()->session->get('batllie_shipping_slot')) {
+            $selected_key = WC()->session->get('batllie_shipping_slot');
+        } elseif (isset($_POST['batllie_shipping_slot'])) {
+            $selected_key = sanitize_text_field($_POST['batllie_shipping_slot']);
+        }
+
+        $valid_keys = array_column($available, 'key');
+        if (empty($selected_key) || !in_array($selected_key, $valid_keys)) {
+            $selected_key = $available[0]['key'];
+        }
+
+        ?>
+        <tr class="batllie-shipping-slot-row">
+            <th colspan="2" style="padding-top: 14px; padding-bottom: 6px; text-align: left;">
+                <div class="batllie-shipping-slot-box" style="background: rgba(16, 185, 129, 0.08); border: 1.5px solid #10b981; border-radius: 8px; padding: 12px 14px; margin: 6px 0;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <span style="font-size: 1.25rem;">🕒</span>
+                        <strong style="font-size: 0.95rem; color: #0f172a;"><?php _e('Horario estimado de despacho / envío', 'emp-caja'); ?></strong>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #334155; margin: 0 0 8px 0; line-height: 1.4;">
+                        <?php _e('Seleccioná en qué tanda querés que despachemos tu paquete:', 'emp-caja'); ?>
+                    </p>
+                    <select name="batllie_shipping_slot" id="batllie_shipping_slot" style="width: 100%; border-radius: 6px; padding: 8px 12px; font-weight: 600; font-size: 0.92rem; border: 1px solid #cbd5e1; background: #ffffff; color: #0f172a;">
+                        <?php foreach ($available as $slot): ?>
+                            <option value="<?php echo esc_attr($slot['key']); ?>" <?php selected($selected_key, $slot['key']); ?>>
+                                <?php echo esc_html($slot['label']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </th>
+        </tr>
+        <?php
+    }
+
+    /**
+     * Actualizar sesión de WooCommerce cuando cambia la tanda seleccionada vía AJAX
+     */
+    public static function update_checkout_order_review_shipping_slot($post_data) {
+        if (!empty($post_data) && function_exists('WC') && WC()->session) {
+            parse_str($post_data, $parsed);
+            if (!empty($parsed['batllie_shipping_slot'])) {
+                WC()->session->set('batllie_shipping_slot', sanitize_text_field($parsed['batllie_shipping_slot']));
+            }
+        }
+    }
+
+    /**
+     * Validar la tanda de envío durante el checkout
+     */
+    public static function validate_checkout_shipping_slot($data, $errors) {
+        $config = self::get_shipping_slots_config();
+        if (!$config['enabled'] || empty($config['slots'])) {
+            return;
+        }
+
+        // Si es envío y el método es retiro en tienda, no validar
+        if ($config['apply_to'] === 'shipping_only' && function_exists('WC') && WC()->session) {
+            $chosen_methods = WC()->session->get('chosen_shipping_methods', array());
+            $chosen_method = !empty($chosen_methods[0]) ? $chosen_methods[0] : '';
+            if (strpos($chosen_method, 'local_pickup') !== false) {
+                return;
+            }
+        }
+
+        $chosen_slot = isset($_POST['batllie_shipping_slot']) 
+            ? sanitize_text_field($_POST['batllie_shipping_slot']) 
+            : (function_exists('WC') && WC()->session ? WC()->session->get('batllie_shipping_slot') : '');
+
+        if (empty($chosen_slot)) {
+            $errors->add('batllie_slot_empty', __('Por favor seleccioná una tanda de despacho para tu pedido.', 'emp-caja'));
+            return;
+        }
+
+        $available = self::get_available_shipping_slots();
+        $valid_keys = array_column($available, 'key');
+        if (!in_array($chosen_slot, $valid_keys)) {
+            $errors->add('batllie_slot_expired', __('El horario de despacho seleccionado ya cerró por límite de tiempo. Por favor seleccioná la siguiente tanda disponible.', 'emp-caja'));
+        }
+    }
+
+    /**
+     * Guardar metadatos de la tanda al crear el pedido
+     */
+    public static function save_shipping_slot_to_order($order, $data) {
+        $config = self::get_shipping_slots_config();
+        if (!$config['enabled']) {
+            return;
+        }
+
+        $chosen_slot = isset($_POST['batllie_shipping_slot']) 
+            ? sanitize_text_field($_POST['batllie_shipping_slot']) 
+            : (function_exists('WC') && WC()->session ? WC()->session->get('batllie_shipping_slot') : '');
+
+        if (!empty($chosen_slot) && strpos($chosen_slot, '_') !== false) {
+            list($slot_date, $slot_time) = explode('_', $chosen_slot, 2);
+            $order->update_meta_data('_caja_shipping_slot', sanitize_text_field($slot_time));
+            $order->update_meta_data('_caja_shipping_slot_date', sanitize_text_field($slot_date));
+            $order->update_meta_data('_caja_shipping_slot_key', sanitize_text_field($chosen_slot));
+
+            $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+            $now = new DateTime('now', $tz);
+            $today = $now->format('Y-m-d');
+            $tomorrow = (clone $now)->modify('+1 day')->format('Y-m-d');
+
+            if ($slot_date === $today) {
+                $label = sprintf(__('Hoy a las %s hs', 'emp-caja'), $slot_time);
+                $badge = sprintf(__('Hoy %s hs', 'emp-caja'), $slot_time);
+            } elseif ($slot_date === $tomorrow) {
+                $label = sprintf(__('Mañana a las %s hs', 'emp-caja'), $slot_time);
+                $badge = sprintf(__('Mañana %s hs', 'emp-caja'), $slot_time);
+            } else {
+                $label = sprintf(__('%s a las %s hs', 'emp-caja'), date_i18n('d/m', strtotime($slot_date)), $slot_time);
+                $badge = sprintf(__('%s %s hs', 'emp-caja'), date_i18n('d/m', strtotime($slot_date)), $slot_time);
+            }
+
+            $order->update_meta_data('_caja_shipping_slot_label', $label);
+            $order->update_meta_data('_caja_shipping_slot_badge', $badge);
+        }
+    }
+
+    /**
+     * Mostrar la tanda de despacho en la página de confirmación y correos electrónicos
+     */
+    public static function display_shipping_slot_in_order_details($order) {
+        if (!is_a($order, 'WC_Order')) return;
+        $slot_label = $order->get_meta('_caja_shipping_slot_label');
+        if (!empty($slot_label)) {
+            echo '<div class="batllie-order-shipping-slot-notice" style="background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:10px 14px; margin:14px 0;">';
+            echo '<strong>🚚 ' . __('Tanda de despacho estimada:', 'emp-caja') . '</strong> ' . esc_html($slot_label);
+            echo '</div>';
+        }
+    }
+
+    /**
+     * Mostrar la tanda de despacho en la pantalla de pedidos del admin de WooCommerce
+     */
+    public static function display_shipping_slot_in_admin_order($order) {
+        if (!is_a($order, 'WC_Order')) return;
+        $slot_label = $order->get_meta('_caja_shipping_slot_label');
+        if (!empty($slot_label)) {
+            echo '<p style="margin-top:10px;"><strong>🚚 ' . __('Tanda de despacho:', 'emp-caja') . '</strong> <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:4px; font-weight:600;">' . esc_html($slot_label) . '</span></p>';
+        }
+    }
+
     public static function ensure_checkout_blocks_phone_required() {
         $checkout_page_id = function_exists('wc_get_page_id') ? wc_get_page_id('checkout') : 10;
         if (!$checkout_page_id || $checkout_page_id <= 0) {
@@ -1113,6 +1400,31 @@ class Batllie_Caja_Orders {
         $saved_bags = (array) ($order->get_meta('_batllie_packaging_bags') ?: array());
         $packing_summary = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_order_boxes_summary($order) : null;
 
+        // Metadatos de Tanda y Horario de Envío
+        $shipping_slot       = (string) $order->get_meta('_caja_shipping_slot');
+        $shipping_slot_date  = (string) $order->get_meta('_caja_shipping_slot_date');
+        $shipping_slot_label = (string) $order->get_meta('_caja_shipping_slot_label');
+        $shipping_slot_badge = (string) $order->get_meta('_caja_shipping_slot_badge');
+        $shipping_slot_key   = (string) $order->get_meta('_caja_shipping_slot_key');
+
+        $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+        $now = new DateTime('now', $tz);
+        $today = $now->format('Y-m-d');
+        $tomorrow = (clone $now)->modify('+1 day')->format('Y-m-d');
+
+        $is_slot_today    = (!empty($shipping_slot_date) && $shipping_slot_date === $today);
+        $is_slot_tomorrow = (!empty($shipping_slot_date) && $shipping_slot_date === $tomorrow);
+
+        if (empty($shipping_slot_badge) && !empty($shipping_slot)) {
+            if ($is_slot_today) {
+                $shipping_slot_badge = "Hoy {$shipping_slot} hs";
+            } elseif ($is_slot_tomorrow) {
+                $shipping_slot_badge = "Mañana {$shipping_slot} hs";
+            } else {
+                $shipping_slot_badge = "{$shipping_slot} hs";
+            }
+        }
+
         return array(
             'id'              => $order_id,
             'number'          => $order->get_order_number(),
@@ -1132,6 +1444,13 @@ class Batllie_Caja_Orders {
             'payment_status'  => $payment_status,
             'shipping_status' => $shipping_status,
             'shipping_method' => $order->get_shipping_method(),
+            'shipping_slot'   => $shipping_slot,
+            'shipping_slot_date'        => $shipping_slot_date,
+            'shipping_slot_label'       => $shipping_slot_label,
+            'shipping_slot_badge'       => $shipping_slot_badge,
+            'shipping_slot_key'         => $shipping_slot_key,
+            'shipping_slot_is_today'    => $is_slot_today,
+            'shipping_slot_is_tomorrow' => $is_slot_tomorrow,
             'total'           => wc_price($order->get_total(), array('currency' => $order->get_currency())),
             'total_raw'       => (float) $order->get_total(),
             'items'           => $items,
