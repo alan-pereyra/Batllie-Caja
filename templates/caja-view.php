@@ -27,6 +27,12 @@ if (!defined('ABSPATH')) {
 </div>
 
 <script>
+    // Limpiar cualquier credencial en URL (?username=...&password=...) para seguridad inmediata
+    if (window.location.search && (window.location.search.indexOf('password=') !== -1 || window.location.search.indexOf('username=') !== -1)) {
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+    }
     // Añadir clase al body para modo aislado
     document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('batllie-caja-active');

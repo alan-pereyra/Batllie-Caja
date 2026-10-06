@@ -72,6 +72,25 @@
                 } else if (hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') {
                     this.switchTab('tab-settings');
                 }
+            } else {
+                // Si el usuario intentó acceder con parámetros en la URL (?username=...&password=...)
+                const urlParams = new URLSearchParams(window.location.search);
+                const u = urlParams.get('username');
+                const p = urlParams.get('password');
+                if (u || p) {
+                    if (u) $('#caja-username').val(u);
+                    if (p) $('#caja-password').val(p);
+                    // Limpiar la URL inmediatamente para proteger las credenciales
+                    if (window.history && window.history.replaceState) {
+                        const cleanUrl = window.location.pathname + window.location.hash;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                    }
+                    if (u && p) {
+                        setTimeout(function() {
+                            $('#caja-login-form').trigger('submit');
+                        }, 150);
+                    }
+                }
             }
         },
 
@@ -84,7 +103,7 @@
             });
 
             // Login
-            $('#caja-login-form').on('submit', function(e) {
+            $(document).on('submit', '#caja-login-form', function(e) {
                 e.preventDefault();
                 self.handleLogin($(this));
             });
@@ -1427,13 +1446,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 data: {
                     action: 'emp_caja_login',
                     security: self.config.nonce,
-                    username: $('#caja-username').val(),
+                    username: $.trim($('#caja-username').val()),
                     password: $('#caja-password').val()
                 },
                 success: function(res) {
                     if (res.success) {
                         $btn.find('.caja-btn-text').text('Acceso concedido...');
-                        window.location.reload();
+                        window.location.href = window.location.pathname;
                     } else {
                         $err.text(res.data && res.data.message ? res.data.message : 'Error al iniciar sesión.').fadeIn(150);
                     }

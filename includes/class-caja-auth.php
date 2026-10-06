@@ -13,24 +13,43 @@ class Batllie_Caja_Auth {
      * Procesar Inicio de Sesión Vía AJAX
      */
     public static function handle_login() {
-        check_ajax_referer('batllie_caja_nonce', 'security');
-
-        $username = isset($_POST['username']) ? sanitize_user(wp_unslash($_POST['username'])) : '';
+        // En login no bloqueamos por nonce ya que las páginas públicas pueden servirse
+        // desde caché HTML con nonces viejos, y la seguridad la garantiza wp_signon().
+        $raw_username = isset($_POST['username']) ? trim(wp_unslash($_POST['username'])) : '';
+        $username = sanitize_user($raw_username);
         $password = isset($_POST['password']) ? trim($_POST['password']) : '';
 
-        if (empty($username) || empty($password)) {
+        if (empty($raw_username) || empty($password)) {
             wp_send_json_error(array(
                 'message' => __('Por favor ingresa usuario y contraseña.', 'emp-caja')
             ));
         }
 
         $credentials = array(
-            'user_login'    => $username,
+            'user_login'    => !empty($username) ? $username : $raw_username,
             'user_password' => $password,
             'remember'      => true
         );
 
         $user = wp_signon($credentials, is_ssl());
+
+        // Si falló por mayúsculas/minúsculas, intentar automáticamente con minúsculas
+        if (is_wp_error($user) && strtolower($credentials['user_login']) !== $credentials['user_login']) {
+            $credentials['user_login'] = strtolower($credentials['user_login']);
+            $user_retry = wp_signon($credentials, is_ssl());
+            if (!is_wp_error($user_retry)) {
+                $user = $user_retry;
+            }
+        }
+
+        // Si el usuario ingresó su correo electrónico
+        if (is_wp_error($user) && is_email($raw_username)) {
+            $credentials['user_login'] = strtolower($raw_username);
+            $user_retry = wp_signon($credentials, is_ssl());
+            if (!is_wp_error($user_retry)) {
+                $user = $user_retry;
+            }
+        }
 
         if (is_wp_error($user)) {
             wp_send_json_error(array(

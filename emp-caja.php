@@ -183,7 +183,7 @@ class Batllie_Caja_Plugin {
         wp_register_style(
             'batllie-caja-css',
             EMP_CAJA_URL . 'assets/css/caja-style.css',
-            array('wp-color-picker'),
+            array(),
             EMP_CAJA_VERSION
         );
 
@@ -198,7 +198,7 @@ class Batllie_Caja_Plugin {
         wp_register_script(
             'batllie-caja-app',
             EMP_CAJA_URL . 'assets/js/caja-app.js',
-            array('jquery', 'batllie-caja-audio', 'wp-color-picker'),
+            array('jquery', 'batllie-caja-audio'),
             EMP_CAJA_VERSION,
             true
         );
@@ -253,17 +253,60 @@ class Batllie_Caja_Plugin {
             'isolated' => 'yes',
         ), $atts, 'batllie_caja');
 
+        // Procesar credenciales enviadas directamente por POST o GET
+        if (!is_user_logged_in()) {
+            $req_raw = isset($_POST['username']) ? trim(wp_unslash($_POST['username'])) : (isset($_GET['username']) ? trim(wp_unslash($_GET['username'])) : '');
+            $req_user = sanitize_user($req_raw);
+            $req_pass = isset($_POST['password']) ? trim($_POST['password']) : (isset($_GET['password']) ? trim($_GET['password']) : '');
+            if (!empty($req_raw) && !empty($req_pass)) {
+                $credentials = array(
+                    'user_login'    => !empty($req_user) ? $req_user : $req_raw,
+                    'user_password' => $req_pass,
+                    'remember'      => true
+                );
+                $user = wp_signon($credentials, is_ssl());
+                if (is_wp_error($user) && strtolower($credentials['user_login']) !== $credentials['user_login']) {
+                    $credentials['user_login'] = strtolower($credentials['user_login']);
+                    $user_retry = wp_signon($credentials, is_ssl());
+                    if (!is_wp_error($user_retry)) {
+                        $user = $user_retry;
+                    }
+                }
+                if (is_wp_error($user) && is_email($req_raw)) {
+                    $credentials['user_login'] = strtolower($req_raw);
+                    $user_retry = wp_signon($credentials, is_ssl());
+                    if (!is_wp_error($user_retry)) {
+                        $user = $user_retry;
+                    }
+                }
+                if (!is_wp_error($user) && (user_can($user, 'manage_woocommerce') || user_can($user, 'edit_posts') || user_can($user, 'read'))) {
+                    wp_set_current_user($user->ID);
+                }
+            }
+        }
+
         // Encolar media uploader de WordPress para fotos de productos
         if (function_exists('wp_enqueue_media')) {
             wp_enqueue_media();
         }
 
-        // Encolar assets y color picker
-        wp_enqueue_style('wp-color-picker');
-        wp_enqueue_script('wp-color-picker');
+        // Encolar assets de la caja
         wp_enqueue_style('batllie-caja-css');
         wp_enqueue_script('batllie-caja-audio');
         wp_enqueue_script('batllie-caja-app');
+
+        // Encolar color-picker solo si el usuario tiene acceso a configuración
+        if (is_user_logged_in() && class_exists('Batllie_Caja_Auth') && Batllie_Caja_Auth::current_user_can_access()) {
+            if (!wp_script_is('wp-color-picker', 'registered')) {
+                wp_register_script('iris', admin_url('js/iris.min.js'), array('jquery-ui-draggable', 'jquery-ui-slider'), '1.1.1', true);
+                wp_register_script('wp-color-picker', admin_url('js/color-picker.min.js'), array('iris'), false, true);
+            }
+            if (!wp_style_is('wp-color-picker', 'registered')) {
+                wp_register_style('wp-color-picker', admin_url('css/color-picker.min.css'), array(), false);
+            }
+            wp_enqueue_style('wp-color-picker');
+            wp_enqueue_script('wp-color-picker');
+        }
 
         $options = self::get_color_settings();
         $priority = $options['packing_priority'] ?? '12';
