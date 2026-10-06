@@ -659,7 +659,7 @@ class Batllie_Caja_Packing {
     public static function get_available_alfajores_for_upsell() {
         $args = array(
             'post_type'      => 'product',
-            'posts_per_page' => 12,
+            'posts_per_page' => 100,
             'post_status'    => 'publish',
             'orderby'        => 'menu_order title',
             'order'          => 'ASC',
@@ -675,6 +675,12 @@ class Batllie_Caja_Packing {
             }
             if ($p->is_type('grouped')) {
                 continue; // Solo alfajores individuales
+            }
+
+            // Excluir productos si están configurados como ocultos
+            $catalog_visibility = method_exists($p, 'get_catalog_visibility') ? $p->get_catalog_visibility() : 'visible';
+            if ($catalog_visibility === 'hidden' || $catalog_visibility === 'search' || !$p->is_visible()) {
+                continue;
             }
 
             if (self::is_alfajor_product($post->ID)) {
@@ -1484,6 +1490,16 @@ class Batllie_Caja_Packing {
             wp_send_json_error(array('message' => __('Producto no válido.', 'emp-caja')));
         }
 
+        $p = wc_get_product($product_id);
+        if (!$p || !$p->is_purchasable() || !$p->is_in_stock()) {
+            wp_send_json_error(array('message' => __('Producto agotado o no disponible.', 'emp-caja')));
+        }
+
+        $vis = method_exists($p, 'get_catalog_visibility') ? $p->get_catalog_visibility() : 'visible';
+        if ($vis === 'hidden' || $vis === 'search' || !$p->is_visible()) {
+            wp_send_json_error(array('message' => __('Este producto no está disponible para venta directa.', 'emp-caja')));
+        }
+
         $passed = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity);
         if ($passed) {
             WC()->cart->add_to_cart($product_id, $quantity, 0, array(), array(
@@ -1507,16 +1523,17 @@ class Batllie_Caja_Packing {
             $is_below = ($min > 0 && $amount < $min);
 
             wp_send_json_success(array(
-                'added'             => true,
-                'analysis'          => $analysis,
-                'min_amount'        => $min,
-                'current_amount'    => $amount,
-                'missing_amount'    => $missing,
-                'is_below_min'      => $is_below,
-                'current_formatted' => wc_price($amount),
-                'missing_formatted' => wc_price($missing),
-                'cart_url'          => wc_get_cart_url(),
-                'checkout_url'      => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
+                'added'              => true,
+                'analysis'           => $analysis,
+                'min_amount'         => $min,
+                'current_amount'     => $amount,
+                'missing_amount'     => $missing,
+                'is_below_min'       => $is_below,
+                'current_formatted'  => wc_price($amount),
+                'missing_formatted'  => wc_price($missing),
+                'cart_url'           => wc_get_cart_url(),
+                'checkout_url'       => function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/finalizar-compra/'),
+                'availableAlfajores' => self::get_available_alfajores_for_upsell(),
             ));
         }
 
