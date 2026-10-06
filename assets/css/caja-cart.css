@@ -18,23 +18,12 @@
 }
 
 .woocommerce-cart-form table.cart tr.batllie-combo-child-item {
-    background-color: #fcfdfc !important;
-}
-
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-name {
-    padding-left: 28px !important;
-    position: relative;
-}
-
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-name::before {
-    content: "↳";
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #10b981;
-    font-weight: bold;
-    font-size: 16px;
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
 }
 
 /* Ocultar botones de incremento/decremento en ítems de combo */
@@ -147,110 +136,77 @@
     opacity: 1 !important;
 }
 
-/* Submenú anidado: Productos agrupados (alfajores) dentro de la caja */
+/* Ocultar completamente los alfajores hijos en el Carrito y Checkout para que el combo figure como 1 solo ítem */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child,
-.wc-block-cart-item.batllie-is-combo-child {
-    border: 1px solid #e5e7eb !important;
-    border-left: 3.5px solid #10b981 !important;
-    margin-left: 20px !important;
-    width: calc(100% - 20px) !important;
-    box-sizing: border-box !important;
-    margin-bottom: 6px !important;
-    padding: 12px 14px !important;
-    background-color: #fafdfb !important;
-    border-radius: 0 8px 8px 0 !important;
-    position: relative;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
-    transition: all 0.2s ease;
-}
-
-/* Conector de rama '↳' en el título del alfajor hijo */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-name::before,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__product a::before {
-    content: "↳ ";
-    color: #10b981;
-    font-weight: 700;
-    font-size: 15px;
-    margin-right: 4px;
-}
-
-/* Ocultar metadatos técnicos redundantes ("Parte de: ...") en el alfajor */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-details {
-    display: none !important;
-}
-
-/* Deshabilitar botones de cantidad (+ / -) en la caja y en los hijos */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-quantity-selector__button {
-    display: none !important;
-    pointer-events: none !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__input,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-box .wc-block-components-quantity-selector__input {
-    pointer-events: none !important;
-    border: none !important;
-    background: transparent !important;
-    font-weight: 700 !important;
-    text-align: center !important;
-}
-
-
-/* ==========================================================================
-   3. Ocultar estrictamente el botón de eliminar y precios en productos hijos
-   ========================================================================== */
-
-/* Ocultar botón eliminar en productos hijos */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__remove-link,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button--remove,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-link"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-button"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="eliminar"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Eliminar"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="remove"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Remove"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child a[class*="remove"],
-.wc-block-cart-items tr.batllie-is-combo-child td.wc-block-cart-item__quantity .wc-block-cart-item__remove-link,
-.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__remove-link {
+.wc-block-cart-items tr.wc-block-cart-items__row.batllie-is-combo-child,
+.wc-block-cart-item.batllie-is-combo-child,
+.wc-block-components-order-summary-item.batllie-is-combo-child {
     display: none !important;
     visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-/* Ocultar ABSOLUTAMENTE el precio y cualquier badge de ahorro o descuento en los productos hijos */
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-price,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__prices,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-formatted-money-amount,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total-price-and-sale-badge-wrapper,
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="product-price"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="item__prices"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="discount"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="saving"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="sale-badge"],
-.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="badge"],
-.wc-block-cart-item.batllie-is-combo-child .wc-block-components-product-price,
-.wc-block-cart-item.batllie-is-combo-child .wc-block-cart-item__prices {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    font-size: 0 !important;
-    line-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
     height: 0 !important;
     min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
     overflow: hidden !important;
+    border: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* ==========================================================================
+   3. Resumen de Sabores dentro de la Tarjeta de la Caja Principal
+   ========================================================================== */
+.batllie-box-flavors-summary {
+    margin-top: 10px !important;
+    padding: 9px 12px !important;
+    background: #ffffff !important;
+    border: 1px solid #bbf7d0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.06) !important;
+    display: block !important;
+    clear: both !important;
+}
+
+.batllie-box-flavors-title {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: #14532d !important;
+    margin-bottom: 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+}
+
+.batllie-flavors-icon {
+    font-size: 13px !important;
+}
+
+.batllie-box-flavors-pills {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+}
+
+.batllie-flavor-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    background: #f0fdf4 !important;
+    border: 1px solid #86efac !important;
+    color: #166534 !important;
+    border-radius: 6px !important;
+    padding: 3px 8px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.3 !important;
+}
+
+.batllie-flavor-pill strong {
+    color: #15803d !important;
+    margin-right: 4px !important;
+    font-weight: 700 !important;
 }
 
 
