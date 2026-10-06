@@ -22,7 +22,7 @@ if (!defined('ABSPATH')) {
             <p><?php _e('Control de Pedidos y Terminal Mostrador', 'emp-caja'); ?></p>
         </div>
 
-        <form id="caja-login-form" class="caja-form">
+        <form id="caja-login-form" class="caja-form" method="post" action="#" onsubmit="return false;">
             <div id="caja-login-error" class="caja-alert caja-alert-danger" style="display:none;"></div>
 
             <div class="caja-form-group">
