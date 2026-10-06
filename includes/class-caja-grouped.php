@@ -289,10 +289,14 @@ class Batllie_Caja_Grouped {
         if (!$product) {
             return false;
         }
-        $is_pred = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
-        if ($is_pred) {
+        $is_pred = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true);
+        if ($is_pred === 'no') {
+            return false;
+        }
+        if ($is_pred === 'yes') {
             return true;
         }
+        // Fallback solo si nunca se configuró explícitamente el meta _batllie_grouped_is_predefined
         $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
         return (!empty($qtys) && is_array($qtys));
     }
@@ -305,6 +309,9 @@ class Batllie_Caja_Grouped {
             $product = wc_get_product($product);
         }
         if (!$product) {
+            return array();
+        }
+        if (!self::is_predefined_combo($product)) {
             return array();
         }
         $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);

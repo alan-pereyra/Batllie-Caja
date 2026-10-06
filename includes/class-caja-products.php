@@ -110,7 +110,7 @@ class Batllie_Caja_Products {
         }
 
         $is_predefined = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
-        $saved_qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
+        $saved_qtys = $is_predefined ? get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true) : array();
         $predefined_quantities = is_array($saved_qtys) ? $saved_qtys : array();
 
         $manage_stock = $product->get_manage_stock();
@@ -586,16 +586,20 @@ class Batllie_Caja_Products {
 
         $clean_qtys = array();
         $total_units = 0;
-        if (isset($data['predefined_quantities']) && is_array($data['predefined_quantities'])) {
-            foreach ($data['predefined_quantities'] as $child_id => $c_qty) {
-                $c_id = absint($child_id);
-                $c_val = absint($c_qty);
-                if ($c_id > 0 && $c_val > 0) {
-                    $clean_qtys[$c_id] = $c_val;
-                    $total_units += $c_val;
+        if ($is_pred) {
+            if (isset($data['predefined_quantities']) && is_array($data['predefined_quantities'])) {
+                foreach ($data['predefined_quantities'] as $child_id => $c_qty) {
+                    $c_id = absint($child_id);
+                    $c_val = absint($c_qty);
+                    if ($c_id > 0 && $c_val > 0) {
+                        $clean_qtys[$c_id] = $c_val;
+                        $total_units += $c_val;
+                    }
                 }
+                update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
             }
-            update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
+        } else {
+            delete_post_meta($product_id, '_batllie_grouped_predefined_quantities');
         }
 
         if ($product->is_type('grouped')) {
