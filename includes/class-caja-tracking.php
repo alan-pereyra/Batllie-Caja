@@ -596,9 +596,11 @@ class Batllie_Caja_Tracking {
         $clean_alias = preg_replace('/^alias:\s*/i', '', $bacs_alias);
 
         // WhatsApp para envío de comprobante con información completa del pedido
-        $wa_number = apply_filters('batllie_caja_whatsapp_number', '5491149472377', $order);
-        $clean_wa = preg_replace('/[^0-9]/', '', $wa_number);
-        $wa_text = self::generate_order_whatsapp_message($order, $clean_alias);
+        $caja_opts  = class_exists('Batllie_Caja_Plugin') ? Batllie_Caja_Plugin::get_color_settings() : array();
+        $default_wa = !empty($caja_opts['whatsapp_number']) ? $caja_opts['whatsapp_number'] : '5491149472377';
+        $wa_number  = apply_filters('batllie_caja_whatsapp_number', $default_wa, $order);
+        $clean_wa   = preg_replace('/[^0-9]/', '', $wa_number);
+        $wa_text    = self::generate_order_whatsapp_message($order, $clean_alias);
         $whatsapp_url = 'https://api.whatsapp.com/send?phone=' . $clean_wa . '&text=' . rawurlencode($wa_text);
 
         return array(

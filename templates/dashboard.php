@@ -45,10 +45,13 @@ if (!defined('ABSPATH')) {
                 </svg>
                 <span><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
             </button>
-                    <!-- Ventas sugeridas (Sales suggestions) -->
-            <button class="caja-tab-btn" data-tab="tab-sales-suggestions" id="caja-tab-nav-sales-suggestions">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
-                <span><?php _e('Ventas sugeridas', 'emp-caja'); ?></span>
+            <!-- Pestaña 3: Configuración -->
+            <button class="caja-tab-btn" data-tab="tab-settings" id="caja-tab-nav-settings">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span><?php _e('Configuración', 'emp-caja'); ?></span>
             </button>
         </nav>
 
@@ -130,9 +133,9 @@ if (!defined('ABSPATH')) {
         <section id="tab-products" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-products.php'; ?>
         </section>
-        <!-- Ventas sugeridas -->
-        <section id="tab-sales-suggestions" class="caja-tab-panel" style="display:none;">
-            <!-- Content will be populated by JavaScript -->
+        <!-- Pestaña 3: Configuración -->
+        <section id="tab-settings" class="caja-tab-panel" style="display:none;">
+            <?php include EMP_CAJA_PATH . 'templates/tab-settings.php'; ?>
         </section>
     </main>
 

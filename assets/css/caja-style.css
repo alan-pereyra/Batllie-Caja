@@ -4166,5 +4166,267 @@ body.caja-modal-locked {
     background: rgba(234, 179, 8, 0.18) !important;
 }
 
+/* ==========================================================================
+   PANTALLA DE CONFIGURACIÓN DE LA CAJA (3RA PANTALLA & WP-ADMIN)
+   ========================================================================== */
+
+.caja-settings-container {
+    max-width: 1050px;
+    margin: 0 auto;
+    padding: 24px 20px 80px 20px;
+    color: var(--caja-text);
+}
+
+.caja-settings-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--caja-card-border);
+}
+
+.caja-settings-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--caja-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.caja-settings-title svg {
+    color: var(--caja-primary);
+    flex-shrink: 0;
+}
+
+.caja-settings-subtitle {
+    margin: 6px 0 0 0;
+    font-size: 0.92rem;
+    color: var(--caja-text-muted);
+}
+
+.caja-settings-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.caja-settings-notice-info {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 24px;
+    color: #93c5fd;
+    font-size: 0.92rem;
+}
+
+.caja-settings-notice-info code {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #38bdf8;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    margin-left: 6px;
+}
+
+.caja-settings-card {
+    background: var(--caja-card-bg);
+    border: 1px solid var(--caja-card-border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.12), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+}
+
+.caja-settings-card-header {
+    padding: 16px 22px;
+    background: rgba(255, 255, 255, 0.025);
+    border-bottom: 1px solid var(--caja-card-border);
+}
+
+.caja-settings-card-header h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--caja-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.caja-card-icon {
+    font-size: 1.25rem;
+}
+
+.caja-settings-card-desc {
+    margin: 4px 0 0 0;
+    font-size: 0.85rem;
+    color: var(--caja-text-muted);
+}
+
+.caja-settings-card-body {
+    padding: 20px 22px;
+}
+
+.caja-settings-container .form-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.caja-settings-container .form-table th {
+    width: 280px;
+    vertical-align: top;
+    text-align: left;
+    padding: 14px 14px 14px 0;
+    color: var(--caja-text);
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.caja-settings-container .form-table td {
+    vertical-align: top;
+    padding: 14px 0;
+    color: var(--caja-text);
+}
+
+.caja-settings-container .form-table tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.caja-settings-container .form-table tr:last-child {
+    border-bottom: none;
+}
+
+.caja-settings-container .description {
+    color: var(--caja-text-muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+    line-height: 1.45;
+}
+
+.caja-settings-container .description code {
+    background: rgba(0, 0, 0, 0.25);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--caja-primary);
+}
+
+.caja-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: var(--caja-text);
+}
+
+.caja-checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--caja-primary);
+}
+
+.caja-settings-container .caja-input,
+.caja-settings-container .caja-select {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--caja-card-border);
+    border-radius: 8px;
+    color: var(--caja-text);
+    padding: 8px 12px;
+    font-size: 0.92rem;
+}
+
+.caja-settings-container .caja-input:focus,
+.caja-settings-container .caja-select:focus {
+    border-color: var(--caja-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.caja-settings-container .regular-text {
+    width: 100%;
+    max-width: 400px;
+}
+
+.caja-settings-container .small-text {
+    width: 90px;
+}
+
+/* wp-color-picker en contenedor oscuro */
+.caja-settings-container .wp-picker-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+.caja-settings-container .wp-color-result.button {
+    height: 32px;
+    padding-left: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--caja-card-border);
+    box-shadow: none;
+    font-size: 0.85rem;
+}
+
+.caja-settings-container .wp-picker-holder {
+    position: absolute;
+    top: 36px;
+    left: 0;
+    z-index: 99999;
+}
+
+.caja-settings-container .wp-picker-default {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--caja-card-border);
+    color: var(--caja-text);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+/* Barra Inferior de Guardar */
+.caja-settings-submit-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 30px;
+    padding: 20px;
+    background: var(--caja-card-bg);
+    border: 1px solid var(--caja-card-border);
+    border-radius: 12px;
+}
+
+.caja-btn-lg {
+    padding: 12px 24px;
+    font-size: 1.05rem;
+}
+
+.caja-settings-feedback {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.caja-settings-feedback.is-success {
+    color: #34d399;
+}
+
+.caja-settings-feedback.is-error {
+    color: #f87171;
+}
+
+.caja-btn.is-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
 
 
