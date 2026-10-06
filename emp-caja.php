@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.54
+ * Version: 1.8.55
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.54');
+define('EMP_CAJA_VERSION', '1.8.55');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -652,7 +652,7 @@ class Batllie_Caja_Plugin {
         ";
         wp_add_inline_style('wp-color-picker', $admin_css);
 
-        $admin_js = "
+        $admin_js = <<<'JS'
         jQuery(document).ready(function($) {
             $('.caja-color-field').wpColorPicker();
 
@@ -676,11 +676,11 @@ class Batllie_Caja_Plugin {
                     return;
                 }
 
-                var chipHtml = '<div class=\"caja-slot-chip\" data-slot=\"' + formatted + '\">' +
-                    '<input type=\"hidden\" name=\"batllie_caja_options[shipping_slots][]\" value=\"' + formatted + '\" />' +
-                    '<span class=\"caja-slot-icon\">🕒</span> ' +
-                    '<span class=\"caja-slot-text\">' + formatted + ' hs</span> ' +
-                    '<button type=\"button\" class=\"caja-slot-remove-btn\" title=\"Eliminar horario\">✕</button>' +
+                var chipHtml = '<div class="caja-slot-chip" data-slot="' + formatted + '">' +
+                    '<input type="hidden" name="batllie_caja_options[shipping_slots][]" value="' + formatted + '" />' +
+                    '<span class="caja-slot-icon">🕒</span> ' +
+                    '<span class="caja-slot-text">' + formatted + ' hs</span> ' +
+                    '<button type="button" class="caja-slot-remove-btn" title="Eliminar horario">✕</button>' +
                 '</div>';
 
                 $('#caja-slots-list').append(chipHtml);
@@ -741,7 +741,7 @@ class Batllie_Caja_Plugin {
                 });
             });
         });
-        ";
+JS;
         wp_add_inline_script('wp-color-picker', $admin_js);
     }
 
