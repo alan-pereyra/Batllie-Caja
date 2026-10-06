@@ -973,6 +973,18 @@ section.woocommerce-bacs-bank-details li.bank_name strong,
     font-weight: 700 !important;
 }
 
+.emp-arial-sans,
+section.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li.account_number strong,
+section.woocommerce-bacs-bank-details ul.wc-bacs-bank-details li.account_number span,
+section.woocommerce-bacs-bank-details li.account_number strong,
+section.woocommerce-bacs-bank-details li.account_number span,
+.woocommerce-bacs-bank-details li.account_number strong,
+.woocommerce-bacs-bank-details li.account_number span,
+.wc-bacs-bank-details li.account_number strong,
+.wc-bacs-bank-details li.account_number span {
+    font-family: Arial, Helvetica, sans-serif !important;
+}
+
 /* ==========================================================================
    Ocultar fila de acciones (Acciones: Pagar / Cancelar) en detalles del pedido
    ========================================================================== */
