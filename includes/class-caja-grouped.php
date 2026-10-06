@@ -88,6 +88,11 @@ class Batllie_Caja_Grouped {
         // Configurar la imagen personalizada de la caja para Cart Blocks / Store API y carrito
         add_filter('woocommerce_cart_item_product', array(__CLASS__, 'filter_cart_item_product_object'), 10, 2);
 
+        // --- CONTEO Y UNIFICACIÓN DE ÍTEMS EN EL CARRITO ---
+        // Filtrar conteo de ítems del carrito para WooCommerce, Store API, Badges y Mini-Cart
+        add_filter('woocommerce_cart_contents_count', array(__CLASS__, 'filter_cart_contents_count'), 20, 1);
+        add_filter('woocommerce_add_to_cart_fragments', array(__CLASS__, 'filter_cart_fragments'), 25, 1);
+
         // Encolar assets de medios en wp-admin para selector de imagen de la caja
         add_action('admin_enqueue_scripts', array(__CLASS__, 'enqueue_admin_media_assets'));
 
@@ -2009,10 +2014,18 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Configurar la imagen personalizada de la caja para Cart Blocks / Store API y carrito
+     * Configurar el nombre y la imagen personalizada de la caja para Cart Blocks / Store API y carrito
      */
     public static function filter_cart_item_product_object($product, $cart_item) {
         if (!empty($cart_item['batllie_extra_box'])) {
+            $custom_name = !empty($cart_item['batllie_box_custom_name']) ? $cart_item['batllie_box_custom_name'] : '';
+            if (!$custom_name && !empty($cart_item['batllie_parent_grouped_id'])) {
+                $custom_name = self::get_extra_box_name($cart_item['batllie_parent_grouped_id']);
+            }
+            if ($custom_name && is_object($product) && method_exists($product, 'set_name')) {
+                $product->set_name($custom_name);
+            }
+
             $img_id = !empty($cart_item['batllie_box_image_id']) ? $cart_item['batllie_box_image_id'] : 0;
             if (!$img_id && !empty($cart_item['batllie_parent_grouped_id'])) {
                 $img_id = get_post_meta($cart_item['batllie_parent_grouped_id'], '_batllie_grouped_box_image_id', true);
@@ -2084,8 +2097,96 @@ class Batllie_Caja_Grouped {
             'i18n' => array(
                 'removeComboTooltip' => __('Eliminar combo completo', 'emp-caja'),
                 'lockedNotice'       => __('La cantidad de este producto está fijada por la caja. Para modificarla, elimina el combo.', 'emp-caja'),
+                'includedFlavors'    => __('Sabores incluidos:', 'emp-caja'),
             ),
         ));
+    }
+
+    /**
+     * Filtrar el conteo de ítems en el carrito para WooCommerce, Store API, Badges y Mini-Cart:
+     * 1. Una caja agrupada (pack) con sus alfajores componentes cuenta estrictamente como 1 solo ítem.
+     * 2. Los alfajores elegidos sueltos (ej: 6 alfajores) cuentan según las unidades elegidas (6),
+     *    y no 7 si se incluye una caja física de packaging a $0.
+     *
+     * @param int $count
+     * @return int
+     */
+    public static function filter_cart_contents_count($count) {
+        if (!function_exists('WC') || !WC()->cart) {
+            return $count;
+        }
+
+        $cart_contents = WC()->cart->get_cart();
+        if (empty($cart_contents)) {
+            return 0;
+        }
+
+        $packs = array();
+        $loose_deduct = 0;
+
+        foreach ($cart_contents as $key => $item) {
+            $pack_id = !empty($item['batllie_pack_instance_id']) ? $item['batllie_pack_instance_id'] : '';
+            $qty     = !empty($item['quantity']) ? (int) $item['quantity'] : 1;
+            $is_box  = !empty($item['batllie_extra_box']);
+            $prod_id = !empty($item['product_id']) ? (int) $item['product_id'] : 0;
+
+            if (!empty($pack_id)) {
+                if (!isset($packs[$pack_id])) {
+                    $packs[$pack_id] = array('has_box' => false, 'box_qty' => 0, 'child_qty' => 0);
+                }
+                if ($is_box) {
+                    $packs[$pack_id]['has_box'] = true;
+                    $packs[$pack_id]['box_qty'] += $qty;
+                } else {
+                    $packs[$pack_id]['child_qty'] += $qty;
+                }
+            } else {
+                // Producto sin pack_id: verificar si es packaging incluido a costo cero
+                $is_pkg = $is_box || ($prod_id && (
+                    $prod_id === (int) get_option('_batllie_packaging_product_id', 0) ||
+                    $prod_id === (int) get_option('_batllie_packing_box_6_id', 0) ||
+                    $prod_id === (int) get_option('_batllie_packing_box_12_id', 0)
+                ));
+                $price = isset($item['data']) ? floatval($item['data']->get_price()) : 0;
+                if ($is_pkg && $price <= 0) {
+                    $loose_deduct += $qty;
+                }
+            }
+        }
+
+        $pack_deduct = 0;
+        foreach ($packs as $pack_info) {
+            if ($pack_info['has_box']) {
+                // La caja de empaque ya cuenta como box_qty (ej: 1).
+                // Todos los alfajores hijos se descuentan para que la caja completa cuente como 1 solo ítem.
+                $pack_deduct += $pack_info['child_qty'];
+            } else {
+                // No hay ítem de caja; todos los alfajores componen 1 pack.
+                // Se descuenta (total_hijos - 1) para que el grupo cuente como 1 solo ítem.
+                $pack_deduct += max(0, $pack_info['child_qty'] - 1);
+            }
+        }
+
+        return max(0, $count - ($pack_deduct + $loose_deduct));
+    }
+
+    /**
+     * Sincronizar fragmentos AJAX de WooCommerce para asegurar que los badges de carrito
+     * (#mini-cart-count y #mini-cart-count-footer) reflejen el conteo unificado.
+     *
+     * @param array $fragments
+     * @return array
+     */
+    public static function filter_cart_fragments($fragments) {
+        if (!function_exists('WC') || !WC()->cart) {
+            return $fragments;
+        }
+
+        $count = WC()->cart->get_cart_contents_count();
+        $fragments['#mini-cart-count'] = '<div id="mini-cart-count" class="emp-mini-cart-count">' . $count . '</div>';
+        $fragments['#mini-cart-count-footer'] = '<div id="mini-cart-count-footer" class="emp-mini-cart-count icon-color">' . $count . '</div>';
+
+        return $fragments;
     }
 }
 

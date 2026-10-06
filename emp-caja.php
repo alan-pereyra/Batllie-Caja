@@ -65,6 +65,10 @@ class Batllie_Caja_Plugin {
         add_action('wp_head', array($this, 'render_mobile_cart_redirect_script'), 1);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
 
+        // Garantizar traducciones al español argentino para textos clave de WooCommerce y bloques de carrito/checkout
+        add_filter('gettext', array($this, 'filter_woocommerce_translations'), 20, 3);
+        add_filter('ngettext', array($this, 'filter_woocommerce_translations_plural'), 20, 5);
+
         // Admin hooks
         if (is_admin()) {
             add_action('admin_menu', array($this, 'add_admin_menu'));
@@ -186,6 +190,47 @@ class Batllie_Caja_Plugin {
             EMP_CAJA_VERSION,
             true
         );
+    }
+
+    /**
+     * Filtrar traducciones de WooCommerce para carrito, checkout y badges
+     */
+    public function filter_woocommerce_translations($translation, $text, $domain) {
+        if ($domain === 'woocommerce' || empty($domain)) {
+            switch ($text) {
+                case 'Proceed to Checkout':
+                    return 'Finalizar compra';
+                case 'Add coupons':
+                case 'Añadir cupones':
+                    return 'Agregar cupón';
+                case 'Estimated total':
+                    return 'Total estimado';
+                case 'Free':
+                case 'FREE':
+                    return 'Gratis';
+                case 'Save %s':
+                    return 'Ahorrás %s';
+                case 'Save':
+                    return 'Ahorro';
+                case 'Place Order':
+                    return 'Realizar pedido';
+                case 'Payment options':
+                    return 'Medios de pago';
+            }
+        }
+        return $translation;
+    }
+
+    /**
+     * Filtrar traducciones plurales de WooCommerce
+     */
+    public function filter_woocommerce_translations_plural($translation, $single, $plural, $number, $domain) {
+        if ($domain === 'woocommerce' || empty($domain)) {
+            if ($single === 'Save %s') {
+                return 'Ahorrás %s';
+            }
+        }
+        return $translation;
     }
 
     /**
