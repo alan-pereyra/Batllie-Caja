@@ -69,12 +69,23 @@ class Batllie_Caja_Plugin {
         add_filter('gettext', array($this, 'filter_woocommerce_translations'), 20, 3);
         add_filter('ngettext', array($this, 'filter_woocommerce_translations_plural'), 20, 5);
 
+        // Sincronizar número de WhatsApp en theme mods si el tema lo usa
+        add_filter('theme_mod_emp_components_nav_wsp_numb', array($this, 'filter_theme_whatsapp_number'));
+
         // Admin hooks
         if (is_admin()) {
             add_action('admin_menu', array($this, 'add_admin_menu'));
             add_action('admin_init', array($this, 'register_settings'));
             add_action('admin_enqueue_scripts', array($this, 'admin_assets'));
         }
+    }
+
+    /**
+     * Sincronizar número de WhatsApp configurado con el tema
+     */
+    public function filter_theme_whatsapp_number($val) {
+        $options = self::get_color_settings();
+        return !empty($options['whatsapp_number']) ? $options['whatsapp_number'] : $val;
     }
 
     /**
@@ -145,6 +156,7 @@ class Batllie_Caja_Plugin {
             'status_recibido_problema'  => '#ea580c', // 5. Recibido con inconvenientes (naranja)
             'status_cancelled'          => '#ef4444', // 6. Cancelado (rojo)
             'status_refunded'           => '#64748b', // 7. Reembolzado (gris pizarra)
+            'whatsapp_number'           => '5491149472377', // WhatsApp de contacto y comprobantes
             'poll_interval'             => 10,        // Segundos de sondeo
             'sound_enabled'             => 'yes',     // Sonido activo por defecto
             'force_isolated'            => 'yes',     // Ocultar cabeceras y pie del tema en la vista
@@ -171,7 +183,7 @@ class Batllie_Caja_Plugin {
         wp_register_style(
             'batllie-caja-css',
             EMP_CAJA_URL . 'assets/css/caja-style.css',
-            array(),
+            array('wp-color-picker'),
             EMP_CAJA_VERSION
         );
 
@@ -186,7 +198,7 @@ class Batllie_Caja_Plugin {
         wp_register_script(
             'batllie-caja-app',
             EMP_CAJA_URL . 'assets/js/caja-app.js',
-            array('jquery', 'batllie-caja-audio'),
+            array('jquery', 'batllie-caja-audio', 'wp-color-picker'),
             EMP_CAJA_VERSION,
             true
         );
@@ -246,7 +258,9 @@ class Batllie_Caja_Plugin {
             wp_enqueue_media();
         }
 
-        // Encolar assets
+        // Encolar assets y color picker
+        wp_enqueue_style('wp-color-picker');
+        wp_enqueue_script('wp-color-picker');
         wp_enqueue_style('batllie-caja-css');
         wp_enqueue_script('batllie-caja-audio');
         wp_enqueue_script('batllie-caja-app');
@@ -437,6 +451,10 @@ class Batllie_Caja_Plugin {
             }
         }
 
+        $output['whatsapp_number']      = isset($input['whatsapp_number']) ? preg_replace('/[^0-9]/', '', trim($input['whatsapp_number'])) : '5491149472377';
+        if (empty($output['whatsapp_number'])) {
+            $output['whatsapp_number'] = '5491149472377';
+        }
         $output['poll_interval']        = isset($input['poll_interval']) ? max(5, intval($input['poll_interval'])) : 10;
         $output['sound_enabled']        = (isset($input['sound_enabled']) && $input['sound_enabled'] === 'yes') ? 'yes' : 'no';
         $output['force_isolated']       = (isset($input['force_isolated']) && $input['force_isolated'] === 'yes') ? 'yes' : 'no';
@@ -445,15 +463,19 @@ class Batllie_Caja_Plugin {
         $output['packing_stock_sync']   = (isset($input['packing_stock_sync']) && $input['packing_stock_sync'] === 'no') ? 'no' : 'yes';
 
         if (isset($input['box_6_product_id']) && class_exists('Batllie_Caja_Packing') && intval($input['box_6_product_id']) > 0) {
+            $output['box_6_product_id'] = intval($input['box_6_product_id']);
             Batllie_Caja_Packing::set_official_box_id(6, intval($input['box_6_product_id']));
         }
         if (isset($input['box_12_product_id']) && class_exists('Batllie_Caja_Packing') && intval($input['box_12_product_id']) > 0) {
+            $output['box_12_product_id'] = intval($input['box_12_product_id']);
             Batllie_Caja_Packing::set_official_box_id(12, intval($input['box_12_product_id']));
         }
         if (isset($input['stock_box_6']) && class_exists('Batllie_Caja_Packing')) {
+            $output['stock_box_6'] = intval($input['stock_box_6']);
             Batllie_Caja_Packing::set_box_stock(6, intval($input['stock_box_6']));
         }
         if (isset($input['stock_box_12']) && class_exists('Batllie_Caja_Packing')) {
+            $output['stock_box_12'] = intval($input['stock_box_12']);
             Batllie_Caja_Packing::set_box_stock(12, intval($input['stock_box_12']));
         }
 
@@ -461,205 +483,12 @@ class Batllie_Caja_Plugin {
     }
 
     /**
-     * Vista de Configuración de Colores en el Admin
+     * Vista de Configuración de Colores y Opciones en el Admin de WordPress
      */
     public function render_admin_settings() {
-        $options = self::get_color_settings();
         ?>
-        <div class="wrap" style="max-width: 900px;">
-            <h1><span class="dashicons dashicons-store" style="font-size:30px; margin-right:10px;"></span> <?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></h1>
-            <p><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados y comportamiento del sonido.', 'emp-caja'); ?></p>
-
-            <div class="notice notice-info" style="padding: 12px; margin-bottom: 20px;">
-                <strong><?php _e('Uso en tu sitio:', 'emp-caja'); ?></strong>
-                <?php _e('Crea una página nueva en WordPress y pega el shortcode:', 'emp-caja'); ?>
-                <code>[batllie_caja]</code>
-            </div>
-
-            <form method="post" action="options.php">
-                <?php settings_fields('batllie_caja_settings_group'); ?>
-
-                <h2><?php _e('🎨 Colores Generales del Panel', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Color de Fondo Principal', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[bg_color]" value="<?php echo esc_attr($options['bg_color']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Color Barra Superior / Header', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[header_bg]" value="<?php echo esc_attr($options['header_bg']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Color de Tarjetas / Paneles', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[card_bg]" value="<?php echo esc_attr($options['card_bg']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Borde de Tarjetas', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[card_border]" value="<?php echo esc_attr($options['card_border']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Color de Texto Principal', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[text_color]" value="<?php echo esc_attr($options['text_color']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Color de Texto Secundario', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[text_muted]" value="<?php echo esc_attr($options['text_muted']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                </table>
-
-                <h2><?php _e('🔘 Botones y Acentos', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Botón Primario / Acento', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[primary_color]" value="<?php echo esc_attr($options['primary_color']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Botón Primario (Hover)', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[primary_hover]" value="<?php echo esc_attr($options['primary_hover']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Color Texto de Botones', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[btn_text]" value="<?php echo esc_attr($options['btn_text']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                </table>
-
-                <h2><?php _e('🏷️ Colores de Estados de Pedido', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('1. Pendiente', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_pending]" value="<?php echo esc_attr($options['status_pending']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('2. En preparación', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_processing]" value="<?php echo esc_attr($options['status_processing']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('3. Enviando', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_enviando]" value="<?php echo esc_attr($options['status_enviando']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('4. Completado', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_completed]" value="<?php echo esc_attr($options['status_completed']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('5. Recibido (con inconvenientes)', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_recibido_problema]" value="<?php echo esc_attr($options['status_recibido_problema']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('6. Cancelado', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_cancelled]" value="<?php echo esc_attr($options['status_cancelled']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('7. Reembolzado', 'emp-caja'); ?></th>
-                        <td><input type="text" name="batllie_caja_options[status_refunded]" value="<?php echo esc_attr($options['status_refunded']); ?>" class="caja-color-field" /></td>
-                    </tr>
-                </table>
-
-                <h2><?php _e('⚙️ Opciones de Notificación y Visualización', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Frecuencia de Actualización', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" min="5" max="60" name="batllie_caja_options[poll_interval]" value="<?php echo esc_attr($options['poll_interval']); ?>" class="small-text" /> 
-                            <span><?php _e('segundos (comprueba nuevos pedidos en segundo plano).', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Sonido Activo por Defecto', 'emp-caja'); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="batllie_caja_options[sound_enabled]" value="yes" <?php checked($options['sound_enabled'], 'yes'); ?> />
-                                <?php _e('Reproducir campana sonora al ingresar un nuevo pedido', 'emp-caja'); ?>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Modo Vista Aislada', 'emp-caja'); ?></th>
-                        <td>
-                            <label>
-                                <input type="checkbox" name="batllie_caja_options[force_isolated]" value="yes" <?php checked($options['force_isolated'], 'yes'); ?> />
-                                <?php _e('Ocultar automáticamente menús, cabecera y pie de página del tema en la página de caja', 'emp-caja'); ?>
-                            </label>
-                        </td>
-                    </tr>
-                </table>
-
-                <h2><?php _e('🛒 Mínimo de Compra en la Tienda', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Monto Mínimo de Compra ($)', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" step="any" min="0" name="batllie_caja_options[min_purchase_amount]" value="<?php echo esc_attr($options['min_purchase_amount'] ?? 0); ?>" class="regular-text" placeholder="0 (desactivado)" />
-                            <p class="description">
-                                <?php _e('Define el importe mínimo que debe sumar el carrito para que un cliente pueda ir a pagar. Si no alcanza este monto, el sistema le impedirá finalizar la compra y le indicará en una alerta y en el carrito exactamente cuánto le falta para llegar al mínimo. Coloca 0 o déjalo vacío para desactivar la restricción.', 'emp-caja'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-
-                <h2><?php _e('📦 Control de Stock de Cajas y Empaque de Alfajores', 'emp-caja'); ?></h2>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Prioridad de Llenado de Cajas', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[packing_priority]">
-                                <option value="12" <?php selected($options['packing_priority'] ?? '12', '12'); ?>><?php _e('Priorizar Cajas de 12 primero (Experiencia Premium, recomendada)', 'emp-caja'); ?></option>
-                                <option value="6" <?php selected($options['packing_priority'] ?? '12', '6'); ?>><?php _e('Priorizar Cajas de 6 primero', 'emp-caja'); ?></option>
-                            </select>
-                            <p class="description">
-                                <?php _e('Define cómo se agrupan los alfajores sueltos en el carrito. Si se eligen 15 alfajores con prioridad 12, se formará 1 Caja de 12 y quedarán 3 alfajores sueltos.', 'emp-caja'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <?php 
-                    $candidates = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array();
-                    $b6_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
-                    $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
-                    ?>
-                    <tr>
-                        <th scope="row"><?php _e('Producto: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[box_6_product_id]" style="max-width: 350px;">
-                                <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b6_id); ?>>
-                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 6 unidades.', 'emp-caja'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" min="0" name="batllie_caja_options[stock_box_6]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(6) : 0); ?>" class="small-text" /> 
-                            <span><?php _e('cajas físicas de 6 disponibles en depósito.', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Producto: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[box_12_product_id]" style="max-width: 350px;">
-                                <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b12_id); ?>>
-                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 12 unidades.', 'emp-caja'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" min="0" name="batllie_caja_options[stock_box_12]" value="<?php echo esc_attr(class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(12) : 0); ?>" class="small-text" /> 
-                            <span><?php _e('cajas físicas de 12 disponibles en depósito.', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                </table>
-
-                <?php submit_button(__('Guardar Cambios de Configuración', 'emp-caja')); ?>
-            </form>
+        <div class="wrap caja-admin-settings-wrap" style="max-width: 1000px;">
+            <?php include EMP_CAJA_PATH . 'templates/tab-settings.php'; ?>
         </div>
         <?php
     }

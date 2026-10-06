@@ -41,6 +41,8 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_add_packing_theme', array(__CLASS__, 'ajax_add_packing_theme'));
         add_action('wp_ajax_emp_caja_delete_packing_theme', array(__CLASS__, 'ajax_delete_packing_theme'));
         add_action('wp_ajax_emp_caja_set_order_packing_theme', array(__CLASS__, 'ajax_set_order_packing_theme'));
+        // Guardar configuración del plugin
+        add_action('wp_ajax_emp_caja_save_settings', array(__CLASS__, 'ajax_save_settings'));
     }
 
     /**
@@ -450,6 +452,39 @@ class Batllie_Caja_Ajax {
             ));
         } else {
             wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Guardar configuración general, colores, WhatsApp y control de stock
+     */
+    public static function ajax_save_settings() {
+        self::check_auth();
+
+        $raw_input = isset($_POST['batllie_caja_options']) && is_array($_POST['batllie_caja_options']) 
+            ? wp_unslash($_POST['batllie_caja_options']) 
+            : array();
+
+        // En caso de que se haya enviado como campos planos (serializeArray)
+        if (empty($raw_input)) {
+            foreach ($_POST as $k => $v) {
+                if (preg_match('/^batllie_caja_options\[(.*?)\]$/', $k, $matches)) {
+                    $raw_input[$matches[1]] = wp_unslash($v);
+                }
+            }
+        }
+
+        if (class_exists('Batllie_Caja_Plugin')) {
+            $plugin = Batllie_Caja_Plugin::get_instance();
+            $sanitized = $plugin->sanitize_settings($raw_input);
+            update_option('batllie_caja_options', $sanitized);
+
+            wp_send_json_success(array(
+                'message'  => __('Configuración guardada exitosamente.', 'emp-caja'),
+                'settings' => $sanitized
+            ));
+        } else {
+            wp_send_json_error(array('message' => __('Error: Plugin no inicializado.', 'emp-caja')));
         }
     }
 

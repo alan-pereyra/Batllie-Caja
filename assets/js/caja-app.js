@@ -64,11 +64,13 @@
             if (this.config.isUserLoggedIn) {
                 this.initDashboard();
 
-                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos)
+                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos, #configuracion)
                 const urlParams = new URLSearchParams(window.location.search);
                 const hash = window.location.hash.toLowerCase();
                 if (hash === '#productos' || hash === '#tab-products' || urlParams.get('tab') === 'productos' || urlParams.get('tab') === 'products') {
                     this.switchTab('tab-products');
+                } else if (hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') {
+                    this.switchTab('tab-settings');
                 }
             }
         },
@@ -1258,6 +1260,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 const h = window.location.hash.toLowerCase();
                 if (h === '#productos' || h === '#tab-products') {
                     if (self.activeTab !== 'tab-products') self.switchTab('tab-products');
+                } else if (h === '#configuracion' || h === '#tab-settings') {
+                    if (self.activeTab !== 'tab-settings') self.switchTab('tab-settings');
                 } else if (h === '#pedidos' || h === '#tab-orders' || !h) {
                     if (self.activeTab !== 'tab-orders') self.switchTab('tab-orders');
                 }
@@ -1482,7 +1486,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
             // Actualizar el botón 'En Vivo' / 'Ir a Caja' en la misma posición exacta
             const $livePill = $('#caja-live-status');
-            if (tabId === 'tab-products') {
+            if (tabId === 'tab-products' || tabId === 'tab-settings') {
                 $livePill.addClass('caja-live-pill-products');
                 $livePill.attr('title', 'Toca para ir a la Caja');
                 $livePill.html(`
@@ -1501,7 +1505,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
             const $toggleBtn = $('#caja-btn-screen-toggle');
             if ($toggleBtn.length) {
-                if (tabId === 'tab-products') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings') {
                     const count = this.cachedOrders ? this.cachedOrders.length : 0;
                     $toggleBtn.addClass('active-in-products');
                     $toggleBtn.html(`
@@ -1522,13 +1526,17 @@ $('#caja-modal-new-product').fadeIn(200);
 
             // Actualizar URL hash para navegación y marcadores directos
             if (window.history && window.history.replaceState) {
-                const newHash = tabId === 'tab-products' ? '#productos' : '#pedidos';
+                let newHash = '#pedidos';
+                if (tabId === 'tab-products') newHash = '#productos';
+                else if (tabId === 'tab-settings') newHash = '#configuracion';
                 window.history.replaceState(null, null, newHash);
             }
 
             if (tabId === 'tab-products' && !this.isProductsLoaded) {
                 this.loadProducts();
                 this.loadCategories();
+            } else if (tabId === 'tab-settings') {
+                this.initSettingsTab();
             }
         },
 
@@ -4574,6 +4582,104 @@ $('#caja-modal-new-product').fadeIn(200);
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
+        },
+
+        initSettingsTab: function() {
+            const self = this;
+
+            // Inicializar wpColorPicker en los campos de color si está disponible
+            if ($.fn.wpColorPicker) {
+                $('#tab-settings .caja-color-field').each(function() {
+                    if (!$(this).data('wpWpColorPicker')) {
+                        $(this).wpColorPicker();
+                    }
+                });
+            }
+
+            // Eventos de guardado
+            $('#caja-settings-form').off('submit.cajaSettings').on('submit.cajaSettings', function(e) {
+                e.preventDefault();
+                self.saveSettings();
+            });
+
+            $('.caja-btn-save-settings').off('click.cajaSettings').on('click.cajaSettings', function(e) {
+                e.preventDefault();
+                self.saveSettings();
+            });
+        },
+
+        saveSettings: function() {
+            const self = this;
+            const $form = $('#caja-settings-form');
+            const $btns = $('.caja-btn-save-settings');
+            const $feedback = $('#caja-settings-feedback');
+
+            $btns.prop('disabled', true).addClass('is-loading');
+            $feedback.removeClass('is-success is-error').text('Guardando configuración...').fadeIn(150);
+
+            const formData = $form.serialize();
+
+            $.ajax({
+                url: batllieCajaConfig.ajaxUrl,
+                type: 'POST',
+                data: formData,
+                dataType: 'json',
+                success: function(res) {
+                    $btns.prop('disabled', false).removeClass('is-loading');
+                    if (res && res.success) {
+                        const msg = (res.data && res.data.message) ? res.data.message : 'Configuración guardada exitosamente.';
+                        $feedback.addClass('is-success').text('✅ ' + msg);
+                        self.showToast('✅ ' + msg);
+
+                        if (res.data && res.data.settings) {
+                            self.applyLiveSettings(res.data.settings);
+                        }
+
+                        setTimeout(function() {
+                            $feedback.fadeOut(400);
+                        }, 4000);
+                    } else {
+                        const err = (res && res.data && res.data.message) ? res.data.message : 'Error al guardar la configuración.';
+                        $feedback.addClass('is-error').text('❌ ' + err);
+                        self.showToast('❌ ' + err);
+                    }
+                },
+                error: function() {
+                    $btns.prop('disabled', false).removeClass('is-loading');
+                    $feedback.addClass('is-error').text('❌ Error de comunicación con el servidor.');
+                    self.showToast('❌ Error de comunicación con el servidor.');
+                }
+            });
+        },
+
+        applyLiveSettings: function(s) {
+            if (!s) return;
+            const root = document.documentElement;
+
+            if (s.bg_color) root.style.setProperty('--caja-bg', s.bg_color);
+            if (s.header_bg) root.style.setProperty('--caja-header-bg', s.header_bg);
+            if (s.card_bg) root.style.setProperty('--caja-card-bg', s.card_bg);
+            if (s.card_border) root.style.setProperty('--caja-card-border', s.card_border);
+            if (s.text_color) root.style.setProperty('--caja-text', s.text_color);
+            if (s.text_muted) root.style.setProperty('--caja-text-muted', s.text_muted);
+            if (s.primary_color) root.style.setProperty('--caja-primary', s.primary_color);
+            if (s.primary_hover) root.style.setProperty('--caja-primary-hover', s.primary_hover);
+            if (s.btn_text) root.style.setProperty('--caja-btn-text', s.btn_text);
+            if (s.status_pending) root.style.setProperty('--caja-status-pending', s.status_pending);
+            if (s.status_processing) root.style.setProperty('--caja-status-processing', s.status_processing);
+            if (s.status_enviando) root.style.setProperty('--caja-status-enviando', s.status_enviando);
+            if (s.status_completed) root.style.setProperty('--caja-status-completed', s.status_completed);
+            if (s.status_recibido_problema) root.style.setProperty('--caja-status-recibido-problema', s.status_recibido_problema);
+            if (s.status_cancelled) root.style.setProperty('--caja-status-cancelled', s.status_cancelled);
+            if (s.status_refunded) root.style.setProperty('--caja-status-refunded', s.status_refunded);
+
+            if (s.poll_interval && typeof batllieCajaConfig !== 'undefined') {
+                batllieCajaConfig.pollInterval = parseInt(s.poll_interval, 10) * 1000;
+                if (this.pollTimer) {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = setInterval(this.pollNewOrders.bind(this), batllieCajaConfig.pollInterval);
+                }
+            }
         }
     };
 
