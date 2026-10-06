@@ -705,15 +705,20 @@ if (!defined('ABSPATH')) {
                             <small class="caja-form-hint"><?php _e('Caja física de empaque cuyo inventario limitará y se descontará automáticamente al vender este pack o combo.', 'emp-caja'); ?></small>
                         </div>
 
-                        <!-- Precio Fijo del Combo / Caja -->
+                        <!-- Cálculo del Precio de la Caja / Combo -->
                         <div class="caja-form-group">
-                            <label for="edit-grouped-fixed-price"><strong><?php _e('Precio Fijo del Combo / Caja ($)', 'emp-caja'); ?></strong></label>
-                            <input type="number" step="0.01" min="0" id="edit-grouped-fixed-price" name="grouped_fixed_price" placeholder="<?php esc_attr_e('Ej: 17500 (opcional)', 'emp-caja'); ?>" />
-                            <small class="caja-form-hint"><?php _e('Si defines un precio fijo, la caja/combo se cobrará exactamente a este importe final sin importar los productos individuales que agrupe ni la cantidad.', 'emp-caja'); ?></small>
+                            <label for="edit-grouped-pricing-type"><strong>💰 <?php _e('Cálculo del Precio de la Caja / Combo', 'emp-caja'); ?></strong></label>
+                            <select id="edit-grouped-pricing-type" name="grouped_pricing_type" class="caja-select">
+                                <option value="fixed"><?php _e('🎁 Precio fijo del combo (Toma el Precio Regular de arriba)', 'emp-caja'); ?></option>
+                                <option value="variable"><?php _e('🔢 Precio variable (Calculado según los alfajores que introduce)', 'emp-caja'); ?></option>
+                            </select>
+                            <small class="caja-form-hint" id="edit-grouped-pricing-type-hint">
+                                <?php _e('Elegí si la caja se cobra al precio fijo establecido arriba en "Precio Regular", o si el precio total varía sumando el costo de los alfajores que el cliente elija.', 'emp-caja'); ?>
+                            </small>
                         </div>
 
                         <!-- Desglose del precio fijo -->
-                        <div class="caja-form-group">
+                        <div class="caja-form-group" id="edit-grouped-fixed-display-group">
                             <label for="edit-grouped-fixed-price-display"><strong><?php _e('Desglose del precio fijo', 'emp-caja'); ?></strong></label>
                             <select id="edit-grouped-fixed-price-display" name="grouped_fixed_price_display" class="caja-select">
                                 <option value="box"><?php _e('Asignar precio total a la Caja (Alfajores figuran a $0 incluidos)', 'emp-caja'); ?></option>

@@ -1135,6 +1135,15 @@ $('#caja-modal-new-product').fadeIn(200);
                 $(this).hide();
             });
 
+            // Toggle desglose de precio fijo al cambiar tipo de precio de la caja agrupada
+            $('#edit-grouped-pricing-type').on('change', function() {
+                if ($(this).val() === 'variable') {
+                    $('#edit-grouped-fixed-display-group').slideUp(150);
+                } else {
+                    $('#edit-grouped-fixed-display-group').slideDown(150);
+                }
+            });
+
             // Eventos para Producto Variable: Añadir atributo, eliminar, generar variaciones
             $('#caja-btn-add-attribute').on('click', function(e) {
                 e.preventDefault();
@@ -4156,8 +4165,13 @@ $('#caja-modal-new-product').fadeIn(200);
             // Datos de Configuración de Pack Agrupado
             $('#edit-grouped-target-qty').val(p.grouped_target_qty !== undefined && p.grouped_target_qty !== null ? p.grouped_target_qty : '');
             $('#edit-grouped-enable-extra-box').prop('checked', !!p.grouped_enable_extra_box);
-            $('#edit-grouped-extra-box-name').val(p.grouped_extra_box_name || '');
-            $('#edit-grouped-fixed-price').val(p.grouped_fixed_price || '');
+            const pricingType = p.grouped_pricing_type || ((p.grouped_fixed_price && parseFloat(p.grouped_fixed_price) > 0) ? 'fixed' : 'variable');
+            $('#edit-grouped-pricing-type').val(pricingType);
+            if (pricingType === 'variable') {
+                $('#edit-grouped-fixed-display-group').hide();
+            } else {
+                $('#edit-grouped-fixed-display-group').show();
+            }
             $('#edit-grouped-fixed-price-display').val(p.grouped_fixed_price_display || 'box');
             $('#edit-grouped-custom-price-from').val(p.grouped_custom_price_from || '');
             $('#edit-grouped-box-image-id').val(p.grouped_box_image_id || '');
@@ -4321,7 +4335,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 productData.grouped_target_qty = $('#edit-grouped-target-qty').val();
                 productData.grouped_enable_extra_box = $('#edit-grouped-enable-extra-box').is(':checked') ? 'yes' : 'no';
                 productData.grouped_extra_box_name = $('#edit-grouped-extra-box-name').val();
-                productData.grouped_fixed_price = $('#edit-grouped-fixed-price').val();
+                const pricingType = $('#edit-grouped-pricing-type').val() || 'fixed';
+                productData.grouped_pricing_type = pricingType;
+                productData.grouped_fixed_price = (pricingType === 'fixed') ? $('#edit-prod-price').val() : '';
                 productData.grouped_fixed_price_display = $('#edit-grouped-fixed-price-display').val();
                 productData.grouped_custom_price_from = $('#edit-grouped-custom-price-from').val();
                 productData.grouped_box_image_id = $('#edit-grouped-box-image-id').val();

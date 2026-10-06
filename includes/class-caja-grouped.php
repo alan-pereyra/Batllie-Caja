@@ -122,9 +122,20 @@ class Batllie_Caja_Grouped {
             return 0;
         }
 
+        $pricing_type = get_post_meta($product->get_id(), '_batllie_grouped_pricing_type', true);
+        if ($pricing_type === 'variable') {
+            return 0;
+        }
+
         $val = get_post_meta($product->get_id(), '_batllie_grouped_fixed_price', true);
         if ($val !== '' && is_numeric($val) && floatval($val) > 0) {
             return floatval($val);
+        }
+
+        // Si no está fijado en _batllie_grouped_fixed_price pero hay _regular_price
+        $reg = get_post_meta($product->get_id(), '_regular_price', true);
+        if ($reg !== '' && is_numeric($reg) && floatval($reg) > 0 && $pricing_type !== 'variable') {
+            return floatval($reg);
         }
 
         return 0;
@@ -1270,7 +1281,21 @@ class Batllie_Caja_Grouped {
             return;
         }
 
-        $initial_price_html = $fixed_price > 0 ? wc_price($fixed_price) : wc_price(0);
+        if ($fixed_price > 0) {
+            $initial_price_html = wc_price($fixed_price);
+        } elseif ($is_predefined) {
+            $predefined_qtys = self::get_predefined_quantities($product);
+            $sum_var = 0;
+            foreach ($predefined_qtys as $cid => $q) {
+                $cp = wc_get_product($cid);
+                if ($cp) {
+                    $sum_var += $q * floatval($cp->get_price());
+                }
+            }
+            $initial_price_html = wc_price($sum_var);
+        } else {
+            $initial_price_html = wc_price(0);
+        }
         $box_heading = $is_predefined ? __('Combo Batllié', 'emp-caja') : __('Armá tu caja', 'emp-caja');
         $box_badge   = $is_predefined ? __('¡Combo listo!', 'emp-caja') : ($target_qty > 0 ? __('Caja vacía', 'emp-caja') : __('Personaliza tu selección', 'emp-caja'));
         ?>
