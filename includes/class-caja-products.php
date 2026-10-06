@@ -154,6 +154,10 @@ class Batllie_Caja_Products {
         $grouped_enable_extra_box = get_post_meta($product->get_id(), '_batllie_grouped_enable_extra_box', true);
         $grouped_extra_box_name   = get_post_meta($product->get_id(), '_batllie_grouped_extra_box_name', true);
         $grouped_fixed_price      = get_post_meta($product->get_id(), '_batllie_grouped_fixed_price', true);
+        $grouped_pricing_type     = get_post_meta($product->get_id(), '_batllie_grouped_pricing_type', true);
+        if (empty($grouped_pricing_type)) {
+            $grouped_pricing_type = (!empty($grouped_fixed_price) && floatval($grouped_fixed_price) > 0) ? 'fixed' : 'variable';
+        }
         $grouped_fixed_price_display = get_post_meta($product->get_id(), '_batllie_grouped_fixed_price_display', true) ?: 'box';
         $grouped_custom_price_from   = get_post_meta($product->get_id(), '_batllie_grouped_custom_price_from', true);
         $grouped_box_image_id     = get_post_meta($product->get_id(), '_batllie_grouped_box_image_id', true);
@@ -213,7 +217,9 @@ class Batllie_Caja_Products {
             'sku'                      => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
             'price'                    => wc_price($product->get_price()),
             'price_raw'                => (float) $product->get_price(),
-            'regular_price'            => $product->get_regular_price(),
+            'regular_price'            => ($product->get_regular_price() !== '' && $product->get_regular_price() !== null) 
+                                            ? $product->get_regular_price() 
+                                            : ($product->is_type('grouped') ? ($grouped_fixed_price ?: get_post_meta($product->get_id(), '_regular_price', true) ?: '') : ''),
             'sale_price'               => $product->get_sale_price(),
             'is_on_sale'               => $product->is_on_sale(),
             'categories'               => implode(', ', $category_names),
@@ -246,6 +252,7 @@ class Batllie_Caja_Products {
             'grouped_target_qty'       => $grouped_target_qty !== '' ? $grouped_target_qty : '',
             'grouped_enable_extra_box' => $grouped_enable_extra_box === 'yes',
             'grouped_extra_box_name'   => $grouped_extra_box_name,
+            'grouped_pricing_type'     => $grouped_pricing_type,
             'grouped_fixed_price'      => $grouped_fixed_price,
             'grouped_fixed_price_display' => $grouped_fixed_price_display,
             'grouped_custom_price_from'   => $grouped_custom_price_from,
@@ -632,7 +639,33 @@ class Batllie_Caja_Products {
             }
         }
 
-        if (isset($data['grouped_fixed_price'])) {
+        // Tipo de cálculo de precio de la caja agrupada y sincronización con el Precio Regular de arriba
+        if (isset($data['grouped_pricing_type'])) {
+            $p_type = sanitize_key($data['grouped_pricing_type']);
+            update_post_meta($product_id, '_batllie_grouped_pricing_type', $p_type);
+
+            if ($p_type === 'fixed') {
+                $reg_to_use = isset($data['regular_price']) && $data['regular_price'] !== '' ? wc_format_decimal($data['regular_price']) : floatval($product->get_regular_price());
+                if ($reg_to_use > 0) {
+                    update_post_meta($product_id, '_batllie_grouped_fixed_price', $reg_to_use);
+                    update_post_meta($product_id, '_regular_price', $reg_to_use);
+                    update_post_meta($product_id, '_price', $reg_to_use);
+                }
+            } else {
+                delete_post_meta($product_id, '_batllie_grouped_fixed_price');
+            }
+        } elseif ($product->is_type('grouped') && isset($data['regular_price'])) {
+            $p_type = get_post_meta($product_id, '_batllie_grouped_pricing_type', true);
+            if ($p_type !== 'variable') {
+                $reg_to_use = wc_format_decimal($data['regular_price']);
+                if ($reg_to_use > 0) {
+                    update_post_meta($product_id, '_batllie_grouped_fixed_price', $reg_to_use);
+                    update_post_meta($product_id, '_batllie_grouped_pricing_type', 'fixed');
+                    update_post_meta($product_id, '_regular_price', $reg_to_use);
+                    update_post_meta($product_id, '_price', $reg_to_use);
+                }
+            }
+        } elseif (isset($data['grouped_fixed_price'])) {
             $fix_p = sanitize_text_field($data['grouped_fixed_price']);
             if ($fix_p === '') {
                 delete_post_meta($product_id, '_batllie_grouped_fixed_price');
