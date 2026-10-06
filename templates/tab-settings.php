@@ -19,49 +19,58 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
 ?>
 
 <div class="caja-settings-container">
-    <!-- Barra Superior de Configuración -->
-    <div class="caja-settings-topbar">
-        <div class="caja-settings-title-group">
-            <h1 class="caja-settings-title">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                <span><?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
-            </h1>
-            <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes y control de stock de empaques.', 'emp-caja'); ?></p>
-        </div>
-
-        <div class="caja-settings-topbar-actions">
-            <?php if (!$is_admin): ?>
-            <button type="button" class="caja-btn caja-btn-secondary caja-btn-screen-switch" data-target="tab-orders" title="<?php esc_attr_e('Volver a la pantalla de Pedidos en Vivo', 'emp-caja'); ?>">
-                <span class="caja-btn-arrow">⬅</span>
-                <span class="caja-btn-icon">📋</span>
-                <span><?php _e('Volver a Pedidos', 'emp-caja'); ?></span>
-            </button>
-            <?php endif; ?>
-
-            <button type="button" class="caja-btn caja-btn-primary caja-btn-save-settings" id="caja-btn-save-settings-top">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                <span><?php _e('Guardar Cambios', 'emp-caja'); ?></span>
-            </button>
-        </div>
+    <?php if ($is_admin && isset($_GET['settings-updated']) && $_GET['settings-updated'] == 'true'): ?>
+    <div class="caja-alert caja-alert-success" style="margin-bottom: 20px; padding: 14px 18px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 8px; color: #10b981; font-weight: 600; display: flex; align-items: center; gap: 10px; font-size: 14px;">
+        <span style="font-size: 18px;">✅</span>
+        <span><?php _e('¡Configuración guardada exitosamente!', 'emp-caja'); ?></span>
     </div>
-
-    <div class="caja-settings-notice-info">
-        <strong><?php _e('Uso en tu sitio:', 'emp-caja'); ?></strong>
-        <?php _e('Crea una página nueva en WordPress y pega el shortcode:', 'emp-caja'); ?>
-        <code>[batllie_caja]</code>
-    </div>
+    <?php endif; ?>
 
     <form method="post" id="caja-settings-form" action="<?php echo esc_url(admin_url('options.php')); ?>">
         <?php if ($is_admin) { settings_fields('batllie_caja_settings_group'); } ?>
+        <?php if (!$is_admin): ?>
         <input type="hidden" name="action" value="emp_caja_save_settings" />
+        <?php endif; ?>
         <input type="hidden" name="security" value="<?php echo esc_attr(wp_create_nonce('batllie_caja_nonce')); ?>" />
+
+        <!-- Barra Superior de Configuración -->
+        <div class="caja-settings-topbar">
+            <div class="caja-settings-title-group">
+                <h1 class="caja-settings-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span><?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
+                </h1>
+                <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes y control de stock de empaques.', 'emp-caja'); ?></p>
+            </div>
+
+            <div class="caja-settings-topbar-actions">
+                <?php if (!$is_admin): ?>
+                <button type="button" class="caja-btn caja-btn-secondary caja-btn-screen-switch" data-target="tab-orders" title="<?php esc_attr_e('Volver a la pantalla de Pedidos en Vivo', 'emp-caja'); ?>">
+                    <span class="caja-btn-arrow">⬅</span>
+                    <span class="caja-btn-icon">📋</span>
+                    <span><?php _e('Volver a Pedidos', 'emp-caja'); ?></span>
+                </button>
+                <?php endif; ?>
+
+                <button type="submit" class="caja-btn caja-btn-primary caja-btn-save-settings" id="caja-btn-save-settings-top">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    <span><?php _e('Guardar Cambios', 'emp-caja'); ?></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="caja-settings-notice-info">
+            <strong><?php _e('Uso en tu sitio:', 'emp-caja'); ?></strong>
+            <?php _e('Crea una página nueva en WordPress y pega el shortcode:', 'emp-caja'); ?>
+            <code>[batllie_caja]</code>
+        </div>
 
         <!-- 1. WhatsApp de Atención y Comprobantes -->
         <div class="caja-settings-card">

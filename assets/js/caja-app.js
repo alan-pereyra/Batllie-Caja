@@ -4721,7 +4721,14 @@ $('#caja-modal-new-product').fadeIn(200);
             $btns.prop('disabled', true).addClass('is-loading');
             $feedback.removeClass('is-success is-error').text('Guardando configuración...').fadeIn(150);
 
-            const formData = $form.serialize();
+            let formData = $form.serialize();
+            if (formData.indexOf('action=emp_caja_save_settings') === -1) {
+                if (formData.indexOf('action=') !== -1) {
+                    formData = formData.replace(/action=[^&]*/, 'action=emp_caja_save_settings');
+                } else {
+                    formData += '&action=emp_caja_save_settings';
+                }
+            }
 
             $.ajax({
                 url: batllieCajaConfig.ajaxUrl,
