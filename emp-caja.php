@@ -56,6 +56,9 @@ class Batllie_Caja_Plugin {
         // Hacer obligatorio el número de teléfono en WooCommerce checkout
         Batllie_Caja_Orders::make_phone_required_hooks();
 
+        // Inicializar selector y validación de tandas y horarios de envío en checkout
+        Batllie_Caja_Orders::init_shipping_slots_hooks();
+
         // Hooks principales
         add_action('plugins_loaded', array($this, 'init'));
         add_action('init', array('Batllie_Caja_Orders', 'register_custom_order_statuses'));
@@ -163,6 +166,10 @@ class Batllie_Caja_Plugin {
             'min_purchase_amount'       => 0,         // Monto mínimo de compra en la tienda (0 = desactivado)
             'packing_priority'          => '12',      // Prioridad de empaque ('12' = Cajas de 12 primero, '6' = Cajas de 6)
             'packing_stock_sync'        => 'yes',     // Descontar automáticamente el stock de cajas de empaque
+            'shipping_slots_enabled'    => 'yes',     // Habilitar tandas de envío en checkout
+            'shipping_slots'            => array('09:00', '12:00', '18:00'), // Horarios de despacho por día
+            'shipping_slots_cutoff'     => 5,         // Minutos de corte antes de la tanda (ej. 5 min)
+            'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -426,6 +433,9 @@ class Batllie_Caja_Plugin {
             'officialBagSmallName' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_name('small') : '',
             'boxCandidates'    => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array(),
             'packingThemes'    => class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::get_packing_themes() : array(),
+            'shippingSlots'    => $options['shipping_slots'] ?? array('09:00', '12:00', '18:00'),
+            'shippingSlotsEnabled' => (($options['shipping_slots_enabled'] ?? 'yes') === 'yes'),
+            'shippingSlotsCutoff'  => intval($options['shipping_slots_cutoff'] ?? 5),
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
@@ -521,6 +531,32 @@ class Batllie_Caja_Plugin {
             $output['stock_box_12'] = intval($input['stock_box_12']);
             Batllie_Caja_Packing::set_box_stock(12, intval($input['stock_box_12']));
         }
+
+        // Tandas y Horarios de Despacho
+        $output['shipping_slots_enabled']  = (isset($input['shipping_slots_enabled']) && $input['shipping_slots_enabled'] === 'yes') ? 'yes' : 'no';
+        $output['shipping_slots_cutoff']   = isset($input['shipping_slots_cutoff']) ? max(0, intval($input['shipping_slots_cutoff'])) : 5;
+        $output['shipping_slots_apply_to'] = (isset($input['shipping_slots_apply_to']) && in_array($input['shipping_slots_apply_to'], array('all', 'shipping_only'))) ? $input['shipping_slots_apply_to'] : 'shipping_only';
+
+        $slots = array();
+        if (isset($input['shipping_slots'])) {
+            $raw_slots = is_array($input['shipping_slots']) ? $input['shipping_slots'] : explode(',', (string) $input['shipping_slots']);
+            foreach ($raw_slots as $s) {
+                $s = trim(sanitize_text_field($s));
+                if (preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $s)) {
+                    $parts = explode(':', $s);
+                    $formatted = sprintf('%02d:%02d', intval($parts[0]), intval($parts[1]));
+                    if (!in_array($formatted, $slots)) {
+                        $slots[] = $formatted;
+                    }
+                }
+            }
+        } elseif (!isset($input['shipping_slots_present'])) {
+            // Si el campo no vino en el formulario y no se envió indicador de presencia, mantener los guardados o defecto
+            $existing = get_option('batllie_caja_options', array());
+            $slots = $existing['shipping_slots'] ?? array('09:00', '12:00', '18:00');
+        }
+        sort($slots);
+        $output['shipping_slots'] = $slots;
 
         return $output;
     }

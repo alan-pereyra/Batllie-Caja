@@ -51,6 +51,8 @@
                 if (o.bag_small !== n.bag_small) return true;
                 if (o.control_pedido_verified !== n.control_pedido_verified) return true;
                 if ((o.packing_theme || '') !== (n.packing_theme || '')) return true;
+                if ((o.shipping_slot || '') !== (n.shipping_slot || '')) return true;
+                if ((o.shipping_slot_badge || '') !== (n.shipping_slot_badge || '')) return true;
                 const oLen = (o.timeline && Array.isArray(o.timeline)) ? o.timeline.length : 0;
                 const nLen = (n.timeline && Array.isArray(n.timeline)) ? n.timeline.length : 0;
                 if (oLen !== nLen) return true;
@@ -58,6 +60,7 @@
             return false;
         },
         init: function() {
+            this.currentSlotFilter = 'all';
             this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
             this.bindEvents();
 
@@ -149,10 +152,52 @@
                 self.applyFilters();
             });
 
+            // Filtro Desplegable de Horarios de Envío (Tandas)
+            $(document).on('change', '#caja-filter-slot', function() {
+                self.currentSlotFilter = $(this).val();
+                self.applyFilters();
+            });
+
             // Filtro Desplegable de Tiempo
             $(document).on('change', '#caja-filter-time', function() {
                 self.currentTimeFilter = $(this).val();
                 self.applyFilters();
+            });
+
+            // Agregar nuevo horario de despacho en configuración
+            $(document).on('click', '#caja-btn-add-slot', function(e) {
+                e.preventDefault();
+                const $input = $('#caja-new-slot-input');
+                const rawVal = $.trim($input.val());
+                if (!rawVal || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(rawVal)) {
+                    alert('Por favor ingresá un horario válido (ej: 14:00 o 20:00).');
+                    return;
+                }
+                const formatted = rawVal.length === 4 ? '0' + rawVal : rawVal;
+                let exists = false;
+                $('#caja-slots-list .caja-slot-chip').each(function() {
+                    if ($(this).data('slot') === formatted) exists = true;
+                });
+                if (exists) {
+                    alert('Ese horario ya está en la lista.');
+                    return;
+                }
+                const chipHtml = `
+                    <div class="caja-slot-chip" data-slot="${formatted}">
+                        <input type="hidden" name="batllie_caja_options[shipping_slots][]" value="${formatted}" />
+                        <span class="caja-slot-icon">🕒</span>
+                        <span class="caja-slot-text">${formatted} hs</span>
+                        <button type="button" class="caja-slot-remove-btn" title="Eliminar horario">✕</button>
+                    </div>
+                `;
+                $('#caja-slots-list').append(chipHtml);
+                $input.val('');
+            });
+
+            // Eliminar horario de despacho en configuración
+            $(document).on('click', '.caja-slot-remove-btn', function(e) {
+                e.preventDefault();
+                $(this).closest('.caja-slot-chip').remove();
             });
 
             // Guardar aclaración / nota de compra del pedido
@@ -2405,7 +2450,20 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-order-number">#${order.number}</span>
                                 <span class="caja-order-time">${order.time_diff || order.time_formatted}</span>
                             </div>
-                            <span class="caja-status-pill ${order.status_badge}">${order.status_name}</span>
+                            <div class="caja-card-header-badges">
+                                ${order.shipping_slot_badge ? `
+                                    <span class="caja-dispatch-pill" title="Tanda de despacho: ${order.shipping_slot_label || order.shipping_slot_badge}">
+                                        <span class="caja-dispatch-icon">🚚</span>
+                                        <span class="caja-dispatch-text">${order.shipping_slot_badge}</span>
+                                    </span>
+                                ` : (order.shipping_method && order.shipping_method.toLowerCase().indexOf('local') !== -1 ? `
+                                    <span class="caja-dispatch-pill caja-dispatch-pickup" title="Retiro en local">
+                                        <span class="caja-dispatch-icon">🏬</span>
+                                        <span class="caja-dispatch-text">Retiro local</span>
+                                    </span>
+                                ` : '')}
+                                <span class="caja-status-pill ${order.status_badge}">${order.status_name}</span>
+                            </div>
                         </div>
 
                         <div class="caja-customer-block">
@@ -2796,6 +2854,17 @@ $('#caja-modal-new-product').fadeIn(200);
                     const matchNote = ord.customer_note && ord.customer_note.toLowerCase().includes(kw);
                     if (!matchNum && !matchName && !matchPhone && !matchNote) {
                         return false;
+                    }
+                }
+
+                // 4. Filtro de Horarios de Envío (Tandas)
+                if (self.currentSlotFilter && self.currentSlotFilter !== 'all') {
+                    if (self.currentSlotFilter === 'none') {
+                        if (ord.shipping_slot) return false;
+                    } else if (self.currentSlotFilter === 'tomorrow') {
+                        if (!ord.shipping_slot_is_tomorrow) return false;
+                    } else {
+                        if (ord.shipping_slot !== self.currentSlotFilter) return false;
                     }
                 }
 
@@ -4697,6 +4766,26 @@ $('#caja-modal-new-product').fadeIn(200);
                 if (this.pollTimer) {
                     clearInterval(this.pollTimer);
                     this.pollTimer = setInterval(this.pollNewOrders.bind(this), batllieCajaConfig.pollInterval);
+                }
+            }
+
+            if (s.shipping_slots && Array.isArray(s.shipping_slots)) {
+                const currentVal = $('#caja-filter-slot').val();
+                let opts = '<option value="all">Todos los horarios</option>';
+                s.shipping_slots.forEach(function(slot) {
+                    opts += `<option value="${slot}">🕒 Tanda ${slot} hs</option>`;
+                });
+                opts += '<option value="tomorrow">🕒 Tandas de mañana</option>';
+                opts += '<option value="none">Sin horario asignado</option>';
+                const $slotSelect = $('#caja-filter-slot');
+                if ($slotSelect.length) {
+                    $slotSelect.html(opts);
+                    if ($slotSelect.find(`option[value="${currentVal}"]`).length) {
+                        $slotSelect.val(currentVal);
+                    } else {
+                        $slotSelect.val('all');
+                        self.currentSlotFilter = 'all';
+                    }
                 }
             }
         }

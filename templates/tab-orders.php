@@ -26,12 +26,17 @@ $label_1day = $dias_esp[(int) $dt_1day->format('w')] . ' ' . $dt_1day->format('d
 
 $dt_2days = (clone $now_dt)->modify('-2 days');
 $label_2days = $dias_esp[(int) $dt_2days->format('w')] . ' ' . $dt_2days->format('d/m');
+
+$settings = class_exists('Batllie_Caja_Plugin') ? Batllie_Caja_Plugin::get_color_settings() : array();
+$configured_slots = $settings['shipping_slots'] ?? array('09:00', '12:00', '18:00');
+if (is_string($configured_slots)) $configured_slots = explode(',', $configured_slots);
+sort($configured_slots);
 ?>
 
 <div class="caja-orders-container">
     <!-- Barra de Filtros y Búsqueda -->
     <div class="caja-filter-bar">
-        <!-- Desplegables de Filtro (50% y 50%) -->
+        <!-- Desplegables de Filtro (3 columnas) -->
         <div class="caja-top-filters-grid">
             <div class="caja-filter-select-col">
                 <select id="caja-filter-status" class="caja-select-filter">
@@ -43,6 +48,22 @@ $label_2days = $dias_esp[(int) $dt_2days->format('w')] . ' ' . $dt_2days->format
                     <option value="recibido-problema"><?php _e('Recibido (con inconvenientes)', 'emp-caja'); ?></option>
                     <option value="cancelled"><?php _e('Cancelado', 'emp-caja'); ?></option>
                     <option value="refunded"><?php _e('Reembolzado', 'emp-caja'); ?></option>
+                </select>
+            </div>
+
+            <div class="caja-filter-select-col">
+                <select id="caja-filter-slot" class="caja-select-filter">
+                    <option value="all"><?php _e('Todos los horarios', 'emp-caja'); ?></option>
+                    <?php foreach ($configured_slots as $c_slot): 
+                        $c_slot = trim($c_slot);
+                        if (empty($c_slot)) continue;
+                    ?>
+                        <option value="<?php echo esc_attr($c_slot); ?>">
+                            <?php echo esc_html(sprintf(__('🕒 Tanda %s hs', 'emp-caja'), $c_slot)); ?>
+                        </option>
+                    <?php endforeach; ?>
+                    <option value="tomorrow"><?php _e('🕒 Tandas de mañana', 'emp-caja'); ?></option>
+                    <option value="none"><?php _e('Sin horario asignado', 'emp-caja'); ?></option>
                 </select>
             </div>
 
