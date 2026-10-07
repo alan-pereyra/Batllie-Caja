@@ -581,9 +581,11 @@ body.woocommerce-shop .woocommerce-notices-wrapper {
     background: rgba(255, 255, 255, 0.04);
     border-radius: 8px;
     padding: 6px 8px;
-    transition: background 0.2s ease;
+    transition: background 0.2s ease, opacity 0.25s ease, transform 0.25s ease;
     border: none !important;
     box-shadow: none !important;
+    cursor: pointer;
+    user-select: none;
 }
 
 .batllie-flavor-chip:hover {

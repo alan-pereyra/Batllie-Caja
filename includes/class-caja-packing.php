@@ -654,6 +654,70 @@ class Batllie_Caja_Packing {
     }
 
     /**
+     * Obtener cantidad total de unidades de un producto en el carrito del cliente (incluyendo variaciones)
+     */
+    public static function get_product_cart_quantity($product_id) {
+        $product_id = absint($product_id);
+        if (!$product_id || !function_exists('WC') || !WC()->cart) {
+            return 0;
+        }
+
+        $cart_qty = 0;
+        if (method_exists(WC()->cart, 'get_cart_item_quantities')) {
+            $quantities = WC()->cart->get_cart_item_quantities();
+            if (isset($quantities[$product_id])) {
+                $cart_qty = (int) $quantities[$product_id];
+            }
+        } else {
+            foreach (WC()->cart->get_cart() as $cart_item) {
+                $item_prod_id = isset($cart_item['product_id']) ? absint($cart_item['product_id']) : 0;
+                $item_var_id  = isset($cart_item['variation_id']) ? absint($cart_item['variation_id']) : 0;
+                $qty          = isset($cart_item['quantity']) ? (int) $cart_item['quantity'] : 0;
+
+                if ($item_prod_id === $product_id || $item_var_id === $product_id) {
+                    $cart_qty += $qty;
+                }
+            }
+        }
+
+        return $cart_qty;
+    }
+
+    /**
+     * Obtener stock real disponible para comprar de un producto,
+     * restando la cantidad que el cliente ya tiene cargada en su carrito actual.
+     */
+    public static function get_product_available_stock($product) {
+        if (is_numeric($product)) {
+            $product = wc_get_product($product);
+        }
+        if (!$product || !method_exists($product, 'is_in_stock') || !$product->is_in_stock()) {
+            return 0;
+        }
+
+        // Si no maneja inventario o permite pedidos pendientes (backorders), stock ilimitado
+        if (!$product->managing_stock() || $product->backorders_allowed()) {
+            return 999;
+        }
+
+        $stock_qty = $product->get_stock_quantity();
+        if ($stock_qty === null) {
+            return 999;
+        }
+
+        $stock_qty = (int) $stock_qty;
+        if ($stock_qty <= 0) {
+            return 0;
+        }
+
+        // Restar lo que ya está en el carrito del cliente
+        $in_cart = self::get_product_cart_quantity($product->get_id());
+        $remaining = max(0, $stock_qty - $in_cart);
+
+        return $remaining;
+    }
+
+    /**
      * Obtener listado de alfajores activos en stock para ofrecer en el selector 1-Click
      */
     public static function get_available_alfajores_for_upsell() {
@@ -684,15 +748,22 @@ class Batllie_Caja_Packing {
             }
 
             if (self::is_alfajor_product($post->ID)) {
+                // Verificar stock disponible real (descontando lo que el cliente ya tiene en su carrito)
+                $available_stock = self::get_product_available_stock($p);
+                if ($available_stock <= 0) {
+                    continue; // Si se acabó el stock o ya agregó todo al carrito, desaparece de la lista
+                }
+
                 $image_id = $p->get_image_id();
                 $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
                 $alfajores[] = array(
-                    'id'        => $p->get_id(),
-                    'name'      => $p->get_name(),
-                    'clean_name'=> trim(str_ireplace('Alfajor', '', $p->get_name())),
-                    'price'     => floatval($p->get_price()),
-                    'price_fmt' => wc_price($p->get_price()),
-                    'image'     => $image_url,
+                    'id'              => $p->get_id(),
+                    'name'            => $p->get_name(),
+                    'clean_name'      => trim(str_ireplace('Alfajor', '', $p->get_name())),
+                    'price'           => floatval($p->get_price()),
+                    'price_fmt'       => wc_price($p->get_price()),
+                    'image'           => $image_url,
+                    'remaining_stock' => $available_stock,
                 );
             }
         }
@@ -1487,24 +1558,51 @@ class Batllie_Caja_Packing {
         $quantity   = isset($_POST['quantity']) ? max(1, absint($_POST['quantity'])) : 1;
 
         if (!$product_id || !self::is_alfajor_product($product_id)) {
-            wp_send_json_error(array('message' => __('Producto no válido.', 'emp-caja')));
+            wp_send_json_error(array(
+                'message'            => __('Producto no válido.', 'emp-caja'),
+                'availableAlfajores' => self::get_available_alfajores_for_upsell(),
+            ));
         }
 
         $p = wc_get_product($product_id);
         if (!$p || !$p->is_purchasable() || !$p->is_in_stock()) {
-            wp_send_json_error(array('message' => __('Producto agotado o no disponible.', 'emp-caja')));
+            wp_send_json_error(array(
+                'message'            => __('Producto agotado o no disponible.', 'emp-caja'),
+                'availableAlfajores' => self::get_available_alfajores_for_upsell(),
+            ));
         }
 
         $vis = method_exists($p, 'get_catalog_visibility') ? $p->get_catalog_visibility() : 'visible';
         if ($vis === 'hidden' || $vis === 'search' || !$p->is_visible()) {
-            wp_send_json_error(array('message' => __('Este producto no está disponible para venta directa.', 'emp-caja')));
+            wp_send_json_error(array(
+                'message'            => __('Este producto no está disponible para venta directa.', 'emp-caja'),
+                'availableAlfajores' => self::get_available_alfajores_for_upsell(),
+            ));
+        }
+
+        // VALIDACIÓN ESTRICTA DE STOCK: no permitir agregar más unidades de las disponibles
+        $available_stock = self::get_product_available_stock($p);
+        if ($available_stock < $quantity) {
+            wp_send_json_error(array(
+                'message'            => sprintf(__('Solo queda %d unidad disponible de este alfajor.', 'emp-caja'), max(0, $available_stock)),
+                'remaining'          => max(0, $available_stock),
+                'availableAlfajores' => self::get_available_alfajores_for_upsell(),
+            ));
         }
 
         $passed = apply_filters('woocommerce_add_to_cart_validation', true, $product_id, $quantity);
         if ($passed) {
-            WC()->cart->add_to_cart($product_id, $quantity, 0, array(), array(
+            $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity, 0, array(), array(
                 '_batllie_added_via_upsell' => 'yes',
             ));
+
+            if (!$cart_item_key) {
+                wp_send_json_error(array(
+                    'message'            => __('No se pudo añadir el producto al carrito por falta de stock.', 'emp-caja'),
+                    'availableAlfajores' => self::get_available_alfajores_for_upsell(),
+                ));
+            }
+
             WC()->cart->calculate_totals();
 
             if (function_exists('WC') && WC()->session) {

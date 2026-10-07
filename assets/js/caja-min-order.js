@@ -736,20 +736,41 @@
     function renderAvailableAlfajores(alfajores) {
         if (!Array.isArray(alfajores)) return;
         const $grid = $('#batllie-packing-flavors-grid');
-        if (!$grid.length) return;
+        const $head = $('.batllie-packing-flavors-head');
 
-        const newIds = alfajores.map(function(a) { return String(a.id); }).join(',');
-        const curIds = $grid.find('.batllie-flavor-chip').map(function() { return String($(this).data('id')); }).get().join(',');
-        if (newIds === curIds) return;
+        // Filtrar exclusivamente alfajores con stock real disponible > 0
+        const validAlfajores = alfajores.filter(function (a) {
+            const rem = (a.remaining_stock !== undefined && a.remaining_stock !== null) ? parseInt(a.remaining_stock, 10) : 999;
+            return rem > 0;
+        });
+
+        if (validAlfajores.length === 0) {
+            alfajorIdSet.clear();
+            if ($grid.length) $grid.empty().hide();
+            if ($head.length) $head.hide();
+            return;
+        }
+
+        const newSignature = validAlfajores.map(function (a) {
+            const rem = (a.remaining_stock !== undefined && a.remaining_stock !== null) ? parseInt(a.remaining_stock, 10) : 999;
+            return a.id + ':' + rem;
+        }).join(',');
+
+        const curSignature = $grid.find('.batllie-flavor-chip').map(function () {
+            return $(this).data('id') + ':' + $(this).attr('data-remaining-stock');
+        }).get().join(',');
+
+        if (newSignature === curSignature) return;
 
         alfajorIdSet.clear();
-        alfajores.forEach(function (a) {
+        validAlfajores.forEach(function (a) {
             alfajorIdSet.add(parseInt(a.id, 10));
         });
 
         let html = '';
-        alfajores.forEach(function (alf) {
-            html += '<div class="batllie-flavor-chip" data-id="' + alf.id + '">';
+        validAlfajores.forEach(function (alf) {
+            const rem = (alf.remaining_stock !== undefined && alf.remaining_stock !== null) ? parseInt(alf.remaining_stock, 10) : 999;
+            html += '<div class="batllie-flavor-chip" data-id="' + alf.id + '" data-remaining-stock="' + rem + '">';
             if (alf.image) {
                 html += '<img src="' + alf.image + '" alt="' + (alf.clean_name || alf.name) + '" class="batllie-flavor-thumb" />';
             }
@@ -757,21 +778,14 @@
             html += '<span class="batllie-flavor-name">' + (alf.clean_name || alf.name) + '</span>';
             html += '<span class="batllie-flavor-price">' + (alf.price_fmt || formatMoney(alf.price)) + '</span>';
             html += '</div>';
-            html += '<button type="button" class="batllie-flavor-add-btn" data-id="' + alf.id + '" aria-label="Agregar ' + (alf.clean_name || alf.name) + '">';
+            html += '<button type="button" class="batllie-flavor-add-btn" data-id="' + alf.id + '" data-remaining-stock="' + rem + '" aria-label="Agregar ' + (alf.clean_name || alf.name) + '">';
             html += '<span class="btn-icon">+</span><span class="btn-txt">1</span>';
             html += '</button>';
             html += '</div>';
         });
-        $grid.html(html);
 
-        const $head = $('.batllie-packing-flavors-head');
-        if (alfajores.length === 0) {
-            $grid.hide();
-            $head.hide();
-        } else {
-            $grid.show();
-            $head.show();
-        }
+        $grid.html(html).show();
+        $head.show();
     }
 
     /**
@@ -939,10 +953,19 @@
                             }, 550);
                         }
                     }
+                } else {
+                    modalAddedAlfajores = Math.max(0, modalAddedAlfajores - 1);
+                    if (res && res.data && res.data.availableAlfajores) {
+                        renderAvailableAlfajores(res.data.availableAlfajores);
+                    }
+                    if (task.$btn) {
+                        task.$btn.removeClass('is-pulsing is-loading');
+                    }
                 }
             },
             error: function () {
                 modalAddedAlfajores = Math.max(0, modalAddedAlfajores - 1);
+                syncMinOrderStatus();
             },
             complete: function () {
                 isProcessingQuickAdd = false;
@@ -1090,16 +1113,65 @@
         // Chequeo periódico suave (cada 400ms) para mantener sincronía sin colisionar
         setInterval(checkCartStateLive, 400);
 
-        // Evento: Agregar alfajor rápido en 1 clic (+1) con cola multi-click sin recargas
+        // Evento: Agregar alfajor rápido en 1 clic (+1) con control estricto de stock disponible
         $(document).on('click', '.batllie-flavor-add-btn', function (e) {
             e.preventDefault();
             e.stopPropagation();
 
             const $btn = $(this);
             const productId = $btn.data('id');
-            if (!productId || redirectingToCheckout) return;
+            if (!productId || redirectingToCheckout || $btn.prop('disabled')) return;
+
+            const $chip = $btn.closest('.batllie-flavor-chip');
+            let remaining = parseInt($chip.attr('data-remaining-stock'), 10);
+            if (isNaN(remaining)) remaining = 999;
+
+            if (remaining <= 0) {
+                $btn.prop('disabled', true).css('pointer-events', 'none');
+                $chip.fadeOut(200, function () {
+                    $(this).remove();
+                    if ($('#batllie-packing-flavors-grid .batllie-flavor-chip').length === 0) {
+                        $('.batllie-packing-flavors-head, #batllie-packing-flavors-grid').hide();
+                    }
+                });
+                return;
+            }
+
+            // Descontar una unidad del stock local disponible
+            remaining--;
+            $chip.attr('data-remaining-stock', remaining);
+            $btn.attr('data-remaining-stock', remaining);
+
+            // Si se agotó el stock disponible (incluso si había 1 solo y se seleccionó):
+            // Desaparece en el momento y no deja agregar más de uno
+            if (remaining <= 0) {
+                $btn.prop('disabled', true).css({ 'pointer-events': 'none', 'opacity': '0.5' });
+                $chip.css({
+                    'pointer-events': 'none',
+                    'transition': 'opacity 0.25s ease, transform 0.25s ease',
+                    'opacity': '0.3',
+                    'transform': 'scale(0.95)'
+                });
+                setTimeout(function () {
+                    $chip.slideUp(200, function () {
+                        $(this).remove();
+                        if ($('#batllie-packing-flavors-grid .batllie-flavor-chip').length === 0) {
+                            $('.batllie-packing-flavors-head, #batllie-packing-flavors-grid').hide();
+                        }
+                    });
+                }, 300);
+            }
 
             enqueueQuickAdd(productId, $btn);
+        });
+
+        // Soporte para hacer clic en todo el chip (cómodo en móviles)
+        $(document).on('click', '.batllie-flavor-chip', function (e) {
+            if ($(e.target).closest('.batllie-flavor-add-btn').length) return;
+            const $btn = $(this).find('.batllie-flavor-add-btn');
+            if ($btn.length && !$btn.prop('disabled')) {
+                $btn.trigger('click');
+            }
         });
 
         // Evento: Aceptar Caja de Cortesía y avanzar directamente al checkout
