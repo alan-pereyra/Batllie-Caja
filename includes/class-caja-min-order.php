@@ -547,8 +547,11 @@ class Batllie_Caja_Min_Order {
                                 <span><?php _e('Sumá un alfajor con 1 clic:', 'emp-caja'); ?></span>
                             </div>
                             <div id="batllie-packing-flavors-grid" class="batllie-packing-flavors-grid">
-                                <?php foreach ($alfajores as $alf): ?>
-                                    <div class="batllie-flavor-chip" data-id="<?php echo esc_attr($alf['id']); ?>">
+                                <?php foreach ($alfajores as $alf): 
+                                    $rem_stock = isset($alf['remaining_stock']) ? intval($alf['remaining_stock']) : 999;
+                                    if ($rem_stock <= 0) continue;
+                                ?>
+                                    <div class="batllie-flavor-chip" data-id="<?php echo esc_attr($alf['id']); ?>" data-remaining-stock="<?php echo esc_attr($rem_stock); ?>">
                                         <?php if (!empty($alf['image'])): ?>
                                             <img src="<?php echo esc_url($alf['image']); ?>" alt="<?php echo esc_attr($alf['clean_name']); ?>" class="batllie-flavor-thumb" />
                                         <?php endif; ?>
@@ -556,7 +559,7 @@ class Batllie_Caja_Min_Order {
                                             <span class="batllie-flavor-name"><?php echo esc_html($alf['clean_name']); ?></span>
                                             <span class="batllie-flavor-price"><?php echo $alf['price_fmt']; ?></span>
                                         </div>
-                                        <button type="button" class="batllie-flavor-add-btn" data-id="<?php echo esc_attr($alf['id']); ?>" aria-label="<?php echo esc_attr(sprintf(__('Agregar %s', 'emp-caja'), $alf['clean_name'])); ?>">
+                                        <button type="button" class="batllie-flavor-add-btn" data-id="<?php echo esc_attr($alf['id']); ?>" data-remaining-stock="<?php echo esc_attr($rem_stock); ?>" aria-label="<?php echo esc_attr(sprintf(__('Agregar %s', 'emp-caja'), $alf['clean_name'])); ?>">
                                             <span class="btn-icon">+</span>
                                             <span class="btn-txt">1</span>
                                         </button>
