@@ -15,6 +15,8 @@ class Batllie_Caja_Grouped {
     private static $current_submission_pack_id = null;
     private static $added_extra_box_for = array();
     private static $calculating_stock = array();
+    public static $is_replacing_combo_flavor = false;
+    private static $replacement_modal_rendered = false;
 
     public static function init() {
         // Campo en Administración de WooCommerce (panel de edición de producto -> pestaña Productos Enlazados)
@@ -109,6 +111,18 @@ class Batllie_Caja_Grouped {
         add_filter('woocommerce_get_availability_text', array(__CLASS__, 'filter_product_availability_text'), 20, 2);
         add_filter('woocommerce_add_to_cart_validation', array(__CLASS__, 'validate_dynamic_box_add_to_cart'), 15, 6);
         add_action('woocommerce_check_cart_items', array(__CLASS__, 'validate_dynamic_box_in_cart'));
+
+        // --- ENDPOINTS AJAX Y MODAL PARA REEMPLAZO RÁPIDO DE SABORES AGOTADOS EN COMBOS (ALTERNATIVA A) ---
+        add_action('wp_ajax_emp_caja_replace_combo_flavor', array(__CLASS__, 'ajax_replace_combo_flavor'));
+        add_action('wp_ajax_nopriv_emp_caja_replace_combo_flavor', array(__CLASS__, 'ajax_replace_combo_flavor'));
+        add_action('wp_ajax_emp_caja_remove_combo_pack', array(__CLASS__, 'ajax_remove_combo_pack'));
+        add_action('wp_ajax_nopriv_emp_caja_remove_combo_pack', array(__CLASS__, 'ajax_remove_combo_pack'));
+
+        add_action('woocommerce_before_cart', array(__CLASS__, 'render_cart_replacement_warning'), 5);
+        add_action('woocommerce_before_checkout_form', array(__CLASS__, 'render_cart_replacement_warning'), 5);
+        add_action('woocommerce_after_cart', array(__CLASS__, 'render_combo_replacement_modal'), 30);
+        add_action('woocommerce_after_checkout_form', array(__CLASS__, 'render_combo_replacement_modal'), 30);
+        add_action('wp_footer', array(__CLASS__, 'render_combo_replacement_modal'), 50);
     }
 
     /**
@@ -717,6 +731,10 @@ class Batllie_Caja_Grouped {
                 $avail = $info['stock_quantity'];
                 if ($avail !== null && $total_qty_in_cart > $avail) {
                     if ($avail <= 0) {
+                        if (self::has_cart_combo_replacements_needed()) {
+                            // Gestionado mediante el modal interactivo de reemplazo rápido (Alternativa A)
+                            continue;
+                        }
                         wc_add_notice(
                             sprintf(
                                 __('"%s" se ha agotado debido a la disponibilidad de sus componentes y no puede comprarse en este momento.', 'emp-caja'),
@@ -1924,6 +1942,9 @@ class Batllie_Caja_Grouped {
             if (!empty($values['batllie_pack_instance_id'])) {
                 $item->add_meta_data('_batllie_pack_instance_id', $values['batllie_pack_instance_id'], true);
             }
+            if (!empty($values['batllie_replaced_flavor'])) {
+                $item->add_meta_data('_batllie_replaced_flavor', 'yes', true);
+            }
         }
     }
 
@@ -1948,6 +1969,11 @@ class Batllie_Caja_Grouped {
     public static function handle_remove_grouped_pack_combo($cart_item_key, $cart) {
         static $is_removing_combo = false;
         if ($is_removing_combo) {
+            return;
+        }
+
+        // Si estamos reemplazando un sabor agotado dentro del combo, omitir la eliminación atómica del resto del pack
+        if (self::$is_replacing_combo_flavor) {
             return;
         }
 
@@ -2130,7 +2156,9 @@ class Batllie_Caja_Grouped {
         );
 
         wp_localize_script('batllie-caja-cart-js', 'batllieCartConfig', array(
-            'i18n' => array(
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('batllie_caja_nonce'),
+            'i18n'    => array(
                 'removeComboTooltip' => __('Eliminar combo completo', 'emp-caja'),
                 'lockedNotice'       => __('La cantidad de este producto está fijada por la caja. Para modificarla, elimina el combo.', 'emp-caja'),
                 'includedFlavors'    => __('Sabores incluidos:', 'emp-caja'),
@@ -2223,6 +2251,403 @@ class Batllie_Caja_Grouped {
         $fragments['#mini-cart-count-footer'] = '<div id="mini-cart-count-footer" class="emp-mini-cart-count icon-color">' . $count . '</div>';
 
         return $fragments;
+    }
+
+    /**
+     * =========================================================================
+     * GESTIÓN DE REEMPLAZO RÁPIDO DE SABORES AGOTADOS EN COMBOS (ALTERNATIVA A)
+     * =========================================================================
+     */
+
+    /**
+     * Verificar si existen sabores agotados en combos dentro del carrito
+     *
+     * @return bool
+     */
+    public static function has_cart_combo_replacements_needed() {
+        $needed = self::get_cart_combo_replacements_needed();
+        return !empty($needed);
+    }
+
+    /**
+     * Detectar si en el carrito hay productos pertenecientes a un combo o pack
+     * cuyo sabor se haya quedado sin stock suficiente.
+     *
+     * @return array
+     */
+    public static function get_cart_combo_replacements_needed() {
+        if (!function_exists('WC') || !WC()->cart || WC()->cart->is_empty()) {
+            return array();
+        }
+
+        $cart_contents = WC()->cart->get_cart();
+        if (empty($cart_contents)) {
+            return array();
+        }
+
+        // 1. Mapear totales en carrito por producto
+        $cart_totals = array();
+        foreach ($cart_contents as $key => $item) {
+            $p_id = !empty($item['product_id']) ? absint($item['product_id']) : 0;
+            if ($p_id > 0) {
+                $cart_totals[$p_id] = ($cart_totals[$p_id] ?? 0) + (int) $item['quantity'];
+            }
+        }
+
+        $replacements_needed = array();
+
+        foreach ($cart_contents as $cart_item_key => $cart_item) {
+            if (empty($cart_item['batllie_pack_instance_id'])) {
+                continue;
+            }
+            if (!empty($cart_item['batllie_extra_box'])) {
+                continue; // La caja física de empaque no es un sabor
+            }
+
+            $product_id = absint($cart_item['product_id']);
+            $product    = !empty($cart_item['data']) && is_object($cart_item['data']) ? $cart_item['data'] : wc_get_product($product_id);
+            if (!$product) {
+                continue;
+            }
+
+            $qty_needed = (int) $cart_item['quantity'];
+            $pack_id    = $cart_item['batllie_pack_instance_id'];
+            $parent_id  = !empty($cart_item['batllie_parent_grouped_id']) ? absint($cart_item['batllie_parent_grouped_id']) : 0;
+            $parent     = $parent_id ? wc_get_product($parent_id) : null;
+            $combo_name = $parent ? $parent->get_name() : __('Combo / Caja', 'emp-caja');
+
+            $is_in_stock = $product->is_in_stock();
+            $managing    = $product->managing_stock();
+            $stock_qty   = $managing ? (int) $product->get_stock_quantity() : 999;
+            $backorders  = $product->backorders_allowed();
+
+            $has_enough = true;
+            if (!$backorders) {
+                if (!$is_in_stock || ($managing && $stock_qty < $qty_needed)) {
+                    $has_enough = false;
+                } elseif ($managing && isset($cart_totals[$product_id]) && $cart_totals[$product_id] > $stock_qty) {
+                    $has_enough = false;
+                }
+            }
+
+            if (!$has_enough) {
+                $options = self::get_candidate_replacements_for_pack($product_id, $qty_needed, $parent);
+
+                $img_id  = $product->get_image_id();
+                $img_url = $img_id ? wp_get_attachment_image_url($img_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+
+                $replacements_needed[] = array(
+                    'cart_item_key'     => $cart_item_key,
+                    'depleted_id'       => $product_id,
+                    'depleted_name'     => $product->get_name(),
+                    'depleted_clean'    => trim(str_ireplace('Alfajor', '', $product->get_name())),
+                    'depleted_qty'      => $qty_needed,
+                    'depleted_image'    => $img_url,
+                    'pack_instance_id'  => $pack_id,
+                    'parent_grouped_id' => $parent_id,
+                    'combo_name'        => $combo_name,
+                    'options'           => $options,
+                );
+            }
+        }
+
+        return $replacements_needed;
+    }
+
+    /**
+     * Buscar sabores activos y con stock suficiente para ofrecer como reemplazo
+     *
+     * @param int $depleted_product_id
+     * @param int $qty_needed
+     * @param WC_Product|null $parent_product
+     * @return array
+     */
+    public static function get_candidate_replacements_for_pack($depleted_product_id, $qty_needed = 1, $parent_product = null) {
+        $options = array();
+        $seen_ids = array();
+
+        // 1. Priorizar alfajores que forman parte del mismo producto agrupado padre
+        if ($parent_product && method_exists($parent_product, 'is_type') && $parent_product->is_type('grouped')) {
+            $children_ids = $parent_product->get_children();
+            if (!empty($children_ids) && is_array($children_ids)) {
+                foreach ($children_ids as $cid) {
+                    $cid = absint($cid);
+                    if ($cid === absint($depleted_product_id) || isset($seen_ids[$cid])) {
+                        continue;
+                    }
+                    $child_prod = wc_get_product($cid);
+                    if (!$child_prod || !$child_prod->is_purchasable() || !$child_prod->is_in_stock()) {
+                        continue;
+                    }
+                    $vis = method_exists($child_prod, 'get_catalog_visibility') ? $child_prod->get_catalog_visibility() : 'visible';
+                    if ($vis === 'hidden' || !$child_prod->is_visible()) {
+                        continue;
+                    }
+                    $avail = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_product_available_stock($child_prod) : ($child_prod->get_stock_quantity() ?: 999);
+                    if ($avail < $qty_needed) {
+                        continue;
+                    }
+
+                    $img_id = $child_prod->get_image_id();
+                    $img_url = $img_id ? wp_get_attachment_image_url($img_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+
+                    $options[] = array(
+                        'id'              => $cid,
+                        'name'            => $child_prod->get_name(),
+                        'clean_name'      => trim(str_ireplace('Alfajor', '', $child_prod->get_name())),
+                        'price'           => floatval($child_prod->get_price()),
+                        'price_fmt'       => wc_price($child_prod->get_price()),
+                        'image'           => $img_url,
+                        'remaining_stock' => $avail,
+                    );
+                    $seen_ids[$cid] = true;
+                }
+            }
+        }
+
+        // 2. Complementar con el catálogo general de alfajores en stock de la tienda
+        if (class_exists('Batllie_Caja_Packing')) {
+            $store_alfajores = Batllie_Caja_Packing::get_available_alfajores_for_upsell();
+            foreach ($store_alfajores as $alf) {
+                $aid = absint($alf['id']);
+                if ($aid === absint($depleted_product_id) || isset($seen_ids[$aid])) {
+                    continue;
+                }
+                if ($alf['remaining_stock'] < $qty_needed) {
+                    continue;
+                }
+                $options[] = $alf;
+                $seen_ids[$aid] = true;
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Renderizar aviso destacado superior en el carrito/checkout si hay sabores agotados en un combo
+     */
+    public static function render_cart_replacement_warning() {
+        $replacements = self::get_cart_combo_replacements_needed();
+        if (empty($replacements)) {
+            return;
+        }
+
+        $rep = reset($replacements);
+        ?>
+        <div class="batllie-combo-replacement-alert">
+            <div class="batllie-replacement-alert-icon">⚠️</div>
+            <div class="batllie-replacement-alert-content">
+                <div class="batllie-replacement-alert-title">
+                    <?php echo sprintf(
+                        __('¡Atención! El sabor <strong>%s</strong> (%d u.) de tu <strong>%s</strong> se acaba de agotar.', 'emp-caja'),
+                        esc_html($rep['depleted_name']),
+                        $rep['depleted_qty'],
+                        esc_html($rep['combo_name'])
+                    ); ?>
+                </div>
+                <div class="batllie-replacement-alert-sub">
+                    <?php _e('Para no perder tu caja y poder avanzar al pago, elegí por qué sabor reemplazarlo.', 'emp-caja'); ?>
+                </div>
+            </div>
+            <button type="button" class="batllie-replacement-alert-action-btn batllie-open-replacement-modal">
+                <?php _e('Elegir reemplazo', 'emp-caja'); ?>
+            </button>
+        </div>
+        <?php
+    }
+
+    /**
+     * Renderizar el Modal de Reemplazo Rápido en Carrito y Checkout
+     */
+    public static function render_combo_replacement_modal() {
+        if (self::$replacement_modal_rendered) {
+            return;
+        }
+
+        $replacements = self::get_cart_combo_replacements_needed();
+        if (empty($replacements)) {
+            return;
+        }
+
+        self::$replacement_modal_rendered = true;
+        $rep = reset($replacements);
+        $options = $rep['options'];
+        $count_needed = count($replacements);
+        ?>
+        <div id="batllie-combo-replacement-backdrop" class="batllie-combo-replacement-backdrop" style="display:flex;" aria-hidden="false">
+            <div id="batllie-combo-replacement-modal" class="batllie-combo-replacement-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Reemplazo de sabor agotado', 'emp-caja'); ?>">
+                <button type="button" class="batllie-replacement-modal-close" id="batllie-replacement-modal-close-btn" aria-label="<?php esc_attr_e('Cerrar aviso', 'emp-caja'); ?>">&times;</button>
+
+                <div class="batllie-replacement-modal-head">
+                    <div class="batllie-replacement-head-badge">
+                        <span>⚠️ <?php _e('Sabor Agotado en tu Caja', 'emp-caja'); ?></span>
+                        <?php if ($count_needed > 1): ?>
+                            <span class="batllie-replacement-count-badge"><?php echo sprintf(__('1 de %d pendientes', 'emp-caja'), $count_needed); ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <h3 class="batllie-replacement-modal-title">
+                        <?php echo esc_html($rep['combo_name']); ?>
+                    </h3>
+                    <div class="batllie-replacement-depleted-box">
+                        <?php if (!empty($rep['depleted_image'])): ?>
+                            <img src="<?php echo esc_url($rep['depleted_image']); ?>" alt="" class="batllie-depleted-thumb" />
+                        <?php endif; ?>
+                        <div class="batllie-depleted-info">
+                            <span class="batllie-depleted-label"><?php _e('Se agotó:', 'emp-caja'); ?></span>
+                            <strong class="batllie-depleted-name"><?php echo esc_html($rep['depleted_name']); ?></strong>
+                            <span class="batllie-depleted-qty"><?php echo sprintf(__('(Cantidad a reemplazar: %d u.)', 'emp-caja'), $rep['depleted_qty']); ?></span>
+                        </div>
+                    </div>
+                    <p class="batllie-replacement-instruction">
+                        <?php _e('Elegí por cuál de estos sabores disponibles querés reemplazarlo para completar tu caja y avanzar al pago:', 'emp-caja'); ?>
+                    </p>
+                </div>
+
+                <div class="batllie-replacement-modal-body">
+                    <?php if (!empty($options)): ?>
+                        <div class="batllie-replacement-grid" id="batllie-replacement-grid">
+                            <?php foreach ($options as $opt): ?>
+                                <div class="batllie-replacement-card" data-replacement-id="<?php echo esc_attr($opt['id']); ?>" data-cart-key="<?php echo esc_attr($rep['cart_item_key']); ?>" data-pack-id="<?php echo esc_attr($rep['pack_instance_id']); ?>">
+                                    <?php if (!empty($opt['image'])): ?>
+                                        <img src="<?php echo esc_url($opt['image']); ?>" alt="<?php echo esc_attr($opt['clean_name']); ?>" class="batllie-replacement-thumb" />
+                                    <?php endif; ?>
+                                    <div class="batllie-replacement-card-info">
+                                        <strong class="batllie-replacement-card-name"><?php echo esc_html($opt['clean_name']); ?></strong>
+                                        <span class="batllie-replacement-card-stock"><?php echo sprintf(__('%d u. disponibles', 'emp-caja'), $opt['remaining_stock']); ?></span>
+                                    </div>
+                                    <button type="button" class="batllie-replacement-select-btn" data-replacement-id="<?php echo esc_attr($opt['id']); ?>" data-cart-key="<?php echo esc_attr($rep['cart_item_key']); ?>" data-pack-id="<?php echo esc_attr($rep['pack_instance_id']); ?>" aria-label="<?php echo esc_attr(sprintf(__('Elegir %s', 'emp-caja'), $opt['clean_name'])); ?>">
+                                        <span class="btn-text"><?php _e('Elegir', 'emp-caja'); ?></span>
+                                    </button>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="batllie-replacement-no-stock">
+                            <p><?php _e('No hay otros sabores con stock suficiente en este momento.', 'emp-caja'); ?></p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="batllie-replacement-modal-foot">
+                    <button type="button" class="batllie-replacement-remove-combo-btn" data-cart-key="<?php echo esc_attr($rep['cart_item_key']); ?>">
+                        <span><?php _e('Quitar este combo del carrito', 'emp-caja'); ?></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Endpoint AJAX: Reemplazar un sabor agotado dentro de un combo por otro disponible
+     */
+    public static function ajax_replace_combo_flavor() {
+        check_ajax_referer('batllie_caja_nonce', 'nonce');
+
+        if (!function_exists('WC') || !WC()->cart) {
+            wp_send_json_error(array('message' => __('No se encontró el carrito.', 'emp-caja')));
+        }
+
+        $cart_key = isset($_POST['depleted_cart_item_key']) ? sanitize_text_field(wp_unslash($_POST['depleted_cart_item_key'])) : '';
+        $new_id   = isset($_POST['replacement_product_id']) ? absint($_POST['replacement_product_id']) : 0;
+        $pack_id  = isset($_POST['pack_instance_id']) ? sanitize_text_field(wp_unslash($_POST['pack_instance_id'])) : '';
+
+        $cart = WC()->cart;
+        $cart_contents = $cart->get_cart();
+
+        if (!isset($cart_contents[$cart_key])) {
+            wp_send_json_error(array('message' => __('El ítem a reemplazar ya no se encuentra en el carrito.', 'emp-caja')));
+        }
+
+        $old_item  = $cart_contents[$cart_key];
+        $quantity  = (int) $old_item['quantity'];
+        $parent_id = !empty($old_item['batllie_parent_grouped_id']) ? absint($old_item['batllie_parent_grouped_id']) : 0;
+        $item_pack = !empty($old_item['batllie_pack_instance_id']) ? $old_item['batllie_pack_instance_id'] : '';
+
+        if ($pack_id && $item_pack && $pack_id !== $item_pack) {
+            wp_send_json_error(array('message' => __('El identificador del combo no coincide.', 'emp-caja')));
+        }
+
+        $new_product = wc_get_product($new_id);
+        if (!$new_product || !$new_product->is_purchasable() || !$new_product->is_in_stock()) {
+            wp_send_json_error(array('message' => __('El sabor elegido no está disponible.', 'emp-caja')));
+        }
+
+        // Comprobar stock disponible del reemplazo
+        if (class_exists('Batllie_Caja_Packing')) {
+            $avail = Batllie_Caja_Packing::get_product_available_stock($new_product);
+            if ($avail < $quantity) {
+                wp_send_json_error(array('message' => sprintf(__('Solo quedan %d unidades de este sabor, se necesitan %d.', 'emp-caja'), $avail, $quantity)));
+            }
+        }
+
+        // ACTIVAR BYPASS para no eliminar el resto del combo al quitar este sabor
+        self::$is_replacing_combo_flavor = true;
+        try {
+            $cart->remove_cart_item($cart_key);
+        } finally {
+            self::$is_replacing_combo_flavor = false;
+        }
+
+        // Preparar cart_item_data con el mismo pack_instance_id y parent_grouped_id
+        $replacement_cart_data = array(
+            'batllie_parent_grouped_id' => $parent_id,
+            'batllie_pack_instance_id'  => $item_pack,
+            'batllie_replaced_flavor'   => true,
+        );
+
+        // Añadir nuevo sabor al combo
+        $added_key = $cart->add_to_cart($new_id, $quantity, 0, array(), $replacement_cart_data);
+
+        if (!$added_key) {
+            wp_send_json_error(array('message' => __('No se pudo agregar el sabor de reemplazo.', 'emp-caja')));
+        }
+
+        // Sincronizar precios y recalcular totales
+        self::sync_and_price_extra_boxes($cart);
+        $cart->calculate_totals();
+
+        // Añadir notice de éxito
+        wc_add_notice(
+            sprintf(
+                __('¡Reemplazaste con éxito por "%s" (%d u.) en tu combo! Ya podés continuar con tu compra.', 'emp-caja'),
+                $new_product->get_name(),
+                $quantity
+            ),
+            'success'
+        );
+
+        $referer = wp_get_referer();
+        $redirect = ($referer && strpos($referer, 'checkout') !== false) ? wc_get_checkout_url() : wc_get_cart_url();
+
+        wp_send_json_success(array(
+            'message'  => __('Sabor reemplazado con éxito.', 'emp-caja'),
+            'redirect' => $redirect,
+        ));
+    }
+
+    /**
+     * Endpoint AJAX: Quitar un combo completo si el usuario prefiere no reemplazar el sabor
+     */
+    public static function ajax_remove_combo_pack() {
+        check_ajax_referer('batllie_caja_nonce', 'nonce');
+
+        if (!function_exists('WC') || !WC()->cart) {
+            wp_send_json_error(array('message' => __('No se encontró el carrito.', 'emp-caja')));
+        }
+
+        $cart_key = isset($_POST['cart_item_key']) ? sanitize_text_field(wp_unslash($_POST['cart_item_key'])) : '';
+        if (!$cart_key || !isset(WC()->cart->cart_contents[$cart_key])) {
+            wp_send_json_error(array('message' => __('Ítem no encontrado.', 'emp-caja')));
+        }
+
+        WC()->cart->remove_cart_item($cart_key);
+        WC()->cart->calculate_totals();
+
+        wc_add_notice(__('Se quitó el combo del carrito.', 'emp-caja'), 'notice');
+
+        wp_send_json_success(array('redirect' => wc_get_cart_url()));
     }
 }
 
