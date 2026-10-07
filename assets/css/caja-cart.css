@@ -605,3 +605,46 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   6. Badge de Descuento en Medios de Pago (Checkout)
+   ========================================================================== */
+
+/* Asegurar que la fila del medio de pago en WooCommerce Blocks sea flexbox ancho completo */
+.wc-block-components-radio-control__label,
+.wc-block-components-radio-control__option-layout,
+.wc-block-components-radio-control-accordion-option label,
+.woocommerce-checkout .wc_payment_methods label,
+.woocommerce-checkout li.wc_payment_method label {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.wc-block-components-radio-control__label-group {
+    display: flex !important;
+    align-items: center !important;
+    flex-grow: 1 !important;
+}
+
+/* Badge de porcentaje con signo negativo en verde a la derecha del todo */
+.batllie-payment-discount-badge {
+    margin-left: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #15803d !important; /* Verde elegante */
+    background: #ecfdf5 !important; /* Fondo verde menta suave */
+    border: 1px solid #86efac !important; /* Borde verde claro */
+    padding: 3px 9px !important;
+    border-radius: 6px !important;
+    font-size: 13.5px !important;
+    font-weight: 800 !important;
+    line-height: 1.25 !important;
+    letter-spacing: -0.02em !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    text-transform: none !important;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.08) !important;
+}
