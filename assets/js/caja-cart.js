@@ -466,17 +466,18 @@
             const discountGateways = Array.isArray(discountConfig.gateways) ? discountConfig.gateways : ['bacs'];
 
             // 1. Selector para WooCommerce Blocks (React)
-            $('.wc-block-components-radio-control-accordion-option, .wc-block-components-radio-control__option, .wc-block-checkout__payment-method').each(function () {
+            $('.wc-block-components-radio-control__option').each(function () {
                 const $option = $(this);
                 const $input = $option.find('input[type="radio"]');
                 const inputVal = ($input.val() || '').toLowerCase();
                 const inputId = ($input.attr('id') || '').toLowerCase();
+                const optionFor = ($option.attr('for') || '').toLowerCase();
                 const optionText = ($option.text() || '').toLowerCase();
 
                 let isDiscountMethod = false;
                 for (let i = 0; i < discountGateways.length; i++) {
                     const gw = discountGateways[i].toLowerCase();
-                    if (inputVal === gw || inputId.includes(gw)) {
+                    if (inputVal === gw || inputId.includes(gw) || optionFor.includes(gw)) {
                         isDiscountMethod = true;
                         break;
                     }
@@ -487,16 +488,29 @@
                     }
                 }
 
-                if (isDiscountMethod) {
-                    const $label = $option.find('.wc-block-components-radio-control__label, label').first();
-                    if ($label.length) {
-                        const $existing = $label.find('.batllie-payment-discount-badge');
-                        if ($existing.length === 0) {
-                            $label.append('<span class="batllie-payment-discount-badge">' + badgeText + '</span>');
-                        } else if ($existing.text() !== badgeText) {
-                            $existing.text(badgeText);
+                // SIEMPRE eliminar cualquier badge que haya quedado pegado dentro del span de título (eliminar el de la izquierda)
+                $option.find('.wc-block-components-radio-control__label .batllie-payment-discount-badge').remove();
+
+                const $labelGroup = $option.find('.wc-block-components-radio-control__label-group').first();
+
+                if (isDiscountMethod && $labelGroup.length) {
+                    // Mantener únicamente el badge como hijo directo de label-group (a la derecha)
+                    let $directBadges = $labelGroup.children('.batllie-payment-discount-badge');
+                    if ($directBadges.length === 0) {
+                        $labelGroup.append('<span class="batllie-payment-discount-badge">' + badgeText + '</span>');
+                    } else {
+                        if ($directBadges.first().text() !== badgeText) {
+                            $directBadges.first().text(badgeText);
+                        }
+                        if ($directBadges.length > 1) {
+                            $directBadges.slice(1).remove();
                         }
                     }
+                    // Remover cualquier otro badge huérfano dentro de la opción
+                    $option.find('.batllie-payment-discount-badge').not($labelGroup.children('.batllie-payment-discount-badge')).remove();
+                } else {
+                    // Si no tiene descuento, eliminar cualquier badge
+                    $option.find('.batllie-payment-discount-badge').remove();
                 }
             });
 
@@ -520,16 +534,23 @@
                     isDiscountMethod = true;
                 }
 
-                if (isDiscountMethod) {
-                    const $label = $li.find('label').first();
-                    if ($label.length) {
-                        $label.find('.emp-gateway-badge').remove();
-                        const $existing = $label.find('.batllie-payment-discount-badge');
-                        if ($existing.length === 0) {
+                const $label = $li.find('label').first();
+                if ($label.length) {
+                    $label.find('.emp-gateway-badge').remove();
+                    if (isDiscountMethod) {
+                        let $directBadges = $label.children('.batllie-payment-discount-badge');
+                        if ($directBadges.length === 0) {
                             $label.append('<span class="batllie-payment-discount-badge">' + badgeText + '</span>');
-                        } else if ($existing.text() !== badgeText) {
-                            $existing.text(badgeText);
+                        } else {
+                            if ($directBadges.first().text() !== badgeText) {
+                                $directBadges.first().text(badgeText);
+                            }
+                            if ($directBadges.length > 1) {
+                                $directBadges.slice(1).remove();
+                            }
                         }
+                    } else {
+                        $label.find('.batllie-payment-discount-badge').remove();
                     }
                 }
             });
