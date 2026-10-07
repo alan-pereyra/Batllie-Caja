@@ -610,22 +610,43 @@
    6. Badge de Descuento en Medios de Pago (Checkout)
    ========================================================================== */
 
-/* Asegurar que la fila del medio de pago en WooCommerce Blocks sea flexbox ancho completo */
-.wc-block-components-radio-control__label,
+/* Asegurar que las opciones de pago en WooCommerce Blocks y clásico se mantengan alineadas a la izquierda */
+.wc-block-checkout label,
+.wc-block-components-radio-control label,
+.wc-block-components-radio-control__option,
 .wc-block-components-radio-control__option-layout,
-.wc-block-components-radio-control-accordion-option label,
-.woocommerce-checkout .wc_payment_methods label,
-.woocommerce-checkout li.wc_payment_method label {
+.wc-block-components-radio-control__label-group,
+.wc-block-components-radio-control__label {
+    margin: 0 !important;
+    text-align: left !important;
+}
+
+/* Fila del título de la opción de pago: flexbox horizontal que distribuye el texto a la izquierda y el badge a la derecha */
+.wc-block-components-radio-control__label-group {
     display: flex !important;
     align-items: center !important;
+    justify-content: space-between !important;
     width: 100% !important;
     box-sizing: border-box !important;
 }
 
-.wc-block-components-radio-control__label-group {
+.wc-block-components-radio-control__label {
+    display: inline-block !important;
+    text-align: left !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Checkout clásico WooCommerce */
+.woocommerce-checkout .wc_payment_methods label,
+.woocommerce-checkout li.wc_payment_method label {
     display: flex !important;
     align-items: center !important;
-    flex-grow: 1 !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    text-align: left !important;
 }
 
 /* Badge de porcentaje con signo negativo en verde a la derecha del todo */
