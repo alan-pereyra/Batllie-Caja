@@ -274,6 +274,16 @@ class Batllie_Caja_Min_Order {
         if (stripos($message, 'mínimo') !== false || stripos($message, 'minimo') !== false || stripos($message, 'faltan') !== false) {
             return false;
         }
+
+        // Si hay un sabor de combo agotado en el carrito, añadir enlace directo para abrir el modal de reemplazo
+        if (class_exists('Batllie_Caja_Grouped') && Batllie_Caja_Grouped::has_cart_combo_replacements_needed()) {
+            if (stripos($message, 'existencias') !== false || stripos($message, 'stock') !== false) {
+                if (stripos($message, 'batllie-open-replacement-modal') === false) {
+                    $message .= ' — <a href="javascript:void(0)" class="batllie-open-replacement-modal" style="text-decoration:underline; font-weight:700; color:inherit;">Elegir sabor de reemplazo</a>';
+                }
+            }
+        }
+
         return $message;
     }
 

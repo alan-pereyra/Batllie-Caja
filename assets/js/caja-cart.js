@@ -490,6 +490,112 @@
                 $boxRow.addClass('batllie-combo-delete-active');
             }
         });
+
+        // =====================================================================
+        // GESTIÓN DE REEMPLAZO RÁPIDO DE SABORES AGOTADOS EN COMBOS (Alternativa A)
+        // =====================================================================
+        // Abrir modal de reemplazo
+        $(document).on('click', '.batllie-open-replacement-modal, .batllie-replacement-alert-action-btn', function (e) {
+            e.preventDefault();
+            $('#batllie-combo-replacement-backdrop').css('display', 'flex').attr('aria-hidden', 'false');
+        });
+
+        // Cerrar modal de reemplazo
+        $(document).on('click', '#batllie-replacement-modal-close-btn', function (e) {
+            e.preventDefault();
+            $('#batllie-combo-replacement-backdrop').hide().attr('aria-hidden', 'true');
+        });
+
+        $(document).on('click', '#batllie-combo-replacement-backdrop', function (e) {
+            if ($(e.target).is('#batllie-combo-replacement-backdrop')) {
+                $(this).hide().attr('aria-hidden', 'true');
+            }
+        });
+
+        // Selección de nuevo sabor como reemplazo
+        $(document).on('click', '.batllie-replacement-select-btn, .batllie-replacement-card', function (e) {
+            const $card = $(this).closest('.batllie-replacement-card');
+            const $btn = $card.find('.batllie-replacement-select-btn');
+            if ($btn.prop('disabled')) return;
+
+            e.preventDefault();
+
+            const repId = $card.data('replacement-id');
+            const cartKey = $card.data('cart-key');
+            const packId = $card.data('pack-id');
+
+            const originalText = $btn.find('.btn-text').text() || 'Elegir';
+            $btn.prop('disabled', true).find('.btn-text').text('Cambiando...');
+            $('.batllie-replacement-select-btn').prop('disabled', true);
+
+            const ajaxUrl = (window.batllieCartConfig && window.batllieCartConfig.ajaxUrl) || (window.batllieMinOrderConfig && window.batllieMinOrderConfig.ajaxUrl) || '/wp-admin/admin-ajax.php';
+            const nonce = (window.batllieCartConfig && window.batllieCartConfig.nonce) || (window.batllieMinOrderConfig && window.batllieMinOrderConfig.nonce) || '';
+
+            $.ajax({
+                url: ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_replace_combo_flavor',
+                    nonce: nonce,
+                    replacement_product_id: repId,
+                    depleted_cart_item_key: cartKey,
+                    pack_instance_id: packId
+                },
+                success: function (res) {
+                    if (res && res.success) {
+                        $btn.find('.btn-text').text('¡Listo!');
+                        if (res.data && res.data.redirect) {
+                            window.location.href = res.data.redirect;
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert((res && res.data && res.data.message) || 'Error al cambiar de sabor. Por favor recarga la página.');
+                        $btn.prop('disabled', false).find('.btn-text').text(originalText);
+                        $('.batllie-replacement-select-btn').prop('disabled', false);
+                    }
+                },
+                error: function () {
+                    alert('Error de conexión. Intenta nuevamente.');
+                    $btn.prop('disabled', false).find('.btn-text').text(originalText);
+                    $('.batllie-replacement-select-btn').prop('disabled', false);
+                }
+            });
+        });
+
+        // Quitar combo completo si el usuario no desea reemplazar
+        $(document).on('click', '.batllie-replacement-remove-combo-btn', function (e) {
+            e.preventDefault();
+            const $btn = $(this);
+            const cartKey = $btn.data('cart-key');
+            if (!cartKey) return;
+
+            $btn.prop('disabled', true).text('Quitando combo...');
+            const ajaxUrl = (window.batllieCartConfig && window.batllieCartConfig.ajaxUrl) || (window.batllieMinOrderConfig && window.batllieMinOrderConfig.ajaxUrl) || '/wp-admin/admin-ajax.php';
+            const nonce = (window.batllieCartConfig && window.batllieCartConfig.nonce) || (window.batllieMinOrderConfig && window.batllieMinOrderConfig.nonce) || '';
+
+            $.ajax({
+                url: ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_remove_combo_pack',
+                    nonce: nonce,
+                    cart_item_key: cartKey
+                },
+                success: function (res) {
+                    if (res && res.data && res.data.redirect) {
+                        window.location.href = res.data.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                },
+                error: function () {
+                    window.location.reload();
+                }
+            });
+        });
     });
 
 })(jQuery);
