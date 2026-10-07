@@ -2156,9 +2156,10 @@ class Batllie_Caja_Grouped {
         );
 
         wp_localize_script('batllie-caja-cart-js', 'batllieCartConfig', array(
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('batllie_caja_nonce'),
-            'i18n'    => array(
+            'ajaxUrl'          => admin_url('admin-ajax.php'),
+            'nonce'            => wp_create_nonce('batllie_caja_nonce'),
+            'paymentDiscounts' => self::get_payment_discounts_config(),
+            'i18n'             => array(
                 'removeComboTooltip' => __('Eliminar combo completo', 'emp-caja'),
                 'lockedNotice'       => __('La cantidad de este producto está fijada por la caja. Para modificarla, elimina el combo.', 'emp-caja'),
                 'includedFlavors'    => __('Sabores incluidos:', 'emp-caja'),
@@ -2648,6 +2649,47 @@ class Batllie_Caja_Grouped {
         wc_add_notice(__('Se quitó el combo del carrito.', 'emp-caja'), 'notice');
 
         wp_send_json_success(array('redirect' => wc_get_cart_url()));
+    }
+
+    /**
+     * Obtener configuración de descuentos por medio de pago (ej: 15% en Transferencia)
+     *
+     * @return array
+     */
+    public static function get_payment_discounts_config() {
+        $percent = 15;
+        if (function_exists('emp_get_list_price_discount_percent')) {
+            $percent = emp_get_list_price_discount_percent();
+        } elseif (function_exists('get_theme_mod')) {
+            $p = (float) get_theme_mod('emp_wc_list_price_discount_percent', 15);
+            if ($p > 0) {
+                $percent = $p;
+            }
+        }
+
+        $gateways = array();
+        if (function_exists('WC') && WC()->payment_gateways()) {
+            $available = WC()->payment_gateways()->get_available_payment_gateways();
+            foreach ($available as $gid => $g) {
+                if (function_exists('emp_is_discount_gateway')) {
+                    if (emp_is_discount_gateway($gid)) {
+                        $gateways[] = $gid;
+                    }
+                } elseif ($gid === 'bacs') {
+                    $gateways[] = 'bacs';
+                }
+            }
+        }
+        if (empty($gateways)) {
+            $gateways = array('bacs');
+        }
+
+        return array(
+            'enabled'  => true,
+            'percent'  => $percent,
+            'badge'    => '-' . $percent . '%',
+            'gateways' => array_values(array_unique($gateways)),
+        );
     }
 }
 

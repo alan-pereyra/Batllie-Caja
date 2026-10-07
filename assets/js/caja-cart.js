@@ -454,14 +454,108 @@
         } catch (e) {}
     }
 
+    /**
+     * Aplicar badge de porcentaje de descuento (en verde con signo negativo a la derecha)
+     * en el medio de pago que ofrece descuento (ej: Transferencia -15%)
+     */
+    function applyPaymentDiscountBadges() {
+        try {
+            const discountConfig = (config.paymentDiscounts) || {};
+            const percent = discountConfig.percent || 15;
+            const badgeText = '-' + percent + '%';
+            const discountGateways = Array.isArray(discountConfig.gateways) ? discountConfig.gateways : ['bacs'];
+
+            // 1. Selector para WooCommerce Blocks (React)
+            $('.wc-block-components-radio-control-accordion-option, .wc-block-components-radio-control__option, .wc-block-checkout__payment-method').each(function () {
+                const $option = $(this);
+                const $input = $option.find('input[type="radio"]');
+                const inputVal = ($input.val() || '').toLowerCase();
+                const inputId = ($input.attr('id') || '').toLowerCase();
+                const optionText = ($option.text() || '').toLowerCase();
+
+                let isDiscountMethod = false;
+                for (let i = 0; i < discountGateways.length; i++) {
+                    const gw = discountGateways[i].toLowerCase();
+                    if (inputVal === gw || inputId.includes(gw)) {
+                        isDiscountMethod = true;
+                        break;
+                    }
+                }
+                if (!isDiscountMethod) {
+                    if (optionText.includes('transferencia') || optionText.includes('transferí')) {
+                        isDiscountMethod = true;
+                    }
+                }
+
+                if (isDiscountMethod) {
+                    const $label = $option.find('.wc-block-components-radio-control__label, label').first();
+                    if ($label.length) {
+                        const $existing = $label.find('.batllie-payment-discount-badge');
+                        if ($existing.length === 0) {
+                            $label.append('<span class="batllie-payment-discount-badge">' + badgeText + '</span>');
+                        } else if ($existing.text() !== badgeText) {
+                            $existing.text(badgeText);
+                        }
+                    }
+                }
+            });
+
+            // 2. Selector para Checkout Clásico de WooCommerce
+            $('.woocommerce-checkout .wc_payment_methods li, .woocommerce-checkout ul.payment_methods li').each(function () {
+                const $li = $(this);
+                const $input = $li.find('input[type="radio"]');
+                const val = ($input.val() || '').toLowerCase();
+                const liClass = ($li.attr('class') || '').toLowerCase();
+                const liText = ($li.text() || '').toLowerCase();
+
+                let isDiscountMethod = false;
+                for (let i = 0; i < discountGateways.length; i++) {
+                    const gw = discountGateways[i].toLowerCase();
+                    if (val === gw || liClass.includes('payment_method_' + gw)) {
+                        isDiscountMethod = true;
+                        break;
+                    }
+                }
+                if (!isDiscountMethod && (liText.includes('transferencia') || liText.includes('bacs'))) {
+                    isDiscountMethod = true;
+                }
+
+                if (isDiscountMethod) {
+                    const $label = $li.find('label').first();
+                    if ($label.length) {
+                        $label.find('.emp-gateway-badge').remove();
+                        const $existing = $label.find('.batllie-payment-discount-badge');
+                        if ($existing.length === 0) {
+                            $label.append('<span class="batllie-payment-discount-badge">' + badgeText + '</span>');
+                        } else if ($existing.text() !== badgeText) {
+                            $existing.text(badgeText);
+                        }
+                    }
+                }
+            });
+        } catch (e) {}
+    }
+
     $(document).ready(function () {
         translateCartStrings();
         processCartItems();
+        applyPaymentDiscountBadges();
 
-        // Re-procesar tras eventos de actualización de carrito en WooCommerce clásico
-        $(document.body).on('updated_wc_div updated_cart_totals wc_fragments_refreshed', function () {
+        // Polling inicial para capturar renderizado asíncrono de WooCommerce Blocks
+        let discountPollCount = 0;
+        const discountPoll = setInterval(function () {
+            applyPaymentDiscountBadges();
+            discountPollCount++;
+            if (discountPollCount > 15) {
+                clearInterval(discountPoll);
+            }
+        }, 250);
+
+        // Re-procesar tras eventos de actualización de carrito y checkout en WooCommerce clásico
+        $(document.body).on('updated_wc_div updated_cart_totals wc_fragments_refreshed payment_method_selected updated_checkout', function () {
             translateCartStrings();
             processCartItems();
+            applyPaymentDiscountBadges();
         });
 
         // Re-procesar tras mutaciones del DOM (para WooCommerce Blocks basado en React)
@@ -474,6 +568,7 @@
                     debounceTimer = setTimeout(function () {
                         translateCartStrings();
                         processCartItems();
+                        applyPaymentDiscountBadges();
                     }, 50);
                 });
                 observer.observe(targetNode, { childList: true, subtree: true });
