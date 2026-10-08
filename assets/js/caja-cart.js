@@ -363,11 +363,18 @@
                     const storeCart = window.wp.data.select('wc/store/cart');
                     if (storeCart && typeof storeCart.getCartData === 'function') {
                         const data = storeCart.getCartData();
-                        if (data && typeof data.items_count === 'number') {
+                        if (data && typeof data.items_count === 'number' && data.items_count > 0) {
                             totalCount = data.items_count;
                         }
                     }
                 } catch (e) {}
+            }
+
+            // Si el bloque de Gutenberg aún está en estado de carga ('is-loading') y el conteo dio 0,
+            // no sobreescribir el badge del header/footer para no borrar el conteo renderizado por el servidor.
+            const isBlockLoading = $('.wp-block-woocommerce-cart.is-loading').length > 0;
+            if (isBlockLoading && totalCount === 0) {
+                return;
             }
 
             updateCartCounterBadges(totalCount);
@@ -594,6 +601,25 @@
                 });
                 observer.observe(targetNode, { childList: true, subtree: true });
             }
+        }
+
+        // Suscribirse a cambios reactivos de WooCommerce Store API (Gutenberg)
+        if (window.wp && window.wp.data && typeof window.wp.data.subscribe === 'function') {
+            let lastSubscribedCount = -1;
+            window.wp.data.subscribe(function () {
+                try {
+                    const storeCart = window.wp.data.select('wc/store/cart');
+                    if (storeCart && typeof storeCart.getCartData === 'function') {
+                        const data = storeCart.getCartData();
+                        if (data && typeof data.items_count === 'number' && data.items_count !== lastSubscribedCount) {
+                            lastSubscribedCount = data.items_count;
+                            translateCartStrings();
+                            processCartItems();
+                            applyPaymentDiscountBadges();
+                        }
+                    }
+                } catch (e) {}
+            });
         }
 
         // Efecto visual al hacer clic en eliminar una caja o combo específico

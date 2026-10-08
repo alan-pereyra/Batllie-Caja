@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.62
+ * Version: 1.8.63
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.62');
+define('EMP_CAJA_VERSION', '1.8.63');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -66,6 +66,7 @@ class Batllie_Caja_Plugin {
         add_action('template_redirect', array($this, 'hide_admin_bar_on_caja'));
         add_action('wp_enqueue_scripts', array($this, 'register_assets'));
         add_action('wp_head', array($this, 'render_mobile_cart_redirect_script'), 1);
+        add_filter('script_loader_tag', array($this, 'prevent_core_scripts_defer'), 99999, 3);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
 
         // Garantizar traducciones al español argentino para textos clave de WooCommerce y bloques de carrito/checkout
@@ -955,6 +956,18 @@ JS;
         })();
         </script>
         <?php
+    }
+
+    /**
+     * Prevenir que scripts esenciales de WordPress y WooCommerce Blocks sean diferidos con 'defer',
+     * evitando que scripts inline dependientes (como wp-api-fetch-js-after) se ejecuten antes
+     * y provoquen errores de Javascript que bloqueen la hidratación de React en el carrito.
+     */
+    public function prevent_core_scripts_defer($tag, $handle, $src) {
+        if (in_array($handle, array('wp-api-fetch', 'react', 'react-dom', 'wp-hooks', 'wp-polyfill', 'wc-settings'), true)) {
+            $tag = str_replace(array(' defer="defer"', ' defer'), '', $tag);
+        }
+        return $tag;
     }
 }
 
