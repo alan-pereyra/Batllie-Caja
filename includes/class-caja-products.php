@@ -106,12 +106,27 @@ class Batllie_Caja_Products {
         $product_type = $product->get_type();
         $children_ids = array();
         if ($product->is_type('grouped')) {
-            $children_ids = array_map('intval', (array) $product->get_children());
+            $raw_children = array_map('intval', (array) $product->get_children());
+            foreach ($raw_children as $cid) {
+                $cp = wc_get_product($cid);
+                if ($cp && $cp->is_type('simple')) {
+                    $children_ids[] = $cid;
+                }
+            }
         }
 
         $is_predefined = get_post_meta($product->get_id(), '_batllie_grouped_is_predefined', true) === 'yes';
         $saved_qtys = $is_predefined ? get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true) : array();
         $predefined_quantities = is_array($saved_qtys) ? $saved_qtys : array();
+        if (!empty($predefined_quantities)) {
+            $filtered_predef = array();
+            foreach ($predefined_quantities as $cid => $q) {
+                if (in_array(intval($cid), $children_ids, true)) {
+                    $filtered_predef[$cid] = $q;
+                }
+            }
+            $predefined_quantities = $filtered_predef;
+        }
 
         $manage_stock = $product->get_manage_stock();
         $stock_qty = $product->get_stock_quantity();
@@ -592,8 +607,11 @@ class Batllie_Caja_Products {
                     $c_id = absint($child_id);
                     $c_val = absint($c_qty);
                     if ($c_id > 0 && $c_val > 0) {
-                        $clean_qtys[$c_id] = $c_val;
-                        $total_units += $c_val;
+                        $cp = wc_get_product($c_id);
+                        if ($cp && $cp->is_type('simple')) {
+                            $clean_qtys[$c_id] = $c_val;
+                            $total_units += $c_val;
+                        }
                     }
                 }
                 update_post_meta($product_id, '_batllie_grouped_predefined_quantities', $clean_qtys);
@@ -604,11 +622,20 @@ class Batllie_Caja_Products {
 
         if ($product->is_type('grouped')) {
             if ($is_pred && !empty($clean_qtys)) {
-                // En combo predeterminado, los hijos son únicamente los alfajores con cantidad > 0
+                // En combo predeterminado, los hijos son únicamente los productos simples con cantidad > 0
                 $product->set_children(array_keys($clean_qtys));
             } elseif (isset($data['children'])) {
-                $children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
-                $product->set_children($children);
+                $raw_children = is_array($data['children']) ? array_map('absint', $data['children']) : array();
+                $clean_children = array();
+                foreach ($raw_children as $c_id) {
+                    if ($c_id > 0) {
+                        $cp = wc_get_product($c_id);
+                        if ($cp && $cp->is_type('simple')) {
+                            $clean_children[] = $c_id;
+                        }
+                    }
+                }
+                $product->set_children($clean_children);
             }
         }
 

@@ -25,7 +25,7 @@ do_action( 'woocommerce_before_add_to_cart_form' ); ?>
             foreach ( $grouped_product_child_ids as $grouped_product_child_id ) {
                 $grouped_product_child = wc_get_product( $grouped_product_child_id );
 
-                if ( ! $grouped_product_child ) {
+                if ( ! $grouped_product_child || ! $grouped_product_child->is_type( 'simple' ) ) {
                     continue;
                 }
 

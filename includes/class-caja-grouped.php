@@ -329,23 +329,42 @@ class Batllie_Caja_Grouped {
             return array();
         }
         $qtys = get_post_meta($product->get_id(), '_batllie_grouped_predefined_quantities', true);
-        return is_array($qtys) ? $qtys : array();
+        if (!is_array($qtys)) {
+            return array();
+        }
+        $clean_qtys = array();
+        foreach ($qtys as $cid => $q) {
+            $cp = wc_get_product($cid);
+            if ($cp && $cp->is_type('simple')) {
+                $clean_qtys[$cid] = $q;
+            }
+        }
+        return $clean_qtys;
     }
 
     /**
-     * Filtrar productos hijos de agrupados para combos predeterminados (excluir unidades <= 0)
+     * Filtrar productos hijos de agrupados para combos predeterminados (excluir unidades <= 0 y productos no simples)
      */
     public static function filter_grouped_children($children, $product) {
         if (!$product || !is_a($product, 'WC_Product') || !$product->is_type('grouped')) {
             return $children;
         }
 
+        // Excluir cualquier producto que no sea de tipo simple
+        $only_simple = array();
+        foreach ((array) $children as $child_id) {
+            $cid = absint($child_id);
+            $cp = wc_get_product($cid);
+            if ($cp && $cp->is_type('simple')) {
+                $only_simple[] = $cid;
+            }
+        }
+
         if (self::is_predefined_combo($product)) {
             $predefined = self::get_predefined_quantities($product);
             if (!empty($predefined) && is_array($predefined)) {
                 $filtered = array();
-                foreach ((array) $children as $child_id) {
-                    $cid = absint($child_id);
+                foreach ($only_simple as $cid) {
                     if (isset($predefined[$cid]) && absint($predefined[$cid]) > 0) {
                         $filtered[] = $cid;
                     }
@@ -354,7 +373,7 @@ class Batllie_Caja_Grouped {
             }
         }
 
-        return $children;
+        return $only_simple;
     }
 
     /**
