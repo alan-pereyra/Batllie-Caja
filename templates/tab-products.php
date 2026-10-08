@@ -660,13 +660,13 @@ if (!defined('ABSPATH')) {
                 </div>
 
                 <!-- ========================================================================= -->
-                <!-- SECCIÓN 3: CONFIGURACIÓN DE CAJA BATLLIÉ (SOLO PRODUCTO AGRUPADO)         -->
+                <!-- SECCIÓN 3: CONFIGURACIÓN DE CAJA (SOLO PRODUCTO AGRUPADO)                 -->
                 <!-- ========================================================================= -->
                 <div class="caja-details-accordion caja-modal-section-accordion" id="edit-prod-sec-grouped-config" style="display:none;">
                     <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-grouped-config">
                         <span class="caja-toggle-left">
                             <span class="caja-toggle-icon">📦</span>
-                            <span class="caja-toggle-text"><strong><?php _e('Configuración de Caja Batllié (Pack Agrupado)', 'emp-caja'); ?></strong></span>
+                            <span class="caja-toggle-text"><strong><?php _e('Configuración de Caja (Pack Agrupado)', 'emp-caja'); ?></strong></span>
                         </span>
                         <span class="caja-toggle-arrow">▼</span>
                     </button>

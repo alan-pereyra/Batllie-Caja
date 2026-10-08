@@ -3431,9 +3431,9 @@ $('#caja-modal-new-product').fadeIn(200);
             selectedIds = Array.isArray(selectedIds) ? selectedIds.map(Number) : [];
             predefinedQtys = (predefinedQtys && typeof predefinedQtys === 'object') ? predefinedQtys : {};
 
-            // Solo productos simples o productos que no sean el actual ni agrupados
+            // Solo productos simples (no el actual, ni agrupados, ni variables)
             const candidates = (self.cachedProducts || []).filter(p => {
-                return p.id !== currentProductId && p.product_type !== 'grouped';
+                return p.id !== currentProductId && p.product_type === 'simple';
             });
 
             if (candidates.length === 0) {
@@ -4403,6 +4403,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 $('#edit-prod-children-list .caja-child-chk:checked').each(function() {
                     const id = parseInt($(this).val());
+                    const cand = (self.cachedProducts || []).find(p => p.id === id);
+                    if (cand && cand.product_type !== 'simple') {
+                        return; // Omitir productos no simples por seguridad
+                    }
                     children.push(id);
                     if (isPredefined) {
                         const $item = $(this).closest('.caja-child-select-item');
