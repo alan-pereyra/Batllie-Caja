@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.61
+ * Version: 1.8.62
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.61');
+define('EMP_CAJA_VERSION', '1.8.62');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -121,15 +121,23 @@ class Batllie_Caja_Plugin {
     }
 
     /**
-     * Ocultar la barra superior de administración de WordPress en la página de la caja
+     * Ocultar la barra superior de administración de WordPress y añadir clase aislada en el body
      */
     public function hide_admin_bar_on_caja() {
         if (!is_admin()) {
             global $post;
             if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || strpos($post->post_content, 'batllie_caja') !== false)) {
                 add_filter('show_admin_bar', '__return_false', 9999);
+                add_filter('body_class', array($this, 'add_caja_body_class'), 9999);
             }
         }
+    }
+
+    public function add_caja_body_class($classes) {
+        if (!in_array('batllie-caja-active', $classes, true)) {
+            $classes[] = 'batllie-caja-active';
+        }
+        return $classes;
     }
 
     public function woocommerce_missing_notice() {
@@ -367,9 +375,16 @@ class Batllie_Caja_Plugin {
             }
             html,
             html.wp-toolbar,
+            html.batllie-caja-active,
             html[lang] {
                 margin-top: 0 !important;
                 padding-top: 0 !important;
+                background: {$options['bg_color']} !important;
+                background-color: {$options['bg_color']} !important;
+                min-height: 100vh !important;
+                min-height: 100dvh !important;
+                overscroll-behavior: none !important;
+                overscroll-behavior-y: none !important;
             }
             body.batllie-caja-active header:not(.caja-topbar):not(.batllie-caja-nav),
             body.batllie-caja-active nav:not(.batllie-caja-nav),
@@ -384,11 +399,33 @@ class Batllie_Caja_Plugin {
             body.batllie-caja-active #navbar-background,
             body.batllie-caja-active .FullScreenLanding,
             body.batllie-caja-active #main-head,
-            body.batllie-caja-active #first-content-page {
+            body.batllie-caja-active #first-content-page,
+            body.batllie-caja-active .show-btn-fixed,
+            body.batllie-caja-active .buttons-mobile,
+            body.batllie-caja-active #bg-searchform-mobile,
+            body.batllie-caja-active #bg-woocommerce-mobile,
+            body.batllie-caja-active #searchform-woocommerce,
+            body.batllie-caja-active #searchform-mobile,
+            body.batllie-caja-active #scrollToTopButton,
+            body.batllie-caja-active .img-fixed,
+            body.batllie-caja-active .img-btn-fixed-wsp,
+            body.batllie-caja-active .img-btn-fixed,
+            body.batllie-caja-active #chat-emp-btn-fixed,
+            body.batllie-caja-active span.btn.invisible,
+            body.batllie-caja-active .invisible {
                 display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                max-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
             }
             body.batllie-caja-active article,
             body.batllie-caja-active article.color-content,
+            body.batllie-caja-active article.bg-content,
             body.batllie-caja-active .container-fluid,
             body.batllie-caja-active .container {
                 padding: 0 !important;
@@ -396,16 +433,25 @@ class Batllie_Caja_Plugin {
                 max-width: 100% !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
+                background: transparent !important;
+                background-color: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
             }
             body,
             body.admin-bar,
             body.batllie-caja-active {
                 background: {$options['bg_color']} !important;
+                background-color: {$options['bg_color']} !important;
                 margin: 0 !important;
                 margin-top: 0 !important;
                 padding: 0 !important;
                 padding-top: 0 !important;
                 overflow-x: hidden !important;
+                overscroll-behavior: none !important;
+                overscroll-behavior-y: none !important;
+                min-height: 100vh !important;
+                min-height: 100dvh !important;
                 width: 100% !important;
             }";
         }
