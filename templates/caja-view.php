@@ -33,8 +33,15 @@ if (!defined('ABSPATH')) {
             window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
         }
     }
-    // Añadir clase al body para modo aislado
-    document.addEventListener('DOMContentLoaded', function() {
+    // Añadir clase al html y body para modo aislado hermético
+    document.documentElement.classList.add('batllie-caja-active');
+    if (document.body) {
         document.body.classList.add('batllie-caja-active');
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.documentElement.classList.add('batllie-caja-active');
+        if (document.body) {
+            document.body.classList.add('batllie-caja-active');
+        }
     });
 </script>
