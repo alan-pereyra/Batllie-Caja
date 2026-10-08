@@ -85,8 +85,13 @@
                 const classStr = $row.attr('class') || '';
                 const match = classStr.match(/\bbatllie-pack-([a-zA-Z0-9_-]+)/);
                 const packId = match ? match[1] : 'pack_default';
+                const hasBoxInClassic = $('.woocommerce-cart-form table.cart tr.batllie-combo-box-item.batllie-pack-' + packId).length > 0;
 
-                if ($row.hasClass('batllie-combo-child-item')) {
+                if ($row.hasClass('batllie-combo-child-item') && hasBoxInClassic) {
+                    // Bloquear botones stepper
+                    $row.find('.emp-qty-btn, .plus, .minus').hide();
+                    $row.find('input.qty').prop('readonly', true).attr('tabindex', '-1');
+
                     if (!classicPackFlavors[packId]) {
                         classicPackFlavors[packId] = [];
                     }
@@ -99,7 +104,7 @@
                         classicPackFlavors[packId].push({ name: name, qty: qty });
                     }
 
-                    // En productos hijos: ocultar totalmente la fila de la tabla
+                    // En productos hijos con caja física: ocultar totalmente la fila de la tabla
                     $row.hide().css('display', 'none');
                 } else if ($row.hasClass('batllie-combo-box-item')) {
                     // En la caja principal: tooltip de eliminación
@@ -108,6 +113,14 @@
                         $removeBtn.attr('title', removeTitle).attr('aria-label', removeTitle);
                         $removeBtn.attr('data-batllie-processed', 'true');
                     }
+                } else {
+                    // Si no tiene caja física, asegurar que la fila permanezca visible
+                    $row.show().css({
+                        'display': '',
+                        'visibility': 'visible',
+                        'height': '',
+                        'overflow': ''
+                    });
                 }
             });
 
@@ -142,6 +155,30 @@
                 let autoPackCounter = 0;
                 const packFlavors = {};
 
+                // Paso 2.0: Identificar qué packs tienen realmente una caja física en el carrito
+                const boxPackIds = new Set();
+                $cartBlockRows.each(function () {
+                    const $r = $(this);
+                    const rowText = $r.text().toLowerCase();
+                    const $bMarker = $r.find('.batllie-box-marker, [class*="batllie-box-marker"]');
+                    let isB = $bMarker.length > 0 ||
+                              $r.hasClass('batllie-combo-box-item') ||
+                              rowText.includes('caja de empaque') ||
+                              rowText.includes('empaque incluido') ||
+                              rowText.includes('caja principal');
+                    if (isB) {
+                        let pid = getPackIdFromEl($bMarker);
+                        if (!pid) {
+                            const cStr = $r.attr('class') || '';
+                            const m = cStr.match(/\bbatllie-pack-([a-zA-Z0-9_-]+)/);
+                            if (m && m[1]) pid = m[1];
+                        }
+                        if (pid) {
+                            boxPackIds.add(pid);
+                        }
+                    }
+                });
+
                 // Paso 2.1: Clasificar filas y marcar cajas e hijos
                 $cartBlockRows.each(function () {
                     try {
@@ -152,29 +189,23 @@
                         const $childMarker = $row.find('.batllie-child-marker, [class*="batllie-child-marker"]');
 
                         let isBox   = $boxMarker.length > 0;
-                        let isChild = $childMarker.length > 0;
-
-                        if (!isBox && !isChild) {
+                        if (!isBox) {
                             isBox = rowText.includes('caja de empaque') ||
                                     rowText.includes('empaque incluido') ||
                                     rowText.includes('caja principal') ||
                                     $row.hasClass('batllie-combo-box-item');
-
-                            isChild = !isBox && (
-                                rowText.includes('parte de') ||
-                                rowText.includes('part of') ||
-                                rowText.includes('incluido en la caja') ||
-                                rowText.includes('included in box') ||
-                                $row.hasClass('batllie-combo-child-item')
-                            );
                         }
 
+                        let isChild = false;
+                        let packId = '';
+
                         if (isBox) {
-                            let packId = getPackIdFromEl($boxMarker);
+                            packId = getPackIdFromEl($boxMarker);
                             if (!packId) {
                                 autoPackCounter++;
                                 packId = 'pack_auto_' + autoPackCounter;
                             }
+                            boxPackIds.add(packId);
                             currentBoxPackId = packId;
 
                             $row.addClass('batllie-is-combo-box batllie-pack-' + packId)
@@ -196,9 +227,30 @@
                             // Ocultar metadatos técnicos redundantes
                             $row.find('.wc-block-components-product-details').hide();
 
-                        } else if (isChild) {
-                            let packId = getPackIdFromEl($childMarker) || currentBoxPackId || 'pack_item';
+                        } else {
+                            // Buscar packId del hijo
+                            packId = getPackIdFromEl($childMarker);
+                            if (!packId) {
+                                const classStr = $row.attr('class') || '';
+                                const m = classStr.match(/\bbatllie-pack-([a-zA-Z0-9_-]+)/);
+                                if (m && m[1]) packId = m[1];
+                            }
+                            if (!packId && currentBoxPackId) {
+                                packId = currentBoxPackId;
+                            }
 
+                            const hasChildSignal = ($childMarker.length > 0) ||
+                                                   $row.hasClass('batllie-combo-child-item') ||
+                                                   rowText.includes('incluido en la caja') ||
+                                                   rowText.includes('included in box');
+
+                            // SOLO se oculta como hijo si REALMENTE existe una caja física para este pack en el carrito
+                            if (hasChildSignal && packId && boxPackIds.has(packId)) {
+                                isChild = true;
+                            }
+                        }
+
+                        if (isChild) {
                             $row.addClass('batllie-is-combo-child batllie-pack-' + packId)
                                 .removeClass('batllie-is-combo-box')
                                 .attr('data-batllie-pack-id', packId);
@@ -232,13 +284,28 @@
                                 'border': 'none'
                             });
 
-                        } else {
-                            // Producto normal independiente fuera de cualquier caja
+                        } else if (!isBox) {
+                            // Producto normal o producto de combo sin caja física:
+                            // DEBE SER COMPLETAMENTE VISIBLE
                             currentBoxPackId = null;
 
                             // Limpiar clases de combo si las tenía previamente
-                            $row.removeClass('batllie-is-combo-child batllie-is-combo-box batllie-combo-delete-active')
+                            $row.removeClass('batllie-is-combo-child batllie-combo-delete-active')
                                 .removeAttr('data-batllie-pack-id');
+
+                            $row.show().css({
+                                'display': '',
+                                'visibility': 'visible',
+                                'height': '',
+                                'min-height': '',
+                                'max-height': '',
+                                'overflow': '',
+                                'margin': '',
+                                'padding': '',
+                                'border': '',
+                                'opacity': '',
+                                'pointer-events': 'auto'
+                            });
                             $row.removeClass(function (index, className) {
                                 return (className.match(/\bbatllie-[^\s]+/g) || []).join(' ');
                             });
