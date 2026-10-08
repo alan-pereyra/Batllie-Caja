@@ -41,7 +41,7 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
                         <circle cx="12" cy="12" r="3"></circle>
                         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                     </svg>
-                    <span><?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
+                    <span><?php _e('Caja POS - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
                 </h1>
                 <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes y control de stock de empaques.', 'emp-caja'); ?></p>
             </div>
@@ -69,7 +69,7 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
         <div class="caja-settings-notice-info">
             <strong><?php _e('Uso en tu sitio:', 'emp-caja'); ?></strong>
             <?php _e('Crea una página nueva en WordPress y pega el shortcode:', 'emp-caja'); ?>
-            <code>[batllie_caja]</code>
+            <code>[caja_pos]</code> <?php _e('(o el legacy', 'emp-caja'); ?> <code>[batllie_caja]</code>)
         </div>
 
         <!-- 1. WhatsApp de Atención y Comprobantes -->

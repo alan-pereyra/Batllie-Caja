@@ -2020,7 +2020,7 @@ class Batllie_Caja_Grouped {
             // Si la cantidad intenta modificarse individualmente
             if (isset($values['quantity']) && (int) $values['quantity'] !== (int) $quantity) {
                 wc_add_notice(
-                    __('No es posible modificar las cantidades de los productos individuales de este combo. Para cambiar los sabores o cantidades, elimina el combo del carrito y vuelve a armarlo con tu nueva selección.', 'emp-caja'),
+                    __('No es posible modificar las cantidades de los productos individuales de este combo. Para cambiar los productos o cantidades, elimina el combo del carrito y vuelve a armarlo con tu nueva selección.', 'emp-caja'),
                     'error'
                 );
                 return false;
@@ -2160,7 +2160,7 @@ class Batllie_Caja_Grouped {
             'i18n'             => array(
                 'removeComboTooltip' => __('Eliminar combo completo', 'emp-caja'),
                 'lockedNotice'       => __('La cantidad de este producto está fijada por la caja. Para modificarla, elimina el combo.', 'emp-caja'),
-                'includedFlavors'    => __('Sabores incluidos:', 'emp-caja'),
+                'includedFlavors'    => __('Productos incluidos:', 'emp-caja'),
             ),
         ));
     }
@@ -2439,14 +2439,14 @@ class Batllie_Caja_Grouped {
             <div class="batllie-replacement-alert-content">
                 <div class="batllie-replacement-alert-title">
                     <?php echo sprintf(
-                        __('¡Atención! El sabor <strong>%s</strong> (%d u.) de tu <strong>%s</strong> se acaba de agotar.', 'emp-caja'),
+                        __('¡Atención! El producto <strong>%s</strong> (%d u.) de tu <strong>%s</strong> se acaba de agotar.', 'emp-caja'),
                         esc_html($rep['depleted_name']),
                         $rep['depleted_qty'],
                         esc_html($rep['combo_name'])
                     ); ?>
                 </div>
                 <div class="batllie-replacement-alert-sub">
-                    <?php _e('Para no perder tu caja y poder avanzar al pago, elegí por qué sabor reemplazarlo.', 'emp-caja'); ?>
+                    <?php _e('Para no perder tu selección y poder avanzar al pago, elegí por qué producto reemplazarlo.', 'emp-caja'); ?>
                 </div>
             </div>
             <button type="button" class="batllie-replacement-alert-action-btn batllie-open-replacement-modal">
@@ -2475,12 +2475,12 @@ class Batllie_Caja_Grouped {
         $count_needed = count($replacements);
         ?>
         <div id="batllie-combo-replacement-backdrop" class="batllie-combo-replacement-backdrop" style="display:flex;" aria-hidden="false">
-            <div id="batllie-combo-replacement-modal" class="batllie-combo-replacement-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Reemplazo de sabor agotado', 'emp-caja'); ?>">
+            <div id="batllie-combo-replacement-modal" class="batllie-combo-replacement-modal" role="dialog" aria-modal="true" aria-label="<?php esc_attr_e('Reemplazo de producto agotado', 'emp-caja'); ?>">
                 <button type="button" class="batllie-replacement-modal-close" id="batllie-replacement-modal-close-btn" aria-label="<?php esc_attr_e('Cerrar aviso', 'emp-caja'); ?>">&times;</button>
 
                 <div class="batllie-replacement-modal-head">
                     <div class="batllie-replacement-head-badge">
-                        <span>⚠️ <?php _e('Sabor Agotado en tu Caja', 'emp-caja'); ?></span>
+                        <span>⚠️ <?php _e('Producto Agotado en tu Pack', 'emp-caja'); ?></span>
                         <?php if ($count_needed > 1): ?>
                             <span class="batllie-replacement-count-badge"><?php echo sprintf(__('1 de %d pendientes', 'emp-caja'), $count_needed); ?></span>
                         <?php endif; ?>
@@ -2499,7 +2499,7 @@ class Batllie_Caja_Grouped {
                         </div>
                     </div>
                     <p class="batllie-replacement-instruction">
-                        <?php _e('Elegí por cuál de estos sabores disponibles querés reemplazarlo para completar tu caja y avanzar al pago:', 'emp-caja'); ?>
+                        <?php _e('Elegí por cuál de estos productos disponibles querés reemplazarlo para completar tu pedido y avanzar al pago:', 'emp-caja'); ?>
                     </p>
                 </div>
 
@@ -2523,7 +2523,7 @@ class Batllie_Caja_Grouped {
                         </div>
                     <?php else: ?>
                         <div class="batllie-replacement-no-stock">
-                            <p><?php _e('No hay otros sabores con stock suficiente en este momento.', 'emp-caja'); ?></p>
+                            <p><?php _e('No hay otros productos con stock suficiente en este momento.', 'emp-caja'); ?></p>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -2570,18 +2570,18 @@ class Batllie_Caja_Grouped {
 
         $new_product = wc_get_product($new_id);
         if (!$new_product || !$new_product->is_purchasable() || !$new_product->is_in_stock()) {
-            wp_send_json_error(array('message' => __('El sabor elegido no está disponible.', 'emp-caja')));
+            wp_send_json_error(array('message' => __('El producto elegido no está disponible.', 'emp-caja')));
         }
 
         // Comprobar stock disponible del reemplazo
         if (class_exists('Batllie_Caja_Packing')) {
             $avail = Batllie_Caja_Packing::get_product_available_stock($new_product);
             if ($avail < $quantity) {
-                wp_send_json_error(array('message' => sprintf(__('Solo quedan %d unidades de este sabor, se necesitan %d.', 'emp-caja'), $avail, $quantity)));
+                wp_send_json_error(array('message' => sprintf(__('Solo quedan %d unidades de este producto, se necesitan %d.', 'emp-caja'), $avail, $quantity)));
             }
         }
 
-        // ACTIVAR BYPASS para no eliminar el resto del combo al quitar este sabor
+        // ACTIVAR BYPASS para no eliminar el resto del combo al quitar este item
         self::$is_replacing_combo_flavor = true;
         try {
             $cart->remove_cart_item($cart_key);
@@ -2596,11 +2596,11 @@ class Batllie_Caja_Grouped {
             'batllie_replaced_flavor'   => true,
         );
 
-        // Añadir nuevo sabor al combo
+        // Añadir nuevo item al combo
         $added_key = $cart->add_to_cart($new_id, $quantity, 0, array(), $replacement_cart_data);
 
         if (!$added_key) {
-            wp_send_json_error(array('message' => __('No se pudo agregar el sabor de reemplazo.', 'emp-caja')));
+            wp_send_json_error(array('message' => __('No se pudo agregar el producto de reemplazo.', 'emp-caja')));
         }
 
         // Sincronizar precios y recalcular totales
@@ -2621,7 +2621,7 @@ class Batllie_Caja_Grouped {
         $redirect = ($referer && strpos($referer, 'checkout') !== false) ? wc_get_checkout_url() : wc_get_cart_url();
 
         wp_send_json_success(array(
-            'message'  => __('Sabor reemplazado con éxito.', 'emp-caja'),
+            'message'  => __('Producto reemplazado con éxito.', 'emp-caja'),
             'redirect' => $redirect,
         ));
     }

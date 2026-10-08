@@ -288,7 +288,7 @@
             current_box_units = totalAlfajores;
             current_box_capacity = 6;
             is_blocked = false; // No bloquea si cumple mínimo de tienda con otros productos
-            message = 'Tenés ' + totalAlfajores + ' alfajor(es) en tu carrito. Sumando solo ' + missing_units + ' más, recibís tu primera Caja Oficial Batllié.';
+            message = 'Tenés ' + totalAlfajores + ' unidad(es) en tu carrito. Sumando solo ' + missing_units + ' más, completás tu primera caja oficial.';
         } else {
             // Caso 2: Al menos 1 caja completa previa
             if (looseCount === 0) {
@@ -297,7 +297,7 @@
                 courtesy_allowed = false;
                 current_box_units = 6;
                 current_box_capacity = 6;
-                message = '¡Tus cajas están completas! Viví la experiencia completa Batllié.';
+                message = '¡Tus paquetes están completos!';
             } else {
                 const c12 = Math.floor(looseCount / 12);
                 const rem = looseCount % 12;
@@ -310,7 +310,7 @@
                     current_box_units = 12;
                     current_box_capacity = 12;
                     completed_boxes_text = (c12 > 1) ? (c12 + ' Cajas x 12 armadas') : '1 Caja x 12 armada';
-                    message = '¡Tus alfajores forman ' + (c12 > 1 ? c12 + ' cajas completas' : '1 caja completa') + ' de 12 unidades!';
+                    message = '¡Tus productos forman ' + (c12 > 1 ? c12 + ' cajas completas' : '1 caja completa') + ' de 12 unidades!';
                 } else if (rem === 6) {
                     boxes.box_6 = 1;
                     completed_boxes_6 = 1;
@@ -319,7 +319,7 @@
                     current_box_units = 6;
                     current_box_capacity = 6;
                     completed_boxes_text = (c12 > 0 ? (c12 + ' Caja x 12 + ') : '') + '1 Caja x 6 armada';
-                    message = '¡Tus alfajores forman cajas completas!';
+                    message = '¡Tus productos forman paquetes completos!';
                 } else {
                     const totalCompleted = completed_boxes_12 + completed_boxes_6;
                     current_box_num = totalCompleted + 1;
@@ -333,7 +333,7 @@
                     }
 
                     if (rem > 6) {
-                        // Remanente entre 7 y 11 alfajores -> Completa Caja de 12
+                        // Remanente entre 7 y 11 unidades -> Completa Caja de 12
                         current_box_units = rem;
                         current_box_capacity = 12;
                         const missing_to_12 = 12 - rem;
@@ -344,9 +344,9 @@
                         is_blocked = false;
                         courtesy_allowed = true;
                         boxes.courtesy = 1;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + rem + ' de 12. Con solo ' + missing_to_12 + ' más completás tu Caja de 12. Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                        message = 'Tenés ' + totalAlfajores + ' unidades (' + (completed_boxes_text || 'paquete en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'º paquete' : 'paquete') + ' tiene ' + rem + ' de 12. Con solo ' + missing_to_12 + ' más completás tu Caja de 12. Si no los agregás, ¡te asignamos un empaque de cortesía para que viajen protegidos!';
                     } else {
-                        // Remanente entre 1 y 5 alfajores -> Completa Caja de 6
+                        // Remanente entre 1 y 5 unidades -> Completa Caja de 6
                         current_box_units = rem;
                         current_box_capacity = 6;
                         const missing_to_6 = 6 - rem;
@@ -357,7 +357,7 @@
                         is_blocked = false;
                         courtesy_allowed = true;
                         boxes.courtesy = 1;
-                        message = 'Tenés ' + totalAlfajores + ' alfajores (' + (completed_boxes_text || 'caja en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'ª caja' : 'caja') + ' tiene ' + rem + ' de 6. Con solo ' + missing_to_6 + ' más completás tu caja (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te regalamos una Caja de Cortesía para que viajen protegidos!';
+                        message = 'Tenés ' + totalAlfajores + ' unidades (' + (completed_boxes_text || 'paquete en armado') + '). Tu ' + (current_box_num > 1 ? current_box_num + 'º paquete' : 'paquete') + ' tiene ' + rem + ' de 6. Con solo ' + missing_to_6 + ' más completás tu paquete (o +' + missing_for_12 + ' para Caja de 12). Si no los agregás, ¡te asignamos un empaque de cortesía para que viajen protegidos!';
                     }
                 }
             }
@@ -507,7 +507,7 @@
         }
 
         const short = parts.length > 0 ? parts.join(' + ') : 'A granel';
-        const sentence = 'Tus alfajores se despachan en ' + short + '.';
+        const sentence = 'Tus productos se despachan en ' + short + '.';
 
         return {
             has_alfajores: true,
@@ -873,11 +873,11 @@
             isBlocked = false;
             curUnits = cap;
             missingUnits = 0;
-            message = '¡Tus cajas están completas! Viví la experiencia completa Batllié.';
+            message = '¡Tus paquetes están completos!';
         } else if (missingUnits < 3) {
             status = 'imperative_missing';
             isBlocked = true;
-            message = 'Tenés ' + totalAlf + ' alfajores en total. Tu ' + (curPacking.current_box_num > 1 ? curPacking.current_box_num + 'ª caja' : 'caja') + ' tiene ' + curUnits + ' de ' + cap + ' alfajores. Agregá ' + (missingUnits === 1 ? 'el alfajor faltante' : ('los ' + missingUnits + ' alfajores faltantes')) + ' para poder despachar en caja cerrada.';
+            message = 'Tenés ' + totalAlf + ' productos en total. Tu ' + (curPacking.current_box_num > 1 ? curPacking.current_box_num + 'º paquete' : 'paquete') + ' tiene ' + curUnits + ' de ' + cap + ' unidades. Agregá ' + (missingUnits === 1 ? 'la unidad faltante' : ('las ' + missingUnits + ' unidades faltantes')) + ' para poder despachar en caja cerrada.';
         }
 
         const optimisticPacking = Object.assign({}, curPacking, {

@@ -10,7 +10,7 @@
     const config = window.batllieCartConfig || {};
     const i18n = config.i18n || {};
     const removeTitle = i18n.removeComboTooltip || 'Eliminar combo completo';
-    const flavorsTitle = i18n.includedFlavors || 'Sabores incluidos:';
+    const flavorsTitle = i18n.includedFlavors || 'Productos incluidos:';
     let isProcessing = false;
 
     /**

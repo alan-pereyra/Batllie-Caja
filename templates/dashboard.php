@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) {
                     <path d="M16 10a4 4 0 0 1-8 0"></path>
                 </svg>
             </div>
-            <span class="caja-title"><?php _e('Batllie Caja', 'emp-caja'); ?></span>
+            <span class="caja-title"><?php _e('Caja POS', 'emp-caja'); ?></span>
             <!-- Desplegable Rápido de Pantallas: En Vivo / Productos / Configuración General -->
             <div class="caja-screen-switcher-wrap" id="caja-screen-switcher-wrap" title="<?php esc_attr_e('Seleccionar pantalla', 'emp-caja'); ?>">
                 <span class="caja-pulse-dot" id="caja-screen-dot"></span>

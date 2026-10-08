@@ -143,7 +143,7 @@ class Batllie_Caja_Plugin {
 
     public function woocommerce_missing_notice() {
         echo '<div class="notice notice-error"><p>' . 
-             esc_html__('Batllie Caja & Pedidos requiere que WooCommerce esté instalado y activo.', 'emp-caja') . 
+             esc_html__('Caja & Pedidos POS requiere que WooCommerce esté instalado y activo.', 'emp-caja') . 
              '</p></div>';
     }
 
@@ -506,8 +506,8 @@ class Batllie_Caja_Plugin {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('Batllie Caja', 'emp-caja'),
-            __('Batllie Caja', 'emp-caja'),
+            __('Caja POS', 'emp-caja'),
+            __('Caja', 'emp-caja'),
             'manage_options',
             'batllie-caja-settings',
             array($this, 'render_admin_settings'),

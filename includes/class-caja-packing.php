@@ -441,7 +441,7 @@ class Batllie_Caja_Packing {
     public static function register_wc_product_meta_box() {
         add_meta_box(
             'batllie_caja_product_packing_mb',
-            __('📦 Empaque y Control de Stock Batllié', 'emp-caja'),
+            __('📦 Empaque y Control de Stock', 'emp-caja'),
             array(__CLASS__, 'render_wc_product_meta_box'),
             'product',
             'side',
@@ -1208,19 +1208,19 @@ class Batllie_Caja_Packing {
                 $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
                 $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_units);
                 $message          = sprintf(
-                    __('Tomaste una decisión muy valiosa al elegir nuestros productos. Pero tu experiencia podría ser aún mejor: sumando solo %d alfajor(es) más, recibís tu primera Caja Oficial Batllié.', 'emp-caja'),
+                    __('Sumando solo %d unidad(es) más, completás tu paquete oficial.', 'emp-caja'),
                     $missing_units
                 );
             }
         } else {
             // CASO 2: SÍ HAY AL MENOS UNA CAJA PREVIA COMPLETA
             if ($loose_count === 0) {
-                // Todos los alfajores están en cajas cerradas de packs
+                // Todos los productos están en cajas cerradas de packs
                 $status           = 'all_boxed';
                 $is_blocked       = false;
                 $courtesy_allowed = false;
                 $message_type     = 'complete';
-                $message          = __('¡Tus cajas están completas! Viví la experiencia completa Batllié.', 'emp-caja');
+                $message          = __('¡Tus paquetes están completos!', 'emp-caja');
             } else {
                 // Hay alfajores sueltos que deben agruparse
                 // Lógica de prioridad (Prioridad 12):
@@ -1555,19 +1555,19 @@ class Batllie_Caja_Packing {
 
         $short = implode(' + ', $parts);
         if (empty($short)) {
-            $short = sprintf(_n('%d alfajor', '%d alfajores', $total, 'emp-caja'), $total);
+            $short = sprintf(_n('%d producto', '%d productos', $total, 'emp-caja'), $total);
         }
 
         if ($packing['status'] === 'all_boxed') {
             if ($b12 > 0 && $b6 === 0) {
                 $sentence = sprintf(
-                    _n('Tus %d alfajores viajarán protegidos en %s Oficial Batllié.', 'Tus %d alfajores viajarán protegidos en %s Oficiales Batllié.', $b12, 'emp-caja'),
+                    _n('Tus %d productos viajarán protegidos en %s Oficial.', 'Tus %d productos viajarán protegidos en %s Oficiales.', $b12, 'emp-caja'),
                     $total,
                     $short
                 );
             } else {
                 $sentence = sprintf(
-                    __('Tus %d alfajores viajarán protegidos en %s.', 'emp-caja'),
+                    __('Tus %d productos viajarán protegidos en %s.', 'emp-caja'),
                     $total,
                     $short
                 );

@@ -54,6 +54,7 @@ class Batllie_Caja_Tracking {
         add_action('wp_footer', array(__CLASS__, 'render_hub_modal'));
 
         // Registrar Shortcode por si se desea incrustar en cualquier página personalizada
+        add_shortcode('caja_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
         add_shortcode('batllie_order_tracking', array(__CLASS__, 'render_tracking_shortcode'));
 
         // Registrar y encolar estilos y scripts para frontend
