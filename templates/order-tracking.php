@@ -14,8 +14,7 @@ if (!defined('ABSPATH')) {
 }
 
 $current_step = isset($tracking['step']) ? intval($tracking['step']) : 1;
-$store_title = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
-$current_label = isset($tracking['step_label']) ? $tracking['step_label'] : sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_title);
+$current_label = isset($tracking['step_label']) ? $tracking['step_label'] : __('Preparando tu pedido', 'emp-caja');
 $order_id = isset($tracking['order_id']) ? $tracking['order_id'] : $order->get_id();
 $order_key = isset($tracking['order_key']) ? $tracking['order_key'] : $order->get_order_key();
 $order_number = isset($tracking['order_number']) ? $tracking['order_number'] : $order->get_order_number();
@@ -219,10 +218,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 <div class="batllie-step-badge"><?php echo $badge_1; ?></div>
             </div>
             <div class="batllie-step-text">
-                <?php 
-                $store_name = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
-                echo esc_html(sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_name)); 
-                ?>
+                <?php echo esc_html(__('Preparando tu pedido', 'emp-caja')); ?>
             </div>
         </div>
 

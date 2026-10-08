@@ -522,8 +522,7 @@ class Batllie_Caja_Tracking {
         $shipping_status = $order->get_meta('_caja_shipping_status');
 
         $step = 1;
-        $store_name = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
-        $step_label = sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_name);
+        $step_label = __('Preparando tu pedido', 'emp-caja');
 
         // Mapeo de etapas
         if ($status === 'cancelled') {
@@ -549,7 +548,7 @@ class Batllie_Caja_Tracking {
             $step_label = __('Esperando que el repartidor recoja tu pedido', 'emp-caja');
         } else {
             $step = 1;
-            $step_label = sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_name);
+            $step_label = __('Preparando tu pedido', 'emp-caja');
         }
 
         // Detección de pago por transferencia y estado de comprobante
@@ -921,8 +920,7 @@ class Batllie_Caja_Tracking {
                         <?php if (!empty($recent_orders)) : ?>
                             <?php foreach ($recent_orders as $ord) : 
                                 $step = isset($ord['step']) ? intval($ord['step']) : 1;
-                                $store_name = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
-                                $step_label = !empty($ord['step_label']) ? $ord['step_label'] : sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_name);
+                                $step_label = !empty($ord['step_label']) ? $ord['step_label'] : __('Preparando tu pedido', 'emp-caja');
                                 if (!empty($ord['status'])) {
                                     if ($ord['status'] === 'cancelled') {
                                         $step = 0;
