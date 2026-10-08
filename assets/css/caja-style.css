@@ -46,8 +46,7 @@ html[lang] {
     background-color: var(--caja-bg, #0f172a) !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
-    overscroll-behavior: none !important;
-    overscroll-behavior-y: none !important;
+    overscroll-behavior-y: auto !important;
 }
 
 body.batllie-caja-active,
@@ -63,8 +62,8 @@ body.batllie-caja-active {
     margin: 0 !important;
     padding: 0 !important;
     overflow-x: hidden !important;
-    overscroll-behavior: none !important;
-    overscroll-behavior-y: none !important;
+    overflow-x: clip !important;
+    overscroll-behavior-y: auto !important;
     min-height: 100vh !important;
     min-height: 100dvh !important;
     width: 100% !important;
@@ -132,7 +131,7 @@ body.batllie-caja-active .container {
     color: var(--caja-text);
     min-height: 100vh;
     min-height: 100dvh;
-    overscroll-behavior: none;
+    overscroll-behavior-y: auto;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -140,6 +139,7 @@ body.batllie-caja-active .container {
     position: relative;
     z-index: 9999;
     overflow-x: hidden;
+    overflow-x: clip;
 }
 
 .batllie-caja-container *,
@@ -2095,6 +2095,9 @@ body.batllie-caja-active .container {
     border: 1px solid var(--caja-card-border);
     border-radius: var(--caja-radius);
     overflow-x: auto;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .caja-table {

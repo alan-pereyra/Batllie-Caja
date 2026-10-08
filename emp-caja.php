@@ -384,8 +384,7 @@ class Batllie_Caja_Plugin {
                 background-color: {$options['bg_color']} !important;
                 min-height: 100vh !important;
                 min-height: 100dvh !important;
-                overscroll-behavior: none !important;
-                overscroll-behavior-y: none !important;
+                overscroll-behavior-y: auto !important;
             }
             body.batllie-caja-active header:not(.caja-topbar):not(.batllie-caja-nav),
             body.batllie-caja-active nav:not(.batllie-caja-nav),
@@ -449,8 +448,8 @@ class Batllie_Caja_Plugin {
                 padding: 0 !important;
                 padding-top: 0 !important;
                 overflow-x: hidden !important;
-                overscroll-behavior: none !important;
-                overscroll-behavior-y: none !important;
+                overflow-x: clip !important;
+                overscroll-behavior-y: auto !important;
                 min-height: 100vh !important;
                 min-height: 100dvh !important;
                 width: 100% !important;
