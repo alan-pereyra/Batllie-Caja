@@ -286,80 +286,27 @@
 
                         } else if (!isBox) {
                             // Producto normal o producto de combo sin caja física:
-                            // DEBE SER COMPLETAMENTE VISIBLE
                             currentBoxPackId = null;
 
-                            // Limpiar clases de combo si las tenía previamente
-                            $row.removeClass('batllie-is-combo-child batllie-combo-delete-active')
-                                .removeAttr('data-batllie-pack-id');
+                            // Si la fila tenía clases residuales de combo hijo, limpiarlas y asegurar que sea visible
+                            if ($row.hasClass('batllie-is-combo-child')) {
+                                $row.removeClass('batllie-is-combo-child batllie-combo-delete-active')
+                                    .removeAttr('data-batllie-pack-id');
 
-                            $row.show().css({
-                                'display': '',
-                                'visibility': 'visible',
-                                'height': '',
-                                'min-height': '',
-                                'max-height': '',
-                                'overflow': '',
-                                'margin': '',
-                                'padding': '',
-                                'border': '',
-                                'opacity': '',
-                                'pointer-events': 'auto'
-                            });
-                            $row.removeClass(function (index, className) {
-                                return (className.match(/\bbatllie-[^\s]+/g) || []).join(' ');
-                            });
-
-                            // Asegurar que el botón de eliminar esté visible y habilitado
-                            $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], a.remove, button[aria-label*="eliminar"], button[aria-label*="Eliminar"], button[aria-label*="remove"], button[aria-label*="Remove"]')
-                                .show()
-                                .css({
+                                $row.show().css({
                                     'display': '',
                                     'visibility': 'visible',
-                                    'pointer-events': 'auto',
-                                    'width': '',
                                     'height': '',
-                                    'opacity': ''
-                                });
-
-                            // Asegurar que los precios y totales estén visibles
-                            $row.find('.wc-block-components-product-price, .wc-block-cart-item__prices, .wc-block-cart-item__total, .wc-block-components-formatted-money-amount, .wc-block-cart-item__total-price-and-sale-badge-wrapper, [class*="product-price"], [class*="item__prices"]')
-                                .show()
-                                .css({
-                                    'display': '',
-                                    'visibility': 'visible',
-                                    'opacity': '',
-                                    'height': '',
+                                    'min-height': '',
+                                    'max-height': '',
                                     'overflow': '',
-                                    'font-size': '',
-                                    'line-height': '',
-                                    'min-height': ''
-                                });
-
-                            // Asegurar que los botones de cantidad y el input sean editables
-                            $row.find('.wc-block-components-quantity-selector__button, .emp-qty-btn, .plus, .minus')
-                                .show()
-                                .css({
-                                    'display': '',
-                                    'pointer-events': '',
-                                    'visibility': '',
-                                    'width': '',
-                                    'height': '',
                                     'margin': '',
-                                    'padding': ''
-                                });
-
-                            $row.find('.wc-block-components-quantity-selector__input, input.qty')
-                                .prop('readonly', false)
-                                .removeAttr('tabindex')
-                                .css({
-                                    'pointer-events': '',
+                                    'padding': '',
                                     'border': '',
-                                    'background': ''
+                                    'opacity': '',
+                                    'pointer-events': 'auto'
                                 });
-
-                            // Restaurar visualización de detalles
-                            $row.find('.wc-block-components-product-details').show();
+                            }
                         }
                     } catch (rowError) {
                         console.error('Error procesando fila de carrito:', rowError);
@@ -456,7 +403,7 @@
      */
     function translateCartStrings() {
         try {
-            // 1. Inyectar traducciones en el diccionario de WordPress / Gutenberg i18n
+            // 1. Inyectar traducciones oficiales en el diccionario de WordPress / Gutenberg i18n
             if (window.wp && window.wp.i18n && typeof window.wp.i18n.setLocaleData === 'function') {
                 window.wp.i18n.setLocaleData({
                     "": { "domain": "woocommerce", "lang": "es" },
@@ -475,55 +422,12 @@
                 }, "woocommerce");
             }
 
-            // 2. Reemplazo directo en DOM por si React/Gutenberg renderizó antes o con bundle en caché
-            // Botón de finalizar compra
-            $('.wc-block-cart__submit-button, .wc-block-cart__submit a, a.checkout-button, .wc-block-components-checkout-place-order-button').each(function () {
+            // 2. Reemplazo exclusivo para WooCommerce Clásico (no React)
+            $('a.checkout-button').each(function () {
                 const $btn = $(this);
-                const txt = $btn.text().trim();
-                if (txt === 'Proceed to Checkout') {
-                    $btn.contents().filter(function() { return this.nodeType === 3; }).first().replaceWith('Finalizar compra');
-                    if ($btn.text().trim() === 'Proceed to Checkout') {
-                        $btn.text('Finalizar compra');
-                    }
+                if ($btn.text().trim() === 'Proceed to Checkout') {
+                    $btn.text('Finalizar compra');
                 }
-            });
-
-            // Acordeón / enlace de cupones
-            $('.wc-block-components-totals-coupon, .wc-block-components-panel__button, .wc-block-components-totals-coupon__title').each(function () {
-                const $el = $(this);
-                let html = $el.html();
-                if (html && (html.indexOf('Add coupons') !== -1 || html.indexOf('Añadir cupones') !== -1)) {
-                    $el.html(html.replace(/Add coupons|Añadir cupones/g, 'Agregar cupón'));
-                }
-            });
-
-            // Total estimado
-            $('.wc-block-components-totals-item__label, .wc-block-components-totals-footer-item-tax-value, .wc-block-components-totals-item').each(function () {
-                const $el = $(this);
-                if ($el.text().indexOf('Estimated total') !== -1) {
-                    $el.find('*').addBack().contents().filter(function() {
-                        return this.nodeType === 3 && this.nodeValue.indexOf('Estimated total') !== -1;
-                    }).each(function() {
-                        this.nodeValue = this.nodeValue.replace(/Estimated total/g, 'Total estimado');
-                    });
-                }
-            });
-
-            // Envío FREE / Gratis
-            $('.wc-block-components-totals-shipping, .wc-block-components-shipping-rates-control').find('*').each(function () {
-                if ($(this).children().length === 0) {
-                    const txt = $(this).text().trim();
-                    if (txt === 'FREE' || txt === 'Free') {
-                        $(this).text('Gratis');
-                    }
-                }
-            });
-
-            // Badge de descuento (Save $ 200,00 -> Ahorrás $ 200,00)
-            $('*').filter(function () {
-                return $(this).children().length === 0 && $(this).text().indexOf('Save $') !== -1;
-            }).each(function () {
-                $(this).text($(this).text().replace(/Save \$/g, 'Ahorrás $'));
             });
         } catch (e) {}
     }
