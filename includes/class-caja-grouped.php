@@ -1857,6 +1857,21 @@ class Batllie_Caja_Grouped {
     }
 
     /**
+     * Verificar si una instancia de pack/combo tiene un ítem de caja física activo en el carrito
+     */
+    public static function pack_has_active_box($pack_instance_id) {
+        if (empty($pack_instance_id) || !function_exists('WC') || !WC()->cart) {
+            return false;
+        }
+        foreach (WC()->cart->get_cart() as $item) {
+            if (!empty($item['batllie_extra_box']) && !empty($item['batllie_pack_instance_id']) && $item['batllie_pack_instance_id'] === $pack_instance_id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Nombre personalizado y distintivo en el carrito
      */
     public static function filter_extra_box_cart_name($name, $cart_item, $cart_item_key) {
@@ -1874,8 +1889,11 @@ class Batllie_Caja_Grouped {
             return esc_html($custom_name) . $badge . $marker;
         } elseif (!empty($cart_item['batllie_parent_grouped_id'])) {
             $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
-            $marker  = '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
-            return $name . $marker;
+            if ($pack_id && self::pack_has_active_box($pack_id)) {
+                $marker  = '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+                return $name . $marker;
+            }
+            return $name;
         }
         return $name;
     }
@@ -2073,7 +2091,8 @@ class Batllie_Caja_Grouped {
             $parent      = wc_get_product($cart_item['batllie_parent_grouped_id']);
             $parent_name = $parent ? $parent->get_name() : __('Combo / Caja', 'emp-caja');
             $pack_id     = !empty($cart_item['batllie_pack_instance_id']) ? esc_attr($cart_item['batllie_pack_instance_id']) : '';
-            $marker      = '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>';
+            $has_box     = $pack_id && self::pack_has_active_box($pack_id);
+            $marker      = $has_box ? '<span class="batllie-pack-marker batllie-child-marker batllie-pid-' . $pack_id . '" title="' . $pack_id . '" data-pack-id="' . $pack_id . '" style="display:none!important;"></span>' : '';
 
             $item_data[] = array(
                 'key'   => __('Parte de', 'emp-caja'),
@@ -2085,11 +2104,14 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Ocultar precio en productos hijos (el precio solo debe figurar en la caja principal)
+     * Ocultar precio en productos hijos solo si la caja principal activa lleva el precio consolidado
      */
     public static function filter_child_cart_item_price_display($price_html, $cart_item, $cart_item_key) {
         if (!empty($cart_item['batllie_parent_grouped_id']) && empty($cart_item['batllie_extra_box'])) {
-            return '';
+            $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? $cart_item['batllie_pack_instance_id'] : '';
+            if ($pack_id && self::pack_has_active_box($pack_id)) {
+                return '';
+            }
         }
         return $price_html;
     }
@@ -2126,7 +2148,7 @@ class Batllie_Caja_Grouped {
             $class .= ' batllie-combo-item batllie-pack-' . sanitize_html_class($cart_item['batllie_pack_instance_id']);
             if (!empty($cart_item['batllie_extra_box'])) {
                 $class .= ' batllie-combo-box-item';
-            } else {
+            } elseif (self::pack_has_active_box($cart_item['batllie_pack_instance_id'])) {
                 $class .= ' batllie-combo-child-item';
             }
         }
@@ -2134,8 +2156,8 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Ocultar enlace de eliminación en ítems hijos cuando hay caja de empaque.
-     * El botón de eliminar solo debe mostrarse en la caja principal.
+     * Ocultar enlace de eliminación en ítems hijos cuando hay caja de empaque activa.
+     * Si no hay caja de empaque, cada producto mantiene su enlace de eliminación.
      */
     public static function filter_cart_item_remove_link($remove_link, $cart_item_key) {
         if (!function_exists('WC') || !WC()->cart || !isset(WC()->cart->cart_contents[$cart_item_key])) {
@@ -2143,9 +2165,11 @@ class Batllie_Caja_Grouped {
         }
 
         $item = WC()->cart->cart_contents[$cart_item_key];
-        // Si es un ítem hijo de un combo y no es la caja, no mostrar botón de eliminar
         if (!empty($item['batllie_parent_grouped_id']) && empty($item['batllie_extra_box'])) {
-            return '';
+            $pack_id = !empty($item['batllie_pack_instance_id']) ? $item['batllie_pack_instance_id'] : '';
+            if ($pack_id && self::pack_has_active_box($pack_id)) {
+                return '';
+            }
         }
 
         return $remove_link;
