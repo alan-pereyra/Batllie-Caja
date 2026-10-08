@@ -14,7 +14,8 @@ if (!defined('ABSPATH')) {
 }
 
 $current_step = isset($tracking['step']) ? intval($tracking['step']) : 1;
-$current_label = isset($tracking['step_label']) ? $tracking['step_label'] : __('Batllie está preparando tu pedido', 'emp-caja');
+$store_title = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
+$current_label = isset($tracking['step_label']) ? $tracking['step_label'] : sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_title);
 $order_id = isset($tracking['order_id']) ? $tracking['order_id'] : $order->get_id();
 $order_key = isset($tracking['order_key']) ? $tracking['order_key'] : $order->get_order_key();
 $order_number = isset($tracking['order_number']) ? $tracking['order_number'] : $order->get_order_number();
@@ -208,15 +209,20 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         ?>
         <div class="batllie-tracking-step <?php echo esc_attr($cls_1); ?>" data-step="1">
             <div class="batllie-step-icon-wrap">
-                <!-- Icono Gorro de Chef / Cocina -->
+                <!-- Icono Paquete en Preparación -->
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
-                    <line x1="6" y1="17" x2="18" y2="17"/>
+                    <line x1="16.5" y1="9.4" x2="7.55" y2="4.21"></line>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
                 </svg>
                 <div class="batllie-step-badge"><?php echo $badge_1; ?></div>
             </div>
             <div class="batllie-step-text">
-                <?php _e('Batllie está preparando tu pedido', 'emp-caja'); ?>
+                <?php 
+                $store_name = get_bloginfo('name') ?: __('El depósito', 'emp-caja');
+                echo esc_html(sprintf(__('%s está preparando tu pedido', 'emp-caja'), $store_name)); 
+                ?>
             </div>
         </div>
 
@@ -309,7 +315,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <span class="status-highlight"><?php echo esc_html($current_label); ?></span>
         </div>
         <div class="batllie-tracking-live-tag">
-            <span>⚡</span> <?php _e('Sincronizado con la cocina y repartidores', 'emp-caja'); ?>
+            <span>⚡</span> <?php _e('Sincronizado con el depósito y repartidores', 'emp-caja'); ?>
         </div>
     </div>
 </div>

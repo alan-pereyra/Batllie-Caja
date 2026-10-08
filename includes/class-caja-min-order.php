@@ -187,7 +187,7 @@ class Batllie_Caja_Min_Order {
             'box6Image'        => $box6Img,
             'box12Image'       => $box12Img,
             'priorityBoxImage' => $priorityBoxImg,
-            'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array(),
+            'availableAlfajores' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_suggested_products_for_upsell() : array(),
             'i18n'             => array(
                 'modalTitle'      => __('Monto Mínimo de Compra', 'emp-caja'),
                 'modalDesc'       => __('Para poder finalizar tu compra y proceder al pago, el pedido debe alcanzar el monto mínimo requerido.', 'emp-caja'),
@@ -465,8 +465,9 @@ class Batllie_Caja_Min_Order {
         $min     = self::get_min_purchase_amount();
         $packing = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::analyze_cart() : null;
 
-        // Si no hay monto mínimo y tampoco hay alfajores en el carrito, no renderizar
-        if ($min <= 0 && (empty($packing) || empty($packing['has_alfajores']))) {
+        // Si no hay monto mínimo y tampoco hay empaque en el carrito, no renderizar
+        $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_suggested_products_for_upsell() : array();
+        if ($min <= 0 && empty($alfajores) && (empty($packing) || empty($packing['has_alfajores']))) {
             return;
         }
 
@@ -474,9 +475,8 @@ class Batllie_Caja_Min_Order {
         $missing   = max(0.0, $min - $amount);
         $is_below  = ($min > 0 && $amount < $min);
         $shop_url  = home_url('/');
-        $alfajores = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_available_alfajores_for_upsell() : array();
-        $box6Img = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(6, 'medium') : '';
-        $box12Img = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(12, 'medium') : '';
+        $box6Img   = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(6, 'medium') : '';
+        $box12Img  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_image_url(12, 'medium') : '';
         $cur_cap   = !empty($packing['target_box_capacity']) ? intval($packing['target_box_capacity']) : (!empty($packing['current_box_capacity']) ? intval($packing['current_box_capacity']) : 6);
         $total_alf = !empty($packing['total_alfajores']) ? intval($packing['total_alfajores']) : 0;
         if (empty($packing['target_box_capacity']) && $total_alf > 0) {
@@ -520,23 +520,26 @@ class Batllie_Caja_Min_Order {
                         </div>
                     </div>
 
-                    <!-- Sección B: Motor de Empaque, Barra de Progreso y Gustos 1-Click -->
-                    <div id="batllie-modal-packing-section" class="batllie-modal-packing-section" style="<?php echo (!empty($packing['has_alfajores']) && $packing['status'] !== 'all_boxed') ? '' : 'display:none;'; ?>">
+                    <!-- Sección B: Progreso y Productos Sugeridos 1-Click -->
+                    <div id="batllie-modal-packing-section" class="batllie-modal-packing-section" style="<?php echo (!empty($alfajores) || (!empty($packing['has_alfajores']) && $packing['status'] !== 'all_boxed')) ? '' : 'display:none;'; ?>">
                         <div class="batllie-packing-header">
                             <h3 id="batllie-packing-title" class="batllie-packing-title">
-                                <span class="batllie-packing-title-main"><?php _e('Tomaste una buena decisión', 'emp-caja'); ?></span>
-                                <span class="batllie-packing-title-sub"><?php _e('pero podría ser aún mejor', 'emp-caja'); ?></span>
+                                <span class="batllie-packing-title-main"><?php _e('Completá tu pedido', 'emp-caja'); ?></span>
+                                <span class="batllie-packing-title-sub"><?php _e('Sumá sugeridos con 1 clic para llegar al mínimo', 'emp-caja'); ?></span>
                             </h3>
-                            <div class="batllie-modal-box-image-wrap" id="batllie-modal-box-image-wrap" style="<?php echo !empty($initialBoxImg) ? '' : 'display:none;'; ?>">
-                                <img id="batllie-modal-box-image" src="<?php echo esc_url($initialBoxImg); ?>" alt="<?php esc_attr_e('Caja oficial', 'emp-caja'); ?>" class="batllie-modal-box-image" />
-                            </div>
+                            <!-- Imagen de caja eliminada para compatibilidad general -->
+                            <div class="batllie-modal-box-image-wrap" id="batllie-modal-box-image-wrap" style="display:none !important;"></div>
                         </div>
 
                         <!-- Barra de Progreso Gamificada con colores de marca (plana, sin fondo) -->
                         <div class="batllie-packing-progress-container" id="batllie-packing-progress-container" style="background: transparent; border: none; box-shadow: none; padding: 4px 0 8px 0; margin: 8px 0 12px 0;">
                             <div class="batllie-packing-bar-wrap">
                                 <?php 
-                                $pct_box = ($cur_cap > 0) ? min(100, round(($cur_units / $cur_cap) * 100)) : 0;
+                                if (!empty($packing['has_alfajores']) && $cur_cap > 0) {
+                                    $pct_box = min(100, round(($cur_units / $cur_cap) * 100));
+                                } else {
+                                    $pct_box = ($min > 0) ? min(100, round(($amount / $min) * 100)) : 100;
+                                }
                                 ?>
                                 <div id="batllie-packing-bar-fill" class="batllie-packing-bar-fill" style="width: <?php echo esc_attr($pct_box); ?>%;"></div>
                             </div>
@@ -545,16 +548,18 @@ class Batllie_Caja_Min_Order {
                                     <?php 
                                     if (!empty($packing['missing_units'])) {
                                         echo esc_html(sprintf(__('Faltan solo %d para completar', 'emp-caja'), $packing['missing_units']));
+                                    } elseif ($min > 0 && $amount < $min) {
+                                        echo esc_html(sprintf(__('Faltan %s para el mínimo requerido', 'emp-caja'), wp_strip_all_tags(wc_price($missing))));
                                     }
                                     ?>
                                 </span>
                             </div>
                         </div>
 
-                        <!-- Selector Rápido de Gustos en 1-Clic -->
+                        <!-- Selector Rápido de Productos Sugeridos en 1-Clic -->
                         <?php if (!empty($alfajores)): ?>
                             <div class="batllie-packing-flavors-head">
-                                <span><?php _e('Sumá un alfajor con 1 clic:', 'emp-caja'); ?></span>
+                                <span><?php _e('Sumá un producto sugerido con 1 clic:', 'emp-caja'); ?></span>
                             </div>
                             <div id="batllie-packing-flavors-grid" class="batllie-packing-flavors-grid">
                                 <?php foreach ($alfajores as $alf): 
@@ -581,7 +586,7 @@ class Batllie_Caja_Min_Order {
                 </div>
 
                 <div class="batllie-min-modal-footer">
-                    <!-- Botón para continuar sin agregar alfajores extras (habilitado si no está por debajo del mínimo de compra) -->
+                    <!-- Botón para continuar sin agregar productos extras (habilitado si no está por debajo del mínimo de compra) -->
                     <button type="button" class="batllie-min-btn batllie-min-btn-courtesy" id="batllie-btn-accept-courtesy" style="<?php echo (!$is_below) ? '' : 'display:none;'; ?>">
                         <span><?php _e('Continuar de todas formas', 'emp-caja'); ?></span>
                     </button>

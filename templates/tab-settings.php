@@ -273,26 +273,26 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
             </div>
         </div>
 
-        <!-- 7. Control de Stock de Cajas y Empaque de Alfajores -->
+        <!-- 7. Control de Stock de Paquetería y Empaque de Pedidos -->
         <div class="caja-settings-card">
             <div class="caja-settings-card-header">
                 <h2>
                     <span class="caja-card-icon">📦</span>
-                    <span><?php _e('Control de Stock de Cajas y Empaque de Alfajores', 'emp-caja'); ?></span>
+                    <span><?php _e('Control de Stock de Paquetería y Empaque de Pedidos', 'emp-caja'); ?></span>
                 </h2>
-                <p class="caja-settings-card-desc"><?php _e('Reglas de armado de pedidos, prioridad de paquetes x6 y x12, y control de cajas físicas.', 'emp-caja'); ?></p>
+                <p class="caja-settings-card-desc"><?php _e('Reglas de armado de pedidos, prioridad de paquetes grandes y chicos, y control de cajas físicas.', 'emp-caja'); ?></p>
             </div>
             <div class="caja-settings-card-body">
                 <table class="form-table">
                     <tr>
-                        <th scope="row"><?php _e('Prioridad de Llenado de Cajas', 'emp-caja'); ?></th>
+                        <th scope="row"><?php _e('Prioridad de Llenado de Paquetería', 'emp-caja'); ?></th>
                         <td>
                             <select name="batllie_caja_options[packing_priority]" class="caja-select">
-                                <option value="12" <?php selected($options['packing_priority'] ?? '12', '12'); ?>><?php _e('Priorizar Cajas de 12 primero (Experiencia Premium, recomendada)', 'emp-caja'); ?></option>
-                                <option value="6" <?php selected($options['packing_priority'] ?? '12', '6'); ?>><?php _e('Priorizar Cajas de 6 primero', 'emp-caja'); ?></option>
+                                <option value="12" <?php selected($options['packing_priority'] ?? '12', '12'); ?>><?php _e('Priorizar Paquete Grande / Caja de 12 primero (Recomendada)', 'emp-caja'); ?></option>
+                                <option value="6" <?php selected($options['packing_priority'] ?? '12', '6'); ?>><?php _e('Priorizar Paquete Chico / Caja de 6 primero', 'emp-caja'); ?></option>
                             </select>
                             <p class="description">
-                                <?php _e('Define cómo se agrupan los alfajores sueltos en el carrito. Si se eligen 15 alfajores con prioridad 12, se formará 1 Caja de 12 y quedarán 3 alfajores sueltos.', 'emp-caja'); ?>
+                                <?php _e('Define cómo se agrupan los productos sueltos en cajas o bultos de empaque. Si se eligen 15 productos con prioridad 12, se formará 1 Caja/Paquete de 12 y quedarán 3 productos restantes.', 'emp-caja'); ?>
                             </p>
                         </td>
                     </tr>

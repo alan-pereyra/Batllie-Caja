@@ -954,6 +954,27 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else {
                     $('#new-prod-box-role-group').slideUp(150);
                     $('#new-prod-box-role').val('none');
+                    $('#new-prod-box-role-hint').slideUp(150);
+                }
+            });
+
+            $('#new-prod-box-role').on('change', function() {
+                const role = $(this).val();
+                if (role && role !== 'none') {
+                    $('#new-prod-visibility').val('hidden');
+                    $('#new-prod-box-role-hint').slideDown(150);
+                } else {
+                    $('#new-prod-box-role-hint').slideUp(150);
+                }
+            });
+
+            $('#edit-prod-box-role').on('change', function() {
+                const role = $(this).val();
+                if (role && role !== 'none') {
+                    $('#edit-prod-visibility').val('hidden');
+                    $('#edit-prod-box-role-hint').slideDown(150);
+                } else {
+                    $('#edit-prod-box-role-hint').slideUp(150);
                 }
             });
 
@@ -2173,7 +2194,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                                 🚀 ¡AUMENTÓ SU PEDIDO!
                                             </span>
                                             <span class="caja-box-felicitacion-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; margin-top:3px; display:block;">
-                                                El cliente iba a pedir menos unidades, pero agregó alfajores extra por recomendación de la web para completar esta caja.
+                                                El cliente iba a pedir menos unidades, pero agregó productos extra por recomendación de la web para completar esta caja.
                                             </span>
                                         </div>
                                         <label class="caja-felicitacion-toggle-label" style="margin-top:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
@@ -2417,7 +2438,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     🚀 ¡AUMENTÓ SU PEDIDO!
                                 </span>
                                 <span class="caja-felicitacion-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; margin-top:3px; display:block;">
-                                    El cliente iba a pedir menos unidades, pero agregó alfajores extra por recomendación de la web.
+                                    El cliente iba a pedir menos unidades, pero agregó productos extra por recomendación de la web.
                                 </span>
                             </div>
                             <label class="caja-felicitacion-toggle-label" style="margin-top:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
@@ -2481,7 +2502,7 @@ $('#caja-modal-new-product').fadeIn(200);
                             <span class="caja-packing-icon">📦</span>
                             <span class="caja-packing-label">Empaque asignado:</span>
                             <strong class="caja-packing-value">${pkg.summary_text}</strong>
-                            ${pkg.total_alfajores ? `<span class="caja-packing-count">(${pkg.total_alfajores} alfajores)</span>` : ''}
+                            ${pkg.total_alfajores ? `<span class="caja-packing-count">(${pkg.total_alfajores} productos)</span>` : ''}
                         </div>
                     `;
                 }
@@ -2569,11 +2590,11 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <!-- Vista resumen de cajas oficiales (solo lectura por defecto) -->
                                     <div class="caja-pkg-summary-view" id="caja-pkg-summary-${order.id}">
                                         <div class="caja-pkg-item-row" style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;">Cajas oficiales:</span>
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;">Paquetería oficial:</span>
                                             <span class="caja-pkg-val" id="caja-pkg-boxes-val-${order.id}" style="font-size:0.85rem; color:#f1f5f9;">
                                                 ${(order.boxes_12_qty > 0 || order.boxes_6_qty > 0)
-                                                    ? `x12: <strong>${order.boxes_12_qty || 0}</strong> &nbsp;|&nbsp; x6: <strong>${order.boxes_6_qty || 0}</strong>`
-                                                    : '<em style="color:#64748b;">0 cajas</em>'
+                                                    ? `${self.escapeHtml(self.config.officialBox12Name || 'Caja grande')}: <strong>${order.boxes_12_qty || 0}</strong> &nbsp;|&nbsp; ${self.escapeHtml(self.config.officialBox6Name || 'Caja chica')}: <strong>${order.boxes_6_qty || 0}</strong>`
+                                                    : '<em style="color:#64748b;">0 paquetes</em>'
                                                 }
                                             </span>
                                         </div>
@@ -2582,7 +2603,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <!-- Vista edición de cajas oficiales (habilitada SOLO si se toca 'Modificar') -->
                                     <div class="caja-pkg-edit-view" id="caja-pkg-edit-${order.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1);">
                                         <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 12:</span>
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;" title="${self.escapeHtml(self.config.officialBox12Name || 'Caja grande')}">${self.escapeHtml(self.config.officialBox12Name || 'Cajas grandes')}:</span>
                                             <div class="caja-stepper">
                                                 <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="12" data-order-id="${order.id}">−</button>
                                                 <input type="number" min="0" step="1" id="pkg-input-box-12-${order.id}" value="${order.boxes_12_qty || 0}" class="caja-pkg-input" readonly />
@@ -2590,7 +2611,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                             </div>
                                         </div>
                                         <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 6:</span>
+                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;" title="${self.escapeHtml(self.config.officialBox6Name || 'Caja chica')}">${self.escapeHtml(self.config.officialBox6Name || 'Cajas chicas')}:</span>
                                             <div class="caja-stepper">
                                                 <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="6" data-order-id="${order.id}">−</button>
                                                 <input type="number" min="0" step="1" id="pkg-input-box-6-${order.id}" value="${order.boxes_6_qty || 0}" class="caja-pkg-input" readonly />
@@ -2599,7 +2620,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                         </div>
                                         <div class="caja-pkg-edit-actions" style="display:flex; gap:6px; justify-content:flex-end;">
                                             <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary btn-cancel-pkg-boxes" data-order-id="${order.id}">Cancelar</button>
-                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-save-pkg-boxes" data-order-id="${order.id}">💾 Guardar cajas</button>
+                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-save-pkg-boxes" data-order-id="${order.id}">💾 Guardar empaque</button>
                                         </div>
                                     </div>
 
@@ -4080,7 +4101,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     </select>
                                 </div>
                                 <div class="caja-form-group caja-col caja-var-max-group" style="${canShare !== 'none' ? '' : 'display:none;'} flex:1;">
-                                    <label style="font-size:11px;"><strong>Máx. Alfajores que caben</strong></label>
+                                    <label style="font-size:11px;"><strong>Máx. Unidades que caben</strong></label>
                                     <input type="number" min="1" max="12" class="caja-var-max-alfajores" value="${maxAlf}" placeholder="6 o 12" style="font-size:12px;" />
                                 </div>
                             </div>

@@ -521,9 +521,35 @@
      */
     function updatePackingUI(packing) {
         if (!packing || !packing.has_alfajores) {
-            $('#batllie-modal-packing-section').hide();
             $('#batllie-banner-packaging-note').hide();
             $('#batllie-cart-packing-totals-row').hide();
+            $('#batllie-modal-box-image-wrap').hide();
+
+            // Si hay monto mínimo por alcanzar y tenemos productos sugeridos disponibles
+            const hasSuggestions = Boolean(config.availableAlfajores && config.availableAlfajores.length > 0);
+            if (config.isBelowMin && hasSuggestions) {
+                const $sec = $('#batllie-modal-packing-section');
+                $sec.show();
+
+                const curAmt = parseFloat(config.currentAmount) || 0;
+                const minAmt = parseFloat(config.minAmount) || 0;
+                const pct = (minAmt > 0) ? Math.min(100, Math.round((curAmt / minAmt) * 100)) : 100;
+
+                $('#batllie-packing-bar-fill').css({
+                    'width': pct + '%',
+                    'min-width': (curAmt > 0 ? '12px' : '0px')
+                });
+
+                const mainTitle = 'Completá tu pedido';
+                const subTitle = 'Sumá sugeridos con 1 clic para llegar al mínimo';
+                $('#batllie-packing-title').html('<span class="batllie-packing-title-main">' + mainTitle + '</span> <span class="batllie-packing-title-sub">' + subTitle + '</span>');
+
+                const missingFmt = formatMoney(config.missingAmount);
+                $('#batllie-packing-badge').text('Faltan ' + missingFmt + ' para el mínimo requerido').removeClass('is-complete').addClass('is-missing');
+                $('#batllie-btn-accept-courtesy').hide();
+            } else {
+                $('#batllie-modal-packing-section').hide();
+            }
             return;
         }
 
@@ -568,30 +594,16 @@
             'min-width': (curUnits > 0 ? '12px' : '0px')
         });
 
-        // 3. Títulos, Mensajes y Badges
-        let targetCap = parseInt(packing.target_box_capacity || curCap, 10) || 6;
-        if (packing.has_mixed_box && packing.mixed_box_info && packing.mixed_box_info.box_capacity) {
-            targetCap = parseInt(packing.mixed_box_info.box_capacity, 10);
-        }
-
-        const chosenBoxImg = (targetCap === 12) 
-            ? (config.box12Image || '') 
-            : (config.box6Image || '');
-
-        if (chosenBoxImg) {
-            $('#batllie-modal-box-image').attr('src', chosenBoxImg);
-            $('#batllie-modal-box-image-wrap').show();
-        } else {
-            $('#batllie-modal-box-image-wrap').hide();
-        }
+        // 3. Títulos, Mensajes y Badges (La imagen de la caja se oculta siempre a pedido)
+        $('#batllie-modal-box-image-wrap').hide();
 
         if (packing.status === 'all_boxed') {
-            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">¡Caja Completa!</span>');
-            $('#batllie-packing-badge').text('¡Caja al 100%! 💌').removeClass('is-missing').addClass('is-complete');
+            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">¡Pedido Listo!</span>');
+            $('#batllie-packing-badge').text('¡Todo completo! 💌').removeClass('is-missing').addClass('is-complete');
             $('#batllie-btn-accept-courtesy').hide();
         } else {
-            const mainTitle = 'Tomaste una buena decisión';
-            const subTitle = 'pero podría ser aún mejor';
+            const mainTitle = 'Completá tu pedido';
+            const subTitle = 'Sumá sugeridos con 1 clic';
             $('#batllie-packing-title').html('<span class="batllie-packing-title-main">' + mainTitle + '</span> <span class="batllie-packing-title-sub">' + subTitle + '</span>');
 
             const missingUnits = (packing.missing_units !== undefined) ? packing.missing_units : Math.max(0, curCap - curUnits);
@@ -785,7 +797,7 @@
         });
 
         $grid.html(html).show();
-        $head.show();
+        $head.html('<span>Sumá un producto sugerido con 1 clic:</span>').show();
     }
 
     /**
@@ -937,11 +949,12 @@
                         const isAllBoxed = analysis && (analysis.status === 'all_boxed' || analysis.missing_units === 0);
                         const isMinMet = !res.data.is_below_min;
 
-                        // Si el usuario intentaba finalizar compra y completó su caja: ¡REDIRECCIÓN DIRECTA A CHECKOUT!
-                        if (isAllBoxed && isMinMet && window.batllieIntendedCheckout) {
+                        // Si el usuario intentaba finalizar compra y completó su caja o mínimo: ¡REDIRECCIÓN DIRECTA A CHECKOUT!
+                        const isReadyToProceed = isMinMet && (!analysis || !analysis.has_alfajores || isAllBoxed);
+                        if (isReadyToProceed && window.batllieIntendedCheckout) {
                             redirectingToCheckout = true;
-                            $('#batllie-packing-title').text('¡Caja Completa! 🎉');
-                            $('#batllie-packing-subtitle').text('Tus cajas están listas. Redirigiendo a finalizar compra...');
+                            $('#batllie-packing-title').html('<span class="batllie-packing-title-main">¡Pedido Completo! 🎉</span>');
+                            $('#batllie-packing-subtitle').text('Requerimiento alcanzado. Redirigiendo a finalizar compra...');
                             $('#batllie-packing-badge').text('¡Listo! Redirigiendo... 💌').removeClass('is-missing').addClass('is-complete');
                             $('.batllie-flavor-add-btn').prop('disabled', true).css('opacity', '0.6');
 
@@ -1048,7 +1061,7 @@
                 e.stopImmediatePropagation();
 
                 $('#batllie-modal-min-stats').show();
-                if (packing && packing.has_alfajores && packing.status !== 'all_boxed') {
+                if ((packing && packing.has_alfajores && packing.status !== 'all_boxed') || (config.availableAlfajores && config.availableAlfajores.length > 0)) {
                     updatePackingUI(packing);
                     $('#batllie-modal-packing-section').show();
                 } else {

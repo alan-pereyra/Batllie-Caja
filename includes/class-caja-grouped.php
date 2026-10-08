@@ -467,7 +467,7 @@ class Batllie_Caja_Grouped {
                 $child = wc_get_product($c_id);
                 if (!$child || !$child->is_purchasable() || !$child->is_in_stock()) {
                     $min_possible = 0;
-                    $bottleneck_item = $child ? sprintf(__('%s (Agotado)', 'emp-caja'), $child->get_name()) : __('Alfajor faltante', 'emp-caja');
+                    $bottleneck_item = $child ? sprintf(__('%s (Agotado)', 'emp-caja'), $child->get_name()) : __('Producto faltante', 'emp-caja');
                     break;
                 }
 
@@ -477,13 +477,13 @@ class Batllie_Caja_Grouped {
                         $possible = (int) floor($c_stock / $q_need);
                         if ($possible < $min_possible) {
                             $min_possible = $possible;
-                            $bottleneck_item = sprintf('%s (%d u. en stock, permite %d cajas)', $child->get_name(), $c_stock, $possible);
+                            $bottleneck_item = sprintf('%s (%d u. en stock, permite %d packs)', $child->get_name(), $c_stock, $possible);
                         }
                     }
                 }
             }
         } elseif ($is_grouped) {
-            // 2. Caja agrupada personalizable (el cliente elige entre los sabores hijos disponibles)
+            // 2. Caja agrupada personalizable (el cliente elige entre los productos hijos disponibles)
             $children = (array) $product->get_children();
             if (!empty($children)) {
                 $has_components = true;
@@ -510,12 +510,12 @@ class Batllie_Caja_Grouped {
 
                 if (!$any_available) {
                     $min_possible = 0;
-                    $bottleneck_item = __('Todos los alfajores están agotados', 'emp-caja');
+                    $bottleneck_item = __('Todos los productos componentes están agotados', 'emp-caja');
                 } elseif ($has_managed) {
                     $possible = (int) floor($total_in_stock / $target);
                     if ($possible < $min_possible) {
                         $min_possible = $possible;
-                        $bottleneck_item = sprintf(__('Stock total de alfajores (%d u. disponibles para %d cajas)', 'emp-caja'), $total_in_stock, $possible);
+                        $bottleneck_item = sprintf(__('Stock total de productos componentes (%d u. disponibles para %d packs)', 'emp-caja'), $total_in_stock, $possible);
                     }
                 }
             }
@@ -792,7 +792,7 @@ class Batllie_Caja_Grouped {
             if ($b_item) {
                 echo '<p style="margin:6px 0 0 0; font-size:12px; color:#1f2937;">' . sprintf(esc_html__('⚠️ Cuello de botella actual: %s', 'emp-caja'), '<strong>' . esc_html($b_item) . '</strong>') . '</p>';
             }
-            echo '<p style="margin:4px 0 0 0; font-size:11px; color:#4b5563;">' . esc_html__('El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus alfajores componentes, la caja física de empaque y el stock fijado.', 'emp-caja') . '</p>';
+            echo '<p style="margin:4px 0 0 0; font-size:11px; color:#4b5563;">' . esc_html__('El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus productos componentes, la caja física de empaque y el stock fijado.', 'emp-caja') . '</p>';
             echo '</div>';
         }
 
@@ -872,7 +872,7 @@ class Batllie_Caja_Grouped {
         woocommerce_wp_checkbox(array(
             'id'          => '_batllie_grouped_is_predefined',
             'label'       => __('¿Es un Combo / Receta Fija?', 'emp-caja'),
-            'description' => __('Activa esto si la caja ya viene armada con cantidades fijas de alfajores específicos (ej: 4 negros, 4 blancos, 4 pistacho). El stock de la caja se calculará a partir del stock disponible de sus componentes.', 'emp-caja'),
+            'description' => __('Activa esto si el pack ya viene armado con cantidades fijas de productos específicos (ej: 2 remeras negras, 2 remeras blancas). El stock del pack se calculará a partir del stock disponible de sus componentes.', 'emp-caja'),
             'value'       => $is_pred_val === 'yes' ? 'yes' : 'no',
             'cbvalue'     => 'yes',
         ));
@@ -897,20 +897,18 @@ class Batllie_Caja_Grouped {
             ));
             foreach ($all_prods as $ap) {
                 if ($ap->get_id() == $post_id) continue;
-                if (isset($saved_pred_qtys[$ap->get_id()]) || (class_exists('Batllie_Caja_Packing') && Batllie_Caja_Packing::is_alfajor_product($ap->get_id()))) {
-                    $recipe_candidates[$ap->get_id()] = $ap;
-                }
+                $recipe_candidates[$ap->get_id()] = $ap;
             }
         }
 
         echo '<div id="batllie_recipe_container" style="' . ($is_pred_val === 'yes' ? '' : 'display:none;') . ' margin:12px 0 16px 0; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:12px;">';
-        echo '<p style="margin:0 0 8px 0; font-weight:600; font-size:13px; color:#1e293b;">📋 ' . esc_html__('Composición / Receta de la caja (Unidades de cada alfajor por caja):', 'emp-caja') . '</p>';
+        echo '<p style="margin:0 0 8px 0; font-weight:600; font-size:13px; color:#1e293b;">📋 ' . esc_html__('Composición / Receta del pack o caja (Unidades de cada producto por pack):', 'emp-caja') . '</p>';
         echo '<table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">';
-        echo '<thead><tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;"><th style="padding:6px 8px;">' . esc_html__('Alfajor / Producto', 'emp-caja') . '</th><th style="padding:6px 8px; width:90px; text-align:center;">' . esc_html__('Stock Disp.', 'emp-caja') . '</th><th style="padding:6px 8px; width:120px; text-align:right;">' . esc_html__('Cant. en Caja', 'emp-caja') . '</th></tr></thead>';
+        echo '<thead><tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;"><th style="padding:6px 8px;">' . esc_html__('Producto / Componente', 'emp-caja') . '</th><th style="padding:6px 8px; width:90px; text-align:center;">' . esc_html__('Stock Disp.', 'emp-caja') . '</th><th style="padding:6px 8px; width:120px; text-align:right;">' . esc_html__('Cant. en Pack', 'emp-caja') . '</th></tr></thead>';
         echo '<tbody>';
 
         if (empty($recipe_candidates)) {
-            echo '<tr><td colspan="3" style="padding:10px; color:#64748b; text-align:center;">' . esc_html__('No se encontraron alfajores disponibles para configurar la receta.', 'emp-caja') . '</td></tr>';
+            echo '<tr><td colspan="3" style="padding:10px; color:#64748b; text-align:center;">' . esc_html__('No se encontraron productos disponibles para configurar la receta.', 'emp-caja') . '</td></tr>';
         } else {
             foreach ($recipe_candidates as $cid => $cp) {
                 $c_stock = $cp->get_stock_quantity();
@@ -926,7 +924,7 @@ class Batllie_Caja_Grouped {
             }
         }
         echo '</tbody></table>';
-        echo '<p class="description" style="margin-top:6px; font-size:11px; color:#64748b;">' . esc_html__('Indica cuántas unidades de cada alfajor requiere esta caja. El stock total de la caja se limitará automáticamente por el alfajor con menor stock disponible.', 'emp-caja') . '</p>';
+        echo '<p class="description" style="margin-top:6px; font-size:11px; color:#64748b;">' . esc_html__('Indica cuántas unidades de cada producto requiere este pack. El stock total se limitará automáticamente por el producto con menor stock disponible.', 'emp-caja') . '</p>';
         echo '</div>';
 
         echo '<div style="margin: 14px 0 12px 0; border-top: 1px dashed #a7f3d0;"></div>';
@@ -938,7 +936,7 @@ class Batllie_Caja_Grouped {
             'id'          => '_batllie_grouped_fixed_price',
             'label'       => __('Precio Fijo del Combo / Caja ($)', 'emp-caja'),
             'placeholder' => __('Ej: 16800 (opcional)', 'emp-caja'),
-            'description' => __('Si defines un precio fijo, la caja/combo se cobrará exactamente a este importe final sin importar los productos individuales que agrupe ni la cantidad (anula la suma de precios individuales). Deja vacío si deseas que el precio sea la suma de los alfajores elegidos.', 'emp-caja'),
+            'description' => __('Si defines un precio fijo, la caja/pack se cobrará exactamente a este importe final sin importar los productos individuales que agrupe ni la cantidad (anula la suma de precios individuales). Deja vacío si deseas que el precio sea la suma de los productos elegidos.', 'emp-caja'),
             'desc_tip'    => true,
             'type'        => 'text',
             'value'       => $fixed_price,
@@ -948,8 +946,8 @@ class Batllie_Caja_Grouped {
             'id'          => '_batllie_grouped_fixed_price_display',
             'label'       => __('Desglose del precio fijo', 'emp-caja'),
             'options'     => array(
-                'box'         => __('Asignar precio total a la Caja (Alfajores figuran a $0 incluidos)', 'emp-caja'),
-                'distributed' => __('Distribuir equitativamente entre los alfajores (Caja a $0)', 'emp-caja'),
+                'box'         => __('Asignar precio total al Pack / Caja (Productos componentes figuran a $0 incluidos)', 'emp-caja'),
+                'distributed' => __('Distribuir equitativamente entre los productos componentes (Pack a $0)', 'emp-caja'),
             ),
             'description' => __('Define cómo se mostrará el cobro en el carrito y en el pedido cuando el precio fijo esté activo.', 'emp-caja'),
             'desc_tip'    => true,

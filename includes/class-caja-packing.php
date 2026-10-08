@@ -48,9 +48,11 @@ class Batllie_Caja_Packing {
         add_action('wp_ajax_emp_caja_get_packing_status', array(__CLASS__, 'ajax_get_packing_status'));
         add_action('wp_ajax_nopriv_emp_caja_get_packing_status', array(__CLASS__, 'ajax_get_packing_status'));
 
-        // Endpoint AJAX para agregar un alfajor rápido en 1-click desde el modal/banner
+        // Endpoint AJAX para agregar un producto rápido en 1-click desde el modal/banner
         add_action('wp_ajax_emp_caja_quick_add_alfajor', array(__CLASS__, 'ajax_quick_add_alfajor'));
         add_action('wp_ajax_nopriv_emp_caja_quick_add_alfajor', array(__CLASS__, 'ajax_quick_add_alfajor'));
+        add_action('wp_ajax_emp_caja_quick_add_product', array(__CLASS__, 'ajax_quick_add_alfajor'));
+        add_action('wp_ajax_nopriv_emp_caja_quick_add_product', array(__CLASS__, 'ajax_quick_add_alfajor'));
 
         // Endpoint AJAX para marcar tarjeta de felicitación en la pantalla de Caja POS
         add_action('wp_ajax_emp_caja_toggle_tarjeta', array(__CLASS__, 'ajax_toggle_tarjeta'));
@@ -99,7 +101,8 @@ class Batllie_Caja_Packing {
 
         // Crear producto físico de packaging con control de stock nativo
         $box = new WC_Product_Simple();
-        $box->set_name(sprintf(__('Caja Batllié x %d unidades (Empaque)', 'emp-caja'), $capacity));
+        $box_title = ($capacity == 12) ? __('Paquete / Caja Grande (Empaque)', 'emp-caja') : __('Paquete / Caja Chica (Empaque)', 'emp-caja');
+        $box->set_name($box_title);
         $box->set_slug($slug);
         $box->set_status('publish');
         $box->set_catalog_visibility('hidden');
@@ -159,7 +162,7 @@ class Batllie_Caja_Packing {
                 return $p->get_name();
             }
         }
-        return sprintf(__('Caja Batllié x %d unidades', 'emp-caja'), $capacity);
+        return ($capacity == 12) ? __('Caja / Paquete Grande', 'emp-caja') : __('Caja / Paquete Chico', 'emp-caja');
     }
 
     /**
@@ -718,57 +721,108 @@ class Batllie_Caja_Packing {
     }
 
     /**
-     * Obtener listado de alfajores activos en stock para ofrecer en el selector 1-Click
+     * Obtener listado de productos sugeridos basados en el carrito actual para ofrecer en el selector 1-Click
      */
     public static function get_available_alfajores_for_upsell() {
-        $args = array(
-            'post_type'      => 'product',
-            'posts_per_page' => 100,
-            'post_status'    => 'publish',
-            'orderby'        => 'menu_order title',
-            'order'          => 'ASC',
-        );
+        return self::get_available_suggested_products_for_upsell();
+    }
 
-        $posts = get_posts($args);
-        $alfajores = array();
+    public static function get_available_suggested_products_for_upsell() {
+        $cart_items = (function_exists('WC') && WC()->cart) ? WC()->cart->get_cart() : array();
+        $suggested_ids = array();
+        $cart_prod_ids = array();
 
-        foreach ($posts as $post) {
-            $p = wc_get_product($post->ID);
+        foreach ($cart_items as $c_item) {
+            $pid = !empty($c_item['product_id']) ? absint($c_item['product_id']) : 0;
+            if ($pid > 0) {
+                $cart_prod_ids[] = $pid;
+                $cp = wc_get_product($pid);
+                if ($cp) {
+                    // 1. Cross-sells de los productos en carrito
+                    $cross = $cp->get_cross_sell_ids();
+                    if (!empty($cross)) {
+                        $suggested_ids = array_merge($suggested_ids, $cross);
+                    }
+                    // 2. Recomendaciones manuales guardadas en meta
+                    $rec_meta = get_post_meta($pid, '_batllie_recommended_products', true);
+                    if (!empty($rec_meta) && is_array($rec_meta)) {
+                        $suggested_ids = array_merge($suggested_ids, $rec_meta);
+                    }
+                    // 3. Productos relacionados de WooCommerce (misma categoría/tags)
+                    $related = wc_get_related_products($pid, 4);
+                    if (!empty($related)) {
+                        $suggested_ids = array_merge($suggested_ids, $related);
+                    }
+                }
+            }
+        }
+
+        $suggested_ids = array_unique(array_filter($suggested_ids));
+        $candidate_ids = array_diff($suggested_ids, $cart_prod_ids);
+
+        // Si hay pocas sugerencias directas (o carrito vacío), complementar con productos del catálogo
+        if (count($candidate_ids) < 8) {
+            $fallback_posts = get_posts(array(
+                'post_type'      => 'product',
+                'posts_per_page' => 20,
+                'post_status'    => 'publish',
+                'orderby'        => 'total_sales menu_order',
+                'order'          => 'DESC',
+                'fields'         => 'ids',
+            ));
+            foreach ($fallback_posts as $f_id) {
+                if (!in_array($f_id, $cart_prod_ids, true) && !in_array($f_id, $candidate_ids, true)) {
+                    $candidate_ids[] = (int) $f_id;
+                }
+            }
+        }
+
+        $products = array();
+        foreach ($candidate_ids as $cand_id) {
+            $p = wc_get_product($cand_id);
             if (!$p || !$p->is_purchasable() || !$p->is_in_stock()) {
                 continue;
             }
             if ($p->is_type('grouped')) {
-                continue; // Solo alfajores individuales
+                continue;
             }
 
-            // Excluir productos si están configurados como ocultos
+            // Excluir productos si son de paquetería oficial u ocultos
+            $box_role = self::get_product_box_role($cand_id);
+            if (!empty($box_role) && $box_role !== 'none') {
+                continue;
+            }
+
             $catalog_visibility = method_exists($p, 'get_catalog_visibility') ? $p->get_catalog_visibility() : 'visible';
             if ($catalog_visibility === 'hidden' || $catalog_visibility === 'search' || !$p->is_visible()) {
                 continue;
             }
 
-            if (self::is_alfajor_product($post->ID)) {
-                // Verificar stock disponible real (descontando lo que el cliente ya tiene en su carrito)
-                $available_stock = self::get_product_available_stock($p);
-                if ($available_stock <= 0) {
-                    continue; // Si se acabó el stock o ya agregó todo al carrito, desaparece de la lista
-                }
+            // Verificar stock disponible real
+            $available_stock = self::get_product_available_stock($p);
+            if ($available_stock <= 0) {
+                continue;
+            }
 
-                $image_id = $p->get_image_id();
-                $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
-                $alfajores[] = array(
-                    'id'              => $p->get_id(),
-                    'name'            => $p->get_name(),
-                    'clean_name'      => trim(str_ireplace('Alfajor', '', $p->get_name())),
-                    'price'           => floatval($p->get_price()),
-                    'price_fmt'       => wc_price($p->get_price()),
-                    'image'           => $image_url,
-                    'remaining_stock' => $available_stock,
-                );
+            $image_id = $p->get_image_id();
+            $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : (function_exists('wc_placeholder_img_src') ? wc_placeholder_img_src('thumbnail') : '');
+
+            $products[] = array(
+                'id'              => $p->get_id(),
+                'name'            => $p->get_name(),
+                'clean_name'      => $p->get_name(),
+                'price'           => floatval($p->get_price()),
+                'price_fmt'       => wc_price($p->get_price()),
+                'image'           => $image_url,
+                'remaining_stock' => $available_stock,
+            );
+
+            if (count($products) >= 12) {
+                break;
             }
         }
 
-        return $alfajores;
+        return $products;
     }
 
     /**
@@ -1332,7 +1386,7 @@ class Batllie_Caja_Packing {
     }
 
     /**
-     * Obtener resumen detallado de cajas asignadas para un pedido (Comanda Mostrador / Cocina)
+     * Obtener resumen detallado de cajas asignadas para un pedido (Comanda Mostrador / Depósito)
      * Soporta cálculo retroactivo si el pedido fue creado sin metadata
      */
     public static function get_order_boxes_summary($order) {
@@ -1557,7 +1611,7 @@ class Batllie_Caja_Packing {
         $product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
         $quantity   = isset($_POST['quantity']) ? max(1, absint($_POST['quantity'])) : 1;
 
-        if (!$product_id || !self::is_alfajor_product($product_id)) {
+        if (!$product_id) {
             wp_send_json_error(array(
                 'message'            => __('Producto no válido.', 'emp-caja'),
                 'availableAlfajores' => self::get_available_alfajores_for_upsell(),
@@ -1584,7 +1638,7 @@ class Batllie_Caja_Packing {
         $available_stock = self::get_product_available_stock($p);
         if ($available_stock < $quantity) {
             wp_send_json_error(array(
-                'message'            => sprintf(__('Solo queda %d unidad disponible de este alfajor.', 'emp-caja'), max(0, $available_stock)),
+                'message'            => sprintf(__('Solo queda %d unidad disponible de este producto.', 'emp-caja'), max(0, $available_stock)),
                 'remaining'          => max(0, $available_stock),
                 'availableAlfajores' => self::get_available_alfajores_for_upsell(),
             ));
@@ -2026,7 +2080,7 @@ class Batllie_Caja_Packing {
         if ($decision_correcta && class_exists('Batllie_Caja_Orders')) {
             Batllie_Caja_Orders::add_timeline_event(
                 $order,
-                __('🚀 ¡El cliente aumentó su pedido! Agregó alfajores extra para completar su caja por sugerencia de la web.', 'emp-caja'),
+                __('🚀 ¡El cliente aumentó su pedido! Agregó productos extra por recomendación de la web.', 'emp-caja'),
                 '🚀',
                 'system'
             );

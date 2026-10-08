@@ -184,40 +184,43 @@ if (!defined('ABSPATH')) {
                 </div>
 
                 <div class="caja-form-group" id="new-prod-box-role-group">
-                    <label for="new-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
+                    <label for="new-prod-box-role"><strong>📦 <?php _e('Paquetería Oficial / Empaque:', 'emp-caja'); ?></strong></label>
                     <select id="new-prod-box-role" name="official_box_role" class="caja-select">
-                        <option value="none"></option>
-                        <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
-                        <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
-                        <option value="bag_large"><?php _e('🛍️ Asignar como Bolsa Grande de Envío', 'emp-caja'); ?></option>
-                        <option value="bag_small"><?php _e('🛍️ Asignar como Bolsa Chica de Envío', 'emp-caja'); ?></option>
+                        <option value="none"><?php _e('⚪ No (Producto estándar para la venta)', 'emp-caja'); ?></option>
+                        <option value="box_12"><?php _e('📦 Paquetería oficial principal (Caja / Paquete grande)', 'emp-caja'); ?></option>
+                        <option value="box_6"><?php _e('📦 Paquetería oficial secundaria (Caja / Paquete chico)', 'emp-caja'); ?></option>
+                        <option value="bag_large"><?php _e('🛍️ Bolsa Grande de Despacho', 'emp-caja'); ?></option>
+                        <option value="bag_small"><?php _e('🛍️ Bolsa Chica de Despacho', 'emp-caja'); ?></option>
                     </select>
+                    <small id="new-prod-box-role-hint" style="display:none; color:#10b981; font-weight:600; margin-top:4px;">
+                        <?php _e('⚡ Paquetería oficial seleccionada: este producto se ocultará automáticamente a los clientes en la tienda y se usará para el control de empaque y envíos.', 'emp-caja'); ?>
+                    </small>
                 </div>
                 <div class="caja-details-accordion caja-modal-section-accordion" id="new-prod-sec-shared-packing">
                     <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#new-collapse-shared-packing">
                         <span class="caja-toggle-left">
                             <span class="caja-toggle-icon">🛍️</span>
-                            <span class="caja-toggle-text"><strong><?php _e('Empaque Compartido con Alfajores', 'emp-caja'); ?></strong></span>
+                            <span class="caja-toggle-text"><strong><?php _e('Empaque Compartido con otros Productos', 'emp-caja'); ?></strong></span>
                         </span>
                         <span class="caja-toggle-arrow">▼</span>
                     </button>
                     <div class="caja-details-collapse" id="new-collapse-shared-packing" style="display:none;">
                         <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
-                            <?php _e('Indicá si este producto puede viajar dentro de una Caja Oficial junto con los alfajores y cuántos alfajores como máximo pueden acompañarlo en esa caja:', 'emp-caja'); ?>
+                            <?php _e('Indicá si este producto puede viajar dentro de una Caja Oficial junto con otros productos y cuántas unidades como máximo pueden acompañarlo en esa caja:', 'emp-caja'); ?>
                         </p>
                         <div class="caja-form-row">
                             <div class="caja-form-group caja-col">
                                 <label for="new-prod-can-share-box"><strong><?php _e('¿Puede incluirse dentro de una Caja Oficial?', 'emp-caja'); ?></strong></label>
                                 <select id="new-prod-can-share-box" name="can_share_box" class="caja-select">
                                     <option value="none"><?php _e('No (se despacha por separado)', 'emp-caja'); ?></option>
-                                    <option value="box_12"><?php _e('📦 Sí, dentro de Caja de 12', 'emp-caja'); ?></option>
-                                    <option value="box_6"><?php _e('📦 Sí, dentro de Caja de 6', 'emp-caja'); ?></option>
+                                    <option value="box_12"><?php _e('📦 Sí, dentro de Caja / Paquete Grande', 'emp-caja'); ?></option>
+                                    <option value="box_6"><?php _e('📦 Sí, dentro de Caja / Paquete Chico', 'emp-caja'); ?></option>
                                 </select>
                             </div>
                             <div class="caja-form-group caja-col" id="new-prod-share-max-group" style="display:none;">
-                                <label for="new-prod-share-max-alfajores"><strong><?php _e('Máx. alfajores en esa misma caja', 'emp-caja'); ?></strong></label>
+                                <label for="new-prod-share-max-alfajores"><strong><?php _e('Máx. productos en esa misma caja', 'emp-caja'); ?></strong></label>
                                 <input type="number" min="1" max="12" id="new-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6 o 12" />
-                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de alfajores (ej: 6 si ocupa espacio como yerba, o 12 si entra con la caja completa).', 'emp-caja'); ?></small>
+                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de unidades que entran en la caja con este producto.', 'emp-caja'); ?></small>
                             </div>
                         </div>
                     </div>
@@ -522,14 +525,17 @@ if (!defined('ABSPATH')) {
                     </button>
                     <div class="caja-details-collapse" id="edit-collapse-caja-oficial" style="display:none;">
                         <div class="caja-form-group" style="margin-bottom:0;">
-                            <label for="edit-prod-box-role"><strong>📦 <?php _e('Rol de Empaque / Caja Oficial:', 'emp-caja'); ?></strong></label>
+                            <label for="edit-prod-box-role"><strong>📦 <?php _e('Paquetería Oficial / Empaque:', 'emp-caja'); ?></strong></label>
                             <select id="edit-prod-box-role" name="official_box_role" class="caja-select">
-                                <option value="none"></option>
-                                <option value="box_6"><?php _e('📦 Asignar como Caja Oficial de 6 unidades', 'emp-caja'); ?></option>
-                                <option value="box_12"><?php _e('📦 Asignar como Caja Oficial de 12 unidades', 'emp-caja'); ?></option>
-                                <option value="bag_large"><?php _e('🛍️ Asignar como Bolsa Grande de Envío', 'emp-caja'); ?></option>
-                                <option value="bag_small"><?php _e('🛍️ Asignar como Bolsa Chica de Envío', 'emp-caja'); ?></option>
+                                <option value="none"><?php _e('⚪ No (Producto estándar para la venta)', 'emp-caja'); ?></option>
+                                <option value="box_12"><?php _e('📦 Paquetería oficial principal (Caja / Paquete grande)', 'emp-caja'); ?></option>
+                                <option value="box_6"><?php _e('📦 Paquetería oficial secundaria (Caja / Paquete chico)', 'emp-caja'); ?></option>
+                                <option value="bag_large"><?php _e('🛍️ Bolsa Grande de Despacho', 'emp-caja'); ?></option>
+                                <option value="bag_small"><?php _e('🛍️ Bolsa Chica de Despacho', 'emp-caja'); ?></option>
                             </select>
+                            <small id="edit-prod-box-role-hint" style="display:none; color:#10b981; font-weight:600; margin-top:4px;">
+                                <?php _e('⚡ Paquetería oficial seleccionada: este producto se ocultará automáticamente a los clientes en la tienda y se usará para el control de empaque y envíos.', 'emp-caja'); ?>
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -541,27 +547,27 @@ if (!defined('ABSPATH')) {
                     <button type="button" class="caja-btn-details-toggle caja-btn-modal-accordion" data-target="#edit-collapse-shared-packing">
                         <span class="caja-toggle-left">
                             <span class="caja-toggle-icon">🛍️</span>
-                            <span class="caja-toggle-text"><strong><?php _e('Empaque Compartido con Alfajores', 'emp-caja'); ?></strong></span>
+                            <span class="caja-toggle-text"><strong><?php _e('Empaque Compartido con otros Productos', 'emp-caja'); ?></strong></span>
                         </span>
                         <span class="caja-toggle-arrow">▼</span>
                     </button>
                     <div class="caja-details-collapse" id="edit-collapse-shared-packing" style="display:none;">
                         <p class="caja-form-hint" style="margin-top:2px; margin-bottom:8px;">
-                            <?php _e('Indicá si este producto puede viajar dentro de una Caja Oficial junto con los alfajores y cuántos alfajores como máximo pueden acompañarlo en esa caja:', 'emp-caja'); ?>
+                            <?php _e('Indicá si este producto puede viajar dentro de una Caja Oficial junto con otros productos y cuántas unidades como máximo pueden acompañarlo en esa caja:', 'emp-caja'); ?>
                         </p>
                         <div class="caja-form-row">
                             <div class="caja-form-group caja-col">
                                 <label for="edit-prod-can-share-box"><strong><?php _e('¿Puede incluirse dentro de una Caja Oficial?', 'emp-caja'); ?></strong></label>
                                 <select id="edit-prod-can-share-box" name="can_share_box" class="caja-select">
                                     <option value="none"><?php _e('No (se despacha por separado)', 'emp-caja'); ?></option>
-                                    <option value="box_12"><?php _e('📦 Sí, dentro de Caja de 12', 'emp-caja'); ?></option>
-                                    <option value="box_6"><?php _e('📦 Sí, dentro de Caja de 6', 'emp-caja'); ?></option>
+                                    <option value="box_12"><?php _e('📦 Sí, dentro de Caja / Paquete Grande', 'emp-caja'); ?></option>
+                                    <option value="box_6"><?php _e('📦 Sí, dentro de Caja / Paquete Chico', 'emp-caja'); ?></option>
                                 </select>
                             </div>
                             <div class="caja-form-group caja-col" id="edit-prod-share-max-group" style="display:none;">
-                                <label for="edit-prod-share-max-alfajores"><strong><?php _e('Máx. alfajores en esa misma caja', 'emp-caja'); ?></strong></label>
+                                <label for="edit-prod-share-max-alfajores"><strong><?php _e('Máx. productos en esa misma caja', 'emp-caja'); ?></strong></label>
                                 <input type="number" min="1" max="12" id="edit-prod-share-max-alfajores" name="share_box_max_alfajores" value="6" placeholder="Ej: 6 o 12" />
-                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de alfajores que caben junto a este producto (ej: 6 si ocupa espacio como yerba, o 12 si entra con la caja completa).', 'emp-caja'); ?></small>
+                                <small style="color:rgba(255,255,255,0.75); display:block; margin-top:4px; font-size:11px;"><?php _e('Límite de unidades que entran en la caja con este producto.', 'emp-caja'); ?></small>
                             </div>
                         </div>
                         <div id="edit-prod-shared-variable-hint" style="display:none; padding:8px 12px; border-radius:4px; background:rgba(255,255,255,0.05); font-size:12px; color:var(--caja-text-muted); margin-top:8px;">
@@ -672,14 +678,14 @@ if (!defined('ABSPATH')) {
                                 <span style="font-size:11px; font-weight:600; background:#fff; color:#065f46; padding:2px 8px; border-radius:12px;">Sincronizado en vivo</span>
                             </div>
                             <div id="edit-grouped-dyn-bottleneck-text" style="margin-top:4px; font-size:12px; color:#e2e8f0; font-weight:500;"></div>
-                            <small style="display:block; margin-top:4px; font-size:11px; color:#94a3b8;">El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus alfajores componentes, la caja física de empaque y el stock fijado.</small>
+                            <small style="display:block; margin-top:4px; font-size:11px; color:#94a3b8;">El stock visible en la tienda y permitido para compra se recalcula automáticamente según el stock disponible de sus productos componentes, la caja física de empaque y el stock fijado.</small>
                         </div>
 
                         <!-- Cantidad fija de la caja -->
                         <div class="caja-form-group">
-                            <label for="edit-grouped-target-qty"><strong><?php _e('Cantidad fija de la caja', 'emp-caja'); ?></strong></label>
+                            <label for="edit-grouped-target-qty"><strong><?php _e('Cantidad fija de la caja / pack', 'emp-caja'); ?></strong></label>
                             <input type="number" min="0" step="1" id="edit-grouped-target-qty" name="grouped_target_qty" placeholder="<?php esc_attr_e('Ej: 6', 'emp-caja'); ?>" />
-                            <small class="caja-form-hint"><?php _e('Número exacto de unidades que el cliente debe elegir para poder comprar la caja (ej: 6 para caja de 6, 12 para caja de 12). Si se deja vacío, el sistema detectará automáticamente la cantidad según el título del producto.', 'emp-caja'); ?></small>
+                            <small class="caja-form-hint"><?php _e('Número exacto de unidades que el cliente debe elegir para poder comprar la caja o pack (ej: 6 o 12). Si se deja vacío, el sistema detectará automáticamente la cantidad según el título del producto.', 'emp-caja'); ?></small>
                         </div>
 
                         <!-- ¿Incluir caja en el carrito? -->
@@ -707,13 +713,13 @@ if (!defined('ABSPATH')) {
 
                         <!-- Cálculo del Precio de la Caja / Combo -->
                         <div class="caja-form-group">
-                            <label for="edit-grouped-pricing-type"><strong>💰 <?php _e('Cálculo del Precio de la Caja / Combo', 'emp-caja'); ?></strong></label>
+                            <label for="edit-grouped-pricing-type"><strong>💰 <?php _e('Cálculo del Precio del Pack / Combo', 'emp-caja'); ?></strong></label>
                             <select id="edit-grouped-pricing-type" name="grouped_pricing_type" class="caja-select">
                                 <option value="fixed"><?php _e('🎁 Precio fijo del combo (Toma el Precio Regular de arriba)', 'emp-caja'); ?></option>
-                                <option value="variable"><?php _e('🔢 Precio variable (Calculado según los alfajores que introduce)', 'emp-caja'); ?></option>
+                                <option value="variable"><?php _e('🔢 Precio variable (Calculado según los productos que introduce)', 'emp-caja'); ?></option>
                             </select>
                             <small class="caja-form-hint" id="edit-grouped-pricing-type-hint">
-                                <?php _e('Elegí si la caja se cobra al precio fijo establecido arriba en "Precio Regular", o si el precio total varía sumando el costo de los alfajores que el cliente elija.', 'emp-caja'); ?>
+                                <?php _e('Elegí si la caja se cobra al precio fijo establecido arriba en "Precio Regular", o si el precio total varía sumando el costo de los productos que el cliente elija.', 'emp-caja'); ?>
                             </small>
                         </div>
 
@@ -721,8 +727,8 @@ if (!defined('ABSPATH')) {
                         <div class="caja-form-group" id="edit-grouped-fixed-display-group">
                             <label for="edit-grouped-fixed-price-display"><strong><?php _e('Desglose del precio fijo', 'emp-caja'); ?></strong></label>
                             <select id="edit-grouped-fixed-price-display" name="grouped_fixed_price_display" class="caja-select">
-                                <option value="box"><?php _e('Asignar precio total a la Caja (Alfajores figuran a $0 incluidos)', 'emp-caja'); ?></option>
-                                <option value="distributed"><?php _e('Distribuir equitativamente entre los alfajores (Caja a $0)', 'emp-caja'); ?></option>
+                                <option value="box"><?php _e('Asignar precio total al Pack / Caja (Productos figuran a $0 incluidos)', 'emp-caja'); ?></option>
+                                <option value="distributed"><?php _e('Distribuir equitativamente entre los productos (Pack a $0)', 'emp-caja'); ?></option>
                             </select>
                             <small class="caja-form-hint"><?php _e('Define cómo se mostrará el cobro en el carrito y en el pedido cuando el precio fijo esté activo.', 'emp-caja'); ?></small>
                         </div>

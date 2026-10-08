@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: Batllie Caja & Pedidos POS
- * Plugin URI: https://empralidad.com.ar/batllie
- * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.62
- * Author: Empralidad / Batllie
+ * Plugin Name: Caja & Pedidos POS - Gestión de Mostrador y Envíos
+ * Plugin URI: https://empralidad.com.ar
+ * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/depósito u oficina, gestión de estados, alta de productos y colores 100% personalizables. Shortcodes: [caja_pos], [batllie_caja].
+ * Version: 2.0.0
+ * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
  * Requires at least: 5.8
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.62');
+define('EMP_CAJA_VERSION', '2.0.0');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -50,7 +50,7 @@ class Batllie_Caja_Plugin {
         // Inicializar módulo de monto mínimo de compra en la tienda
         Batllie_Caja_Min_Order::init();
 
-        // Inicializar motor de empaque de alfajores, stock de cajas y cortesía
+        // Inicializar motor de empaque, stock de paquetería y despacho
         Batllie_Caja_Packing::init();
 
         // Hacer obligatorio el número de teléfono en WooCommerce checkout
@@ -67,6 +67,7 @@ class Batllie_Caja_Plugin {
         add_action('wp_enqueue_scripts', array($this, 'register_assets'));
         add_action('wp_head', array($this, 'render_mobile_cart_redirect_script'), 1);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
+        add_shortcode('caja_pos', array($this, 'render_caja_shortcode'));
 
         // Garantizar traducciones al español argentino para textos clave de WooCommerce y bloques de carrito/checkout
         add_filter('gettext', array($this, 'filter_woocommerce_translations'), 20, 3);

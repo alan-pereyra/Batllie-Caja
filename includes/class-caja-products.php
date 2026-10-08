@@ -364,6 +364,10 @@ class Batllie_Caja_Products {
             } elseif ($role === 'bag_small') {
                 Batllie_Caja_Packing::set_official_bag_id('small', $product_id);
             }
+            if ($role !== 'none') {
+                $product->set_catalog_visibility('hidden');
+                $product->save();
+            }
         }
 
         if (isset($data['recommended_ids'])) {
@@ -818,6 +822,10 @@ class Batllie_Caja_Products {
                     delete_option(Batllie_Caja_Packing::OPTION_BAG_SMALL_ID);
                 }
                 delete_post_meta($product_id, '_batllie_is_official_box');
+            }
+            if ($role !== 'none') {
+                $product->set_catalog_visibility('hidden');
+                $product->save();
             }
         }
 

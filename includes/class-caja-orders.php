@@ -1030,8 +1030,8 @@ class Batllie_Caja_Orders {
     }
 
     /**
-     * Empaquetar alfajores sueltos en cajas automáticas (Caja 12, Caja 6, Cortesía)
-     * para que en la comanda mostrador/cocina se vean agrupados homogéneamente como packs.
+     * Empaquetar unidades sueltas en cajas automáticas
+     * para que en la comanda mostrador/depósito se vean agrupados homogéneamente como packs.
      */
     public static function auto_package_loose_alfajores($raw_standalone, $currency = null, $has_courtesy = false, $has_decision = false, $default_image = '', $order = null) {
         if (empty($raw_standalone) || !is_array($raw_standalone)) {
@@ -1792,7 +1792,7 @@ class Batllie_Caja_Orders {
             self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
             self::add_timeline_event($order, __('pedido completado con inconvenientes', 'emp-caja'), '⚠️', 'status_comp');
         } elseif ($clean_status === 'processing') {
-            self::add_timeline_event($order, __('en preparación', 'emp-caja'), '👨‍🍳', 'status_prep');
+            self::add_timeline_event($order, __('en preparación', 'emp-caja'), '📦', 'status_prep');
         } elseif ($clean_status === 'enviando' || $clean_status === 'on-hold') {
             self::add_timeline_event($order, __('se inició el proceso de envío', 'emp-caja'), '🛵', 'shipping_out');
         } elseif ($clean_status === 'cancelled') {
@@ -1801,7 +1801,7 @@ class Batllie_Caja_Orders {
             self::add_timeline_event($order, __('pedido reembolzado', 'emp-caja'), '🔄', 'status');
         }
 
-        $order->update_status($clean_status, __('Estado modificado desde terminal Batllie Caja', 'emp-caja'));
+        $order->update_status($clean_status, __('Estado modificado desde terminal de Caja POS', 'emp-caja'));
         return self::format_order($order);
     }
 
@@ -2071,7 +2071,7 @@ class Batllie_Caja_Orders {
                 'date_key'       => self::format_datetime('Y-m-d', $ts),
                 'timestamp'      => $ts,
                 'text'           => __('en preparación', 'emp-caja'),
-                'icon'           => '👨‍🍳',
+                'icon'           => '📦',
                 'type'           => 'status_prep'
             );
         }
