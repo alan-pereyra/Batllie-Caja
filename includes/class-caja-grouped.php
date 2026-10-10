@@ -50,8 +50,8 @@ class Batllie_Caja_Grouped {
         // Añadir automáticamente la caja física de empaque cuando se añade el pack
         add_action('woocommerce_add_to_cart', array(__CLASS__, 'handle_extra_box_add_to_cart'), 20, 6);
 
-        // Sincronizar precios (fijos o dinámicos) y eliminar cajas huérfanas
-        add_action('woocommerce_before_calculate_totals', array(__CLASS__, 'sync_and_price_extra_boxes'), 20, 1);
+        // Sincronizar precios (fijos o dinámicos) y eliminar cajas huérfanas (prioridad 99 para ejecutarse después de temas)
+        add_action('woocommerce_before_calculate_totals', array(__CLASS__, 'sync_and_price_extra_boxes'), 99, 1);
 
         // Modificar nombre, badge de cortesía, thumbnail, precio y cantidad en el carrito
         add_filter('woocommerce_cart_item_name', array(__CLASS__, 'filter_extra_box_cart_name'), 10, 3);
@@ -1542,19 +1542,23 @@ class Batllie_Caja_Grouped {
     public static function get_extra_box_name($product_id) {
         $custom = get_post_meta($product_id, '_batllie_grouped_extra_box_name', true);
         if (!empty($custom)) {
-            return trim($custom);
+            $clean = trim(preg_replace('/\s+/', ' ', $custom));
+            if (!empty($clean)) {
+                return $clean;
+            }
         }
 
         $product = wc_get_product($product_id);
         if ($product) {
             $title = $product->get_name();
-            if (stripos($title, 'caja') !== false) {
-                return $title;
+            $clean_title = trim(preg_replace('/\s+/', ' ', $title));
+            if (stripos($clean_title, 'caja') !== false) {
+                return $clean_title;
             }
-            return sprintf(__('Caja %s', 'emp-caja'), $title);
+            return sprintf(__('Caja %s', 'emp-caja'), $clean_title);
         }
 
-        return __('Caja de Empaque', 'emp-caja');
+        return __('Caja de empaque', 'emp-caja');
     }
 
     /**
@@ -1758,12 +1762,22 @@ class Batllie_Caja_Grouped {
                 // 1. Asignar el importe total a la caja de empaque
                 if (isset($cart->cart_contents[$pack_box_key]['data'])) {
                     $cart->cart_contents[$pack_box_key]['data']->set_price($box_price);
+                    $cart->cart_contents[$pack_box_key]['emp_base_price'] = $box_price;
+                    $custom_name = self::get_extra_box_name($pack_parent_id);
+                    if ($custom_name) {
+                        $clean_name = trim(preg_replace('/\s+/', ' ', $custom_name));
+                        if (empty($clean_name)) {
+                            $clean_name = __('Caja de empaque', 'emp-caja');
+                        }
+                        $cart->cart_contents[$pack_box_key]['data']->set_name($clean_name);
+                    }
                 }
 
                 // 2. TODOS los productos hijos dentro de la caja pasan a precio $0
                 foreach ($pack_children as $c_key => $c_item) {
                     if (isset($cart->cart_contents[$c_key]['data'])) {
                         $cart->cart_contents[$c_key]['data']->set_price(0);
+                        $cart->cart_contents[$c_key]['emp_base_price'] = 0;
                     }
                 }
             } else {
@@ -1876,7 +1890,11 @@ class Batllie_Caja_Grouped {
      */
     public static function filter_extra_box_cart_name($name, $cart_item, $cart_item_key) {
         if (!empty($cart_item['batllie_extra_box'])) {
-            $custom_name = !empty($cart_item['batllie_box_custom_name']) ? $cart_item['batllie_box_custom_name'] : __('Caja de Empaque', 'emp-caja');
+            $custom_name = !empty($cart_item['batllie_box_custom_name']) ? $cart_item['batllie_box_custom_name'] : __('Caja de empaque', 'emp-caja');
+            $custom_name = trim(preg_replace('/\s+/', ' ', $custom_name));
+            if (empty($custom_name)) {
+                $custom_name = __('Caja de empaque', 'emp-caja');
+            }
             $price = isset($cart_item['data']) ? floatval($cart_item['data']->get_price()) : 0;
             if ($price > 0) {
                 $badge = ' <span class="batllie-included-badge" style="display:inline-block; font-size:11px; font-weight:600; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:9999px; padding:2px 8px; margin-left:6px; vertical-align:middle;">' . esc_html__('Combo / Pack', 'emp-caja') . '</span>';
@@ -1949,7 +1967,11 @@ class Batllie_Caja_Grouped {
      */
     public static function save_extra_box_order_line_item($item, $cart_item_key, $values, $order) {
         if (!empty($values['batllie_extra_box'])) {
-            $custom_name = !empty($values['batllie_box_custom_name']) ? $values['batllie_box_custom_name'] : __('Caja de Empaque', 'emp-caja');
+            $custom_name = !empty($values['batllie_box_custom_name']) ? $values['batllie_box_custom_name'] : __('Caja de empaque', 'emp-caja');
+            $custom_name = trim(preg_replace('/\s+/', ' ', $custom_name));
+            if (empty($custom_name)) {
+                $custom_name = __('Caja de empaque', 'emp-caja');
+            }
             $item->set_name($custom_name);
 
             $item_price = isset($values['data']) ? floatval($values['data']->get_price()) : 0;
@@ -2104,13 +2126,13 @@ class Batllie_Caja_Grouped {
     }
 
     /**
-     * Ocultar precio en productos hijos solo si la caja principal activa lleva el precio consolidado
+     * Mostrar badge 'Incluido' en productos hijos cuando la caja principal activa lleva el precio consolidado
      */
     public static function filter_child_cart_item_price_display($price_html, $cart_item, $cart_item_key) {
         if (!empty($cart_item['batllie_parent_grouped_id']) && empty($cart_item['batllie_extra_box'])) {
             $pack_id = !empty($cart_item['batllie_pack_instance_id']) ? $cart_item['batllie_pack_instance_id'] : '';
             if ($pack_id && self::pack_has_active_box($pack_id)) {
-                return '';
+                return '<span class="batllie-included-in-box">' . esc_html__('Incluido', 'emp-caja') . '</span>';
             }
         }
         return $price_html;
@@ -2125,8 +2147,15 @@ class Batllie_Caja_Grouped {
             if (!$custom_name && !empty($cart_item['batllie_parent_grouped_id'])) {
                 $custom_name = self::get_extra_box_name($cart_item['batllie_parent_grouped_id']);
             }
-            if ($custom_name && is_object($product) && method_exists($product, 'set_name')) {
-                $product->set_name($custom_name);
+            if (!$custom_name) {
+                $custom_name = __('Caja de empaque', 'emp-caja');
+            }
+            $clean_name = trim(preg_replace('/\s+/', ' ', $custom_name));
+            if (empty($clean_name)) {
+                $clean_name = __('Caja de empaque', 'emp-caja');
+            }
+            if (is_object($product) && method_exists($product, 'set_name')) {
+                $product->set_name($clean_name);
             }
 
             $img_id = !empty($cart_item['batllie_box_image_id']) ? $cart_item['batllie_box_image_id'] : 0;
@@ -2206,6 +2235,7 @@ class Batllie_Caja_Grouped {
                 'removeComboTooltip' => __('Eliminar combo completo', 'emp-caja'),
                 'lockedNotice'       => __('La cantidad de este producto está fijada por la caja. Para modificarla, elimina el combo.', 'emp-caja'),
                 'includedFlavors'    => __('Sabores incluidos:', 'emp-caja'),
+                'includedInBox'      => __('Incluido', 'emp-caja'),
             ),
         ));
     }
