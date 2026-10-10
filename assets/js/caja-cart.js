@@ -67,6 +67,10 @@
      */
     function processCartItems() {
         if (isProcessing) return;
+        // Si el bloque de React de WooCommerce todavía se está inicializando o cargando, no intervenir
+        if ($('.wp-block-woocommerce-cart.is-loading, .wp-block-woocommerce-checkout.is-loading').length > 0) {
+            return;
+        }
         isProcessing = true;
 
         try {
@@ -255,12 +259,12 @@
                                 'opacity': '1'
                             });
 
-                            // Mostrar badge 'Incluido' si el precio es $0 o está vacío
+                            // Mostrar badge 'Incluido' si el precio es $0 o está vacío (vía clase CSS para no romper el Virtual DOM de React)
                             const $childPrice = $row.find('.wc-block-cart-item__total, .wc-block-components-product-price, .wc-block-components-order-summary-item__total-price');
-                            if ($childPrice.length && !$childPrice.find('.batllie-included-in-box').length) {
+                            if ($childPrice.length) {
                                 const priceText = $childPrice.text().trim();
                                 if (priceText.includes('$ 0') || priceText.includes('$0') || priceText === '' || priceText.includes('Gratis')) {
-                                    $childPrice.html('<span class="batllie-included-in-box">' + ((window.batllieCartConfig && window.batllieCartConfig.i18n && window.batllieCartConfig.i18n.includedInBox) || 'Incluido') + '</span>');
+                                    $childPrice.addClass('batllie-price-is-included');
                                 }
                             }
 

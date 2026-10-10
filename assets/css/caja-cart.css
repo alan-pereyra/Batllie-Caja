@@ -70,6 +70,27 @@
     margin-top: 4px;
 }
 
+/* Ocultar importe 0 en React y mostrar badge 'Incluido' via pseudo-elemento sin tocar el DOM */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total.batllie-price-is-included .wc-block-components-formatted-money-amount,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-price.batllie-price-is-included .wc-block-components-formatted-money-amount,
+.wc-block-components-order-summary-item.batllie-is-combo-child .wc-block-components-order-summary-item__total-price.batllie-price-is-included .wc-block-components-formatted-money-amount {
+    display: none !important;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__total.batllie-price-is-included::after,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-product-price.batllie-price-is-included::after,
+.wc-block-components-order-summary-item.batllie-is-combo-child .wc-block-components-order-summary-item__total-price.batllie-price-is-included::after {
+    content: "Incluido";
+    font-size: 12px;
+    font-weight: 600;
+    color: #059669;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 9999px;
+    padding: 2px 8px;
+    display: inline-block;
+}
+
 .woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-remove a.remove {
     display: none !important;
     visibility: hidden !important;

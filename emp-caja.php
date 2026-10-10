@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.64
+ * Version: 1.8.65
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.64');
+define('EMP_CAJA_VERSION', '1.8.65');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -960,12 +960,26 @@ JS;
 
     /**
      * Prevenir que scripts esenciales de WordPress y WooCommerce Blocks sean diferidos con 'defer',
-     * evitando que scripts inline dependientes (como wp-api-fetch-js-after) se ejecuten antes
-     * y provoquen errores de Javascript que bloqueen la hidratación de React en el carrito.
+     * evitando que scripts inline dependientes (como wp-i18n-js-after, wp-api-fetch-js-after, etc.)
+     * se ejecuten de forma asíncrona antes de sus librerías base, lo que causaba
+     * excepciones no controladas de Javascript y el desmontaje de React en el carrito.
      */
     public function prevent_core_scripts_defer($tag, $handle, $src) {
-        if (in_array($handle, array('wp-api-fetch', 'react', 'react-dom', 'wp-hooks', 'wp-polyfill', 'wc-settings'), true)) {
-            $tag = str_replace(array(' defer="defer"', ' defer'), '', $tag);
+        if (function_exists('is_cart') && function_exists('is_checkout') && (is_cart() || is_checkout())) {
+            return str_replace(array(' defer="defer"', ' defer', " defer='defer'"), '', $tag);
+        }
+        if (in_array($handle, array(
+            'wp-polyfill', 'wp-hooks', 'wp-i18n', 'react', 'react-dom', 'react-jsx-runtime',
+            'wp-private-apis', 'wp-url', 'wp-api-fetch', 'wc-settings', 'wc-types',
+            'wp-deprecated', 'wp-dom', 'wp-escape-html', 'wp-element', 'wp-is-shallow-equal',
+            'wp-keycodes', 'wp-priority-queue', 'wp-undo-manager', 'wp-compose', 'wp-redux-routine',
+            'wp-data', 'wc-blocks-registry', 'wp-data-controls', 'wp-html-entities', 'wp-dom-ready',
+            'wp-a11y', 'moment', 'wp-date', 'wp-primitives', 'wp-rich-text', 'wp-components',
+            'wp-notices', 'wc-blocks-middleware', 'wc-blocks-data-store', 'wc-blocks-data',
+            'blocks-components', 'blocks-checkout', 'wc-cart-checkout-base', 'wc-cart-block-frontend',
+            'batllie-caja-cart-js'
+        ), true) || (is_string($src) && (strpos($src, 'wp-includes/js/dist/') !== false || strpos($src, 'woocommerce/assets/client/') !== false))) {
+            return str_replace(array(' defer="defer"', ' defer', " defer='defer'"), '', $tag);
         }
         return $tag;
     }
