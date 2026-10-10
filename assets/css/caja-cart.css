@@ -18,12 +18,10 @@
 }
 
 .woocommerce-cart-form table.cart tr.batllie-combo-child-item {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
+    display: table-row !important;
+    visibility: visible !important;
+    background-color: #f8fafc !important;
+    border-left: 3px solid #10b981 !important;
 }
 
 /* Ocultar botones de incremento/decremento en ítems de combo */
@@ -72,16 +70,15 @@
     margin-top: 4px;
 }
 
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-remove,
-.woocommerce-cart-form table.cart tr.batllie-combo-child-item .product-remove a.remove {
+.woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-remove a.remove {
     display: none !important;
     visibility: hidden !important;
 }
 
 .woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-price,
 .woocommerce-cart-form table.cart tr.batllie-combo-child-item td.product-subtotal {
-    display: none !important;
-    visibility: hidden !important;
+    display: table-cell !important;
+    visibility: visible !important;
 }
 
 
@@ -136,21 +133,136 @@
     opacity: 1 !important;
 }
 
-/* Ocultar completamente los alfajores hijos en el Carrito y Checkout para que el combo figure como 1 solo ítem */
+/* Productos componentes (hijos) del combo en Carrito y Checkout */
 .wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child,
 .wc-block-cart-items tr.wc-block-cart-items__row.batllie-is-combo-child,
-.wc-block-cart-item.batllie-is-combo-child,
+.wc-block-cart-item.batllie-is-combo-child {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: unset !important;
+    pointer-events: auto !important;
+    margin-left: 14px !important;
+    margin-top: 4px !important;
+    margin-bottom: 6px !important;
+    background-color: #f8fafc !important;
+    border-left: 3px solid #10b981 !important;
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+    transition: all 0.2s ease;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+/* En el resumen de pedido de checkout (sidebar) */
 .wc-block-components-order-summary-item.batllie-is-combo-child {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: unset !important;
+    max-height: unset !important;
+    pointer-events: auto !important;
+    margin-left: 12px !important;
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+    border-left: 3px solid #10b981 !important;
+    background-color: #f8fafc !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* Asegurar que la imagen del producto hijo sea visible y proporcionada */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__image,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="product-image"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    height: 54px !important;
+    border-radius: 6px !important;
     overflow: hidden !important;
+}
+
+.wc-block-components-order-summary-item.batllie-is-combo-child .wc-block-components-order-summary-item__image {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    height: 54px !important;
+    position: relative !important;
+    overflow: visible !important;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child img,
+.wc-block-components-order-summary-item.batllie-is-combo-child img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 6px !important;
+}
+
+.wc-block-components-order-summary-item.batllie-is-combo-child .wc-block-components-order-summary-item__description,
+.wc-block-components-order-summary-item.batllie-is-combo-child [class*="order-summary-item__description"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.wc-block-components-order-summary-item.batllie-is-combo-child .wc-block-components-order-summary-item__quantity,
+.wc-block-components-order-summary-item.batllie-is-combo-child [class*="order-summary-item__quantity"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ocultar botones de incremento/decremento en el selector de cantidad del hijo */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__button,
+.wc-block-cart-item.batllie-is-combo-child .wc-block-components-quantity-selector__button {
+    display: none !important;
+    pointer-events: none !important;
+}
+
+/* Bloquear input de cantidad en hijo para que actúe como indicador estático */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+    background: #ffffff !important;
+}
+
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-components-quantity-selector__input,
+.wc-block-cart-item.batllie-is-combo-child .wc-block-components-quantity-selector__input {
     border: none !important;
-    opacity: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    pointer-events: none !important;
+    width: 24px !important;
+    color: #475569 !important;
+}
+
+/* Ocultar enlace de eliminación individual en el producto hijo (se borra desde la caja principal) */
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child .wc-block-cart-item__remove-link,
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-link"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child [class*="remove-button"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Eliminar"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="remove"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child button[aria-label*="Remove"],
+.wc-block-cart-items .wc-block-cart-items__row.batllie-is-combo-child a.remove {
+    display: none !important;
     pointer-events: none !important;
 }
 

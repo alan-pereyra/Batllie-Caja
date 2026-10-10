@@ -91,21 +91,17 @@
                     // Bloquear botones stepper
                     $row.find('.emp-qty-btn, .plus, .minus').hide();
                     $row.find('input.qty').prop('readonly', true).attr('tabindex', '-1');
+                    // Ocultar botón eliminar individual (se borra desde la caja principal)
+                    $row.find('a.remove').hide();
 
-                    if (!classicPackFlavors[packId]) {
-                        classicPackFlavors[packId] = [];
-                    }
-
-                    let name = $row.find('td.product-name a, td.product-name').first().text().trim();
-                    name = name.replace(/^↳\s*/, '').replace(/\s+/g, ' ').trim();
-                    let qty = parseInt($row.find('input.qty').val(), 10) || 1;
-
-                    if (name) {
-                        classicPackFlavors[packId].push({ name: name, qty: qty });
-                    }
-
-                    // En productos hijos con caja física: ocultar totalmente la fila de la tabla
-                    $row.hide().css('display', 'none');
+                    // Asegurar que la fila del hijo permanezca SIEMPRE visible como sub-ítem
+                    $row.show().css({
+                        'display': '',
+                        'visibility': 'visible',
+                        'opacity': '1',
+                        'height': '',
+                        'overflow': ''
+                    });
                 } else if ($row.hasClass('batllie-combo-box-item')) {
                     // En la caja principal: tooltip de eliminación
                     const $removeBtn = $row.find('a.remove');
@@ -124,27 +120,8 @@
                 }
             });
 
-            // Inyectar resumen de sabores en cajas de carrito clásico
-            $('.woocommerce-cart-form table.cart tr.batllie-combo-box-item').each(function () {
-                const $box = $(this);
-                const classStr = $box.attr('class') || '';
-                const match = classStr.match(/\bbatllie-pack-([a-zA-Z0-9_-]+)/);
-                const packId = match ? match[1] : 'pack_default';
-                const flavors = classicPackFlavors[packId] || [];
-
-                if (flavors.length) {
-                    let $summary = $box.find('.batllie-box-flavors-summary');
-                    if (!$summary.length) {
-                        $summary = $('<div class="batllie-box-flavors-summary"><div class="batllie-box-flavors-title"><span class="batllie-flavors-icon">✨</span> ' + flavorsTitle + '</div><div class="batllie-box-flavors-pills"></div></div>');
-                        $box.find('td.product-name').append($summary);
-                    }
-                    const $pills = $summary.find('.batllie-box-flavors-pills');
-                    $pills.empty();
-                    flavors.forEach(function (f) {
-                        $pills.append('<span class="batllie-flavor-pill"><strong>' + f.qty + '×</strong> ' + f.name + '</span>');
-                    });
-                }
-            });
+            // Limpiar cualquier resumen redundante inyectado anteriormente en la caja
+            $('.woocommerce-cart-form table.cart .batllie-box-flavors-summary').remove();
 
             // =====================================================================
             // 2. WooCommerce Cart Block (Gutenberg / React) & Order Summary Block
@@ -255,34 +232,37 @@
                                 .removeClass('batllie-is-combo-box')
                                 .attr('data-batllie-pack-id', packId);
 
-                            // Recopilar sabor y cantidad para mostrar dentro de la caja principal
-                            if (!packFlavors[packId]) {
-                                packFlavors[packId] = [];
-                            }
-
-                            let childName = $row.find('.wc-block-components-product-name, .wc-block-cart-item__product a, a').first().text().trim();
-                            childName = childName.replace(/^↳\s*/, '').replace(/\s+/g, ' ').trim();
-
-                            let childQty = parseInt($row.find('input.qty, .wc-block-components-quantity-selector__input').val(), 10);
-                            if (!childQty || isNaN(childQty)) {
-                                const m = $row.text().match(/(\d+)\s*(?:unidad|unidades|u\b)/i);
-                                childQty = m ? parseInt(m[1], 10) : 1;
-                            }
-
-                            if (childName) {
-                                packFlavors[packId].push({ name: childName, qty: childQty });
-                            }
-
-                            // Ocultar estrictamente el ítem hijo para que no aparezca como fila separada
-                            $row.hide().css({
-                                'display': 'none',
-                                'visibility': 'hidden',
-                                'height': '0',
-                                'overflow': 'hidden',
-                                'margin': '0',
-                                'padding': '0',
-                                'border': 'none'
+                            // Asegurar que el ítem hijo permanezca SIEMPRE visible con su imagen y cantidad
+                            $row.show().css({
+                                'display': '',
+                                'visibility': 'visible',
+                                'opacity': '1',
+                                'height': '',
+                                'min-height': '',
+                                'max-height': '',
+                                'overflow': ''
                             });
+
+                            // Bloquear controles de cantidad y ocultar papelera individual (se elimina desde la caja)
+                            $row.find('.wc-block-components-quantity-selector__button').hide();
+                            $row.find('.wc-block-components-quantity-selector__input, input.qty').prop('readonly', true).attr('tabindex', '-1');
+                            $row.find('.wc-block-cart-item__remove-link, button.wc-block-components-quantity-selector__button--remove, [class*="remove-link"], [class*="remove-button"], a.remove').hide();
+
+                            // Asegurar que la imagen del producto hijo sea visible
+                            $row.find('.wc-block-cart-item__image, [class*="product-image"], img').show().css({
+                                'display': '',
+                                'visibility': 'visible',
+                                'opacity': '1'
+                            });
+
+                            // Mostrar badge 'Incluido' si el precio es $0 o está vacío
+                            const $childPrice = $row.find('.wc-block-cart-item__total, .wc-block-components-product-price, .wc-block-components-order-summary-item__total-price');
+                            if ($childPrice.length && !$childPrice.find('.batllie-included-in-box').length) {
+                                const priceText = $childPrice.text().trim();
+                                if (priceText.includes('$ 0') || priceText.includes('$0') || priceText === '' || priceText.includes('Gratis')) {
+                                    $childPrice.html('<span class="batllie-included-in-box">' + ((window.batllieCartConfig && window.batllieCartConfig.i18n && window.batllieCartConfig.i18n.includedInBox) || 'Incluido') + '</span>');
+                                }
+                            }
 
                         } else if (!isBox) {
                             // Producto normal o producto de combo sin caja física:
@@ -313,31 +293,8 @@
                     }
                 });
 
-                // Paso 2.2: Inyectar resumen de sabores dentro de cada tarjeta de caja
-                $cartBlockRows.filter('.batllie-is-combo-box').each(function () {
-                    const $box = $(this);
-                    const packId = $box.attr('data-batllie-pack-id');
-                    const flavors = packFlavors[packId] || [];
-
-                    if (flavors.length) {
-                        let $summary = $box.find('.batllie-box-flavors-summary');
-                        if (!$summary.length) {
-                            $summary = $('<div class="batllie-box-flavors-summary"><div class="batllie-box-flavors-title"><span class="batllie-flavors-icon">✨</span> ' + flavorsTitle + '</div><div class="batllie-box-flavors-pills"></div></div>');
-                            const $target = $box.find('.wc-block-cart-item__product, .wc-block-components-product-name, .wc-block-cart-item__description').first();
-                            if ($target.length) {
-                                $target.after($summary);
-                            } else {
-                                $box.append($summary);
-                            }
-                        }
-
-                        const $pills = $summary.find('.batllie-box-flavors-pills');
-                        $pills.empty();
-                        flavors.forEach(function (f) {
-                            $pills.append('<span class="batllie-flavor-pill"><strong>' + f.qty + '×</strong> ' + f.name + '</span>');
-                        });
-                    }
-                });
+                // Limpiar cualquier resumen de sabores redundante inyectado en la caja
+                $('.batllie-box-flavors-summary').remove();
             }
 
             // =====================================================================
