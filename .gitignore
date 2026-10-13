@@ -3,3 +3,15 @@
 Thumbs.db
 *.log
 upload_ftp*.txt
+scratch_*
+test_*
+check_*
+compare_*
+diagnose_*
+list_*
+find_*
+inspect_*
+verify_*
+potrace_tool/
+cleanup*
+copy_to_demo*

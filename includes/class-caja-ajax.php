@@ -49,7 +49,13 @@ class Batllie_Caja_Ajax {
      * Verificación de seguridad y permisos
      */
     private static function check_auth() {
-        check_ajax_referer('batllie_caja_nonce', 'security');
+        $nonce_valid = check_ajax_referer('batllie_caja_nonce', 'security', false);
+        if (!$nonce_valid) {
+            wp_send_json_error(array(
+                'message' => __('Token de seguridad inválido o expirado. Por favor recarga la página.', 'emp-caja'),
+                'nonce_expired' => true
+            ), 403);
+        }
 
         if (!is_user_logged_in() || !Batllie_Caja_Auth::current_user_can_access()) {
             wp_send_json_error(array(

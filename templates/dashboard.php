@@ -180,6 +180,29 @@ if (!defined('ABSPATH')) {
         </div>
     </div>
 
+    <!-- Modal: Historial Completo del Cliente y Experiencia Batllié -->
+    <div id="caja-modal-customer-history" class="caja-modal" style="display:none; z-index: 100050;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog" style="max-width: 820px; width: 95%;">
+            <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5rem;">📜</span>
+                    <div>
+                        <h3 class="caja-modal-title" id="caja-cust-hist-title" style="margin: 0; font-size: 1.25rem;"><?php _e('Historial de Cliente', 'emp-caja'); ?></h3>
+                        <p id="caja-cust-hist-sub" style="margin: 2px 0 0 0; font-size: 0.85rem; color: var(--caja-text-muted, #94a3b8);"></p>
+                    </div>
+                </div>
+                <button type="button" class="caja-modal-close" id="caja-cust-hist-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+            </div>
+            <div class="caja-modal-body" id="caja-cust-hist-body" style="padding: 16px 0 20px 0; max-height: 75vh; overflow-y: auto;">
+                <div class="caja-loading-spinner-wrap" style="text-align: center; padding: 40px 16px;">
+                    <span class="caja-spinner">⏳</span>
+                    <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);"><?php _e('Cargando historial de compras...', 'emp-caja'); ?></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notificaciones Toast -->
     <div id="caja-toast" class="caja-toast" style="display:none;"></div>
 </div>

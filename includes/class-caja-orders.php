@@ -1713,6 +1713,7 @@ class Batllie_Caja_Orders {
             'order_date'           => $order_ts ? self::format_datetime('d/m/Y', $order_ts) : '',
             'timestamp'            => $order_ts,
             'timeline'             => self::get_order_timeline($order),
+            'experiencia_data'     => class_exists('Batllie_Caja_Experiencia') ? Batllie_Caja_Experiencia::get_order_experiencia_data($order) : null,
         );
     }
 

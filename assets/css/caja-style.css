@@ -4730,5 +4730,39 @@ body.caja-modal-locked {
     pointer-events: none;
 }
 
+/* ==========================================================================
+   Experiencia Batllié & Historial en Terminal POS
+   ========================================================================== */
+.caja-customer-name.caja-customer-history-trigger {
+    transition: opacity 0.2s;
+    user-select: none;
+}
+.caja-customer-name.caja-customer-history-trigger:hover {
+    opacity: 0.85;
+}
+.caja-cust-history-pill {
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.caja-customer-name.caja-customer-history-trigger:hover .caja-cust-history-pill {
+    transform: scale(1.04);
+    background: rgba(16, 185, 129, 0.28) !important;
+}
 
+.caja-experiencia-card {
+    transition: all 0.2s ease;
+}
+.caja-exp-start-card.is-included {
+    border-color: var(--caja-primary, #f8f0d0) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+.caja-exp-card-checkbox {
+    accent-color: var(--caja-primary, #f8f0d0);
+    width: 16px;
+    height: 16px;
+}
 
+#caja-cust-hist-body {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
