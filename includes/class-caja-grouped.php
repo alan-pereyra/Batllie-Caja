@@ -790,10 +790,10 @@ class Batllie_Caja_Grouped {
         // Autodetección como placeholder sugerido
         $title     = $post ? get_the_title($post_id) : ($product_object ? $product_object->get_name() : '');
         $suggested = self::detect_qty_from_title($title);
-        $default_box_name = $title ? (stripos($title, 'caja') !== false ? $title : sprintf(__('Caja %s', 'emp-caja'), $title)) : __('Caja Batllié Degustación x 6 unidades', 'emp-caja');
+        $default_box_name = $title ? (stripos($title, 'caja') !== false ? $title : sprintf(__('Caja %s', 'emp-caja'), $title)) : __('Caja Degustación x 6 unidades', 'emp-caja');
 
         echo '<div class="options_group show_if_grouped show_if_simple" style="background:#f0fdf4; padding:16px 18px; border-left:4px solid #10b981; margin:15px 0; border-radius:4px;">';
-        echo '<p style="margin:0 0 12px 0; font-weight:700; color:#065f46; font-size:14px; display:flex; align-items:center; gap:8px;"><span style="font-size:18px;">📦</span> ' . __('Configuración de Caja Batllié (Pack Agrupado)', 'emp-caja') . '</p>';
+        echo '<p style="margin:0 0 12px 0; font-weight:700; color:#065f46; font-size:14px; display:flex; align-items:center; gap:8px;"><span style="font-size:18px;">📦</span> ' . __('Configuración de Caja (Pack Agrupado)', 'emp-caja') . '</p>';
 
         $dynamic_info = self::calculate_dynamic_box_stock($post_id);
         if (!empty($dynamic_info['is_dynamic'])) {
@@ -1344,7 +1344,7 @@ class Batllie_Caja_Grouped {
         } else {
             $initial_price_html = wc_price(0);
         }
-        $box_heading = $is_predefined ? __('Combo Batllié', 'emp-caja') : __('Armá tu caja', 'emp-caja');
+        $box_heading = $is_predefined ? __('Combo Especial', 'emp-caja') : __('Armá tu caja', 'emp-caja');
         $box_badge   = $is_predefined ? __('¡Combo listo!', 'emp-caja') : ($target_qty > 0 ? __('Caja vacía', 'emp-caja') : __('Personaliza tu selección', 'emp-caja'));
         ?>
         <div class="batllie-grouped-box-container" id="batllie-grouped-box-container" data-target-qty="<?php echo esc_attr($target_qty); ?>" data-fixed-price="<?php echo esc_attr($fixed_price); ?>" data-is-predefined="<?php echo $is_predefined ? '1' : '0'; ?>">
@@ -1502,7 +1502,7 @@ class Batllie_Caja_Grouped {
         }
 
         $packaging_product = new WC_Product_Simple();
-        $packaging_product->set_name(__('Caja de Empaque Batllié', 'emp-caja'));
+        $packaging_product->set_name(__('Caja de Empaque', 'emp-caja'));
         $packaging_product->set_slug('caja-packaging-batllie');
         $packaging_product->set_status('publish');
         $packaging_product->set_catalog_visibility('hidden');

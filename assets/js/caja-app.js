@@ -766,7 +766,7 @@
                             if (ord && ord.experiencia_data) {
                                 ord.experiencia_data.card_included = isChecked;
                             }
-                            self.showToast(isChecked ? '✨ Tarjeta de Experiencia Batllié incluida.' : 'Tarjeta de Experiencia Batllié desmarcada.');
+                            self.showToast(isChecked ? '✨ Tarjeta de cortesía incluida.' : 'Tarjeta de cortesía desmarcada.');
                         }
                     }
                 });
@@ -2175,7 +2175,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     }
 
                     const isTargetFelicitacion = (hasDecision && idx === (caps.length - 1));
-                    const boxName = spec.courtesy ? 'Caja de Cortesía Batllié' : ('Caja ' + spec.cap + ' unidades');
+                    const boxName = spec.courtesy ? 'Caja de Cortesía' : ('Caja ' + spec.cap + ' unidades');
                     const boxBadge = spec.courtesy ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA';
 
                     autoBoxes.push({
@@ -2514,93 +2514,12 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
 
                 let experienciaHtml = '';
-                const exp = order.experiencia_data;
-                if (exp && !hasShippedOrFinished) {
-                    if (exp.is_cycle_start) {
-                        const cycleLabel = exp.is_first_order ? '✨ ¡PRIMERA COMPRA! Iniciar Experiencia Batllié (Ciclo 1)' : `✨ Experiencia Batllié — Inicio de Ciclo ${exp.cycle_number}`;
-                        experienciaHtml = `
-                            <div class="caja-experiencia-card caja-exp-start-card ${exp.card_included ? 'is-included' : ''}" style="margin: 8px 0 10px 0; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--caja-card-border, #f8f0d0); background: transparent;">
-                                <div class="caja-exp-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                                    <span class="caja-exp-badge" style="background:#f8f0d0; color:#162a1f; font-weight:800; font-size:0.75rem; padding:3px 9px; border-radius:5px; display:inline-flex; align-items:center; gap:4px;">
-                                        ${cycleLabel}
-                                    </span>
-                                    <span style="font-size:0.75rem; color:#f8f0d0; font-weight:600;">Pedido #1 de ${exp.cycle_size}</span>
-                                </div>
-                                <span class="caja-exp-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; display:block; margin-bottom:8px; line-height:1.4;">
-                                    Este cliente puede iniciar la Experiencia Batllié para coleccionar figuritas y recibir un producto extra gratis al completar el ciclo.
-                                </span>
-                                <label class="caja-exp-toggle-label" style="display:inline-flex; align-items:center; gap:7px; cursor:pointer; background:rgba(0,0,0,0.18); padding:6px 10px; border-radius:6px; width:100%; box-sizing:border-box;">
-                                    <input type="checkbox" class="caja-exp-card-checkbox" data-order-id="${order.id}" ${exp.card_included ? 'checked' : ''} style="cursor:pointer;" />
-                                    <span style="font-size:0.83rem; font-weight:700; color:#f8f0d0;">Incluir tarjeta de Experiencia Batllié en el paquete</span>
-                                </label>
-                                <div class="caja-exp-text-container" id="caja-exp-text-container-${order.id}" style="${exp.card_included ? 'display:block;' : 'display:none;'} margin-top:8px;">
-                                    <label style="font-size:0.78rem; font-weight:600; color:#e2e8f0; display:block; margin-bottom:4px;">Dedicatoria o mensaje en la tarjeta (opcional):</label>
-                                    <div style="display:flex; gap:6px;">
-                                        <input type="text" class="caja-input caja-exp-text-input" id="caja-exp-text-${order.id}" value="${self.escapeHtml(exp.card_text || '')}" placeholder="Ej: ¡Que disfrutes este momento especial!" style="flex:1; height:32px; font-size:0.82rem;" />
-                                        <button type="button" class="caja-btn caja-btn-secondary caja-exp-btn-save-text" data-order-id="${order.id}" style="padding:0 12px; height:32px; font-size:0.8rem;">Guardar</button>
-                                    </div>
-                                    <span class="caja-exp-saved-feedback" id="caja-exp-feedback-${order.id}" style="display:none; font-size:0.75rem; color:#10b981; margin-top:3px;"></span>
-                                </div>
-                            </div>
-                        `;
-                    } else if (exp.is_cycle_completed) {
-                        experienciaHtml = `
-                            <div class="caja-experiencia-card caja-exp-complete-card" style="margin: 8px 0 10px 0; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.55); background: rgba(16, 185, 129, 0.12);">
-                                <div class="caja-exp-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
-                                    <span class="caja-exp-badge" style="background:#10b981; color:#ffffff; font-weight:800; font-size:0.75rem; padding:3px 9px; border-radius:5px; display:inline-flex; align-items:center; gap:4px;">
-                                        🎉 ¡EXPERIENCIA BATLLIÉ COMPLETADA!
-                                    </span>
-                                    <span style="font-size:0.75rem; color:#e2e8f0; font-weight:700;">Ciclo ${exp.cycle_number} • Pedido ${exp.step_in_cycle} de ${exp.cycle_size}</span>
-                                </div>
-                                <span class="caja-exp-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.83rem; display:block; line-height:1.4;">
-                                    🎁 <strong>¡El cliente completó los ${exp.cycle_size} pedidos!</strong> Enviar la última figurita #${exp.step_in_cycle} y su producto extra gratis.
-                                </span>
-                            </div>
-                        `;
-                    } else if (exp.send_sticker) {
-                        experienciaHtml = `
-                            <div class="caja-experiencia-card caja-exp-sticker-card" style="margin: 8px 0 10px 0; padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08);">
-                                <div class="caja-exp-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-                                    <span class="caja-exp-badge" style="background:#3b82f6; color:#ffffff; font-weight:700; font-size:0.74rem; padding:2px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:4px;">
-                                        🏷️ Experiencia Batllié (Ciclo ${exp.cycle_number})
-                                    </span>
-                                    <span style="font-size:0.74rem; color:#93c5fd; font-weight:700;">Figurita #${exp.step_in_cycle} de ${exp.cycle_size}</span>
-                                </div>
-                                <span class="caja-exp-desc" style="color:var(--caja-text, #e2e8f0); font-size:0.82rem; display:block; margin-top:4px;">
-                                    Enviar figurita coleccionable <strong>#${exp.step_in_cycle}</strong> para continuar completando la experiencia.
-                                </span>
-                            </div>
-                        `;
-                    } else if (!exp.has_qualifying_product) {
-                        experienciaHtml = `
-                            <div class="caja-experiencia-card caja-exp-noqualify-card" style="margin: 6px 0 8px 0; padding: 6px 10px; border-radius: 6px; border: 1px dashed rgba(148, 163, 184, 0.3); background: rgba(148, 163, 184, 0.05);">
-                                <span style="font-size:0.78rem; color:#94a3b8; display:flex; align-items:center; gap:4px;">
-                                    ℹ️ No contiene productos que califiquen a la Experiencia Batllié (no suma figurita).
-                                </span>
-                            </div>
-                        `;
-                    }
-                } else if (exp && hasShippedOrFinished) {
-                    if (exp.card_included) {
-                        experienciaHtml = `
-                            <div style="font-size:0.78rem; color:#f8f0d0; padding:4px 0; display:flex; align-items:center; gap:4px;">
-                                ✨ Tarjeta de Experiencia Batllié incluida
-                            </div>
-                        `;
-                    } else if (exp.send_sticker) {
-                        experienciaHtml = `
-                            <div style="font-size:0.78rem; color:#93c5fd; padding:4px 0; display:flex; align-items:center; gap:4px;">
-                                🏷️ Figurita Batllié #${exp.step_in_cycle} enviada
-                            </div>
-                        `;
-                    }
-                }
 
                 let courtesyHtml = '';
                 if (order.has_courtesy_box) {
                     courtesyHtml = `
                         <div class="caja-courtesy-banner">
-                            🎁 <strong>Incluye Caja de Cortesía Batllié</strong> (Agrupación concedida).
+                            🎁 <strong>Incluye Caja de Cortesía</strong> (Agrupación concedida).
                         </div>
                     `;
                 }
@@ -4065,98 +3984,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 `;
             }
 
-            // 5. Control de Experiencia Batllié (Tarjeta, Figurita o Premio Extra)
-            const expData = order.experiencia_data;
-            if (expData) {
-                if (expData.is_cycle_start && expData.card_included) {
-                    const dedicatoriaNote = expData.card_text ? `<div style="font-size:0.78rem; color:#f8f0d0; margin-top:2px;">✍️ Dedicatoria: "${self.escapeHtml(expData.card_text)}"</div>` : '';
-                    html += `
-                        <div class="caja-control-box-card caja-control-exp-card" style="border: 1px solid var(--caja-card-border, #f8f0d0); background: transparent;">
-                            <div class="caja-control-box-header" style="background: rgba(248, 240, 208, 0.08);">
-                                <span class="caja-control-box-icon">✨</span>
-                                <span class="caja-control-box-title" style="color:#f8f0d0;">Experiencia Batllié (Inicio Ciclo ${expData.cycle_number})</span>
-                                <span class="caja-control-box-badge" style="background:#f8f0d0; color:#162a1f; font-weight:700;">Tarjeta</span>
-                            </div>
-                            <div class="caja-control-subitems-list">
-                                <div class="caja-control-item-row" style="background:transparent;">
-                                    <div class="caja-control-item-left">
-                                        <span class="caja-control-no-thumb" style="font-size:1.3rem;">💌</span>
-                                        <div class="caja-control-item-info">
-                                            <span class="caja-control-item-qty" style="color:#f8f0d0; font-weight:700;">1x</span>
-                                            <span class="caja-control-item-name" style="font-size:0.95rem; font-weight:600; color:#ffffff;">Tarjeta oficial Experiencia Batllié</span>
-                                            ${dedicatoriaNote}
-                                        </div>
-                                    </div>
-                                    <label class="caja-control-check-wrap" title="Verificar inclusión de tarjeta">
-                                        <input type="checkbox" class="caja-control-chk" />
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else if (expData.is_cycle_completed) {
-                    html += `
-                        <div class="caja-control-box-card caja-control-exp-card" style="border: 1px solid rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1);">
-                            <div class="caja-control-box-header" style="background: rgba(16, 185, 129, 0.2);">
-                                <span class="caja-control-box-icon">🎉</span>
-                                <span class="caja-control-box-title" style="color:#6ee7b7;">¡Experiencia Completada (Ciclo ${expData.cycle_number})!</span>
-                                <span class="caja-control-box-badge" style="background:#10b981; color:#ffffff; font-weight:700;">10 de 10</span>
-                            </div>
-                            <div class="caja-control-subitems-list">
-                                <div class="caja-control-item-row" style="background:transparent;">
-                                    <div class="caja-control-item-left">
-                                        <span class="caja-control-no-thumb" style="font-size:1.3rem;">🏷️</span>
-                                        <div class="caja-control-item-info">
-                                            <span class="caja-control-item-qty" style="color:#10b981; font-weight:700;">1x</span>
-                                            <span class="caja-control-item-name" style="font-size:0.95rem; font-weight:600; color:#ffffff;">Figurita coleccionable #${expData.step_in_cycle} (Cierre de ciclo)</span>
-                                        </div>
-                                    </div>
-                                    <label class="caja-control-check-wrap" title="Verificar figurita">
-                                        <input type="checkbox" class="caja-control-chk" />
-                                    </label>
-                                </div>
-                                <div class="caja-control-item-row" style="background:transparent;">
-                                    <div class="caja-control-item-left">
-                                        <span class="caja-control-no-thumb" style="font-size:1.3rem;">🎁</span>
-                                        <div class="caja-control-item-info">
-                                            <span class="caja-control-item-qty" style="color:#10b981; font-weight:700;">1x</span>
-                                            <span class="caja-control-item-name" style="font-size:0.95rem; font-weight:600; color:#ffffff;">Premio extra gratis de Experiencia</span>
-                                        </div>
-                                    </div>
-                                    <label class="caja-control-check-wrap" title="Verificar producto extra gratis">
-                                        <input type="checkbox" class="caja-control-chk" />
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else if (expData.send_sticker) {
-                    html += `
-                        <div class="caja-control-box-card caja-control-exp-card" style="border: 1px solid rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.08);">
-                            <div class="caja-control-box-header" style="background: rgba(59, 130, 246, 0.18);">
-                                <span class="caja-control-box-icon">🏷️</span>
-                                <span class="caja-control-box-title" style="color:#bfdbfe;">Experiencia Batllié (Ciclo ${expData.cycle_number})</span>
-                                <span class="caja-control-box-badge" style="background:#3b82f6; color:#ffffff; font-weight:700;">Figurita #${expData.step_in_cycle}</span>
-                            </div>
-                            <div class="caja-control-subitems-list">
-                                <div class="caja-control-item-row" style="background:transparent;">
-                                    <div class="caja-control-item-left">
-                                        <span class="caja-control-no-thumb" style="font-size:1.3rem;">🏷️</span>
-                                        <div class="caja-control-item-info">
-                                            <span class="caja-control-item-qty" style="color:#60a5fa; font-weight:700;">1x</span>
-                                            <span class="caja-control-item-name" style="font-size:0.95rem; font-weight:600; color:#ffffff;">Figurita coleccionable #${expData.step_in_cycle} de ${expData.cycle_size}</span>
-                                        </div>
-                                    </div>
-                                    <label class="caja-control-check-wrap" title="Verificar figurita coleccionable">
-                                        <input type="checkbox" class="caja-control-chk" />
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
             $body.html(html);
 
             const total = $('.caja-control-chk').length;
@@ -4216,7 +4043,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                                 <th style="padding:10px 10px;">Fecha</th>
                                                 <th style="padding:10px 10px;">Estado</th>
                                                 <th style="padding:10px 10px;">Total</th>
-                                                <th style="padding:10px 10px;">Experiencia Batllié</th>
                                                 <th style="padding:10px 16px 10px 10px;">Productos</th>
                                             </tr>
                                         </thead>
@@ -4236,11 +4062,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                             <span class="caja-status-pill ${ord.status_badge}" style="font-size:0.75rem; padding:2px 7px;">${ord.status_name}</span>
                                         </td>
                                         <td style="padding:10px 10px; font-weight:700; white-space:nowrap;">${ord.total}</td>
-                                        <td style="padding:10px 10px; white-space:nowrap;">
-                                            <span style="font-size:0.82rem; ${ord.is_qualifying ? 'color:#10b981; font-weight:700;' : 'color:#94a3b8;'}">
-                                                ${ord.sticker_label}
-                                            </span>
-                                        </td>
                                         <td style="padding:10px 16px 10px 10px; font-size:0.82rem; color:var(--caja-text-muted, #94a3b8); min-width:200px; max-width:320px;">
                                             ${ord.items_summary}
                                         </td>
@@ -4257,10 +4078,6 @@ $('#caja-modal-new-product').fadeIn(200);
                             ordersTableHtml = `<p style="text-align:center; color:var(--caja-text-muted, #94a3b8); padding:24px 16px;">No se encontraron pedidos previos.</p>`;
                         }
 
-                        const statusBadgeExp = s.is_completed
-                            ? '<span style="background:#10b981; color:#fff; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.8rem;">🎉 ¡Completó los 10 pedidos! Premio disponible</span>'
-                            : `<span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:3px 10px; border-radius:12px; font-weight:700; font-size:0.8rem;">Ciclo ${s.current_cycle} • Figurita ${s.current_step} de ${s.cycle_size}</span>`;
-
                         const html = `
                             <!-- KPIs resumen -->
                             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:20px; padding:0 16px;">
@@ -4269,16 +4086,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <strong style="font-size:1.35rem; color:var(--caja-text, #ffffff);">${s.total_orders}</strong>
                                 </div>
                                 <div style="background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); border-radius:10px; padding:12px 14px;">
-                                    <span style="font-size:0.78rem; color:var(--caja-text-muted, #94a3b8); display:block;">Pedidos que califican (cajas)</span>
+                                    <span style="font-size:0.78rem; color:var(--caja-text-muted, #94a3b8); display:block;">Pedidos completados</span>
                                     <strong style="font-size:1.35rem; color:#10b981;">${s.qualifying_orders}</strong>
                                 </div>
                                 <div style="background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); border-radius:10px; padding:12px 14px;">
                                     <span style="font-size:0.78rem; color:var(--caja-text-muted, #94a3b8); display:block;">Total gastado histórico</span>
                                     <strong style="font-size:1.2rem; color:var(--caja-text, #ffffff);">${s.total_spent}</strong>
-                                </div>
-                                <div style="background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); border-radius:10px; padding:12px 14px;">
-                                    <span style="font-size:0.78rem; color:var(--caja-text-muted, #94a3b8); display:block; margin-bottom:4px;">Estado Experiencia</span>
-                                    ${statusBadgeExp}
                                 </div>
                             </div>
 

@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
                     <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
             </div>
-            <h2><?php _e('Batllie Caja', 'emp-caja'); ?></h2>
+            <h2><?php _e('Caja POS', 'emp-caja'); ?></h2>
             <p><?php _e('Control de Pedidos y Terminal Mostrador', 'emp-caja'); ?></p>
         </div>
 

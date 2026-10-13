@@ -99,7 +99,7 @@ class Batllie_Caja_Packing {
 
         // Crear producto físico de packaging con control de stock nativo
         $box = new WC_Product_Simple();
-        $box->set_name(sprintf(__('Caja Batllié x %d unidades (Empaque)', 'emp-caja'), $capacity));
+        $box->set_name(sprintf(__('Caja x %d unidades (Empaque)', 'emp-caja'), $capacity));
         $box->set_slug($slug);
         $box->set_status('publish');
         $box->set_catalog_visibility('hidden');
@@ -159,7 +159,7 @@ class Batllie_Caja_Packing {
                 return $p->get_name();
             }
         }
-        return sprintf(__('Caja Batllié x %d unidades', 'emp-caja'), $capacity);
+        return sprintf(__('Caja x %d unidades', 'emp-caja'), $capacity);
     }
 
     /**
@@ -438,7 +438,7 @@ class Batllie_Caja_Packing {
     public static function register_wc_product_meta_box() {
         add_meta_box(
             'batllie_caja_product_packing_mb',
-            __('📦 Empaque y Control de Stock Batllié', 'emp-caja'),
+            __('📦 Empaque y Control de Stock', 'emp-caja'),
             array(__CLASS__, 'render_wc_product_meta_box'),
             'product',
             'side',
@@ -1154,7 +1154,7 @@ class Batllie_Caja_Packing {
                 $custom_subtitle  = __('pero podría ser aún mejor', 'emp-caja');
                 $custom_badge     = sprintf(__('Faltan %d para completar', 'emp-caja'), $missing_units);
                 $message          = sprintf(
-                    __('Tomaste una decisión muy valiosa al elegir nuestros productos. Pero tu experiencia podría ser aún mejor: sumando solo %d alfajor(es) más, recibís tu primera Caja Oficial Batllié.', 'emp-caja'),
+                    __('Tomaste una decisión muy valiosa al elegir nuestros productos. Pero tu experiencia podría ser aún mejor: sumando solo %d alfajor(es) más, recibís tu primera Caja Oficial.', 'emp-caja'),
                     $missing_units
                 );
             }
@@ -1166,7 +1166,7 @@ class Batllie_Caja_Packing {
                 $is_blocked       = false;
                 $courtesy_allowed = false;
                 $message_type     = 'complete';
-                $message          = __('¡Tus cajas están completas! Viví la experiencia completa Batllié.', 'emp-caja');
+                $message          = __('¡Tus cajas están completas!', 'emp-caja');
             } else {
                 // Hay alfajores sueltos que deben agruparse
                 // Lógica de prioridad (Prioridad 12):
@@ -1507,7 +1507,7 @@ class Batllie_Caja_Packing {
         if ($packing['status'] === 'all_boxed') {
             if ($b12 > 0 && $b6 === 0) {
                 $sentence = sprintf(
-                    _n('Tus %d alfajores viajarán protegidos en %s Oficial Batllié.', 'Tus %d alfajores viajarán protegidos en %s Oficiales Batllié.', $b12, 'emp-caja'),
+                    _n('Tus %d alfajores viajarán protegidos en %s Oficial.', 'Tus %d alfajores viajarán protegidos en %s Oficiales.', $b12, 'emp-caja'),
                     $total,
                     $short
                 );

@@ -160,7 +160,7 @@
         if ('Notification' in window) {
             if (Notification.permission === 'granted') {
                 try {
-                    new Notification('Batllie - Pedido #' + orderNumber, {
+                    new Notification('Pedido #' + orderNumber, {
                         body: newLabel,
                         icon: '/favicon.ico'
                     });

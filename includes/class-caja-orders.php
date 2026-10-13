@@ -1310,7 +1310,7 @@ class Batllie_Caja_Orders {
             }
 
             $box_name = ($b_spec['is_courtesy']) 
-                ? __('Caja de Cortesía Batllié', 'emp-caja')
+                ? __('Caja de Cortesía', 'emp-caja')
                 : sprintf(__('Caja %d unidades', 'emp-caja'), $cap);
 
             $box_badge = ($b_spec['is_courtesy']) ? '🎁 CAJA DE CORTESÍA' : '📦 PACK / CAJA';
@@ -1802,7 +1802,7 @@ class Batllie_Caja_Orders {
             self::add_timeline_event($order, __('pedido reembolzado', 'emp-caja'), '🔄', 'status');
         }
 
-        $order->update_status($clean_status, __('Estado modificado desde terminal Batllie Caja', 'emp-caja'));
+        $order->update_status($clean_status, __('Estado modificado desde terminal Caja POS', 'emp-caja'));
         return self::format_order($order);
     }
 
@@ -1891,11 +1891,11 @@ class Batllie_Caja_Orders {
             } elseif ($clean_val === 'en_puerta') {
                 self::add_timeline_event($order, __('el repartidor está en la puerta', 'emp-caja'), '🚪', 'shipping_door');
             } elseif ($clean_val === 'entregado') {
-                $order->update_status('completed', __('Pedido marcado como recibido sin problemas desde terminal Batllie Caja', 'emp-caja'));
+                $order->update_status('completed', __('Pedido marcado como recibido sin problemas desde terminal Caja POS', 'emp-caja'));
                 self::add_timeline_event($order, __('llegó a destino (sin inconvenientes)', 'emp-caja'), '🏁', 'shipping_dest');
                 self::add_timeline_event($order, __('pedido completado', 'emp-caja'), '✅', 'status_comp');
             } elseif ($clean_val === 'entregado_problemas') {
-                $order->update_status('recibido-problema', __('Pedido marcado como recibido con problemas desde terminal Batllie Caja', 'emp-caja'));
+                $order->update_status('recibido-problema', __('Pedido marcado como recibido con problemas desde terminal Caja POS', 'emp-caja'));
                 self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
                 self::add_timeline_event($order, __('pedido completado con inconvenientes', 'emp-caja'), '⚠️', 'status_comp');
             }

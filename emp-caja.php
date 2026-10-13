@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: Batllie Caja & Pedidos POS
- * Plugin URI: https://empralidad.com.ar/batllie
- * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.69
- * Author: Empralidad / Batllie
+ * Plugin Name: Caja POS & Control de Pedidos
+ * Plugin URI: https://empralidad.com.ar/caja
+ * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
+ * Version: 1.8.70
+ * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
  * Requires at least: 5.8
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.69');
+define('EMP_CAJA_VERSION', '1.8.70');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -141,6 +141,7 @@ class Batllie_Caja_Plugin {
         add_action('wp_head', array($this, 'render_mobile_cart_redirect_script'), 1);
         add_filter('script_loader_tag', array($this, 'prevent_core_scripts_defer'), 99999, 3);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
+        add_shortcode('caja_pos', array($this, 'render_caja_shortcode'));
 
         // Garantizar traducciones al español argentino para textos clave de WooCommerce y bloques de carrito/checkout
         add_filter('gettext', array($this, 'filter_woocommerce_translations'), 20, 3);
@@ -200,7 +201,7 @@ class Batllie_Caja_Plugin {
     public function hide_admin_bar_on_caja() {
         if (!is_admin()) {
             global $post;
-            if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || strpos($post->post_content, 'batllie_caja') !== false)) {
+            if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || has_shortcode($post->post_content, 'caja_pos') || strpos($post->post_content, 'batllie_caja') !== false || strpos($post->post_content, 'caja_pos') !== false)) {
                 add_filter('show_admin_bar', '__return_false', 9999);
                 add_filter('body_class', array($this, 'add_caja_body_class'), 9999);
             }
@@ -216,7 +217,7 @@ class Batllie_Caja_Plugin {
 
     public function woocommerce_missing_notice() {
         echo '<div class="notice notice-error"><p>' . 
-             esc_html__('Batllie Caja & Pedidos requiere que WooCommerce esté instalado y activo.', 'emp-caja') . 
+             esc_html__('Caja POS & Pedidos requiere que WooCommerce esté instalado y activo.', 'emp-caja') . 
              '</p></div>';
     }
 
@@ -264,7 +265,7 @@ class Batllie_Caja_Plugin {
     public function register_assets() {
         if (function_exists('wp_enqueue_media')) {
             global $post;
-            if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || strpos($post->post_content, 'batllie_caja') !== false)) {
+            if (is_a($post, 'WP_Post') && (has_shortcode($post->post_content, 'batllie_caja') || has_shortcode($post->post_content, 'caja_pos') || strpos($post->post_content, 'batllie_caja') !== false || strpos($post->post_content, 'caja_pos') !== false)) {
                 wp_enqueue_media();
             }
         }
@@ -578,8 +579,8 @@ class Batllie_Caja_Plugin {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('Batllie Caja', 'emp-caja'),
-            __('Batllie Caja', 'emp-caja'),
+            __('Caja POS', 'emp-caja'),
+            __('Caja POS', 'emp-caja'),
             'manage_options',
             'batllie-caja-settings',
             array($this, 'render_admin_settings'),
