@@ -10,12 +10,6 @@ if (!defined('ABSPATH')) {
 
 $is_admin = is_admin();
 $options = Batllie_Caja_Plugin::get_color_settings();
-
-$candidates = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_all_box_candidates() : array();
-$b6_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
-$b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
-$stock_6 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(6) : 0;
-$stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box_stock(12) : 0;
 ?>
 
 <div class="caja-settings-container">
@@ -43,7 +37,7 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
                     </svg>
                     <span><?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
                 </h1>
-                <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes y control de stock de empaques.', 'emp-caja'); ?></p>
+                <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes, tandas de envío y Experiencia Batllié.', 'emp-caja'); ?></p>
             </div>
 
             <div class="caja-settings-topbar-actions">
@@ -273,88 +267,14 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
             </div>
         </div>
 
-        <!-- 7. Control de Stock de Cajas y Empaque de Alfajores -->
+        <!-- 7. Tandas y Horarios de Envío -->
         <div class="caja-settings-card">
             <div class="caja-settings-card-header">
                 <h2>
-                    <span class="caja-card-icon">📦</span>
-                    <span><?php _e('Control de Stock de Cajas y Empaque de Alfajores', 'emp-caja'); ?></span>
+                    <span class="caja-card-icon">🚚</span>
+                    <span><?php _e('Gestión de Tandas y Horarios de Envío', 'emp-caja'); ?></span>
                 </h2>
-                <p class="caja-settings-card-desc"><?php _e('Reglas de armado de pedidos, prioridad de paquetes x6 y x12, y control de cajas físicas.', 'emp-caja'); ?></p>
-            </div>
-            <div class="caja-settings-card-body">
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Prioridad de Llenado de Cajas', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[packing_priority]" class="caja-select">
-                                <option value="12" <?php selected($options['packing_priority'] ?? '12', '12'); ?>><?php _e('Priorizar Cajas de 12 primero (Experiencia Premium, recomendada)', 'emp-caja'); ?></option>
-                                <option value="6" <?php selected($options['packing_priority'] ?? '12', '6'); ?>><?php _e('Priorizar Cajas de 6 primero', 'emp-caja'); ?></option>
-                            </select>
-                            <p class="description">
-                                <?php _e('Define cómo se agrupan los alfajores sueltos en el carrito. Si se eligen 15 alfajores con prioridad 12, se formará 1 Caja de 12 y quedarán 3 alfajores sueltos.', 'emp-caja'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Sincronización de Stock', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="hidden" name="batllie_caja_options[packing_stock_sync]" value="no" />
-                            <label class="caja-checkbox-label">
-                                <input type="checkbox" name="batllie_caja_options[packing_stock_sync]" value="yes" <?php checked($options['packing_stock_sync'] ?? 'yes', 'yes'); ?> />
-                                <span><?php _e('Descontar automáticamente el stock de las cajas de empaque al procesar o confirmar ventas.', 'emp-caja'); ?></span>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Producto: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[box_6_product_id]" class="caja-select" style="max-width: 350px;">
-                                <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b6_id); ?>>
-                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 6 unidades.', 'emp-caja'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 6 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" min="0" name="batllie_caja_options[stock_box_6]" value="<?php echo esc_attr($stock_6); ?>" class="small-text caja-input" /> 
-                            <span><?php _e('cajas físicas de 6 disponibles en depósito.', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Producto: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <select name="batllie_caja_options[box_12_product_id]" class="caja-select" style="max-width: 350px;">
-                                <?php foreach ($candidates as $cand): ?>
-                                    <option value="<?php echo esc_attr($cand['id']); ?>" <?php selected($cand['id'], $b12_id); ?>>
-                                        <?php echo esc_html($cand['name'] . ' (ID: ' . $cand['id'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description"><?php _e('Producto de WooCommerce tomado como referencia para descontar y controlar el stock de las cajas de 12 unidades.', 'emp-caja'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Stock disponible: Caja Oficial x 12 unidades', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="number" min="0" name="batllie_caja_options[stock_box_12]" value="<?php echo esc_attr($stock_12); ?>" class="small-text caja-input" /> 
-                            <span><?php _e('cajas físicas de 12 disponibles en depósito.', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tarjeta 5: Tandas y Horarios de Envío -->
-        <div class="caja-settings-card">
-            <div class="caja-settings-card-header">
-                <span class="caja-settings-card-icon">🚚</span>
-                <h2><?php _e('Gestión de Tandas y Horarios de Envío', 'emp-caja'); ?></h2>
+                <p class="caja-settings-card-desc"><?php _e('Configura las opciones de despacho por turnos y horarios de entrega para los pedidos.', 'emp-caja'); ?></p>
             </div>
             <div class="caja-settings-card-body">
                 <table class="form-table caja-form-table">
@@ -426,11 +346,13 @@ $stock_12 = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_box
             </div>
         </div>
 
-        <!-- Tarjeta 6: Experiencia Batllié & Fidelización -->
+        <!-- 8. Experiencia Batllié & Fidelización -->
         <div class="caja-settings-card">
             <div class="caja-settings-card-header">
-                <span class="caja-settings-card-icon">✨</span>
-                <h2><?php _e('Experiencia Batllié & Programa de Fidelización', 'emp-caja'); ?></h2>
+                <h2>
+                    <span class="caja-card-icon">✨</span>
+                    <span><?php _e('Experiencia Batllié & Programa de Fidelización', 'emp-caja'); ?></span>
+                </h2>
                 <p class="caja-settings-card-desc"><?php _e('Configura los ciclos de fidelización (tarjetas coleccionables y figuritas por compra), productos participantes y recomendaciones en el carrito.', 'emp-caja'); ?></p>
             </div>
             <div class="caja-settings-card-body">
