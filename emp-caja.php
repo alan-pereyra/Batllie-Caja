@@ -3,7 +3,7 @@
  * Plugin Name: Batllie Caja & Pedidos POS
  * Plugin URI: https://empralidad.com.ar/batllie
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [batllie_caja].
- * Version: 1.8.68
+ * Version: 1.8.69
  * Author: Empralidad / Batllie
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.68');
+define('EMP_CAJA_VERSION', '1.8.69');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -126,11 +126,6 @@ class Batllie_Caja_Plugin {
         // Inicializar motor de empaque de alfajores, stock de cajas y cortesía
         Batllie_Caja_Packing::init();
 
-        // Inicializar Experiencia Batllié & Fidelización
-        if (class_exists('Batllie_Caja_Experiencia')) {
-            Batllie_Caja_Experiencia::init();
-        }
-
         // Hacer obligatorio el número de teléfono en WooCommerce checkout
         Batllie_Caja_Orders::make_phone_required_hooks();
 
@@ -182,9 +177,6 @@ class Batllie_Caja_Plugin {
         require_once EMP_CAJA_PATH . 'includes/class-caja-grouped.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-min-order.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-packing.php';
-        if (file_exists(EMP_CAJA_PATH . 'includes/class-caja-experiencia.php')) {
-            require_once EMP_CAJA_PATH . 'includes/class-caja-experiencia.php';
-        }
     }
 
     /**
@@ -260,11 +252,6 @@ class Batllie_Caja_Plugin {
             'shipping_slots'            => array('09:00', '12:00', '18:00'), // Horarios de despacho por día
             'shipping_slots_cutoff'     => 5,         // Minutos de corte antes de la tanda (ej. 5 min)
             'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
-            'experiencia_enabled'       => 'yes',     // Habilitar sistema Experiencia Batllié
-            'experiencia_cycle_size'    => 10,        // Cantidad de pedidos por ciclo (por defecto 10)
-            'experiencia_product_ids'   => array(246, 270, 221, 154, 242), // IDs de productos participantes
-            'experiencia_cart_upsell_enabled' => 'yes', // Mostrar recomendación en carrito
-            'experiencia_cart_upsell_text' => '¡Completá tu caja de 12 y sumate a la Experiencia Batllié! Recibí figuritas coleccionables con cada pedido y ganá una caja gratis.',
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -969,33 +956,6 @@ JS;
             $output['shipping_slots'] = $slots;
         } elseif (isset($input['shipping_slots_present'])) {
             $output['shipping_slots'] = array();
-        }
-
-        // Experiencia Batllié & Fidelización
-        if (isset($input['experiencia_enabled'])) {
-            $output['experiencia_enabled'] = ($input['experiencia_enabled'] === 'yes') ? 'yes' : 'no';
-        }
-        if (isset($input['experiencia_cycle_size'])) {
-            $output['experiencia_cycle_size'] = max(1, intval($input['experiencia_cycle_size']));
-        }
-        if (isset($input['experiencia_product_ids'])) {
-            $raw_pids = is_array($input['experiencia_product_ids']) ? $input['experiencia_product_ids'] : explode(',', (string) $input['experiencia_product_ids']);
-            $pids = array();
-            foreach ($raw_pids as $pid) {
-                $pid = absint($pid);
-                if ($pid > 0 && !in_array($pid, $pids, true)) {
-                    $pids[] = $pid;
-                }
-            }
-            $output['experiencia_product_ids'] = $pids;
-        } elseif (isset($input['experiencia_settings_present'])) {
-            $output['experiencia_product_ids'] = array();
-        }
-        if (isset($input['experiencia_cart_upsell_enabled'])) {
-            $output['experiencia_cart_upsell_enabled'] = ($input['experiencia_cart_upsell_enabled'] === 'yes') ? 'yes' : 'no';
-        }
-        if (isset($input['experiencia_cart_upsell_text'])) {
-            $output['experiencia_cart_upsell_text'] = sanitize_textarea_field(wp_unslash($input['experiencia_cart_upsell_text']));
         }
 
         return $output;

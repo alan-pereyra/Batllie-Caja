@@ -180,7 +180,7 @@ if (!defined('ABSPATH')) {
         </div>
     </div>
 
-    <!-- Modal: Historial Completo del Cliente y Experiencia Batllié -->
+    <!-- Modal: Historial Completo del Cliente -->
     <div id="caja-modal-customer-history" class="caja-modal" style="display:none; z-index: 100050;">
         <div class="caja-modal-backdrop"></div>
         <div class="caja-modal-dialog" style="max-width: 820px; width: 95%;">

@@ -37,7 +37,7 @@ $options = Batllie_Caja_Plugin::get_color_settings();
                     </svg>
                     <span><?php _e('Batllie Caja - Configuración de Colores y Opciones', 'emp-caja'); ?></span>
                 </h1>
-                <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes, tandas de envío y Experiencia Batllié.', 'emp-caja'); ?></p>
+                <p class="caja-settings-subtitle"><?php _e('Personaliza todos los colores del panel de caja, botones, tarjetas, estados, WhatsApp de clientes y tandas de envío.', 'emp-caja'); ?></p>
             </div>
 
             <div class="caja-settings-topbar-actions">
@@ -340,98 +340,6 @@ $options = Batllie_Caja_Plugin::get_color_settings();
                                 </div>
                                 <p class="description" style="margin-top:8px;"><?php _e('Podés agregar nuevos horarios (ej: 20:00) o eliminar los existentes haciendo click en ✕. Recordá hacer click en "Guardar Cambios".', 'emp-caja'); ?></p>
                             </div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <!-- 8. Experiencia Batllié & Fidelización -->
-        <div class="caja-settings-card">
-            <div class="caja-settings-card-header">
-                <h2>
-                    <span class="caja-card-icon">✨</span>
-                    <span><?php _e('Experiencia Batllié & Programa de Fidelización', 'emp-caja'); ?></span>
-                </h2>
-                <p class="caja-settings-card-desc"><?php _e('Configura los ciclos de fidelización (tarjetas coleccionables y figuritas por compra), productos participantes y recomendaciones en el carrito.', 'emp-caja'); ?></p>
-            </div>
-            <div class="caja-settings-card-body">
-                <table class="form-table caja-form-table">
-                    <tr>
-                        <th scope="row"><?php _e('Habilitar Experiencia Batllié', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="hidden" name="batllie_caja_options[experiencia_enabled]" value="no" />
-                            <label class="caja-switch-label">
-                                <input type="checkbox" name="batllie_caja_options[experiencia_enabled]" value="yes" <?php checked($options['experiencia_enabled'] ?? 'yes', 'yes'); ?> />
-                                <span><?php _e('Activar detección de primera compra, ciclo de figuritas y control en caja.', 'emp-caja'); ?></span>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <label for="caja_setting_exp_cycle"><?php _e('Cantidad de pedidos por ciclo', 'emp-caja'); ?></label>
-                        </th>
-                        <td>
-                            <input type="number" id="caja_setting_exp_cycle" name="batllie_caja_options[experiencia_cycle_size]" value="<?php echo esc_attr($options['experiencia_cycle_size'] ?? 10); ?>" min="1" max="100" class="small-text caja-input" style="max-width: 100px;" />
-                            <span class="description"><?php _e('pedidos (por defecto: 10). Al alcanzar esta cantidad en el ciclo, el cliente puede reclamar su premio gratis.', 'emp-caja'); ?></span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Productos participantes de la Experiencia', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="hidden" name="batllie_caja_options[experiencia_settings_present]" value="1" />
-                            <div style="max-height: 220px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; background: #f8fafc; max-width: 600px;">
-                                <?php
-                                $selected_prods = isset($options['experiencia_product_ids']) && is_array($options['experiencia_product_ids'])
-                                    ? array_map('intval', $options['experiencia_product_ids'])
-                                    : array(246, 270, 221, 154, 242);
-                                
-                                $all_prods = function_exists('wc_get_products') ? wc_get_products(array(
-                                    'limit'   => 100,
-                                    'status'  => 'publish',
-                                    'orderby' => 'name',
-                                    'order'   => 'ASC',
-                                    'return'  => 'objects',
-                                )) : array();
-                                
-                                if (!empty($all_prods)):
-                                    foreach ($all_prods as $p):
-                                        $pid = $p->get_id();
-                                        $checked = in_array($pid, $selected_prods, true);
-                                ?>
-                                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.88rem; cursor: pointer;">
-                                        <input type="checkbox" name="batllie_caja_options[experiencia_product_ids][]" value="<?php echo esc_attr($pid); ?>" <?php checked($checked, true); ?> />
-                                        <span><strong>#<?php echo esc_html($pid); ?></strong> - <?php echo esc_html($p->get_name()); ?></span>
-                                    </label>
-                                <?php 
-                                    endforeach;
-                                else: 
-                                ?>
-                                    <p class="description"><?php _e('No se encontraron productos activos.', 'emp-caja'); ?></p>
-                                <?php endif; ?>
-                            </div>
-                            <p class="description" style="margin-top: 6px;">
-                                <?php _e('Los pedidos que incluyan cualquiera de estos productos sumarán para la Experiencia Batllié y figuritas. También podés marcar la casilla "Experiencia Batllié" individualmente en la edición de cualquier producto de WooCommerce.', 'emp-caja'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><?php _e('Recomendación en el carrito', 'emp-caja'); ?></th>
-                        <td>
-                            <input type="hidden" name="batllie_caja_options[experiencia_cart_upsell_enabled]" value="no" />
-                            <label class="caja-switch-label">
-                                <input type="checkbox" name="batllie_caja_options[experiencia_cart_upsell_enabled]" value="yes" <?php checked($options['experiencia_cart_upsell_enabled'] ?? 'yes', 'yes'); ?> />
-                                <span><?php _e('Mostrar banner de recomendación en el carrito cuando no haya productos participantes.', 'emp-caja'); ?></span>
-                            </label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">
-                            <label for="caja_setting_exp_upsell_text"><?php _e('Texto del banner de recomendación', 'emp-caja'); ?></label>
-                        </th>
-                        <td>
-                            <textarea id="caja_setting_exp_upsell_text" name="batllie_caja_options[experiencia_cart_upsell_text]" rows="2" class="large-text caja-input" style="max-width: 600px;"><?php echo esc_textarea($options['experiencia_cart_upsell_text'] ?? '¡Completá tu caja de 12 y sumate a la Experiencia Batllié! Recibí figuritas coleccionables con cada pedido y ganá una caja gratis.'); ?></textarea>
-                            <p class="description"><?php _e('Mensaje persuasivo visible para los compradores en /carrito/.', 'emp-caja'); ?></p>
                         </td>
                     </tr>
                 </table>
