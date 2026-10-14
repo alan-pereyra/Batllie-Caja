@@ -310,7 +310,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <span class="status-highlight"><?php echo esc_html($current_label); ?></span>
         </div>
         <div class="batllie-tracking-live-tag">
-            <span>⚡</span> <?php _e('Sincronizado con la cocina y repartidores', 'emp-caja'); ?>
+            <span>⚡</span> <?php _e('Sincronizado en tiempo real con empaque y repartidores', 'emp-caja'); ?>
         </div>
     </div>
 </div>

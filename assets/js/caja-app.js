@@ -535,6 +535,43 @@
                 const orderId = $(this).data('order-id');
                 const $btn = $(this);
 
+                // Ocultar vista de edición inmediatamente para evitar que openPackagingEditIds la vuelva a abrir
+                $(`#caja-pkg-edit-${orderId}`).hide();
+                $(`#caja-pkg-summary-${orderId}`).show();
+
+                // Si el usuario escribió un nuevo empaque pero no tocó "+ Crear y agregar", auto-crearlo y asignarlo
+                const $nameInput = $(`#caja-new-pkg-name-${orderId}`);
+                const pendingNewName = $nameInput.length ? $.trim($nameInput.val()) : '';
+                if (pendingNewName) {
+                    const pendingStock = parseInt($(`#caja-new-pkg-stock-${orderId}`).val(), 10) || 50;
+                    $btn.prop('disabled', true).text('Creando y guardando...');
+                    self.addPackagingItem(0, pendingNewName, pendingStock, orderId, function(success) {
+                        $btn.prop('disabled', false).text('💾 Guardar empaque');
+                        $nameInput.val('');
+                        if (!success) {
+                            $(`#caja-pkg-edit-${orderId}`).show();
+                            $(`#caja-pkg-summary-${orderId}`).hide();
+                        }
+                    });
+                    return;
+                }
+
+                // Si el usuario seleccionó un producto existente pero no tocó "+ Vincular", auto-vincularlo y asignarlo
+                const $selExist = $(`#caja-sel-exist-${orderId}`);
+                const pendingPid = $selExist.length ? parseInt($selExist.val(), 10) : 0;
+                if (pendingPid) {
+                    $btn.prop('disabled', true).text('Vinculando y guardando...');
+                    self.addPackagingItem(pendingPid, '', 0, orderId, function(success) {
+                        $btn.prop('disabled', false).text('💾 Guardar empaque');
+                        $selExist.val('');
+                        if (!success) {
+                            $(`#caja-pkg-edit-${orderId}`).show();
+                            $(`#caja-pkg-summary-${orderId}`).hide();
+                        }
+                    });
+                    return;
+                }
+
                 const items = [];
                 $(`.pkg-dyn-field-${orderId}`).each(function() {
                     const pid = $(this).data('pkg-id');
@@ -546,10 +583,9 @@
 
                 self.saveDynamicPackaging(orderId, items, function(success) {
                     $btn.prop('disabled', false).text('💾 Guardar empaque');
-                    if (success) {
-                        $(`#caja-pkg-edit-${orderId}`).slideUp(150, function() {
-                            $(`#caja-pkg-summary-${orderId}`).show();
-                        });
+                    if (!success) {
+                        $(`#caja-pkg-edit-${orderId}`).show();
+                        $(`#caja-pkg-summary-${orderId}`).hide();
                     }
                 });
             });
@@ -577,8 +613,9 @@
                 }
                 const $btn = $(this);
                 $btn.prop('disabled', true).text('Vinculando...');
-                self.addPackagingItem(pid, '', 0, function() {
+                self.addPackagingItem(pid, '', 0, orderId, function() {
                     $btn.prop('disabled', false).text('+ Vincular');
+                    $sel.val('');
                 });
             });
 
@@ -599,7 +636,7 @@
 
                 const $btn = $(this);
                 $btn.prop('disabled', true).text('Creando...');
-                self.addPackagingItem(0, name, stock, function(success) {
+                self.addPackagingItem(0, name, stock, orderId, function(success) {
                     $btn.prop('disabled', false).text('+ Crear y agregar');
                     if (success) {
                         $nameInput.val('');
@@ -787,7 +824,7 @@
                                 order.status = 'enviando';
                                 order.shipping_status = 'enviando';
                             }
-                            self.renderOrders(self.cachedOrders);
+                            self.applyFilters();
                             self.showToast('🚀 Control de pedido completado al 100%. Repartidor enviando.');
                         } else {
                             alert(res.data && res.data.message ? res.data.message : 'Error al verificar control de pedido.');
@@ -1895,6 +1932,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
         renderOrders: function(orders) {
             const self = this;
+            if (orders === undefined) {
+                self.applyFilters();
+                return;
+            }
             const $grid = $('#caja-orders-grid');
             const $empty = $('#caja-orders-empty');
 
@@ -2743,10 +2784,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <div class="caja-pkg-summary-view" id="caja-pkg-summary-${order.id}">
                                         <div class="caja-pkg-item-row" style="margin-top:4px;">
                                             <div id="caja-pkg-summary-content-${order.id}" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:2px;">
-                                                ${(order.dynamic_packaging && order.dynamic_packaging.length > 0)
-                                                    ? order.dynamic_packaging.map(p => `<span class="caja-pkg-summary-tag">${self.escapeHtml(p.name)}: <strong>${p.qty}</strong></span>`).join('')
-                                                    : '<em style="color:#64748b; font-size:0.83rem;">Sin empaque seleccionado</em>'
-                                                }
+                                                ${(() => {
+                                                    const activePkgs = (order.dynamic_packaging || []).filter(p => (parseInt(p.qty, 10) || 0) > 0);
+                                                    return activePkgs.length > 0
+                                                        ? activePkgs.map(p => `<span class="caja-pkg-summary-tag">${self.escapeHtml(p.name)}: <strong>${p.qty}</strong></span>`).join('')
+                                                        : '<em style="color:#64748b; font-size:0.83rem;">Sin empaque seleccionado</em>';
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
@@ -3949,7 +3992,7 @@ $('#caja-modal-new-product').fadeIn(200);
                             if (idx !== -1) {
                                 self.cachedOrders[idx] = updated;
                             }
-                            self.renderOrders();
+                            self.applyFilters();
                         }
                         self.showToast('📦 Control de empaque guardado correctamente.');
                         if (typeof callback === 'function') callback(true, updated);
@@ -3965,8 +4008,12 @@ $('#caja-modal-new-product').fadeIn(200);
             });
         },
 
-        addPackagingItem: function(productId, newName, initialStock, callback) {
+        addPackagingItem: function(productId, newName, initialStock, orderId, callback) {
             const self = this;
+            if (typeof orderId === 'function') {
+                callback = orderId;
+                orderId = null;
+            }
             $.ajax({
                 url: self.config.ajaxUrl,
                 type: 'POST',
@@ -3985,7 +4032,36 @@ $('#caja-modal-new-product').fadeIn(200);
                         if (res.data.candidates) {
                             self.packagingCandidates = res.data.candidates;
                         }
-                        self.renderOrders();
+
+                        // Si se agregó desde una tarjeta de pedido, auto-asignarlo con cantidad 1 y guardar el pedido
+                        if (orderId) {
+                            const ord = self.cachedOrders.find(o => o.id == orderId);
+                            if (ord) {
+                                if (!ord.dynamic_packaging || !Array.isArray(ord.dynamic_packaging)) {
+                                    ord.dynamic_packaging = [];
+                                }
+                                const addedId = res.data.added_id || (res.data.item ? res.data.item.id : productId);
+                                const addedName = res.data.added_name || (res.data.item ? res.data.item.name : newName);
+                                const existingIdx = ord.dynamic_packaging.findIndex(p => p.id == addedId);
+                                if (existingIdx !== -1) {
+                                    ord.dynamic_packaging[existingIdx].qty = Math.max(1, parseInt(ord.dynamic_packaging[existingIdx].qty, 10) || 1);
+                                } else {
+                                    ord.dynamic_packaging.push({
+                                        id: addedId,
+                                        name: addedName,
+                                        qty: 1
+                                    });
+                                }
+
+                                self.saveDynamicPackaging(orderId, ord.dynamic_packaging, function(saveOk) {
+                                    self.showToast('✨ Empaque agregado y asignado al pedido.');
+                                    if (typeof callback === 'function') callback(saveOk, res.data);
+                                });
+                                return;
+                            }
+                        }
+
+                        self.applyFilters();
                         self.showToast('✨ Empaque agregado correctamente.');
                         if (typeof callback === 'function') callback(true, res.data);
                     } else {
@@ -4018,7 +4094,7 @@ $('#caja-modal-new-product').fadeIn(200);
                         if (res.data.candidates) {
                             self.packagingCandidates = res.data.candidates;
                         }
-                        self.renderOrders();
+                        self.applyFilters();
                         self.showToast('🗑️ Empaque quitado del listado oficial.');
                         if (typeof callback === 'function') callback(true, res.data);
                     } else {
@@ -4128,60 +4204,95 @@ $('#caja-modal-new-product').fadeIn(200);
                 `;
             }
 
-            // 3. Bolsas de envío (grandes y chicas)
-            const bagLargeQty = (order.bag_large !== undefined && order.bag_large !== null) ? parseInt(order.bag_large, 10) : 1;
-            const bagSmallQty = (order.bag_small !== undefined && order.bag_small !== null) ? parseInt(order.bag_small, 10) : 0;
-            const bagLargeName = (self.config && self.config.officialBagLargeName) || 'Bolsa grande de envío';
-            const bagSmallName = (self.config && self.config.officialBagSmallName) || 'Bolsa chica de envío';
+            // 3. Empaques y bolsas de envío (Dinámico o legado)
+            const dynamicPkgs = (order.dynamic_packaging && Array.isArray(order.dynamic_packaging))
+                ? order.dynamic_packaging.filter(p => (parseInt(p.qty, 10) || 0) > 0)
+                : [];
 
-            html += `
-                <div class="caja-control-box-card caja-control-bags-card">
-                    <div class="caja-control-box-header">
-                        <span class="caja-control-box-icon">🛍️</span>
-                        <span class="caja-control-box-title">Bolsas de envío</span>
-                    </div>
-                    <div class="caja-control-subitems-list">
-            `;
-
-            if (bagLargeQty > 0 || (bagLargeQty === 0 && bagSmallQty === 0)) {
-                const qtyToShow = bagLargeQty > 0 ? bagLargeQty : 1;
+            if (dynamicPkgs.length > 0) {
                 html += `
-                    <div class="caja-control-item-row">
-                        <div class="caja-control-item-left">
-                            <span class="caja-control-no-thumb">🛍️</span>
-                            <div class="caja-control-item-info">
-                                <span class="caja-control-item-qty">${qtyToShow}x</span>
-                                <span class="caja-control-item-name">${self.escapeHtml(bagLargeName)}</span>
-                            </div>
+                    <div class="caja-control-box-card caja-control-bags-card">
+                        <div class="caja-control-box-header">
+                            <span class="caja-control-box-icon">🛍️</span>
+                            <span class="caja-control-box-title">Empaque y Bolsas de envío</span>
+                            <span class="caja-control-box-badge">${dynamicPkgs.length} ítem${dynamicPkgs.length === 1 ? '' : 's'}</span>
                         </div>
-                        <label class="caja-control-check-wrap">
-                            <input type="checkbox" class="caja-control-chk" />
-                        </label>
+                        <div class="caja-control-subitems-list">
+                `;
+                dynamicPkgs.forEach(pkg => {
+                    const qty = parseInt(pkg.qty, 10) || 1;
+                    html += `
+                        <div class="caja-control-item-row">
+                            <div class="caja-control-item-left">
+                                <span class="caja-control-no-thumb">🛍️</span>
+                                <div class="caja-control-item-info">
+                                    <span class="caja-control-item-qty">${qty}x</span>
+                                    <span class="caja-control-item-name">${self.escapeHtml(pkg.name)}</span>
+                                </div>
+                            </div>
+                            <label class="caja-control-check-wrap" title="Verificar empaque">
+                                <input type="checkbox" class="caja-control-chk" />
+                            </label>
+                        </div>
+                    `;
+                });
+                html += `
+                        </div>
                     </div>
                 `;
-            }
+            } else {
+                const bagLargeQty = (order.bag_large !== undefined && order.bag_large !== null) ? parseInt(order.bag_large, 10) : 1;
+                const bagSmallQty = (order.bag_small !== undefined && order.bag_small !== null) ? parseInt(order.bag_small, 10) : 0;
+                const bagLargeName = (self.config && self.config.officialBagLargeName) || 'Bolsa grande de envío';
+                const bagSmallName = (self.config && self.config.officialBagSmallName) || 'Bolsa chica de envío';
 
-            if (bagSmallQty > 0) {
-                html += `
-                    <div class="caja-control-item-row">
-                        <div class="caja-control-item-left">
-                            <span class="caja-control-no-thumb">🛍️</span>
-                            <div class="caja-control-item-info">
-                                <span class="caja-control-item-qty">${bagSmallQty}x</span>
-                                <span class="caja-control-item-name">${self.escapeHtml(bagSmallName)}</span>
+                if (bagLargeQty > 0 || bagSmallQty > 0) {
+                    html += `
+                        <div class="caja-control-box-card caja-control-bags-card">
+                            <div class="caja-control-box-header">
+                                <span class="caja-control-box-icon">🛍️</span>
+                                <span class="caja-control-box-title">Bolsas de envío</span>
+                            </div>
+                            <div class="caja-control-subitems-list">
+                    `;
+                    if (bagLargeQty > 0) {
+                        html += `
+                            <div class="caja-control-item-row">
+                                <div class="caja-control-item-left">
+                                    <span class="caja-control-no-thumb">🛍️</span>
+                                    <div class="caja-control-item-info">
+                                        <span class="caja-control-item-qty">${bagLargeQty}x</span>
+                                        <span class="caja-control-item-name">${self.escapeHtml(bagLargeName)}</span>
+                                    </div>
+                                </div>
+                                <label class="caja-control-check-wrap" title="Verificar bolsa">
+                                    <input type="checkbox" class="caja-control-chk" />
+                                </label>
+                            </div>
+                        `;
+                    }
+                    if (bagSmallQty > 0) {
+                        html += `
+                            <div class="caja-control-item-row">
+                                <div class="caja-control-item-left">
+                                    <span class="caja-control-no-thumb">🛍️</span>
+                                    <div class="caja-control-item-info">
+                                        <span class="caja-control-item-qty">${bagSmallQty}x</span>
+                                        <span class="caja-control-item-name">${self.escapeHtml(bagSmallName)}</span>
+                                    </div>
+                                </div>
+                                <label class="caja-control-check-wrap" title="Verificar bolsa">
+                                    <input type="checkbox" class="caja-control-chk" />
+                                </label>
+                            </div>
+                        `;
+                    }
+                    html += `
                             </div>
                         </div>
-                        <label class="caja-control-check-wrap">
-                            <input type="checkbox" class="caja-control-chk" />
-                        </label>
-                    </div>
-                `;
+                    `;
+                }
             }
-
-            html += `
-                    </div>
-                </div>
-            `;
 
             // 4. Paquetería temática especial (si aplica al pedido)
             if (order.packing_theme) {

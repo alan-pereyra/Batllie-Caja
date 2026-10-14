@@ -1699,16 +1699,16 @@ class Batllie_Caja_Orders {
             'boxes_used'           => $boxes_used,
             'boxes_6_qty'          => isset($boxes_used['box_6']) ? intval($boxes_used['box_6']) : (!empty($packing_summary['box_6']) ? intval($packing_summary['box_6']) : 0),
             'boxes_12_qty'         => isset($boxes_used['box_12']) ? intval($boxes_used['box_12']) : (!empty($packing_summary['box_12']) ? intval($packing_summary['box_12']) : 0),
-            'bag_large'            => isset($saved_bags['large']) ? intval($saved_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1),
+            'bag_large'            => isset($saved_bags['large']) ? intval($saved_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : ($order->meta_exists('_caja_order_packaging') ? 0 : 1)),
             'bag_small'            => isset($saved_bags['small']) ? intval($saved_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0),
             'control_pedido_verified' => ($order->get_meta('_batllie_control_pedido_verified') === 'yes'),
             'packing_theme'        => (string) ($order->get_meta('_batllie_packing_theme') ?: ''),
             'is_thematic_packaging' => ($order->get_meta('_batllie_is_thematic_packaging') === 'yes' || !empty($order->get_meta('_batllie_packing_theme'))),
             'packing_summary'      => $packing_summary,
             'dynamic_packaging'    => (function() use ($order, $boxes_used, $saved_bags, $packing_summary) {
-                $dp = $order->get_meta('_caja_order_packaging');
-                if (is_array($dp) && !empty($dp)) {
-                    return array_values($dp);
+                if ($order->meta_exists('_caja_order_packaging')) {
+                    $dp = $order->get_meta('_caja_order_packaging');
+                    return is_array($dp) ? array_values($dp) : array();
                 }
                 $res = array();
                 $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
@@ -2533,7 +2533,14 @@ class Batllie_Caja_Orders {
                     update_option('_caja_official_packaging_items', $items_option, 'yes');
                 }
                 update_post_meta($product_id, '_caja_is_packaging_product', 'yes');
-                return self::get_official_packaging_items();
+                return array(
+                    'items' => self::get_official_packaging_items(),
+                    'item'  => array(
+                        'id'    => (int) $prod->get_id(),
+                        'name'  => $prod->get_name(),
+                        'stock' => $prod->managing_stock() ? $prod->get_stock_quantity() : null,
+                    ),
+                );
             }
         }
 

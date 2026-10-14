@@ -420,7 +420,10 @@ class Batllie_Caja_Ajax {
             }
             $candidates = Batllie_Caja_Orders::get_available_packaging_candidates();
             wp_send_json_success(array(
-                'packaging_products' => $updated,
+                'packaging_products' => is_array($updated) && isset($updated['items']) ? $updated['items'] : $updated,
+                'item'               => is_array($updated) && isset($updated['item']) ? $updated['item'] : null,
+                'added_id'           => is_array($updated) && isset($updated['item']['id']) ? $updated['item']['id'] : $product_id,
+                'added_name'         => is_array($updated) && isset($updated['item']['name']) ? $updated['item']['name'] : $new_name,
                 'candidates'         => $candidates,
                 'message'            => __('Empaque agregado exitosamente.', 'emp-caja'),
             ));
