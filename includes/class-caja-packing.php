@@ -1966,6 +1966,21 @@ class Batllie_Caja_Packing {
             }
         }
 
+        // Integrar productos de empaque dinámicos del pedido (_caja_order_packaging)
+        $dyn_packaging = $order->get_meta('_caja_order_packaging');
+        if (is_array($dyn_packaging)) {
+            foreach ($dyn_packaging as $dp_item) {
+                $dp_id = absint($dp_item['id'] ?? 0);
+                $dp_qty = max(0, intval($dp_item['qty'] ?? 0));
+                if ($dp_id && $dp_qty > 0) {
+                    if (!isset($box_stock_to_deduct[$dp_id])) {
+                        $box_stock_to_deduct[$dp_id] = 0;
+                    }
+                    $box_stock_to_deduct[$dp_id] = max($box_stock_to_deduct[$dp_id], $dp_qty);
+                }
+            }
+        }
+
         // 3. Ejecutar descuento de stock para cada producto de caja física
         $deductions_log = array();
         foreach ($box_stock_to_deduct as $box_id => $qty) {

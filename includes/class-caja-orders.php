@@ -1705,6 +1705,36 @@ class Batllie_Caja_Orders {
             'packing_theme'        => (string) ($order->get_meta('_batllie_packing_theme') ?: ''),
             'is_thematic_packaging' => ($order->get_meta('_batllie_is_thematic_packaging') === 'yes' || !empty($order->get_meta('_batllie_packing_theme'))),
             'packing_summary'      => $packing_summary,
+            'dynamic_packaging'    => (function() use ($order, $boxes_used, $saved_bags, $packing_summary) {
+                $dp = $order->get_meta('_caja_order_packaging');
+                if (is_array($dp) && !empty($dp)) {
+                    return array_values($dp);
+                }
+                $res = array();
+                $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+                $b6_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+                $bl_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('large') : 0;
+                $bs_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('small') : 0;
+
+                $b12_qty = isset($boxes_used['box_12']) ? intval($boxes_used['box_12']) : (!empty($packing_summary['box_12']) ? intval($packing_summary['box_12']) : 0);
+                $b6_qty  = isset($boxes_used['box_6']) ? intval($boxes_used['box_6']) : (!empty($packing_summary['box_6']) ? intval($packing_summary['box_6']) : 0);
+                $bl_qty  = isset($saved_bags['large']) ? intval($saved_bags['large']) : ($order->meta_exists('_batllie_bags_large_qty') ? intval($order->get_meta('_batllie_bags_large_qty')) : 1);
+                $bs_qty  = isset($saved_bags['small']) ? intval($saved_bags['small']) : intval($order->get_meta('_batllie_bags_small_qty') ?: 0);
+
+                if ($b12_qty > 0 && $b12_id) {
+                    $res[] = array('id' => (int)$b12_id, 'qty' => (int)$b12_qty, 'name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(12) : 'Cajas de 12');
+                }
+                if ($b6_qty > 0 && $b6_id) {
+                    $res[] = array('id' => (int)$b6_id, 'qty' => (int)$b6_qty, 'name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_name(6) : 'Cajas de 6');
+                }
+                if ($bl_qty > 0 && $bl_id) {
+                    $res[] = array('id' => (int)$bl_id, 'qty' => (int)$bl_qty, 'name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_name('large') : 'Bolsas grandes');
+                }
+                if ($bs_qty > 0 && $bs_id) {
+                    $res[] = array('id' => (int)$bs_id, 'qty' => (int)$bs_qty, 'name' => class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_name('small') : 'Bolsas chicas');
+                }
+                return $res;
+            })(),
             'time_diff'            => !empty($time_diff) ? sprintf(__('Hace %s', 'emp-caja'), $time_diff) : '',
             'time_formatted'       => $time_formatted,
             'time_only_formatted'  => $time_only_formatted,
@@ -1793,7 +1823,7 @@ class Batllie_Caja_Orders {
             self::add_timeline_event($order, __('llegó a destino (con inconvenientes)', 'emp-caja'), '🛑', 'shipping_dest');
             self::add_timeline_event($order, __('pedido completado con inconvenientes', 'emp-caja'), '⚠️', 'status_comp');
         } elseif ($clean_status === 'processing') {
-            self::add_timeline_event($order, __('en preparación', 'emp-caja'), '👨‍🍳', 'status_prep');
+            self::add_timeline_event($order, __('en preparación', 'emp-caja'), '📦', 'status_prep');
         } elseif ($clean_status === 'enviando' || $clean_status === 'on-hold') {
             self::add_timeline_event($order, __('se inició el proceso de envío', 'emp-caja'), '🛵', 'shipping_out');
         } elseif ($clean_status === 'cancelled') {
@@ -1976,6 +2006,9 @@ class Batllie_Caja_Orders {
         if (is_array($raw)) {
             foreach ($raw as $ev) {
                 if (is_array($ev) && !empty($ev['text']) && !empty($ev['time']) && $ev['text'] !== 'undefined') {
+                    if (isset($ev['icon']) && ($ev['icon'] === '👨‍🍳' || $ev['icon'] === '🧑‍🍳')) {
+                        $ev['icon'] = '📦';
+                    }
                     $timeline[] = $ev;
                 } else {
                     $needs_meta_cleanup = true;
@@ -2072,7 +2105,7 @@ class Batllie_Caja_Orders {
                 'date_key'       => self::format_datetime('Y-m-d', $ts),
                 'timestamp'      => $ts,
                 'text'           => __('en preparación', 'emp-caja'),
-                'icon'           => '👨‍🍳',
+                'icon'           => '📦',
                 'type'           => 'status_prep'
             );
         }
@@ -2217,7 +2250,7 @@ class Batllie_Caja_Orders {
     }
 
     /**
-     * AJAX: Guardar cambios de empaque (cajas de 6, cajas de 12, bolsas grandes y chicas)
+     * AJAX: Guardar cambios de empaque (soporta nuevo formato dinámico de productos y formato retrocompatible)
      */
     public static function ajax_update_packaging() {
         check_ajax_referer('batllie_caja_nonce', 'security');
@@ -2234,6 +2267,94 @@ class Batllie_Caja_Orders {
             wp_send_json_error(array('message' => __('No se puede modificar el empaque porque el pedido ya fue verificado.', 'emp-caja')));
         }
 
+        // Si se envió el formato dinámico de items: [{ id: 123, qty: 2 }, ...]
+        $items_raw = isset($_POST['items']) ? $_POST['items'] : null;
+        if (!empty($items_raw)) {
+            if (is_string($items_raw)) {
+                $items = json_decode(wp_unslash($items_raw), true);
+            } else {
+                $items = (array) $items_raw;
+            }
+
+            if (is_array($items)) {
+                $saved_items = array();
+                $timeline_parts = array();
+
+                foreach ($items as $it) {
+                    $pid = absint($it['id'] ?? 0);
+                    $qty = max(0, intval($it['qty'] ?? 0));
+                    if (!$pid) continue;
+
+                    $prod = function_exists('wc_get_product') ? wc_get_product($pid) : null;
+                    if (!$prod) continue;
+
+                    // CONTROL DE STOCK: Si el producto gestiona stock y está agotado, bloquear
+                    if ($qty > 0 && $prod->managing_stock() && !$prod->is_in_stock()) {
+                        wp_send_json_error(array(
+                            'message' => sprintf(__('El empaque "%s" se encuentra sin stock en WooCommerce y no puede seleccionarse.', 'emp-caja'), $prod->get_name())
+                        ));
+                    }
+
+                    if ($qty > 0) {
+                        $saved_items[] = array(
+                            'id'   => $pid,
+                            'name' => $prod->get_name(),
+                            'qty'  => $qty,
+                        );
+                        $timeline_parts[] = "{$qty}x {$prod->get_name()}";
+                    }
+                }
+
+                $order->update_meta_data('_caja_order_packaging', $saved_items);
+
+                // Mapear retrocompatibilidad con cajas fijas si aplican
+                $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+                $b6_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+                $bl_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('large') : 0;
+                $bs_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('small') : 0;
+
+                $found_b12 = 0; $found_b6 = 0; $found_bl = 0; $found_bs = 0;
+                foreach ($saved_items as $si) {
+                    if ($si['id'] == $b12_id) $found_b12 = $si['qty'];
+                    if ($si['id'] == $b6_id)  $found_b6  = $si['qty'];
+                    if ($si['id'] == $bl_id)  $found_bl  = $si['qty'];
+                    if ($si['id'] == $bs_id)  $found_bs  = $si['qty'];
+                }
+
+                $order->update_meta_data('_batllie_boxes_used', array('box_6' => $found_b6, 'box_12' => $found_b12));
+                $order->update_meta_data('_batllie_boxes_6_qty', $found_b6);
+                $order->update_meta_data('_batllie_boxes_12_qty', $found_b12);
+                $order->update_meta_data('_batllie_packaging_bags', array('large' => $found_bl, 'small' => $found_bs));
+                $order->update_meta_data('_batllie_bags_large_qty', $found_bl);
+                $order->update_meta_data('_batllie_bags_small_qty', $found_bs);
+
+                if (isset($_POST['packing_theme'])) {
+                    $theme_to_set = sanitize_text_field(wp_unslash($_POST['packing_theme']));
+                    if (!empty($theme_to_set)) {
+                        $order->update_meta_data('_batllie_packing_theme', $theme_to_set);
+                        $order->update_meta_data('_batllie_is_thematic_packaging', 'yes');
+                    } else {
+                        $order->delete_meta_data('_batllie_packing_theme');
+                        $order->update_meta_data('_batllie_is_thematic_packaging', 'no');
+                    }
+                }
+
+                $order->save();
+
+                $timeline_text = !empty($timeline_parts)
+                    ? __('Empaque modificado: ', 'emp-caja') . implode(', ', $timeline_parts)
+                    : __('Empaque modificado: Sin empaques asignados', 'emp-caja');
+
+                self::add_timeline_event($order, $timeline_text, '📦', 'packing');
+
+                wp_send_json_success(array(
+                    'order'   => self::format_order($order),
+                    'message' => __('Control de empaque guardado con éxito.', 'emp-caja'),
+                ));
+            }
+        }
+
+        // Formato legado (boxes_6, boxes_12, bags_large, bags_small)
         $existing_boxes = $order->get_meta('_batllie_boxes_used') ?: array();
         $existing_bags  = $order->get_meta('_batllie_packaging_bags') ?: array();
 
@@ -2288,6 +2409,184 @@ class Batllie_Caja_Orders {
             'order'   => self::format_order($order),
             'message' => __('Control de empaque guardado con éxito.', 'emp-caja'),
         ));
+    }
+
+    /**
+     * Obtener listado de productos oficiales de empaque (dinámico)
+     */
+    public static function get_official_packaging_items() {
+        if (!function_exists('wc_get_product')) {
+            return array();
+        }
+
+        $items_option = get_option('_caja_official_packaging_items', null);
+
+        // Migración inicial automática si no está inicializado
+        if (!is_array($items_option)) {
+            $default_ids = array();
+            if (class_exists('Batllie_Caja_Packing')) {
+                $b12 = Batllie_Caja_Packing::get_official_box_id(12);
+                $b6  = Batllie_Caja_Packing::get_official_box_id(6);
+                $bl  = Batllie_Caja_Packing::get_official_bag_id('large');
+                $bs  = Batllie_Caja_Packing::get_official_bag_id('small');
+
+                if ($b12) $default_ids[] = (int) $b12;
+                if ($b6 && !in_array((int)$b6, $default_ids, true)) $default_ids[] = (int) $b6;
+                if ($bl && !in_array((int)$bl, $default_ids, true)) $default_ids[] = (int) $bl;
+                if ($bs && !in_array((int)$bs, $default_ids, true)) $default_ids[] = (int) $bs;
+            }
+
+            if (empty($default_ids)) {
+                $found = wc_get_products(array(
+                    'status' => 'publish',
+                    'limit'  => 6,
+                ));
+                foreach ($found as $p) {
+                    $lname = mb_strtolower($p->get_name(), 'UTF-8');
+                    if (strpos($lname, 'caja') !== false || strpos($lname, 'bolsa') !== false || strpos($lname, 'empaque') !== false) {
+                        $default_ids[] = $p->get_id();
+                    }
+                }
+            }
+
+            $items_option = array_values(array_unique(array_filter($default_ids)));
+            update_option('_caja_official_packaging_items', $items_option, 'yes');
+        }
+
+        $packaging_list = array();
+        foreach ($items_option as $pid) {
+            $prod = wc_get_product($pid);
+            if (!$prod || !$prod->exists() || $prod->get_status() === 'trash') {
+                continue;
+            }
+
+            $managing = $prod->managing_stock();
+            $stock_qty = $managing ? $prod->get_stock_quantity() : null;
+            $in_stock = $prod->is_in_stock();
+
+            // Si gestiona stock y está en 0 o menos, marcar como sin stock
+            if ($managing && $stock_qty !== null && $stock_qty <= 0) {
+                $in_stock = false;
+            }
+
+            $img_id = $prod->get_image_id();
+            $img_url = $img_id ? wp_get_attachment_image_url($img_id, 'thumbnail') : '';
+
+            $packaging_list[] = array(
+                'id'             => $prod->get_id(),
+                'name'           => $prod->get_name(),
+                'sku'            => $prod->get_sku(),
+                'price'          => $prod->get_price(),
+                'managing_stock' => $managing,
+                'stock'          => $stock_qty,
+                'in_stock'       => $in_stock,
+                'stock_status'   => $prod->get_stock_status(),
+                'image'          => $img_url,
+            );
+        }
+
+        return $packaging_list;
+    }
+
+    /**
+     * Agregar producto oficial de empaque (vincular existente o crear nuevo en WooCommerce)
+     */
+    public static function add_official_packaging_item($product_id = 0, $new_name = '', $initial_stock = 50) {
+        if (!function_exists('wc_get_product')) {
+            return false;
+        }
+
+        $items_option = get_option('_caja_official_packaging_items', array());
+        if (!is_array($items_option)) {
+            $items_option = array();
+        }
+
+        if (!empty($new_name) && !$product_id) {
+            // Crear nuevo producto simple en WooCommerce
+            $new_prod = new WC_Product_Simple();
+            $new_prod->set_name(sanitize_text_field($new_name));
+            $new_prod->set_status('publish');
+            $new_prod->set_catalog_visibility('hidden');
+            $new_prod->set_manage_stock(true);
+            $new_prod->set_stock_quantity(intval($initial_stock));
+            $new_prod->set_stock_status(intval($initial_stock) > 0 ? 'instock' : 'outofstock');
+            $new_prod->set_regular_price('0');
+
+            // Asignar o crear categoría 'Empaques'
+            $term = term_exists('Empaques', 'product_cat');
+            if (!$term) {
+                $term = wp_insert_term('Empaques', 'product_cat');
+            }
+            if (!is_wp_error($term) && isset($term['term_id'])) {
+                $new_prod->set_category_ids(array($term['term_id']));
+            }
+
+            $product_id = $new_prod->save();
+            update_post_meta($product_id, '_caja_is_packaging_product', 'yes');
+        }
+
+        if ($product_id) {
+            $prod = wc_get_product($product_id);
+            if ($prod && $prod->exists()) {
+                if (!in_array((int)$product_id, $items_option, true)) {
+                    $items_option[] = (int) $product_id;
+                    update_option('_caja_official_packaging_items', $items_option, 'yes');
+                }
+                update_post_meta($product_id, '_caja_is_packaging_product', 'yes');
+                return self::get_official_packaging_items();
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Eliminar producto del listado oficial de empaques
+     */
+    public static function delete_official_packaging_item($product_id) {
+        $items_option = get_option('_caja_official_packaging_items', array());
+        if (is_array($items_option)) {
+            $product_id = (int) $product_id;
+            $items_option = array_values(array_filter($items_option, function($id) use ($product_id) {
+                return ((int)$id !== $product_id);
+            }));
+            update_option('_caja_official_packaging_items', $items_option, 'yes');
+        }
+        delete_post_meta($product_id, '_caja_is_packaging_product');
+        return self::get_official_packaging_items();
+    }
+
+    /**
+     * Obtener productos disponibles de WooCommerce para vincular como empaque
+     */
+    public static function get_available_packaging_candidates() {
+        if (!function_exists('wc_get_products')) {
+            return array();
+        }
+        $existing_items = get_option('_caja_official_packaging_items', array());
+        if (!is_array($existing_items)) $existing_items = array();
+
+        $all_products = wc_get_products(array(
+            'status'     => 'publish',
+            'limit'      => 100,
+            'orderby'    => 'title',
+            'order'      => 'ASC',
+            'return'     => 'objects'
+        ));
+
+        $candidates = array();
+        foreach ($all_products as $p) {
+            if ($p->is_type('grouped')) continue;
+            if (in_array($p->get_id(), $existing_items, true)) continue;
+
+            $candidates[] = array(
+                'id'       => $p->get_id(),
+                'name'     => $p->get_name(),
+                'stock'    => $p->managing_stock() ? ($p->get_stock_quantity() !== null ? (int)$p->get_stock_quantity() : 0) : __('Ilimitado', 'emp-caja'),
+                'in_stock' => $p->is_in_stock()
+            );
+        }
+        return $candidates;
     }
 
     /**

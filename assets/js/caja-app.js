@@ -49,6 +49,7 @@
                 if (o.boxes_12_qty !== n.boxes_12_qty) return true;
                 if (o.bag_large !== n.bag_large) return true;
                 if (o.bag_small !== n.bag_small) return true;
+                if (JSON.stringify(o.dynamic_packaging || []) !== JSON.stringify(n.dynamic_packaging || [])) return true;
                 if (o.control_pedido_verified !== n.control_pedido_verified) return true;
                 if ((o.packing_theme || '') !== (n.packing_theme || '')) return true;
                 if ((o.shipping_slot || '') !== (n.shipping_slot || '')) return true;
@@ -62,6 +63,8 @@
         init: function() {
             this.currentSlotFilter = 'all';
             this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
+            this.packagingProducts = (this.config && this.config.packagingProducts) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingProducts) || [];
+            this.packagingCandidates = (this.config && this.config.packagingCandidates) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingCandidates) || [];
             this.bindEvents();
 
             if (this.config.isUserLoggedIn) {
@@ -460,9 +463,9 @@
             });
 
             // -------------------------------------------------------------
-            // EVENTOS DE CONTROL DE EMPAQUE (Cajas 6/12 y Bolsas de envío)
+            // EVENTOS DE CONTROL DE EMPAQUE DINÁMICO (Con stock WooCommerce)
             // -------------------------------------------------------------
-            // Abrir vista de edición de cajas oficiales
+            // Abrir vista de edición de empaque
             $(document).on('click', '.caja-btn-modify-pkg', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
@@ -475,29 +478,50 @@
                 $(`#caja-pkg-edit-${orderId}`).slideDown(150);
             });
 
-            // Cancelar edición de cajas oficiales
-            $(document).on('click', '.btn-cancel-pkg-boxes', function(e) {
+            // Cancelar edición de empaque
+            $(document).on('click', '.btn-cancel-pkg-dyn', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
                 const order = self.cachedOrders.find(o => o.id == orderId);
                 if (order) {
-                    $(`#pkg-input-box-12-${orderId}`).val(order.boxes_12_qty || 0);
-                    $(`#pkg-input-box-6-${orderId}`).val(order.boxes_6_qty || 0);
+                    // Restaurar valores previos
+                    (self.packagingProducts || []).forEach(pkg => {
+                        const assigned = (order.dynamic_packaging || []).find(d => d.id == pkg.id);
+                        $(`#pkg-dyn-input-${pkg.id}-${orderId}`).val(assigned ? assigned.qty : 0);
+                    });
                 }
                 $(`#caja-pkg-edit-${orderId}`).slideUp(150, function() {
                     $(`#caja-pkg-summary-${orderId}`).show();
                 });
             });
 
-            // Stepper de cajas oficiales (+ / -)
-            $(document).on('click', '.btn-step-box', function(e) {
+            // Stepper de empaque dinámico (+ / - con validación de stock)
+            $(document).on('click', '.btn-step-dyn-pkg', function(e) {
                 e.preventDefault();
-                const type = $(this).data('type');
+                const pkgId = $(this).data('pkg-id');
                 const action = $(this).data('action');
                 const orderId = $(this).data('order-id');
-                const $input = $(`#pkg-input-box-${type}-${orderId}`);
+                const order = self.cachedOrders.find(o => o.id == orderId);
+                if (order && (order.control_pedido_verified === true || order.control_pedido_verified === 'yes')) {
+                    return;
+                }
+
+                const pkg = (self.packagingProducts || []).find(p => p.id == pkgId);
+                const $input = $(`#pkg-dyn-input-${pkgId}-${orderId}`);
                 let val = parseInt($input.val(), 10) || 0;
+
                 if (action === 'plus') {
+                    // Validar stock de WooCommerce
+                    if (pkg) {
+                        if (!pkg.in_stock || (pkg.stock !== null && pkg.stock <= 0)) {
+                            alert(`⚠️ "${pkg.name}" está sin stock en WooCommerce y no se puede seleccionar.`);
+                            return;
+                        }
+                        if (pkg.managing_stock && pkg.stock !== null && (val + 1) > pkg.stock) {
+                            alert(`⚠️ No puedes seleccionar más unidades que las existentes en WooCommerce (Stock disponible: ${pkg.stock}).`);
+                            return;
+                        }
+                    }
                     val++;
                 } else if (action === 'minus') {
                     val = Math.max(0, val - 1);
@@ -505,20 +529,23 @@
                 $input.val(val);
             });
 
-            // Guardar cambios en cajas oficiales
-            $(document).on('click', '.btn-save-pkg-boxes', function(e) {
+            // Guardar cambios en empaque dinámico
+            $(document).on('click', '.btn-save-pkg-dyn', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
-                const box12 = parseInt($(`#pkg-input-box-12-${orderId}`).val(), 10) || 0;
-                const box6 = parseInt($(`#pkg-input-box-6-${orderId}`).val(), 10) || 0;
-                const bagLarge = parseInt($(`#pkg-input-bag-large-${orderId}`).val(), 10) || 1;
-                const bagSmall = parseInt($(`#pkg-input-bag-small-${orderId}`).val(), 10) || 0;
-
                 const $btn = $(this);
+
+                const items = [];
+                $(`.pkg-dyn-field-${orderId}`).each(function() {
+                    const pid = $(this).data('pkg-id');
+                    const qty = parseInt($(this).val(), 10) || 0;
+                    items.push({ id: pid, qty: qty });
+                });
+
                 $btn.prop('disabled', true).text('Guardando...');
 
-                self.savePackaging(orderId, box6, box12, bagLarge, bagSmall, function(success) {
-                    $btn.prop('disabled', false).text('💾 Guardar cajas');
+                self.saveDynamicPackaging(orderId, items, function(success) {
+                    $btn.prop('disabled', false).text('💾 Guardar empaque');
                     if (success) {
                         $(`#caja-pkg-edit-${orderId}`).slideUp(150, function() {
                             $(`#caja-pkg-summary-${orderId}`).show();
@@ -527,31 +554,68 @@
                 });
             });
 
-            // Stepper de bolsas grandes y chicas (+ / - con persistencia)
-            $(document).on('click', '.btn-step-bag', function(e) {
+            // Toggle acordeón "+ Agregar nuevo empaque"
+            $(document).on('click', '.btn-toggle-add-pkg', function(e) {
                 e.preventDefault();
                 const orderId = $(this).data('order-id');
-                const order = self.cachedOrders.find(o => o.id == orderId);
-                if (order && (order.control_pedido_verified === true || order.control_pedido_verified === 'yes')) {
+                const $content = $(`#caja-pkg-add-content-${orderId}`);
+                const $arrow = $(this).find('.caja-thematic-toggle-arrow');
+                $(this).toggleClass('active');
+                $arrow.toggleClass('open');
+                $content.stop(true, true).slideToggle(160);
+            });
+
+            // Vincular producto existente de WooCommerce
+            $(document).on('click', '.btn-link-existing-pkg', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $sel = $(`#caja-sel-exist-${orderId}`);
+                const pid = parseInt($sel.val(), 10);
+                if (!pid) {
+                    alert('⚠️ Por favor selecciona un producto de WooCommerce para vincular.');
                     return;
                 }
-                const type = $(this).data('type');
-                const action = $(this).data('action');
-                const $input = $(`#pkg-input-bag-${type}-${orderId}`);
-                let val = parseInt($input.val(), 10) || 0;
-                if (action === 'plus') {
-                    val++;
-                } else if (action === 'minus') {
-                    val = Math.max(0, val - 1);
+                const $btn = $(this);
+                $btn.prop('disabled', true).text('Vinculando...');
+                self.addPackagingItem(pid, '', 0, function() {
+                    $btn.prop('disabled', false).text('+ Vincular');
+                });
+            });
+
+            // Crear nuevo empaque oficial en WooCommerce en el acto
+            $(document).on('click', '.btn-create-dyn-pkg', function(e) {
+                e.preventDefault();
+                const orderId = $(this).data('order-id');
+                const $nameInput = $(`#caja-new-pkg-name-${orderId}`);
+                const $stockInput = $(`#caja-new-pkg-stock-${orderId}`);
+                const name = $.trim($nameInput.val());
+                const stock = parseInt($stockInput.val(), 10) || 50;
+
+                if (!name) {
+                    alert('⚠️ Por favor escribe el nombre de la nueva caja o empaque.');
+                    $nameInput.focus();
+                    return;
                 }
-                $input.val(val);
 
-                const box12 = parseInt($(`#pkg-input-box-12-${orderId}`).val(), 10) || 0;
-                const box6 = parseInt($(`#pkg-input-box-6-${orderId}`).val(), 10) || 0;
-                const bagLarge = parseInt($(`#pkg-input-bag-large-${orderId}`).val(), 10) || 1;
-                const bagSmall = parseInt($(`#pkg-input-bag-small-${orderId}`).val(), 10) || 0;
+                const $btn = $(this);
+                $btn.prop('disabled', true).text('Creando...');
+                self.addPackagingItem(0, name, stock, function(success) {
+                    $btn.prop('disabled', false).text('+ Crear y agregar');
+                    if (success) {
+                        $nameInput.val('');
+                    }
+                });
+            });
 
-                self.savePackaging(orderId, box6, box12, bagLarge, bagSmall);
+            // Eliminar producto de empaque oficial
+            $(document).on('click', '.btn-del-dyn-pkg', function(e) {
+                e.preventDefault();
+                const pkgId = $(this).data('pkg-id');
+                const pkgName = $(this).data('pkg-name') || 'este empaque';
+
+                if (confirm(`¿Estás seguro de quitar "${pkgName}" del listado oficial de empaques?`)) {
+                    self.deletePackagingItem(pkgId);
+                }
             });
 
             // -------------------------------------------------------------
@@ -1859,6 +1923,22 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
+            const openPackagingEditIds = [];
+            $('.caja-pkg-edit-view:visible').each(function() {
+                const id = $(this).attr('id');
+                if (id && id.startsWith('caja-pkg-edit-')) {
+                    openPackagingEditIds.push(id.replace('caja-pkg-edit-', ''));
+                }
+            });
+
+            const openPackagingAddIds = [];
+            $('.caja-pkg-add-content:visible').each(function() {
+                const id = $(this).attr('id');
+                if (id && id.startsWith('caja-pkg-add-content-')) {
+                    openPackagingAddIds.push(id.replace('caja-pkg-add-content-', ''));
+                }
+            });
+
             const draftNotes = {};
             $('.caja-order-note-textarea').each(function() {
                 const id = $(this).data('order-id');
@@ -2659,68 +2739,91 @@ $('#caja-modal-new-product').fadeIn(200);
                                         ${!isVerified ? `<button type="button" class="caja-btn-modify-pkg" data-order-id="${order.id}">✏️ Modificar</button>` : ''}
                                     </div>
 
-                                    <!-- Vista resumen de cajas oficiales (solo lectura por defecto) -->
+                                    <!-- Vista resumen de empaques oficiales (solo lectura por defecto) -->
                                     <div class="caja-pkg-summary-view" id="caja-pkg-summary-${order.id}">
-                                        <div class="caja-pkg-item-row" style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;">Cajas oficiales:</span>
-                                            <span class="caja-pkg-val" id="caja-pkg-boxes-val-${order.id}" style="font-size:0.85rem; color:#f1f5f9;">
-                                                ${(order.boxes_12_qty > 0 || order.boxes_6_qty > 0)
-                                                    ? `x12: <strong>${order.boxes_12_qty || 0}</strong> &nbsp;|&nbsp; x6: <strong>${order.boxes_6_qty || 0}</strong>`
-                                                    : '<em style="color:#64748b;">0 cajas</em>'
+                                        <div class="caja-pkg-item-row" style="margin-top:4px;">
+                                            <div id="caja-pkg-summary-content-${order.id}" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:2px;">
+                                                ${(order.dynamic_packaging && order.dynamic_packaging.length > 0)
+                                                    ? order.dynamic_packaging.map(p => `<span class="caja-pkg-summary-tag">${self.escapeHtml(p.name)}: <strong>${p.qty}</strong></span>`).join('')
+                                                    : '<em style="color:#64748b; font-size:0.83rem;">Sin empaque seleccionado</em>'
                                                 }
-                                            </span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <!-- Vista edición de cajas oficiales (habilitada SOLO si se toca 'Modificar') -->
+                                    <!-- Vista edición de empaques dinámicos (habilitada SOLO si se toca 'Modificar') -->
                                     <div class="caja-pkg-edit-view" id="caja-pkg-edit-${order.id}" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1);">
-                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 12:</span>
-                                            <div class="caja-stepper">
-                                                <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="12" data-order-id="${order.id}">−</button>
-                                                <input type="number" min="0" step="1" id="pkg-input-box-12-${order.id}" value="${order.boxes_12_qty || 0}" class="caja-pkg-input" readonly />
-                                                <button type="button" class="caja-step-btn btn-step-box" data-action="plus" data-type="12" data-order-id="${order.id}">+</button>
-                                            </div>
+                                        <div class="caja-pkg-dynamic-list" id="caja-pkg-list-${order.id}">
+                                            ${(self.packagingProducts && self.packagingProducts.length > 0) ? self.packagingProducts.map(pkg => {
+                                                const assigned = (order.dynamic_packaging || []).find(d => d.id == pkg.id);
+                                                const currQty = assigned ? assigned.qty : 0;
+                                                const isOutOfStock = (!pkg.in_stock || (pkg.stock !== null && pkg.stock <= 0));
+                                                return `
+                                                    <div class="caja-pkg-dynamic-row" data-pkg-id="${pkg.id}">
+                                                        <div class="caja-pkg-info-col">
+                                                            <div style="display:flex; align-items:center; gap:6px;">
+                                                                <span class="caja-pkg-name" title="${self.escapeHtml(pkg.name)}">${self.escapeHtml(pkg.name)}</span>
+                                                                <button type="button" class="caja-btn-del-pkg btn-del-dyn-pkg" data-pkg-id="${pkg.id}" data-pkg-name="${self.escapeHtml(pkg.name)}" title="Quitar este empaque del catálogo">🗑️</button>
+                                                            </div>
+                                                            <div>
+                                                                ${!isOutOfStock
+                                                                    ? `<span class="caja-pkg-stock-badge in-stock">🟢 Stock: ${pkg.stock !== null ? pkg.stock : 'Disp.'}</span>`
+                                                                    : `<span class="caja-pkg-stock-badge out-of-stock">🔴 Sin stock (Agotado)</span>`
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        <div class="caja-pkg-stepper-wrap">
+                                                            <div class="caja-stepper">
+                                                                <button type="button" class="caja-step-btn btn-step-dyn-pkg" data-action="minus" data-pkg-id="${pkg.id}" data-order-id="${order.id}">−</button>
+                                                                <input type="number" min="0" step="1" id="pkg-dyn-input-${pkg.id}-${order.id}" data-pkg-id="${pkg.id}" value="${currQty}" class="caja-pkg-input pkg-dyn-field-${order.id}" readonly />
+                                                                <button type="button" class="caja-step-btn btn-step-dyn-pkg ${isOutOfStock ? 'is-disabled' : ''}" ${isOutOfStock ? 'disabled="disabled"' : ''} data-action="plus" data-pkg-id="${pkg.id}" data-order-id="${order.id}" title="${isOutOfStock ? 'Sin existencias en WooCommerce' : 'Añadir 1'}">+</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('') : `
+                                                <div style="font-size:0.8rem; color:#94a3b8; font-style:italic; padding:6px 0;">No hay empaques oficiales configurados. Agrega uno abajo.</div>
+                                            `}
                                         </div>
-                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#cbd5e1;">Cajas de 6:</span>
-                                            <div class="caja-stepper">
-                                                <button type="button" class="caja-step-btn btn-step-box" data-action="minus" data-type="6" data-order-id="${order.id}">−</button>
-                                                <input type="number" min="0" step="1" id="pkg-input-box-6-${order.id}" value="${order.boxes_6_qty || 0}" class="caja-pkg-input" readonly />
-                                                <button type="button" class="caja-step-btn btn-step-box" data-action="plus" data-type="6" data-order-id="${order.id}">+</button>
-                                            </div>
-                                        </div>
-                                        <div class="caja-pkg-edit-actions" style="display:flex; gap:6px; justify-content:flex-end;">
-                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary btn-cancel-pkg-boxes" data-order-id="${order.id}">Cancelar</button>
-                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-save-pkg-boxes" data-order-id="${order.id}">💾 Guardar cajas</button>
-                                        </div>
-                                    </div>
 
-                                    <!-- Bolsas grandes y chicas de envío -->
-                                    <div class="caja-pkg-bags-row" style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
-                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagLargeName || 'Bolsa grande')}">🛍️ Bolsas grandes:</span>
-                                            ${!isVerified ? `
-                                                <div class="caja-stepper">
-                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="large" data-order-id="${order.id}">−</button>
-                                                    <input type="number" min="0" step="1" id="pkg-input-bag-large-${order.id}" value="${order.bag_large !== undefined ? order.bag_large : 1}" class="caja-pkg-input" readonly />
-                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="large" data-order-id="${order.id}">+</button>
+                                        <!-- Sección Desplegable "+ Agregar nuevo empaque" -->
+                                        <div class="caja-pkg-add-section" style="margin-top:10px;">
+                                            <button type="button" class="caja-pkg-add-toggle btn-toggle-add-pkg" data-order-id="${order.id}">
+                                                <span>➕ Agregar nuevo empaque</span>
+                                                <span class="caja-thematic-toggle-arrow">▼</span>
+                                            </button>
+                                            <div class="caja-pkg-add-content" id="caja-pkg-add-content-${order.id}" style="display:none;">
+                                                <!-- Opción A: Vincular producto existente -->
+                                                ${(self.packagingCandidates && self.packagingCandidates.length > 0) ? `
+                                                    <div style="margin-bottom:10px;">
+                                                        <label class="caja-pkg-sublabel">Vincular producto existente de WooCommerce:</label>
+                                                        <div style="display:flex; gap:6px;">
+                                                            <select class="caja-select-existing-pkg" id="caja-sel-exist-${order.id}" style="flex:1; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 6px;">
+                                                                <option value="">-- Seleccionar producto --</option>
+                                                                ${self.packagingCandidates.map(c => `
+                                                                    <option value="${c.id}">${self.escapeHtml(c.name)} (Stock: ${c.stock})</option>
+                                                                `).join('')}
+                                                            </select>
+                                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-link-existing-pkg" data-order-id="${order.id}">+ Vincular</button>
+                                                        </div>
+                                                    </div>
+                                                ` : ''}
+
+                                                <!-- Opción B: Crear nuevo producto en el acto -->
+                                                <div>
+                                                    <label class="caja-pkg-sublabel">+ Crear nuevo empaque oficial en WooCommerce:</label>
+                                                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                                        <input type="text" class="caja-input-new-pkg-name" id="caja-new-pkg-name-${order.id}" placeholder="Ej: Caja Reforzada Mediana" style="flex:2; min-width:140px; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 8px;" />
+                                                        <input type="number" min="0" class="caja-input-new-pkg-stock" id="caja-new-pkg-stock-${order.id}" placeholder="Stock" value="50" style="width:65px; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 6px;" title="Stock inicial" />
+                                                        <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-create-dyn-pkg" data-order-id="${order.id}">+ Crear y agregar</button>
+                                                    </div>
                                                 </div>
-                                            ` : `
-                                                <span class="caja-pkg-val" style="font-size:0.85rem; font-weight:700; color:#f1f5f9;">${order.bag_large !== undefined ? order.bag_large : 1}</span>
-                                            `}
+                                            </div>
                                         </div>
-                                        <div class="caja-pkg-stepper-row" style="display:flex; justify-content:space-between; align-items:center;">
-                                            <span class="caja-pkg-label" style="font-size:0.83rem; color:#94a3b8;" title="${self.escapeHtml(self.config.officialBagSmallName || 'Bolsa chica')}">🛍️ Bolsas chicas:</span>
-                                            ${!isVerified ? `
-                                                <div class="caja-stepper">
-                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="minus" data-type="small" data-order-id="${order.id}">−</button>
-                                                    <input type="number" min="0" step="1" id="pkg-input-bag-small-${order.id}" value="${order.bag_small || 0}" class="caja-pkg-input" readonly />
-                                                    <button type="button" class="caja-step-btn btn-step-bag" data-action="plus" data-type="small" data-order-id="${order.id}">+</button>
-                                                </div>
-                                            ` : `
-                                                <span class="caja-pkg-val" style="font-size:0.85rem; font-weight:700; color:#f1f5f9;">${order.bag_small || 0}</span>
-                                            `}
+
+                                        <div class="caja-pkg-edit-actions" style="display:flex; gap:6px; justify-content:flex-end; margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-secondary btn-cancel-pkg-dyn" data-order-id="${order.id}">Cancelar</button>
+                                            <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-save-pkg-dyn" data-order-id="${order.id}">💾 Guardar empaque</button>
                                         </div>
                                     </div>
 
@@ -2917,6 +3020,26 @@ $('#caja-modal-new-product').fadeIn(200);
                 if ($panel.length) {
                     $panel.show();
                     const $btn = $(`.caja-btn-thematic-toggle[data-order-id="${id}"]`);
+                    $btn.addClass('active');
+                    $btn.find('.caja-thematic-toggle-arrow').addClass('open');
+                }
+            });
+
+            // Restaurar paneles de empaque dinámico abiertos
+            openPackagingEditIds.forEach(id => {
+                const $edit = $(`#caja-pkg-edit-${id}`);
+                const $summary = $(`#caja-pkg-summary-${id}`);
+                if ($edit.length) {
+                    $edit.show();
+                    if ($summary.length) $summary.hide();
+                }
+            });
+
+            openPackagingAddIds.forEach(id => {
+                const $panel = $(`#caja-pkg-add-content-${id}`);
+                if ($panel.length) {
+                    $panel.show();
+                    const $btn = $(`.btn-toggle-add-pkg[data-order-id="${id}"]`);
                     $btn.addClass('active');
                     $btn.find('.caja-thematic-toggle-arrow').addClass('open');
                 }
@@ -3803,6 +3926,109 @@ $('#caja-modal-new-product').fadeIn(200);
                     $sel.val(selectedThemeToPreserve);
                 } else if (currentVal) {
                     $sel.val(currentVal);
+                }
+            });
+        },
+
+        saveDynamicPackaging: function(orderId, items, callback) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_update_packaging',
+                    security: self.config.nonce,
+                    order_id: orderId,
+                    items: items
+                },
+                success: function(res) {
+                    if (res && res.success) {
+                        const updated = res.data && res.data.order;
+                        if (updated) {
+                            const idx = self.cachedOrders.findIndex(o => o.id == orderId);
+                            if (idx !== -1) {
+                                self.cachedOrders[idx] = updated;
+                            }
+                            self.renderOrders();
+                        }
+                        self.showToast('📦 Control de empaque guardado correctamente.');
+                        if (typeof callback === 'function') callback(true, updated);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al guardar el empaque.');
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al guardar el empaque.');
+                    if (typeof callback === 'function') callback(false);
+                }
+            });
+        },
+
+        addPackagingItem: function(productId, newName, initialStock, callback) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_add_packaging_item',
+                    security: self.config.nonce,
+                    product_id: productId || 0,
+                    name: newName || '',
+                    initial_stock: initialStock || 0
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        if (res.data.packaging_products) {
+                            self.packagingProducts = res.data.packaging_products;
+                        }
+                        if (res.data.candidates) {
+                            self.packagingCandidates = res.data.candidates;
+                        }
+                        self.renderOrders();
+                        self.showToast('✨ Empaque agregado correctamente.');
+                        if (typeof callback === 'function') callback(true, res.data);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al agregar el empaque.');
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al agregar el empaque.');
+                    if (typeof callback === 'function') callback(false);
+                }
+            });
+        },
+
+        deletePackagingItem: function(productId, callback) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_delete_packaging_item',
+                    security: self.config.nonce,
+                    product_id: productId
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        if (res.data.packaging_products) {
+                            self.packagingProducts = res.data.packaging_products;
+                        }
+                        if (res.data.candidates) {
+                            self.packagingCandidates = res.data.candidates;
+                        }
+                        self.renderOrders();
+                        self.showToast('🗑️ Empaque quitado del listado oficial.');
+                        if (typeof callback === 'function') callback(true, res.data);
+                    } else {
+                        alert(res.data && res.data.message ? res.data.message : 'Error al eliminar el empaque.');
+                        if (typeof callback === 'function') callback(false);
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión al eliminar el empaque.');
+                    if (typeof callback === 'function') callback(false);
                 }
             });
         },

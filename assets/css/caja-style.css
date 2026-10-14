@@ -4766,3 +4766,124 @@ body.caja-modal-locked {
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
+
+/* ==========================================================================
+   Control de Empaque Dinámico con Stock de WooCommerce
+   ========================================================================== */
+.caja-pkg-dynamic-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    gap: 8px;
+}
+.caja-pkg-dynamic-row:last-child {
+    border-bottom: none;
+}
+.caja-pkg-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.caja-pkg-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.caja-pkg-stock-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.caja-pkg-stock-badge.in-stock {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.caja-pkg-stock-badge.out-of-stock {
+    background: rgba(239, 68, 68, 0.22);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.caja-pkg-stepper-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.btn-step-pkg[disabled],
+.btn-step-pkg.is-disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+.caja-btn-del-pkg {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.caja-btn-del-pkg:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ffffff;
+}
+.caja-pkg-add-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.15s ease;
+}
+.caja-pkg-add-toggle:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.caja-pkg-add-content {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 6px;
+}
+.caja-pkg-sublabel {
+    display: block;
+    font-size: 0.76rem;
+    color: #94a3b8;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+.caja-pkg-summary-tag {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-right: 4px;
+    margin-bottom: 4px;
+}

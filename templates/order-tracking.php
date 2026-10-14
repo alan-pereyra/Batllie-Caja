@@ -208,10 +208,11 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         ?>
         <div class="batllie-tracking-step <?php echo esc_attr($cls_1); ?>" data-step="1">
             <div class="batllie-step-icon-wrap">
-                <!-- Icono Gorro de Chef / Cocina -->
+                <!-- Icono Paquete / Caja de Preparación -->
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
-                    <line x1="6" y1="17" x2="18" y2="17"/>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
                 </svg>
                 <div class="batllie-step-badge"><?php echo $badge_1; ?></div>
             </div>

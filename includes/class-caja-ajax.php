@@ -36,6 +36,9 @@ class Batllie_Caja_Ajax {
         // Control de empaque y verificación de pedido previo a envío
         add_action('wp_ajax_emp_caja_update_packaging', array(__CLASS__, 'ajax_update_packaging'));
         add_action('wp_ajax_emp_caja_verify_control_pedido', array(__CLASS__, 'ajax_verify_control_pedido'));
+        add_action('wp_ajax_emp_caja_get_packaging_items', array(__CLASS__, 'ajax_get_packaging_items'));
+        add_action('wp_ajax_emp_caja_add_packaging_item', array(__CLASS__, 'ajax_add_packaging_item'));
+        add_action('wp_ajax_emp_caja_delete_packaging_item', array(__CLASS__, 'ajax_delete_packaging_item'));
         // Temáticas de paquetería especial
         add_action('wp_ajax_emp_caja_get_packing_themes', array(__CLASS__, 'ajax_get_packing_themes'));
         add_action('wp_ajax_emp_caja_add_packing_theme', array(__CLASS__, 'ajax_add_packing_theme'));
@@ -375,6 +378,75 @@ class Batllie_Caja_Ajax {
         self::check_auth();
         if (class_exists('Batllie_Caja_Orders')) {
             Batllie_Caja_Orders::ajax_verify_control_pedido();
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Obtener productos oficiales de empaque y candidatos disponibles
+     */
+    public static function ajax_get_packaging_items() {
+        self::check_auth();
+        if (class_exists('Batllie_Caja_Orders')) {
+            $items = Batllie_Caja_Orders::get_official_packaging_items();
+            $candidates = Batllie_Caja_Orders::get_available_packaging_candidates();
+            wp_send_json_success(array(
+                'packaging_products' => $items,
+                'candidates'         => $candidates,
+            ));
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Agregar nuevo empaque oficial (vincular o crear nuevo en WooCommerce)
+     */
+    public static function ajax_add_packaging_item() {
+        self::check_auth();
+        $product_id    = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
+        $new_name      = !empty($_POST['name']) ? sanitize_text_field(wp_unslash($_POST['name'])) : (!empty($_POST['new_name']) ? sanitize_text_field(wp_unslash($_POST['new_name'])) : '');
+        $initial_stock = isset($_POST['initial_stock']) ? intval($_POST['initial_stock']) : 50;
+
+        if (!$product_id && empty($new_name)) {
+            wp_send_json_error(array('message' => __('Debes seleccionar un producto existente o indicar un nombre.', 'emp-caja')));
+        }
+
+        if (class_exists('Batllie_Caja_Orders')) {
+            $updated = Batllie_Caja_Orders::add_official_packaging_item($product_id, $new_name, $initial_stock);
+            if ($updated === false) {
+                wp_send_json_error(array('message' => __('No se pudo agregar el producto de empaque.', 'emp-caja')));
+            }
+            $candidates = Batllie_Caja_Orders::get_available_packaging_candidates();
+            wp_send_json_success(array(
+                'packaging_products' => $updated,
+                'candidates'         => $candidates,
+                'message'            => __('Empaque agregado exitosamente.', 'emp-caja'),
+            ));
+        } else {
+            wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
+        }
+    }
+
+    /**
+     * AJAX: Eliminar producto de empaque oficial
+     */
+    public static function ajax_delete_packaging_item() {
+        self::check_auth();
+        $product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
+        if (!$product_id) {
+            wp_send_json_error(array('message' => __('ID de producto inválido.', 'emp-caja')));
+        }
+
+        if (class_exists('Batllie_Caja_Orders')) {
+            $updated = Batllie_Caja_Orders::delete_official_packaging_item($product_id);
+            $candidates = Batllie_Caja_Orders::get_available_packaging_candidates();
+            wp_send_json_success(array(
+                'packaging_products' => $updated,
+                'candidates'         => $candidates,
+                'message'            => __('Empaque desvinculado con éxito.', 'emp-caja'),
+            ));
         } else {
             wp_send_json_error(array('message' => 'Módulo de pedidos no disponible.'));
         }
