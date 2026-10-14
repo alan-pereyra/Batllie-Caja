@@ -2795,10 +2795,10 @@ $('#caja-modal-new-product').fadeIn(200);
                                             <div class="caja-pkg-add-content" id="caja-pkg-add-content-${order.id}" style="display:none;">
                                                 <!-- Opción A: Vincular producto existente -->
                                                 ${(self.packagingCandidates && self.packagingCandidates.length > 0) ? `
-                                                    <div style="margin-bottom:10px;">
+                                                    <div style="margin-bottom:12px;">
                                                         <label class="caja-pkg-sublabel">Vincular producto existente de WooCommerce:</label>
-                                                        <div style="display:flex; gap:6px;">
-                                                            <select class="caja-select-existing-pkg" id="caja-sel-exist-${order.id}" style="flex:1; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 6px;">
+                                                        <div class="caja-pkg-link-row">
+                                                            <select class="caja-select-existing-pkg" id="caja-sel-exist-${order.id}">
                                                                 <option value="">-- Seleccionar producto --</option>
                                                                 ${self.packagingCandidates.map(c => `
                                                                     <option value="${c.id}">${self.escapeHtml(c.name)} (Stock: ${c.stock})</option>
@@ -2812,11 +2812,11 @@ $('#caja-modal-new-product').fadeIn(200);
                                                 <!-- Opción B: Crear nuevo producto en el acto -->
                                                 <div>
                                                     <label class="caja-pkg-sublabel">+ Crear nuevo empaque oficial en WooCommerce:</label>
-                                                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                                        <input type="text" class="caja-input-new-pkg-name" id="caja-new-pkg-name-${order.id}" placeholder="Ej: Caja Reforzada Mediana" style="flex:2; min-width:140px; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 8px;" />
-                                                        <input type="number" min="0" class="caja-input-new-pkg-stock" id="caja-new-pkg-stock-${order.id}" placeholder="Stock" value="50" style="width:65px; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:5px; color:#f8fafc; font-size:0.8rem; padding:4px 6px;" title="Stock inicial" />
-                                                        <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-create-dyn-pkg" data-order-id="${order.id}">+ Crear y agregar</button>
+                                                    <div class="caja-pkg-create-inputs-row">
+                                                        <input type="text" class="caja-input-new-pkg-name" id="caja-new-pkg-name-${order.id}" placeholder="Ej: Caja Reforzada Mediana" />
+                                                        <input type="number" min="0" class="caja-input-new-pkg-stock" id="caja-new-pkg-stock-${order.id}" placeholder="Stock" value="50" title="Stock inicial" />
                                                     </div>
+                                                    <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-create-dyn-pkg" data-order-id="${order.id}">+ Crear y agregar</button>
                                                 </div>
                                             </div>
                                         </div>

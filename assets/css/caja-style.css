@@ -4887,3 +4887,73 @@ body.caja-modal-locked {
     margin-right: 4px;
     margin-bottom: 4px;
 }
+
+/* Formularios de Agregar Empaque */
+.caja-pkg-link-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+.caja-select-existing-pkg {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: 0 !important;
+    max-width: 100% !important;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    color: #f8fafc;
+    font-size: 0.8rem;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.btn-link-existing-pkg {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 6px 12px !important;
+}
+.caja-pkg-create-inputs-row {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+}
+.caja-input-new-pkg-name {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    color: #f8fafc;
+    font-size: 0.8rem;
+    padding: 6px 8px;
+    box-sizing: border-box;
+}
+.caja-input-new-pkg-stock {
+    width: 70px !important;
+    flex-shrink: 0 !important;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    color: #f8fafc;
+    font-size: 0.8rem;
+    padding: 6px;
+    text-align: center;
+    box-sizing: border-box;
+}
+.btn-create-dyn-pkg {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 8px 12px !important;
+    font-weight: 600 !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+}
