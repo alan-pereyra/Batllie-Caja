@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.8.70');
+define('EMP_CAJA_VERSION', '1.8.80');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -270,11 +270,14 @@ class Batllie_Caja_Plugin {
             }
         }
 
+        $css_ver = file_exists(EMP_CAJA_PATH . 'assets/css/caja-style.css') ? filemtime(EMP_CAJA_PATH . 'assets/css/caja-style.css') : EMP_CAJA_VERSION;
+        $js_ver  = file_exists(EMP_CAJA_PATH . 'assets/js/caja-app.js') ? filemtime(EMP_CAJA_PATH . 'assets/js/caja-app.js') : EMP_CAJA_VERSION;
+
         wp_register_style(
             'batllie-caja-css',
             EMP_CAJA_URL . 'assets/css/caja-style.css',
             array(),
-            EMP_CAJA_VERSION
+            $css_ver
         );
 
         wp_register_script(
@@ -289,7 +292,7 @@ class Batllie_Caja_Plugin {
             'batllie-caja-app',
             EMP_CAJA_URL . 'assets/js/caja-app.js',
             array('jquery', 'batllie-caja-audio'),
-            EMP_CAJA_VERSION,
+            $js_ver,
             true
         );
     }

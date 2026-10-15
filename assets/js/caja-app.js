@@ -474,6 +474,12 @@
                     alert('⚠️ Este pedido ya fue verificado y no se puede modificar su empaque.');
                     return;
                 }
+                if (order) {
+                    (self.packagingProducts || []).forEach(pkg => {
+                        const assigned = (order.dynamic_packaging || []).find(d => d.id == pkg.id);
+                        $(`#pkg-dyn-input-${pkg.id}-${orderId}`).val(assigned ? assigned.qty : 0);
+                    });
+                }
                 $(`#caja-pkg-summary-${orderId}`).hide();
                 $(`#caja-pkg-edit-${orderId}`).slideDown(150);
             });
@@ -573,11 +579,20 @@
                 }
 
                 const items = [];
+                let totalQty = 0;
                 $(`.pkg-dyn-field-${orderId}`).each(function() {
                     const pid = $(this).data('pkg-id');
                     const qty = parseInt($(this).val(), 10) || 0;
                     items.push({ id: pid, qty: qty });
+                    totalQty += qty;
                 });
+
+                if (totalQty === 0) {
+                    $(`#caja-pkg-edit-${orderId}`).show();
+                    $(`#caja-pkg-summary-${orderId}`).hide();
+                    alert('⚠️ Por favor indica la cantidad del empaque usando el botón (+) antes de guardar.');
+                    return;
+                }
 
                 $btn.prop('disabled', true).text('Guardando...');
 
@@ -4205,7 +4220,8 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             // 3. Empaques y bolsas de envío (Dinámico o legado)
-            const dynamicPkgs = (order.dynamic_packaging && Array.isArray(order.dynamic_packaging))
+            const hasDynamicPackaging = Array.isArray(order.dynamic_packaging);
+            const dynamicPkgs = hasDynamicPackaging
                 ? order.dynamic_packaging.filter(p => (parseInt(p.qty, 10) || 0) > 0)
                 : [];
 
@@ -4240,7 +4256,7 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
                     </div>
                 `;
-            } else {
+            } else if (!hasDynamicPackaging) {
                 const bagLargeQty = (order.bag_large !== undefined && order.bag_large !== null) ? parseInt(order.bag_large, 10) : 1;
                 const bagSmallQty = (order.bag_small !== undefined && order.bag_small !== null) ? parseInt(order.bag_small, 10) : 0;
                 const bagLargeName = (self.config && self.config.officialBagLargeName) || 'Bolsa grande de envío';
