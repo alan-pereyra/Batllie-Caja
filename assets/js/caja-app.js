@@ -6093,7 +6093,7 @@ $('#caja-modal-new-product').fadeIn(200);
             }
         },
 
-        clearPosCart: function() {
+        clearPosCart: function(silent) {
             this.posCart = [];
             $('.caja-pos-qty-val').text('0');
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
@@ -6107,7 +6107,10 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-dispatch-subgroup').hide();
             }
             this.updatePosTotals();
-            this.showToast('Selección vaciada.', 'info');
+            $('#caja-pos-checkout-btn').prop('disabled', true);
+            if (!silent) {
+                this.showToast('Selección vaciada.', 'info');
+            }
         },
 
         formatCurrencyNumber: function(num) {
@@ -6148,43 +6151,65 @@ $('#caja-modal-new-product').fadeIn(200);
                     note: note
                 },
                 success: function(res) {
-                    $btn.prop('disabled', false).html(originalHtml);
-                    if (res.success) {
-                        if (self.audio) self.audio.playNewOrderAlert();
-                        self.showToast(res.data.message || 'Venta registrada con éxito.', 'success');
+                    if (res && res.success) {
+                        // 1. Guardar copia de items para descuento de stock antes de vaciar
+                        const purchasedItems = [...self.posCart];
 
-                        // Si fue pedido por despachar, actualizar pedidos en vivo inmediatamente
-                        if (mode === 'pedido_despachar') {
-                            self.loadOrders(false);
-                        }
-
-                        // Descontar inventario localmente en caché
-                        if (self.cachedProducts) {
-                            self.posCart.forEach(cartItem => {
-                                const p = self.cachedProducts.find(x => x.id == cartItem.id);
-                                if (p && p.manage_stock && p.stock_quantity !== null) {
-                                    p.stock_quantity = Math.max(0, p.stock_quantity - cartItem.quantity);
-                                    p.stock_label = p.stock_quantity > 0 ? (p.stock_quantity + ' en stock') : 'Agotado';
-                                }
-                            });
-                            if (self.isProductsLoaded) {
-                                self.renderProducts(self.cachedProducts);
-                            }
-                        }
-
-                        // Limpiar formulario y selección
-                        self.clearPosCart();
-                        self.renderPosCategoriesAccordion();
+                        // 2. Limpiar inmediatamente el carrito, notas y campos para que no se duplique
+                        self.clearPosCart(true);
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
 
-                        // Actualizar historial de ventas de caja
-                        self.loadPosHistory();
+                        // 3. Mantener el botón deshabilitado con su texto original (previene doble clic)
+                        $btn.prop('disabled', true).html(originalHtml);
 
-                        // Mostrar aviso de confirmación claro
+                        // 4. Descontar inventario localmente en caché si aplica
+                        if (self.cachedProducts && purchasedItems.length > 0) {
+                            try {
+                                purchasedItems.forEach(cartItem => {
+                                    const p = self.cachedProducts.find(x => x.id == cartItem.id);
+                                    if (p && p.manage_stock && p.stock_quantity !== null) {
+                                        p.stock_quantity = Math.max(0, p.stock_quantity - cartItem.quantity);
+                                        p.stock_label = p.stock_quantity > 0 ? (p.stock_quantity + ' en stock') : 'Agotado';
+                                    }
+                                });
+                                if (self.isProductsLoaded && typeof self.renderProducts === 'function') {
+                                    self.renderProducts(self.cachedProducts);
+                                }
+                            } catch(e) {
+                                console.error('Error actualizando stock local', e);
+                            }
+                        }
+
+                        // 5. Re-renderizar el acordeón para resetear todos los steppers a 0
+                        if (typeof self.renderPosCategoriesAccordion === 'function') {
+                            self.renderPosCategoriesAccordion();
+                        }
+
+                        // 6. Si fue pedido por despachar, actualizar pedidos en vivo inmediatamente
+                        if (mode === 'pedido_despachar' && typeof self.loadOrders === 'function') {
+                            self.loadOrders(false);
+                        }
+
+                        // 7. Actualizar historial de ventas de caja
+                        if (typeof self.loadPosHistory === 'function') {
+                            self.loadPosHistory();
+                        }
+
+                        // 8. Sonido seguro
+                        if (self.audio && typeof self.audio.playNewOrderSound === 'function') {
+                            try {
+                                self.audio.playNewOrderSound();
+                            } catch(e) {}
+                        }
+
+                        self.showToast(res.data.message || 'Venta registrada con éxito.', 'success');
+
+                        // 9. Mostrar modal de confirmación
                         self.showPosSuccessDialog(res.data);
                     } else {
-                        self.showToast(res.data && res.data.message ? res.data.message : 'Error al registrar la venta.', 'error');
+                        $btn.prop('disabled', false).html(originalHtml);
+                        self.showToast(res && res.data && res.data.message ? res.data.message : 'Error al registrar la venta.', 'error');
                     }
                 },
                 error: function() {
@@ -6236,6 +6261,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
             $('#btn-close-pos-success, #caja-pos-success-modal .caja-modal-backdrop').on('click', function() {
                 $('#caja-pos-success-modal').fadeOut(150, function() { $(this).remove(); });
+                self.clearPosCart(true);
+                $('#caja-pos-note').val('');
+                $('#caja-pos-card-op').val('');
+                $('#caja-pos-checkout-btn').prop('disabled', true);
             });
         },
 
