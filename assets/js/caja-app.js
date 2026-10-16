@@ -3454,15 +3454,18 @@ $('#caja-modal-new-product').fadeIn(200);
                     if (res.success && res.data) {
                         self.cachedProducts = res.data.products || [];
                         self.isProductsLoaded = true;
-                        self.renderProducts(self.cachedProducts);
-                        self.populatePosCatalog();
-                        self.populatePosDropdown();
+                        if (typeof self.renderProducts === 'function') {
+                            self.renderProducts(self.cachedProducts);
+                        }
+                        if (typeof self.renderPosCategoriesAccordion === 'function') {
+                            self.renderPosCategoriesAccordion();
+                        }
                         if (typeof callback === 'function') {
                             callback(self.cachedProducts);
                         }
                     } else {
-                        $('#caja-pos-products-grid').html(`
-                            <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--caja-text-muted);">
+                        $('#caja-pos-categories-accordion').html(`
+                            <div style="text-align: center; padding: 30px; color: var(--caja-text-muted);">
                                 ${res.data && res.data.message ? res.data.message : 'No se encontraron productos.'}
                             </div>
                         `);
@@ -5579,14 +5582,12 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         /* ==========================================================================
-           MÓDULO VENTA CAJA (PUNTO DE VENTA POS)
+           MÓDULO VENTA CAJA (PUNTO DE VENTA POS UNIFICADO)
            ========================================================================== */
         posCart: [],
         posEventsBound: false,
         posHistoryLoaded: false,
-        posCatalogFilter: 'all',
         posSearchQuery: '',
-        posCurrentCategory: null, // null = Vista de Categorías, o { id, name, slug }
 
         initPosTab: function() {
             const self = this;
@@ -5596,8 +5597,8 @@ $('#caja-modal-new-product').fadeIn(200);
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
 
             if (needsProducts || needsCategories) {
-                $('#caja-pos-products-grid').html(`
-                    <div class="caja-pos-loading-catalog" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
+                $('#caja-pos-categories-accordion').html(`
+                    <div class="caja-pos-loading-catalog" style="text-align: center; padding: 40px 20px;">
                         <span class="caja-spinner">⏳</span>
                         <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">Cargando categorías y productos...</p>
                     </div>
@@ -5605,121 +5606,53 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 this.loadCategories(function() {
                     self.loadProducts(false, function() {
-                        self.populatePosCatalog();
-                        self.populatePosDropdown();
+                        self.renderPosCategoriesAccordion();
                     });
                 });
             } else {
-                this.populatePosCatalog();
-                this.populatePosDropdown();
+                this.renderPosCategoriesAccordion();
             }
         },
 
-        populatePosDropdown: function() {
+        renderPosCategoriesAccordion: function() {
             const self = this;
-            const $select = $('#caja-pos-product-select');
-            if (!$select.length) return;
+            const $container = $('#caja-pos-categories-accordion');
+            if (!$container.length) return;
 
-            let html = '<option value="">-- Seleccionar producto del catálogo --</option>';
-            if (this.cachedProducts && this.cachedProducts.length) {
-                const sorted = [...this.cachedProducts].sort((a, b) => a.name.localeCompare(b.name));
-                sorted.forEach(p => {
-                    const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? p.price_raw : (p.regular_price || 0);
-                    const priceFormatted = '$' + self.formatCurrencyNumber(rawPrice);
-                    const stockLabel = p.manage_stock 
-                        ? (p.stock_quantity !== null && p.stock_quantity > 0 ? `(Stock: ${p.stock_quantity})` : '(Sin Stock)') 
-                        : '(Ilimitado)';
-                    html += `<option value="${p.id}">${self.escapeHtml(p.name)} - ${priceFormatted} ${stockLabel}</option>`;
-                });
-            }
-            $select.html(html);
-        },
-
-        populatePosCatalog: function(filter, search) {
-            const self = this;
-            const $grid = $('#caja-pos-products-grid');
-            const $count = $('#caja-pos-catalog-count');
-            const $headerTitle = $('#caja-pos-catalog-header-title');
-            const $headerIcon = $('#caja-pos-catalog-header-icon');
-            const $backBtn = $('#caja-pos-back-categories-btn');
-            const $categoryNav = $('#caja-pos-category-nav-bar');
-            const $categoryName = $('#caja-pos-cat-current-name');
-
-            if (!$grid.length) return;
-
-            if (filter !== undefined) this.posCatalogFilter = filter;
-            if (search !== undefined) this.posSearchQuery = search;
-
-            const activeFilter = this.posCatalogFilter || 'all';
             const query = (this.posSearchQuery || '').trim().toLowerCase();
 
-            // MODO A: Búsqueda activa en el catálogo
+            // MODO BÚSQUEDA ACTIVA
             if (query.length > 0) {
-                $headerIcon.text('🔍');
-                $headerTitle.text(`Búsqueda: "${this.posSearchQuery}"`);
-                $backBtn.show();
-                $categoryNav.show();
-                $categoryName.text(`Búsqueda: "${this.posSearchQuery}"`);
-
                 let matches = (this.cachedProducts || []).filter(p => {
                     const nameMatch = p.name && p.name.toLowerCase().includes(query);
                     const skuMatch = p.sku && p.sku.toLowerCase().includes(query);
-                    if (!nameMatch && !skuMatch) return false;
-                    if (activeFilter === 'instock') {
-                        if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) return false;
-                    }
-                    return true;
+                    return nameMatch || skuMatch;
                 });
 
-                $count.text(`${matches.length} producto${matches.length === 1 ? '' : 's'}`);
-                this.renderPosProductsGrid(matches);
+                if (matches.length === 0) {
+                    $container.html(`
+                        <div style="text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
+                            <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">🔍</span>
+                            No se encontraron productos coincidentes con "<strong>${self.escapeHtml(this.posSearchQuery)}</strong>".
+                        </div>
+                    `);
+                    return;
+                }
+
+                let prodsHtml = '<div class="caja-pos-cat-body" style="padding: 12px 14px; background: transparent;">';
+                matches.forEach(p => {
+                    prodsHtml += self.buildPosProductRowHtml(p);
+                });
+                prodsHtml += '</div>';
+
+                $container.html(prodsHtml);
                 return;
             }
 
-            // MODO B: Dentro de una categoría seleccionada
-            if (this.posCurrentCategory) {
-                const cat = this.posCurrentCategory;
-                $headerIcon.text('📂');
-                $headerTitle.text(cat.name);
-                $backBtn.show();
-                $categoryNav.show();
-                $categoryName.text(cat.name);
-
-                let catProducts = (this.cachedProducts || []).filter(p => {
-                    const catIds = Array.isArray(p.category_ids) ? p.category_ids.map(Number) : [];
-                    const catSlugs = Array.isArray(p.category_slugs) ? p.category_slugs : [];
-                    const matchId = cat.id && catIds.includes(Number(cat.id));
-                    const matchSlug = cat.slug && catSlugs.includes(cat.slug);
-                    if (!matchId && !matchSlug) return false;
-
-                    if (activeFilter === 'instock') {
-                        if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) return false;
-                    }
-                    return true;
-                });
-
-                $count.text(`${catProducts.length} producto${catProducts.length === 1 ? '' : 's'}`);
-                this.renderPosProductsGrid(catProducts);
-                return;
-            }
-
-            // MODO C: Vista Principal de Categorías
-            $headerIcon.text('📁');
-            $headerTitle.text('Categorías');
-            $backBtn.hide();
-            $categoryNav.hide();
-
-            this.renderPosCategoriesGrid();
-        },
-
-        renderPosCategoriesGrid: function() {
-            const self = this;
-            const $grid = $('#caja-pos-products-grid');
-            const $count = $('#caja-pos-catalog-count');
-
+            // MODO ACORDEÓN DE CATEGORÍAS
             let categoriesMap = new Map();
 
-            // 1. Tomar categorías del backend
+            // 1. Agregar categorías desde backend
             if (this.cachedCategories && this.cachedCategories.length) {
                 this.cachedCategories.forEach(c => {
                     categoriesMap.set(Number(c.id), {
@@ -5727,17 +5660,16 @@ $('#caja-modal-new-product').fadeIn(200);
                         name: c.name,
                         slug: c.slug,
                         image_url: c.image_url || '',
-                        count: 0
+                        products: []
                     });
                 });
             }
 
-            // 2. Asociar productos a las categorías para contar y obtener portada
+            // 2. Distribuir productos en las categorías
             if (this.cachedProducts && this.cachedProducts.length) {
                 this.cachedProducts.forEach(p => {
                     const catIds = Array.isArray(p.category_ids) ? p.category_ids.map(Number) : [];
                     const catSlugs = Array.isArray(p.category_slugs) ? p.category_slugs : [];
-                    const pImg = p.image_url || p.image || '';
 
                     if (catIds.length > 0) {
                         catIds.forEach((cid, idx) => {
@@ -5749,14 +5681,10 @@ $('#caja-modal-new-product').fadeIn(200);
                                     name: name.trim(),
                                     slug: slug,
                                     image_url: '',
-                                    count: 0
+                                    products: []
                                 });
                             }
-                            const cObj = categoriesMap.get(cid);
-                            cObj.count++;
-                            if (!cObj.image_url && pImg) {
-                                cObj.image_url = pImg;
-                            }
+                            categoriesMap.get(cid).products.push(p);
                         });
                     } else {
                         const uncatId = 999999;
@@ -5765,30 +5693,24 @@ $('#caja-modal-new-product').fadeIn(200);
                                 id: uncatId,
                                 name: 'Sin categorizar',
                                 slug: 'sin-categorizar',
-                                image_url: pImg,
-                                count: 0
+                                image_url: '',
+                                products: []
                             });
                         }
-                        const uncatObj = categoriesMap.get(uncatId);
-                        uncatObj.count++;
-                        if (!uncatObj.image_url && pImg) {
-                            uncatObj.image_url = pImg;
-                        }
+                        categoriesMap.get(uncatId).products.push(p);
                     }
                 });
             }
 
             // Filtrar solo categorías que contengan productos
-            let catList = Array.from(categoriesMap.values()).filter(c => c.count > 0);
+            let catList = Array.from(categoriesMap.values()).filter(c => c.products.length > 0);
             catList.sort((a, b) => a.name.localeCompare(b.name));
 
-            $count.text(`${catList.length} categoría${catList.length === 1 ? '' : 's'}`);
-
             if (catList.length === 0) {
-                $grid.html(`
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
-                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">📁</span>
-                        No se encontraron categorías con productos disponibles.
+                $container.html(`
+                    <div style="text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
+                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">📦</span>
+                        No hay productos disponibles para mostrar.
                     </div>
                 `);
                 return;
@@ -5796,78 +5718,82 @@ $('#caja-modal-new-product').fadeIn(200);
 
             let html = '';
             catList.forEach(c => {
-                const thumb = c.image_url || '';
+                // Ordenar productos de la categoría por nombre
+                c.products.sort((a, b) => a.name.localeCompare(b.name));
+
+                // Calcular cuántas unidades seleccionadas hay en esta categoría
+                let catSelectedQty = 0;
+                c.products.forEach(prod => {
+                    const inCart = self.posCart.find(i => i.id == prod.id);
+                    if (inCart) catSelectedQty += inCart.quantity;
+                });
+
+                let prodsHtml = '';
+                c.products.forEach(p => {
+                    prodsHtml += self.buildPosProductRowHtml(p);
+                });
+
                 html += `
-                    <div class="caja-pos-category-card" data-cat-id="${c.id}" data-cat-name="${self.escapeHtml(c.name)}" data-cat-slug="${c.slug}">
-                        <div class="caja-pos-card-img-wrap">
-                            ${thumb ? `<img src="${thumb}" alt="${self.escapeHtml(c.name)}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'font-size:2rem; opacity:0.5;\\'>📁</span>';" />` : '<span style="font-size:2rem; opacity:0.5;">📁</span>'}
+                    <div class="caja-pos-cat-item" data-cat-id="${c.id}">
+                        <div class="caja-pos-cat-header">
+                            <div class="caja-pos-cat-header-left">
+                                <span class="caja-pos-cat-icon">📁</span>
+                                <span class="caja-pos-cat-title">${self.escapeHtml(c.name)}</span>
+                                <span class="caja-pos-cat-count">(${c.products.length} ${c.products.length === 1 ? 'producto' : 'productos'})</span>
+                            </div>
+                            <div class="caja-pos-cat-header-right">
+                                <span class="caja-pos-cat-badge-qty" id="caja-pos-cat-badge-${c.id}" style="${catSelectedQty > 0 ? '' : 'display:none;'}">${catSelectedQty}</span>
+                                <span class="caja-pos-cat-chevron">▼</span>
+                            </div>
                         </div>
-                        <div class="caja-pos-card-info">
-                            <h4 class="caja-pos-card-title">${self.escapeHtml(c.name)}</h4>
-                        </div>
-                        <div class="caja-pos-card-footer">
-                            <span class="caja-pos-card-cat-count">${c.count} producto${c.count === 1 ? '' : 's'}</span>
-                            <span class="caja-pos-cat-arrow">➔</span>
+                        <div class="caja-pos-cat-body" style="display:none;">
+                            ${prodsHtml}
                         </div>
                     </div>
                 `;
             });
 
-            $grid.html(html);
+            $container.html(html);
         },
 
-        renderPosProductsGrid: function(products) {
+        buildPosProductRowHtml: function(p) {
             const self = this;
-            const $grid = $('#caja-pos-products-grid');
+            const inCart = this.posCart.find(i => i.id == p.id);
+            const qty = inCart ? inCart.quantity : 0;
+            const isOutOfStock = p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0);
 
-            if (!products || products.length === 0) {
-                $grid.html(`
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
-                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">📦</span>
-                        No se encontraron productos en esta sección.<br>
-                        <button type="button" class="caja-btn caja-btn-tool caja-pos-back-action-btn" style="margin-top:14px; display:inline-flex; align-items:center; gap:6px;">
-                            ⬅️ Volver a categorías
-                        </button>
-                    </div>
-                `);
-                return;
+            const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? parseFloat(p.price_raw) : parseFloat(p.regular_price || 0);
+            const price = '$' + self.formatCurrencyNumber(rawPrice);
+            const imgSrc = p.image_url || p.image || '';
+
+            let stockBadge = '';
+            if (!p.manage_stock) {
+                stockBadge = '<span class="caja-pos-prod-stock has-stock">Stock ilimitado</span>';
+            } else if (p.stock_quantity !== null && p.stock_quantity > 0) {
+                stockBadge = `<span class="caja-pos-prod-stock has-stock">${p.stock_quantity} disp.</span>`;
+            } else {
+                stockBadge = '<span class="caja-pos-prod-stock no-stock">Agotado</span>';
             }
 
-            let html = '';
-            products.forEach(p => {
-                const isOutOfStock = p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0);
-                const cardClass = isOutOfStock ? 'caja-pos-product-card is-out-of-stock' : 'caja-pos-product-card';
-                
-                let stockBadge = '';
-                if (!p.manage_stock) {
-                    stockBadge = '<span class="caja-pos-card-stock-badge has-stock">Ilimitado</span>';
-                } else if (p.stock_quantity !== null && p.stock_quantity > 0) {
-                    stockBadge = `<span class="caja-pos-card-stock-badge has-stock">Stock: ${p.stock_quantity}</span>`;
-                } else {
-                    stockBadge = '<span class="caja-pos-card-stock-badge no-stock">Sin Stock</span>';
-                }
-
-                const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? p.price_raw : (p.regular_price || 0);
-                const price = '$' + self.formatCurrencyNumber(rawPrice);
-                const imgSrc = p.image_url || p.image || '';
-
-                html += `
-                    <div class="${cardClass}" data-id="${p.id}" title="${self.escapeHtml(p.name)}">
-                        <div class="caja-pos-card-img-wrap">
-                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'font-size:1.8rem; opacity:0.4;\\'>📦</span>';" />` : '<span style="font-size:1.8rem; opacity:0.4;">📦</span>'}
-                        </div>
-                        <div class="caja-pos-card-info">
-                            <h4 class="caja-pos-card-title">${self.escapeHtml(p.name)}</h4>
-                        </div>
-                        <div class="caja-pos-card-footer">
-                            <span class="caja-pos-card-price">${price}</span>
+            return `
+                <div class="caja-pos-prod-row ${qty > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''}" data-id="${p.id}">
+                    <div class="caja-pos-prod-thumb">
+                        ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" onerror="this.parentElement.innerHTML='📦';" />` : '📦'}
+                    </div>
+                    <div class="caja-pos-prod-details">
+                        <div class="caja-pos-prod-title" title="${self.escapeHtml(p.name)}">${self.escapeHtml(p.name)}</div>
+                        <div class="caja-pos-prod-sub">
+                            <strong class="caja-pos-prod-price">${price}</strong>
                             ${stockBadge}
                         </div>
                     </div>
-                `;
-            });
-
-            $grid.html(html);
+                    <div class="caja-pos-prod-stepper">
+                        <button type="button" class="caja-pos-btn-qty btn-minus" data-id="${p.id}" title="Restar" ${qty === 0 ? 'disabled' : ''}>−</button>
+                        <span class="caja-pos-qty-val" data-id="${p.id}">${qty}</span>
+                        <button type="button" class="caja-pos-btn-qty btn-plus" data-id="${p.id}" title="Sumar" ${isOutOfStock ? 'disabled' : ''}>+</button>
+                    </div>
+                </div>
+            `;
         },
 
         bindPosEvents: function() {
@@ -5875,188 +5801,63 @@ $('#caja-modal-new-product').fadeIn(200);
             this.posEventsBound = true;
             const self = this;
 
-            // Búsqueda en catálogo
+            // Búsqueda rápida
             $('#caja-pos-search-input').on('input', function() {
                 const val = $(this).val();
+                self.posSearchQuery = val;
                 if (val.length > 0) {
                     $('#caja-pos-search-clear').show();
                 } else {
                     $('#caja-pos-search-clear').hide();
                 }
-                self.populatePosCatalog(undefined, val);
+                self.renderPosCategoriesAccordion();
             });
 
             // Limpiar búsqueda
             $('#caja-pos-search-clear').on('click', function() {
                 $('#caja-pos-search-input').val('');
+                self.posSearchQuery = '';
                 $(this).hide();
-                self.populatePosCatalog(undefined, '');
+                self.renderPosCategoriesAccordion();
             });
 
-            // Filtros de catálogo (Todos / Con stock)
-            $('.caja-pos-filter-pill').on('click', function() {
-                $('.caja-pos-filter-pill').removeClass('active');
-                $(this).addClass('active');
-                const filter = $(this).data('filter');
-                self.populatePosCatalog(filter, undefined);
-            });
+            // Toggle de acordeón de categorías
+            $(document).on('click', '.caja-pos-cat-header', function(e) {
+                e.preventDefault();
+                const $item = $(this).closest('.caja-pos-cat-item');
+                const $body = $item.find('.caja-pos-cat-body');
 
-            // Buscador Rápido integrado en el Ticket
-            $('#caja-pos-cart-quicksearch').on('input', function() {
-                const q = $(this).val().trim().toLowerCase();
-                const $drop = $('#caja-pos-quicksearch-dropdown');
-                const $clear = $('#caja-pos-cart-quicksearch-clear');
-                if (q.length > 0) {
-                    $clear.show();
+                if ($item.hasClass('is-open')) {
+                    $item.removeClass('is-open');
+                    $body.slideUp(180);
                 } else {
-                    $clear.hide();
-                    $drop.hide().empty();
-                    return;
-                }
-
-                if (!self.cachedProducts || !self.cachedProducts.length) return;
-                const matches = self.cachedProducts.filter(p => {
-                    const nameMatch = p.name && p.name.toLowerCase().includes(q);
-                    const skuMatch = p.sku && p.sku.toLowerCase().includes(q);
-                    return nameMatch || skuMatch;
-                }).slice(0, 10);
-
-                if (matches.length === 0) {
-                    $drop.html('<div class="caja-pos-qs-item is-empty">No se encontraron productos</div>').show();
-                    return;
-                }
-
-                let dHtml = '';
-                matches.forEach(prod => {
-                    const isOutOfStock = prod.manage_stock && prod.stock_quantity !== null && prod.stock_quantity <= 0;
-                    const stockLabel = prod.manage_stock 
-                        ? (prod.stock_quantity > 0 ? `${prod.stock_quantity} disp.` : 'Agotado') 
-                        : 'Stock ilimitado';
-                    const rawPrice = (prod.price_raw !== undefined && prod.price_raw !== null) ? prod.price_raw : (prod.regular_price || 0);
-                    const img = prod.image_url || prod.image || '';
-
-                    dHtml += `
-                        <div class="caja-pos-qs-item ${isOutOfStock ? 'is-out-of-stock' : ''}" data-id="${prod.id}">
-                            ${img ? `<img src="${img}" class="caja-pos-qs-thumb" onerror="this.onerror=null; this.style.display='none';" />` : '<div class="caja-pos-qs-thumb">📦</div>'}
-                            <div class="caja-pos-qs-details">
-                                <div class="caja-pos-qs-title">${self.escapeHtml(prod.name)}</div>
-                                <div class="caja-pos-qs-sub">
-                                    <strong class="caja-pos-qs-price">$${self.formatCurrencyNumber(rawPrice)}</strong>
-                                    <span class="caja-pos-qs-stock ${isOutOfStock ? 'no-stock' : 'has-stock'}">${stockLabel}</span>
-                                </div>
-                            </div>
-                            <span class="caja-pos-qs-add-icon">+</span>
-                        </div>
-                    `;
-                });
-                $drop.html(dHtml).show();
-            });
-
-            $('#caja-pos-cart-quicksearch-clear').on('click', function() {
-                $('#caja-pos-cart-quicksearch').val('');
-                $(this).hide();
-                $('#caja-pos-quicksearch-dropdown').hide().empty();
-            });
-
-            $(document).on('click', function(e) {
-                if (!$(e.target).closest('.caja-pos-cart-quicksearch-wrap').length) {
-                    $('#caja-pos-quicksearch-dropdown').hide();
+                    $item.addClass('is-open');
+                    $body.slideDown(180);
                 }
             });
 
-            $(document).on('click', '.caja-pos-qs-item', function() {
-                if ($(this).hasClass('is-out-of-stock') || $(this).hasClass('is-empty')) return;
+            // Stepper: Sumar unidad (+)
+            $(document).on('click', '.caja-pos-btn-qty.btn-plus', function(e) {
+                e.stopPropagation();
                 const prodId = parseInt($(this).data('id'));
                 if (prodId) {
-                    self.addToPosCart(prodId, 1);
-                    $('#caja-pos-cart-quicksearch').val('');
-                    $('#caja-pos-cart-quicksearch-clear').hide();
-                    $('#caja-pos-quicksearch-dropdown').hide().empty();
+                    self.changePosCartQuantity(prodId, 1);
                 }
             });
 
-            // Toggle Catálogo de Productos (Mobile y Desktop)
-            $('#caja-pos-toggle-catalog-btn, #caja-pos-cart-expand-trigger').on('click', function() {
-                $('#caja-pos-catalog-panel').slideToggle(200);
-            });
-
-            // Clic en tarjeta de Categoría del catálogo
-            $(document).on('click', '.caja-pos-category-card', function(e) {
-                e.preventDefault();
-                const catId = $(this).data('cat-id');
-                const catName = $(this).data('cat-name');
-                const catSlug = $(this).data('cat-slug');
-                self.posCurrentCategory = { id: catId, name: catName, slug: catSlug };
-                $('#caja-pos-search-input').val('');
-                $('#caja-pos-search-clear').hide();
-                self.posSearchQuery = '';
-                self.populatePosCatalog();
-            });
-
-            // Clic en Volver a categorías
-            $(document).on('click', '#caja-pos-back-categories-btn, #caja-pos-btn-back-categories, .caja-pos-back-action-btn', function(e) {
-                e.preventDefault();
-                self.posCurrentCategory = null;
-                self.posSearchQuery = '';
-                $('#caja-pos-search-input').val('');
-                $('#caja-pos-search-clear').hide();
-                self.populatePosCatalog();
-            });
-
-            // Clic en tarjeta de producto del catálogo
-            $(document).on('click', '.caja-pos-product-card', function(e) {
-                if ($(this).hasClass('is-out-of-stock')) {
-                    self.showToast('Este producto no tiene stock disponible.', 'warning');
-                    return;
-                }
+            // Stepper: Restar unidad (-)
+            $(document).on('click', '.caja-pos-btn-qty.btn-minus', function(e) {
+                e.stopPropagation();
                 const prodId = parseInt($(this).data('id'));
                 if (prodId) {
-                    self.addToPosCart(prodId, 1);
+                    self.changePosCartQuantity(prodId, -1);
                 }
             });
 
-            // Controles de cantidad dentro del Ticket (Carrito)
-            $(document).on('click', '.caja-pos-cart-btn-qty.btn-minus', function(e) {
-                e.stopPropagation();
-                const prodId = parseInt($(this).data('id'));
-                const item = self.posCart.find(i => i.id === prodId);
-                if (item) {
-                    item.quantity -= 1;
-                    if (item.quantity <= 0) {
-                        self.posCart = self.posCart.filter(i => i.id !== prodId);
-                    }
-                    self.renderPosCart();
-                }
-            });
-
-            $(document).on('click', '.caja-pos-cart-btn-qty.btn-plus', function(e) {
-                e.stopPropagation();
-                const prodId = parseInt($(this).data('id'));
-                const item = self.posCart.find(i => i.id === prodId);
-                if (item) {
-                    if (item.manage_stock && item.stock !== null && item.quantity + 1 > item.stock) {
-                        self.showToast(`Stock máximo alcanzado (${item.stock} disponibles).`, 'warning');
-                        return;
-                    }
-                    item.quantity += 1;
-                    self.renderPosCart();
-                }
-            });
-
-            // Eliminar ítem del ticket
-            $(document).on('click', '.caja-pos-cart-remove-btn', function(e) {
-                e.stopPropagation();
-                const prodId = parseInt($(this).data('id'));
-                self.posCart = self.posCart.filter(i => i.id !== prodId);
-                self.renderPosCart();
-            });
-
-            // Vaciar ticket completo
+            // Vaciar selección completa
             $('#caja-pos-clear-cart').on('click', function() {
                 if (self.posCart.length === 0) return;
-                self.posCart = [];
-                self.renderPosCart();
-                self.showToast('Ticket vaciado.', 'info');
+                self.clearPosCart();
             });
 
             // Conmutador Modo de Orden estilo Switch iOS (Compra Realizada vs Pedido por Despachar)
@@ -6072,8 +5873,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 if (mode === 'compra_realizada') {
                     $btn.removeClass('is-dispatch');
                     $text.text('Confirmar y Cobrar');
-                    // Por defecto en compra realizada se asume pagado
-                    $('#btn-status-pagado').trigger('click');
                 } else {
                     $btn.addClass('is-dispatch');
                     $text.text('Enviar a Cola de Despacho');
@@ -6094,7 +5893,6 @@ $('#caja-modal-new-product').fadeIn(200);
                     $('#caja-pos-card-op-wrap').slideUp(150);
                 }
             });
-
 
             // Confirmar y Cobrar Venta
             $('#caja-pos-checkout-btn').on('click', function() {
@@ -6117,7 +5915,6 @@ $('#caja-modal-new-product').fadeIn(200);
                     $chevron.css('transform', 'rotate(180deg)');
                     $refreshBtn.show();
 
-                    // Cargar sólo si no fue cargado previamente
                     if (!self.posHistoryLoaded) {
                         self.loadPosHistory();
                     }
@@ -6129,14 +5926,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 e.stopPropagation();
                 self.loadPosHistory();
             });
-
-            // Reintentar carga de productos si falló
-            $(document).on('click', '#caja-pos-retry-btn', function() {
-                self.loadProducts(true);
-            });
         },
 
-        addToPosCart: function(prodId, quantity) {
+        changePosCartQuantity: function(prodId, delta) {
             const self = this;
             if (!this.cachedProducts) return;
 
@@ -6147,110 +5939,111 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             const existing = this.posCart.find(i => i.id == prodId);
-            const currentInCart = existing ? existing.quantity : 0;
-            const newTotalQty = currentInCart + quantity;
+            const currentQty = existing ? existing.quantity : 0;
+            const newQty = Math.max(0, currentQty + delta);
 
-            const rawPrice = (prod.price_raw !== undefined && prod.price_raw !== null) ? parseFloat(prod.price_raw) : parseFloat(prod.regular_price || 0);
-            const prodImg = prod.image_url || prod.image || '';
-
-            if (prod.manage_stock && prod.stock_quantity !== null) {
-                if (newTotalQty > prod.stock_quantity) {
-                    const availableToAdd = Math.max(0, prod.stock_quantity - currentInCart);
-                    if (availableToAdd > 0) {
-                        if (existing) {
-                            existing.quantity += availableToAdd;
-                        } else {
-                            this.posCart.push({
-                                id: prod.id,
-                                name: prod.name,
-                                price: rawPrice,
-                                image: prodImg,
-                                stock: prod.stock_quantity,
-                                manage_stock: prod.manage_stock,
-                                quantity: availableToAdd
-                            });
-                        }
-                        this.showToast(`Solo se pudieron agregar ${availableToAdd} unidades por límite de stock.`, 'warning');
-                    } else {
-                        this.showToast(`No podés agregar más unidades. Stock disponible: ${prod.stock_quantity}.`, 'warning');
-                        return;
-                    }
-                    this.renderPosCart();
+            // Validar stock si intenta sumar
+            if (delta > 0 && prod.manage_stock && prod.stock_quantity !== null) {
+                if (newQty > prod.stock_quantity) {
+                    this.showToast(`Stock máximo alcanzado (${prod.stock_quantity} disponibles).`, 'warning');
                     return;
                 }
             }
 
-            if (existing) {
-                existing.quantity += quantity;
+            const rawPrice = (prod.price_raw !== undefined && prod.price_raw !== null) ? parseFloat(prod.price_raw) : parseFloat(prod.regular_price || 0);
+            const prodImg = prod.image_url || prod.image || '';
+
+            if (newQty === 0) {
+                this.posCart = this.posCart.filter(i => i.id != prodId);
             } else {
-                this.posCart.push({
-                    id: prod.id,
-                    name: prod.name,
-                    price: rawPrice,
-                    image: prodImg,
-                    stock: prod.stock_quantity,
-                    manage_stock: prod.manage_stock,
-                    quantity: quantity
-                });
+                if (existing) {
+                    existing.quantity = newQty;
+                } else {
+                    this.posCart.push({
+                        id: prod.id,
+                        name: prod.name,
+                        price: rawPrice,
+                        image: prodImg,
+                        stock: prod.stock_quantity,
+                        manage_stock: prod.manage_stock,
+                        quantity: newQty
+                    });
+                }
             }
 
-            this.renderPosCart();
-            this.showToast(`"${prod.name}" añadido al ticket.`, 'info');
+            // Actualizar los elementos visuales del producto en el DOM
+            $(`.caja-pos-qty-val[data-id="${prodId}"]`).text(newQty);
+            const $minusBtn = $(`.caja-pos-btn-qty.btn-minus[data-id="${prodId}"]`);
+            const $row = $(`.caja-pos-prod-row[data-id="${prodId}"]`);
+
+            if (newQty === 0) {
+                $minusBtn.prop('disabled', true);
+                $row.removeClass('has-selected');
+            } else {
+                $minusBtn.prop('disabled', false);
+                $row.addClass('has-selected');
+            }
+
+            // Actualizar badge de la categoría contenedora
+            this.updateCategoryBadges();
+
+            // Actualizar Subtotal y Total en tiempo real
+            this.updatePosTotals();
         },
 
-        renderPosCart: function() {
+        updateCategoryBadges: function() {
             const self = this;
-            const $items = $('#caja-pos-cart-items');
-            const $btn = $('#caja-pos-checkout-btn');
-            const $badge = $('#caja-pos-cart-badge-count');
+            $('.caja-pos-cat-item').each(function() {
+                const $badge = $(this).find('.caja-pos-cat-badge-qty');
+                let catTotal = 0;
 
-            if (!this.posCart || this.posCart.length === 0) {
-                $items.html(`
-                    <div class="caja-pos-empty-cart-state" id="caja-pos-empty-cart">
-                        <span style="font-size:2rem; opacity:0.35;">🛒</span>
-                        <p style="margin:8px 0 0; color:var(--caja-text-muted, #94a3b8); font-size:0.88rem;">
-                            El ticket está vacío.<br>Buscá un producto arriba o tocá en <strong>"🔍 Catálogo"</strong> para agregarlo.
-                        </p>
-                    </div>
-                `);
-                $badge.hide().text('0');
-                $('#caja-pos-subtotal-val').text('$0,00');
-                $('#caja-pos-total-val').text('$0,00');
-                $btn.prop('disabled', true);
-                return;
-            }
+                $(this).find('.caja-pos-prod-row').each(function() {
+                    const pId = $(this).data('id');
+                    const inCart = self.posCart.find(i => i.id == pId);
+                    if (inCart) catTotal += inCart.quantity;
+                });
 
-            let html = '';
+                if (catTotal > 0) {
+                    $badge.text(catTotal).show();
+                } else {
+                    $badge.text('0').hide();
+                }
+            });
+        },
+
+        updatePosTotals: function() {
+            const self = this;
             let totalItems = 0;
             let totalPrice = 0;
 
             this.posCart.forEach(item => {
-                const lineTotal = item.price * item.quantity;
                 totalItems += item.quantity;
-                totalPrice += lineTotal;
-
-                html += `
-                    <div class="caja-pos-cart-row" data-id="${item.id}">
-                        <img src="${item.image || ''}" class="caja-pos-cart-thumb" onerror="this.style.display='none'" />
-                        <div class="caja-pos-cart-details">
-                            <div class="caja-pos-cart-title" title="${self.escapeHtml(item.name)}">${self.escapeHtml(item.name)}</div>
-                            <span class="caja-pos-cart-meta">${item.quantity} x $${self.formatCurrencyNumber(item.price)}</span>
-                        </div>
-                        <div class="caja-pos-cart-stepper">
-                            <button type="button" class="caja-pos-cart-btn-qty btn-minus" data-id="${item.id}" title="Restar">−</button>
-                            <span class="caja-pos-cart-qty-val">${item.quantity}</span>
-                            <button type="button" class="caja-pos-cart-btn-qty btn-plus" data-id="${item.id}" title="Sumar">+</button>
-                        </div>
-                        <button type="button" class="caja-pos-cart-remove-btn" data-id="${item.id}" title="Eliminar ítem">&times;</button>
-                    </div>
-                `;
+                totalPrice += (item.price * item.quantity);
             });
 
-            $items.html(html);
-            $badge.text(totalItems).show();
+            const $btn = $('#caja-pos-checkout-btn');
+            const $badge = $('#caja-pos-cart-badge-count');
+
             $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
             $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(totalPrice));
-            $btn.prop('disabled', false);
+
+            if (totalItems > 0) {
+                $badge.text(`${totalItems} seleccionado${totalItems === 1 ? '' : 's'}`).show();
+                $btn.prop('disabled', false);
+            } else {
+                $badge.text('0 seleccionados');
+                $btn.prop('disabled', true);
+            }
+        },
+
+        clearPosCart: function() {
+            this.posCart = [];
+            $('.caja-pos-qty-val').text('0');
+            $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
+            $('.caja-pos-prod-row').removeClass('has-selected');
+            $('.caja-pos-cat-badge-qty').text('0').hide();
+            this.updatePosTotals();
+            this.showToast('Selección vaciada.', 'info');
         },
 
         formatCurrencyNumber: function(num) {
@@ -6308,16 +6101,14 @@ $('#caja-modal-new-product').fadeIn(200);
                                     p.stock_label = p.stock_quantity > 0 ? (p.stock_quantity + ' en stock') : 'Agotado';
                                 }
                             });
-                            self.populatePosCatalog();
-                            self.populatePosDropdown();
                             if (self.isProductsLoaded) {
                                 self.renderProducts(self.cachedProducts);
                             }
                         }
 
-                        // Limpiar formulario y carrito
-                        self.posCart = [];
-                        self.renderPosCart();
+                        // Limpiar formulario y selección
+                        self.clearPosCart();
+                        self.renderPosCategoriesAccordion();
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
 
