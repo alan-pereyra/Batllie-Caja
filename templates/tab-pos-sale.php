@@ -12,7 +12,14 @@ if (!defined('ABSPATH')) {
     <div class="caja-pos-layout">
         <!-- Columna 1 (En desktop izquierda / en mobile colapsable): Catálogo de Productos y Búsqueda -->
         <div class="caja-pos-catalog-panel" id="caja-pos-catalog-panel">
-            <div class="caja-pos-catalog-card">
+            <div class="caja-pos-card caja-pos-catalog-card">
+                <div class="caja-pos-catalog-card-header">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:1.1rem;">📦</span>
+                        <strong style="color:var(--caja-text); font-size:0.98rem;"><?php _e('Catálogo de Productos', 'emp-caja'); ?></strong>
+                        <span class="caja-badge" id="caja-pos-catalog-count" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 productos</span>
+                    </div>
+                </div>
                 <div class="caja-pos-search-header">
                     <div class="caja-pos-search-box">
                         <span class="caja-pos-search-icon">🔍</span>
@@ -46,9 +53,6 @@ if (!defined('ABSPATH')) {
                         <span class="caja-badge" id="caja-pos-cart-badge-count" style="display:none; background:rgba(255,255,255,0.1); font-size:0.75rem;">0</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" class="caja-btn-tool caja-pos-toggle-catalog-btn" id="caja-pos-toggle-catalog-btn" title="<?php esc_attr_e('Abrir/Cerrar catálogo de productos', 'emp-caja'); ?>">
-                            <span>🔍 <?php _e('Catálogo', 'emp-caja'); ?></span>
-                        </button>
                         <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-clear-cart" title="<?php esc_attr_e('Vaciar ticket', 'emp-caja'); ?>">
                             <span>🗑️ <?php _e('Vaciar', 'emp-caja'); ?></span>
                         </button>
@@ -168,20 +172,28 @@ if (!defined('ABSPATH')) {
         </div>
     </div>
 
-    <!-- Historial de Ventas (Abajo) -->
-    <div class="caja-pos-history-card">
-        <div class="caja-pos-history-card-header">
+    <!-- Historial de Ventas (Abajo - Colapsado por defecto) -->
+    <div class="caja-pos-card caja-pos-history-card">
+        <div class="caja-pos-history-card-header" id="caja-pos-history-header-toggle" style="cursor: pointer; user-select: none;">
             <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:1.2rem;">📜</span>
-                <strong style="color:var(--caja-text); font-size:1.05rem;"><?php _e('Historial de Ventas de Caja', 'emp-caja'); ?></strong>
-                <span class="caja-badge" id="caja-pos-history-count" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 ventas</span>
+                <strong style="color:var(--caja-text); font-size:1rem;"><?php _e('Historial de Ventas de Caja', 'emp-caja'); ?></strong>
+                <span class="caja-badge" id="caja-pos-history-count" style="display:none; background:rgba(255,255,255,0.08); font-size:0.75rem;">0 ventas</span>
             </div>
-            <button type="button" class="caja-btn-tool" id="caja-pos-history-refresh-btn" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
-                <span>🔄 <?php _e('Actualizar', 'emp-caja'); ?></span>
-            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="caja-btn-tool" id="caja-pos-history-refresh-btn" style="display:none;" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
+                    <span>🔄 <?php _e('Actualizar', 'emp-caja'); ?></span>
+                </button>
+                <span class="caja-pos-history-toggle-text" style="font-size:0.8rem; color:var(--caja-text-muted);"><?php _e('Ver historial', 'emp-caja'); ?></span>
+                <span class="caja-pos-history-chevron" id="caja-pos-history-chevron" style="color:var(--caja-text-muted); font-size:0.85rem; transition:transform 0.2s ease;">▼</span>
+            </div>
         </div>
-        <div class="caja-pos-history-body" id="caja-pos-history-body">
-            <!-- Dinámico -->
+        <div class="caja-pos-history-body" id="caja-pos-history-body" style="display:none;">
+            <!-- Se carga únicamente al tocar el encabezado -->
+            <div style="text-align:center; padding:30px; color:var(--caja-text-muted);">
+                <span class="caja-spinner">⏳</span>
+                <p style="margin-top:8px;"><?php _e('Cargando historial de ventas...', 'emp-caja'); ?></p>
+            </div>
         </div>
     </div>
 </div>

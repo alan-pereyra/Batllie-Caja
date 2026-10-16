@@ -3436,26 +3436,53 @@ $('#caja-modal-new-product').fadeIn(200);
             });
         },
 
-        loadProducts: function() {
+        loadProducts: function(showLoading, callback) {
             const self = this;
-            $('#caja-products-loading').show();
+            if (showLoading !== false) {
+                $('#caja-products-loading').show();
+            }
 
             $.ajax({
                 url: self.config.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'emp_caja_get_products',
-                    security: self.config.nonce
+                    security: self.config.nonce,
+                    limit: 250
                 },
                 success: function(res) {
                     if (res.success && res.data) {
                         self.cachedProducts = res.data.products || [];
                         self.isProductsLoaded = true;
                         self.renderProducts(self.cachedProducts);
+                        self.populatePosCatalog();
+                        self.populatePosDropdown();
+                        if (typeof callback === 'function') {
+                            callback(self.cachedProducts);
+                        }
+                    } else {
+                        $('#caja-pos-products-grid').html(`
+                            <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--caja-text-muted);">
+                                ${res.data && res.data.message ? res.data.message : 'No se encontraron productos.'}
+                            </div>
+                        `);
+                        if (typeof callback === 'function') callback([]);
                     }
                 },
+                error: function(xhr, status, err) {
+                    console.error('Error al cargar productos:', err);
+                    $('#caja-pos-products-grid').html(`
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--caja-status-cancelled, #ef4444);">
+                            Error de conexión al cargar productos.<br>
+                            <button type="button" class="caja-btn caja-btn-tool" id="caja-pos-retry-btn" style="margin-top:10px;">🔄 Reintentar</button>
+                        </div>
+                    `);
+                    if (typeof callback === 'function') callback([]);
+                },
                 complete: function() {
-                    $('#caja-products-loading').hide();
+                    if (showLoading !== false) {
+                        $('#caja-products-loading').hide();
+                    }
                 }
             });
         },
@@ -5556,11 +5583,14 @@ $('#caja-modal-new-product').fadeIn(200);
            ========================================================================== */
         posCart: [],
         posEventsBound: false,
+        posHistoryLoaded: false,
         posCatalogFilter: 'all',
         posSearchQuery: '',
 
         initPosTab: function() {
             const self = this;
+            this.bindPosEvents();
+
             if (!this.cachedProducts || !this.cachedProducts.length) {
                 $('#caja-pos-products-grid').html(`
                     <div class="caja-pos-loading-catalog" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
@@ -5576,9 +5606,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.populatePosCatalog();
                 this.populatePosDropdown();
             }
-
-            this.loadPosHistory();
-            this.bindPosEvents();
         },
 
         populatePosDropdown: function() {
@@ -5897,9 +5924,38 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.handlePosCheckout();
             });
 
-            // Actualizar Historial de Ventas
-            $('#caja-pos-history-refresh-btn').on('click', function() {
+            // Historial de ventas: Solo carga si se toca para verlo
+            $(document).on('click', '#caja-pos-history-header-toggle', function(e) {
+                if ($(e.target).closest('#caja-pos-history-refresh-btn').length) return;
+
+                const $body = $('#caja-pos-history-body');
+                const $chevron = $('#caja-pos-history-chevron');
+                const $refreshBtn = $('#caja-pos-history-refresh-btn');
+
+                if ($body.is(':visible')) {
+                    $body.slideUp(180);
+                    $chevron.css('transform', 'rotate(0deg)');
+                } else {
+                    $body.slideDown(180);
+                    $chevron.css('transform', 'rotate(180deg)');
+                    $refreshBtn.show();
+
+                    // Cargar sólo si no fue cargado previamente
+                    if (!self.posHistoryLoaded) {
+                        self.loadPosHistory();
+                    }
+                }
+            });
+
+            // Actualizar Historial de Ventas manualmente con el botón
+            $(document).on('click', '#caja-pos-history-refresh-btn', function(e) {
+                e.stopPropagation();
                 self.loadPosHistory();
+            });
+
+            // Reintentar carga de productos si falló
+            $(document).on('click', '#caja-pos-retry-btn', function() {
+                self.loadProducts(true);
             });
         },
 
@@ -6169,8 +6225,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 },
                 success: function(res) {
                     if (res.success && res.data && res.data.history) {
+                        self.posHistoryLoaded = true;
                         const history = res.data.history;
-                        $count.text(`${history.length} venta${history.length === 1 ? '' : 's'}`);
+                        $count.text(`${history.length} venta${history.length === 1 ? '' : 's'}`).show();
 
                         if (history.length === 0) {
                             $body.html(`

@@ -209,8 +209,9 @@ class Batllie_Caja_Ajax {
         $search   = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         $category = isset($_POST['category']) ? sanitize_text_field($_POST['category']) : '';
         $page     = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $limit    = isset($_POST['limit']) ? min(300, max(1, intval($_POST['limit']))) : 150;
 
-        $products = Batllie_Caja_Products::get_products($search, $category, 50, $page);
+        $products = Batllie_Caja_Products::get_products($search, $category, $limit, $page);
 
         wp_send_json_success(array(
             'products' => $products,
