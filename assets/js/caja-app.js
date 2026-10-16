@@ -75,6 +75,8 @@
                 const hash = window.location.hash.toLowerCase();
                 if (hash === '#productos' || hash === '#tab-products' || urlParams.get('tab') === 'productos' || urlParams.get('tab') === 'products') {
                     this.switchTab('tab-products');
+                } else if (hash === '#venta-caja' || hash === '#pos' || hash === '#tab-pos-sale' || urlParams.get('tab') === 'pos' || urlParams.get('tab') === 'venta-caja') {
+                    this.switchTab('tab-pos-sale');
                 } else if (hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') {
                     this.switchTab('tab-settings');
                 }
@@ -1795,12 +1797,15 @@ $('#caja-modal-new-product').fadeIn(200);
             const $switcherWrap = $('#caja-screen-switcher-wrap');
             const $screenDot = $('#caja-screen-dot');
             if ($switcherWrap.length) {
-                $switcherWrap.removeClass('is-orders is-products is-settings');
-                $screenDot.removeClass('dot-blue dot-purple dot-green');
+                $switcherWrap.removeClass('is-orders is-products is-settings is-pos');
+                $screenDot.removeClass('dot-blue dot-purple dot-green dot-emerald');
 
                 if (tabId === 'tab-products') {
                     $switcherWrap.addClass('is-products');
                     $screenDot.addClass('dot-blue');
+                } else if (tabId === 'tab-pos-sale') {
+                    $switcherWrap.addClass('is-pos');
+                    $screenDot.addClass('dot-emerald');
                 } else if (tabId === 'tab-settings') {
                     $switcherWrap.addClass('is-settings');
                     $screenDot.addClass('dot-purple');
@@ -1813,7 +1818,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar el botón 'En Vivo' / 'Ir a Caja' si existe
             const $livePill = $('#caja-live-status');
             if ($livePill.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-pos-sale') {
                     $livePill.addClass('caja-live-pill-products');
                     $livePill.attr('title', 'Toca para ir a la Caja');
                     $livePill.html(`
@@ -1833,7 +1838,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
             const $toggleBtn = $('#caja-btn-screen-toggle');
             if ($toggleBtn.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-pos-sale') {
                     const count = this.cachedOrders ? this.cachedOrders.length : 0;
                     $toggleBtn.addClass('active-in-products');
                     $toggleBtn.html(`
@@ -1856,6 +1861,7 @@ $('#caja-modal-new-product').fadeIn(200);
             if (window.history && window.history.replaceState) {
                 let newHash = '#pedidos';
                 if (tabId === 'tab-products') newHash = '#productos';
+                else if (tabId === 'tab-pos-sale') newHash = '#venta-caja';
                 else if (tabId === 'tab-settings') newHash = '#configuracion';
                 window.history.replaceState(null, null, newHash);
             }
@@ -1863,6 +1869,8 @@ $('#caja-modal-new-product').fadeIn(200);
             if (tabId === 'tab-products' && !this.isProductsLoaded) {
                 this.loadProducts();
                 this.loadCategories();
+            } else if (tabId === 'tab-pos-sale') {
+                this.initPosTab();
             } else if (tabId === 'tab-settings') {
                 this.initSettingsTab();
             }
@@ -5541,6 +5549,664 @@ $('#caja-modal-new-product').fadeIn(200);
                     }
                 }
             }
+        },
+
+        /* ==========================================================================
+           MÓDULO VENTA CAJA (PUNTO DE VENTA POS)
+           ========================================================================== */
+        posCart: [],
+        posEventsBound: false,
+        posCatalogFilter: 'all',
+        posSearchQuery: '',
+
+        initPosTab: function() {
+            const self = this;
+            if (!this.cachedProducts || !this.cachedProducts.length) {
+                $('#caja-pos-products-grid').html(`
+                    <div class="caja-pos-loading-catalog" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
+                        <span class="caja-spinner">⏳</span>
+                        <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">${cajaTranslations.loading || 'Cargando catálogo de productos...'}</p>
+                    </div>
+                `);
+                this.loadProducts(false, function() {
+                    self.populatePosCatalog();
+                    self.populatePosDropdown();
+                });
+            } else {
+                this.populatePosCatalog();
+                this.populatePosDropdown();
+            }
+
+            this.loadPosHistory();
+            this.bindPosEvents();
+        },
+
+        populatePosDropdown: function() {
+            const self = this;
+            const $select = $('#caja-pos-product-select');
+            if (!$select.length) return;
+
+            let html = '<option value="">-- Seleccionar producto del catálogo --</option>';
+            if (this.cachedProducts && this.cachedProducts.length) {
+                const sorted = [...this.cachedProducts].sort((a, b) => a.name.localeCompare(b.name));
+                sorted.forEach(p => {
+                    const priceFormatted = '$' + self.formatCurrencyNumber(p.price || p.regular_price || 0);
+                    const stockLabel = p.manage_stock 
+                        ? (p.stock_quantity !== null && p.stock_quantity > 0 ? `(Stock: ${p.stock_quantity})` : '(Sin Stock)') 
+                        : '(Ilimitado)';
+                    html += `<option value="${p.id}">${self.escapeHtml(p.name)} - ${priceFormatted} ${stockLabel}</option>`;
+                });
+            }
+            $select.html(html);
+        },
+
+        populatePosCatalog: function(filter, search) {
+            const self = this;
+            const $grid = $('#caja-pos-products-grid');
+            const $count = $('#caja-pos-catalog-count');
+            if (!$grid.length) return;
+
+            if (filter !== undefined) this.posCatalogFilter = filter;
+            if (search !== undefined) this.posSearchQuery = search;
+
+            const activeFilter = this.posCatalogFilter || 'all';
+            const query = (this.posSearchQuery || '').trim().toLowerCase();
+
+            if (!this.cachedProducts || !this.cachedProducts.length) {
+                $grid.html(`
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #64748b;">
+                        No hay productos disponibles en la tienda.
+                    </div>
+                `);
+                $count.text('0 productos');
+                return;
+            }
+
+            let filtered = this.cachedProducts.filter(p => {
+                if (query) {
+                    const nameMatch = p.name && p.name.toLowerCase().includes(query);
+                    const skuMatch = p.sku && p.sku.toLowerCase().includes(query);
+                    if (!nameMatch && !skuMatch) return false;
+                }
+                if (activeFilter === 'instock') {
+                    if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            $count.text(`${filtered.length} producto${filtered.length === 1 ? '' : 's'}`);
+
+            if (filtered.length === 0) {
+                $grid.html(`
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #64748b;">
+                        No se encontraron productos que coincidan con la búsqueda.
+                    </div>
+                `);
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(p => {
+                const isOutOfStock = p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0);
+                const cardClass = isOutOfStock ? 'caja-pos-product-card is-out-of-stock' : 'caja-pos-product-card';
+                
+                let stockBadge = '';
+                if (!p.manage_stock) {
+                    stockBadge = '<span class="caja-pos-card-stock-badge has-stock">Ilimitado</span>';
+                } else if (p.stock_quantity !== null && p.stock_quantity > 0) {
+                    stockBadge = `<span class="caja-pos-card-stock-badge has-stock">Stock: ${p.stock_quantity}</span>`;
+                } else {
+                    stockBadge = '<span class="caja-pos-card-stock-badge no-stock">Sin Stock</span>';
+                }
+
+                const price = '$' + self.formatCurrencyNumber(p.price || p.regular_price || 0);
+                const imgSrc = p.image || '';
+
+                html += `
+                    <div class="${cardClass}" data-id="${p.id}" title="${self.escapeHtml(p.name)}">
+                        <div class="caja-pos-card-img-wrap">
+                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" loading="lazy" />` : '<span style="font-size:1.8rem; opacity:0.4;">📦</span>'}
+                        </div>
+                        <div class="caja-pos-card-info">
+                            <h4 class="caja-pos-card-title">${self.escapeHtml(p.name)}</h4>
+                        </div>
+                        <div class="caja-pos-card-footer">
+                            <span class="caja-pos-card-price">${price}</span>
+                            ${stockBadge}
+                        </div>
+                    </div>
+                `;
+            });
+
+            $grid.html(html);
+        },
+
+        bindPosEvents: function() {
+            if (this.posEventsBound) return;
+            this.posEventsBound = true;
+            const self = this;
+
+            // Búsqueda en catálogo
+            $('#caja-pos-search-input').on('input', function() {
+                const val = $(this).val();
+                if (val.length > 0) {
+                    $('#caja-pos-search-clear').show();
+                } else {
+                    $('#caja-pos-search-clear').hide();
+                }
+                self.populatePosCatalog(undefined, val);
+            });
+
+            // Limpiar búsqueda
+            $('#caja-pos-search-clear').on('click', function() {
+                $('#caja-pos-search-input').val('');
+                $(this).hide();
+                self.populatePosCatalog(undefined, '');
+            });
+
+            // Filtros de catálogo (Todos / Con stock)
+            $('.caja-pos-filter-pill').on('click', function() {
+                $('.caja-pos-filter-pill').removeClass('active');
+                $(this).addClass('active');
+                const filter = $(this).data('filter');
+                self.populatePosCatalog(filter, undefined);
+            });
+
+            // Stepper de agregado rápido
+            $('#caja-pos-quick-qty-minus').on('click', function() {
+                const $in = $('#caja-pos-quick-qty-input');
+                const val = Math.max(1, (parseInt($in.val()) || 1) - 1);
+                $in.val(val);
+            });
+
+            $('#caja-pos-quick-qty-plus').on('click', function() {
+                const $in = $('#caja-pos-quick-qty-input');
+                const val = (parseInt($in.val()) || 1) + 1;
+                $in.val(val);
+            });
+
+            // Botón Agregar Rápido desde dropdown
+            $('#caja-pos-quick-add-btn').on('click', function() {
+                const prodId = parseInt($('#caja-pos-product-select').val());
+                const qty = Math.max(1, parseInt($('#caja-pos-quick-qty-input').val()) || 1);
+                if (!prodId) {
+                    self.showToast('Por favor seleccioná un producto de la lista.', 'warning');
+                    $('#caja-pos-product-select').focus();
+                    return;
+                }
+                self.addToPosCart(prodId, qty);
+                $('#caja-pos-product-select').val('');
+                $('#caja-pos-quick-qty-input').val(1);
+            });
+
+            // Clic en tarjeta de producto del catálogo
+            $(document).on('click', '.caja-pos-product-card', function(e) {
+                if ($(this).hasClass('is-out-of-stock')) {
+                    self.showToast('Este producto no tiene stock disponible.', 'warning');
+                    return;
+                }
+                const prodId = parseInt($(this).data('id'));
+                if (prodId) {
+                    self.addToPosCart(prodId, 1);
+                }
+            });
+
+            // Controles de cantidad dentro del Ticket (Carrito)
+            $(document).on('click', '.caja-pos-cart-btn-qty.btn-minus', function() {
+                const prodId = parseInt($(this).data('id'));
+                const item = self.posCart.find(i => i.id === prodId);
+                if (item) {
+                    item.quantity -= 1;
+                    if (item.quantity <= 0) {
+                        self.posCart = self.posCart.filter(i => i.id !== prodId);
+                    }
+                    self.renderPosCart();
+                }
+            });
+
+            $(document).on('click', '.caja-pos-cart-btn-qty.btn-plus', function() {
+                const prodId = parseInt($(this).data('id'));
+                const item = self.posCart.find(i => i.id === prodId);
+                if (item) {
+                    if (item.manage_stock && item.stock !== null && item.quantity + 1 > item.stock) {
+                        self.showToast(`Stock máximo alcanzado (${item.stock} disponibles).`, 'warning');
+                        return;
+                    }
+                    item.quantity += 1;
+                    self.renderPosCart();
+                }
+            });
+
+            // Eliminar ítem del ticket
+            $(document).on('click', '.caja-pos-cart-remove-btn', function() {
+                const prodId = parseInt($(this).data('id'));
+                self.posCart = self.posCart.filter(i => i.id !== prodId);
+                self.renderPosCart();
+            });
+
+            // Vaciar ticket completo
+            $('#caja-pos-clear-cart').on('click', function() {
+                if (self.posCart.length === 0) return;
+                self.posCart = [];
+                self.renderPosCart();
+                self.showToast('Ticket vaciado.', 'info');
+            });
+
+            // Conmutador Modo de Orden (Compra Realizada vs Pedido por Despachar)
+            $('.caja-pos-mode-btn').on('click', function() {
+                $('.caja-pos-mode-btn').removeClass('active');
+                $(this).addClass('active');
+                const mode = $(this).data('mode');
+                $('#caja-pos-selected-mode').val(mode);
+
+                const $btn = $('#caja-pos-checkout-btn');
+                const $icon = $('#caja-pos-checkout-icon');
+                const $text = $('#caja-pos-checkout-text');
+
+                if (mode === 'compra_realizada') {
+                    $btn.removeClass('is-dispatch');
+                    $icon.text('✅');
+                    $text.text('Cobrar y Entregar Ahora');
+                } else {
+                    $btn.addClass('is-dispatch');
+                    $icon.text('📦');
+                    $text.text('Enviar a Cola de Despacho');
+                }
+            });
+
+            // Selector de Método de Pago
+            $('.caja-pos-pay-chip').on('click', function() {
+                $('.caja-pos-pay-chip').removeClass('active');
+                $(this).addClass('active');
+                const pay = $(this).data('pay');
+                $('#caja-pos-selected-pay').val(pay);
+
+                if (pay === 'tarjeta') {
+                    $('#caja-pos-card-op-wrap').slideDown(150);
+                    setTimeout(() => $('#caja-pos-card-op').focus(), 160);
+                } else {
+                    $('#caja-pos-card-op-wrap').slideUp(150);
+                }
+            });
+
+            // Conmutador de Estado de Cobro (Pagado vs Pendiente)
+            $('.caja-pos-status-btn').on('click', function() {
+                $('.caja-pos-status-btn').removeClass('active');
+                $(this).addClass('active');
+                const status = $(this).data('status');
+                $('#caja-pos-selected-status').val(status);
+
+                const $hint = $('#caja-pos-pay-status-hint');
+                if (status === 'pagado') {
+                    $hint.css({'background': 'rgba(16,185,129,0.15)', 'color': '#10b981'}).text('Cobrado');
+                } else {
+                    $hint.css({'background': 'rgba(245,158,11,0.15)', 'color': '#f59e0b'}).text('Pendiente de Pago');
+                }
+            });
+
+            // Confirmar y Cobrar Venta
+            $('#caja-pos-checkout-btn').on('click', function() {
+                self.handlePosCheckout();
+            });
+
+            // Actualizar Historial de Ventas
+            $('#caja-pos-history-refresh-btn').on('click', function() {
+                self.loadPosHistory();
+            });
+        },
+
+        addToPosCart: function(prodId, quantity) {
+            const self = this;
+            if (!this.cachedProducts) return;
+
+            const prod = this.cachedProducts.find(p => p.id == prodId);
+            if (!prod) {
+                this.showToast('Producto no encontrado.', 'error');
+                return;
+            }
+
+            const existing = this.posCart.find(i => i.id == prodId);
+            const currentInCart = existing ? existing.quantity : 0;
+            const newTotalQty = currentInCart + quantity;
+
+            if (prod.manage_stock && prod.stock_quantity !== null) {
+                if (newTotalQty > prod.stock_quantity) {
+                    const availableToAdd = Math.max(0, prod.stock_quantity - currentInCart);
+                    if (availableToAdd > 0) {
+                        if (existing) {
+                            existing.quantity += availableToAdd;
+                        } else {
+                            this.posCart.push({
+                                id: prod.id,
+                                name: prod.name,
+                                price: parseFloat(prod.price || prod.regular_price || 0),
+                                image: prod.image,
+                                stock: prod.stock_quantity,
+                                manage_stock: prod.manage_stock,
+                                quantity: availableToAdd
+                            });
+                        }
+                        this.showToast(`Solo se pudieron agregar ${availableToAdd} unidades por límite de stock.`, 'warning');
+                    } else {
+                        this.showToast(`No podés agregar más unidades. Stock disponible: ${prod.stock_quantity}.`, 'warning');
+                        return;
+                    }
+                    this.renderPosCart();
+                    return;
+                }
+            }
+
+            if (existing) {
+                existing.quantity += quantity;
+            } else {
+                this.posCart.push({
+                    id: prod.id,
+                    name: prod.name,
+                    price: parseFloat(prod.price || prod.regular_price || 0),
+                    image: prod.image,
+                    stock: prod.stock_quantity,
+                    manage_stock: prod.manage_stock,
+                    quantity: quantity
+                });
+            }
+
+            this.renderPosCart();
+            this.showToast(`"${prod.name}" añadido al ticket.`, 'info');
+        },
+
+        renderPosCart: function() {
+            const self = this;
+            const $items = $('#caja-pos-cart-items');
+            const $btn = $('#caja-pos-checkout-btn');
+
+            if (!this.posCart || this.posCart.length === 0) {
+                $items.html(`
+                    <div class="caja-pos-empty-cart">
+                        <span style="font-size:2rem; opacity:0.4;">🛒</span>
+                        <p style="margin:8px 0 0; color:var(--caja-text-muted, #94a3b8); font-size:0.88rem;">El ticket está vacío.<br>Hacé clic en un producto o buscalo para agregarlo.</p>
+                    </div>
+                `);
+                $('#caja-pos-total-items-count').text('0');
+                $('#caja-pos-subtotal-val').text('$0,00');
+                $('#caja-pos-total-val').text('$0,00');
+                $btn.prop('disabled', true);
+                return;
+            }
+
+            let html = '';
+            let totalItems = 0;
+            let totalPrice = 0;
+
+            this.posCart.forEach(item => {
+                const lineTotal = item.price * item.quantity;
+                totalItems += item.quantity;
+                totalPrice += lineTotal;
+
+                html += `
+                    <div class="caja-pos-cart-row" data-id="${item.id}">
+                        <img src="${item.image || ''}" class="caja-pos-cart-thumb" onerror="this.style.display='none'" />
+                        <div class="caja-pos-cart-details">
+                            <div class="caja-pos-cart-title" title="${self.escapeHtml(item.name)}">${self.escapeHtml(item.name)}</div>
+                            <div class="caja-pos-cart-unit-price">$${self.formatCurrencyNumber(item.price)} c/u</div>
+                        </div>
+                        <div class="caja-pos-cart-stepper">
+                            <button type="button" class="caja-pos-cart-btn-qty btn-minus" data-id="${item.id}" title="Restar">-</button>
+                            <span class="caja-pos-cart-qty-val">${item.quantity}</span>
+                            <button type="button" class="caja-pos-cart-btn-qty btn-plus" data-id="${item.id}" title="Sumar">+</button>
+                        </div>
+                        <div class="caja-pos-cart-line-total">$${self.formatCurrencyNumber(lineTotal)}</div>
+                        <button type="button" class="caja-pos-cart-remove-btn" data-id="${item.id}" title="Eliminar ítem">&times;</button>
+                    </div>
+                `;
+            });
+
+            $items.html(html);
+            $('#caja-pos-total-items-count').text(totalItems);
+            $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
+            $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(totalPrice));
+            $btn.prop('disabled', false);
+        },
+
+        formatCurrencyNumber: function(num) {
+            return (parseFloat(num) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
+        handlePosCheckout: function() {
+            const self = this;
+            if (!this.posCart || this.posCart.length === 0) {
+                this.showToast('El ticket de venta está vacío.', 'warning');
+                return;
+            }
+
+            const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+            const paymentMethod = $('#caja-pos-selected-pay').val() || 'efectivo';
+            const paymentStatus = $('#caja-pos-selected-status').val() || 'pagado';
+            const cardOp = $('#caja-pos-card-op').val() || '';
+            const note = $('#caja-pos-note').val() || '';
+
+            const $btn = $('#caja-pos-checkout-btn');
+            const originalHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Procesando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_create_pos_order',
+                    security: self.config.nonce,
+                    items: JSON.stringify(self.posCart),
+                    mode: mode,
+                    payment_method: paymentMethod,
+                    payment_status: paymentStatus,
+                    card_op_number: cardOp,
+                    note: note
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(originalHtml);
+                    if (res.success) {
+                        if (self.audio) self.audio.playNewOrderAlert();
+                        self.showToast(res.data.message || 'Venta registrada con éxito.', 'success');
+
+                        // Si fue pedido por despachar, actualizar pedidos en vivo inmediatamente
+                        if (mode === 'pedido_despachar') {
+                            self.loadOrders(false);
+                        }
+
+                        // Descontar inventario localmente en caché
+                        if (self.cachedProducts) {
+                            self.posCart.forEach(cartItem => {
+                                const p = self.cachedProducts.find(x => x.id == cartItem.id);
+                                if (p && p.manage_stock && p.stock_quantity !== null) {
+                                    p.stock_quantity = Math.max(0, p.stock_quantity - cartItem.quantity);
+                                    p.stock_label = p.stock_quantity > 0 ? (p.stock_quantity + ' en stock') : 'Agotado';
+                                }
+                            });
+                            self.populatePosCatalog();
+                            self.populatePosDropdown();
+                            if (self.isProductsLoaded) {
+                                self.renderProducts(self.cachedProducts);
+                            }
+                        }
+
+                        // Limpiar formulario y carrito
+                        self.posCart = [];
+                        self.renderPosCart();
+                        $('#caja-pos-note').val('');
+                        $('#caja-pos-card-op').val('');
+
+                        // Actualizar historial de ventas de caja
+                        self.loadPosHistory();
+
+                        // Mostrar aviso de confirmación claro
+                        self.showPosSuccessDialog(res.data);
+                    } else {
+                        self.showToast(res.data && res.data.message ? res.data.message : 'Error al registrar la venta.', 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(originalHtml);
+                    self.showToast('Error de conexión al registrar la venta.', 'error');
+                }
+            });
+        },
+
+        showPosSuccessDialog: function(data) {
+            const self = this;
+            const modeText = data.mode === 'compra_realizada' ? '🟢 Compra Realizada (Entregada)' : '📦 Pedido por Despachar';
+            const payText = data.payment_status === 'pagado' ? '🟢 Pagado' : '🟠 Falta Pagar (Pendiente)';
+            
+            const modalHtml = `
+                <div id="caja-pos-success-modal" class="caja-modal" style="display:flex; z-index:100060;">
+                    <div class="caja-modal-backdrop"></div>
+                    <div class="caja-modal-dialog" style="max-width:440px; text-align:center; padding:24px 20px;">
+                        <span style="font-size:3rem; display:block; margin-bottom:10px;">🎉</span>
+                        <h3 style="margin:0 0 8px; color:#ffffff; font-size:1.3rem;">¡Venta #${data.order_number || data.order_id} Registrada!</h3>
+                        <p style="color:#94a3b8; font-size:0.9rem; margin:0 0 16px;">${self.escapeHtml(data.message || '')}</p>
+                        
+                        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; margin-bottom:20px; font-size:0.88rem; text-align:left;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                <span style="color:#94a3b8;">Total:</span>
+                                <strong style="color:#10b981;">${data.total || ''}</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                <span style="color:#94a3b8;">Modo:</span>
+                                <span>${modeText}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="color:#94a3b8;">Estado de Cobro:</span>
+                                <span>${payText}</span>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px;">
+                            <button type="button" class="caja-btn caja-btn-primary" id="btn-close-pos-success" style="width:100%; padding:10px;">
+                                <span>Nueva Venta</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            $('#caja-pos-success-modal').remove();
+            $('body').append(modalHtml);
+
+            $('#btn-close-pos-success, #caja-pos-success-modal .caja-modal-backdrop').on('click', function() {
+                $('#caja-pos-success-modal').fadeOut(150, function() { $(this).remove(); });
+            });
+        },
+
+        loadPosHistory: function() {
+            const self = this;
+            const $body = $('#caja-pos-history-body');
+            const $count = $('#caja-pos-history-count');
+            if (!$body.length) return;
+
+            $body.html(`
+                <div style="text-align:center; padding:30px; color:#64748b;">
+                    <span class="caja-spinner">⏳</span>
+                    <p style="margin-top:8px;">Cargando historial de ventas...</p>
+                </div>
+            `);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_pos_history',
+                    security: self.config.nonce
+                },
+                success: function(res) {
+                    if (res.success && res.data && res.data.history) {
+                        const history = res.data.history;
+                        $count.text(`${history.length} venta${history.length === 1 ? '' : 's'}`);
+
+                        if (history.length === 0) {
+                            $body.html(`
+                                <div style="text-align:center; padding:30px; color:#64748b; font-size:0.9rem;">
+                                    No hay ventas registradas todavía desde esta terminal.
+                                </div>
+                            `);
+                            return;
+                        }
+
+                        let rows = '';
+                        history.forEach(sale => {
+                            const isCompleted = sale.mode === 'compra_realizada';
+                            const modeBadge = isCompleted 
+                                ? '<span class="caja-pos-badge-mode is-completed">🟢 Compra Realizada</span>'
+                                : '<span class="caja-pos-badge-mode is-dispatch">📦 Por Despachar</span>';
+
+                            const isPaid = sale.payment_status === 'pagado';
+                            const payStatusBadge = isPaid
+                                ? '<span class="caja-pos-badge-pay is-paid">🟢 Pagado</span>'
+                                : '<span class="caja-pos-badge-warning-unpaid">⚠️ Falta Pagar</span>';
+
+                            let payDetails = self.escapeHtml(sale.payment_method || 'Efectivo');
+                            if (sale.card_op) {
+                                payDetails += ` <small style="opacity:0.75;">(Op: #${self.escapeHtml(sale.card_op)})</small>`;
+                            }
+
+                            const noteHtml = sale.note ? `<div style="font-size:0.8rem; color:#94a3b8; font-style:italic;">💬 "${self.escapeHtml(sale.note)}"</div>` : '<span style="color:#64748b;">-</span>';
+
+                            rows += `
+                                <tr>
+                                    <td>
+                                        <strong style="color:#38bdf8; font-size:0.95rem;">#${self.escapeHtml(sale.number || sale.id)}</strong>
+                                        <div style="font-size:0.75rem; color:#64748b;">${self.escapeHtml(sale.status_name || sale.status)}</div>
+                                    </td>
+                                    <td>${sale.date || '-'}</td>
+                                    <td>${modeBadge}</td>
+                                    <td>
+                                        <div><strong>${payDetails}</strong></div>
+                                        <div style="margin-top:2px;">${payStatusBadge}</div>
+                                    </td>
+                                    <td><strong style="color:#10b981; font-size:0.95rem;">${sale.total || ''}</strong></td>
+                                    <td>${noteHtml}</td>
+                                    <td><small style="color:#94a3b8;">${self.escapeHtml(sale.cashier || 'Admin')}</small></td>
+                                </tr>
+                            `;
+                        });
+
+                        $body.html(`
+                            <div style="overflow-x:auto;">
+                                <table class="caja-pos-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Orden</th>
+                                            <th>Fecha y Hora</th>
+                                            <th>Modo</th>
+                                            <th>Pago y Cobro</th>
+                                            <th>Total</th>
+                                            <th>Nota</th>
+                                            <th>Cajero</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `);
+                    } else {
+                        $body.html(`
+                            <div style="text-align:center; padding:20px; color:#ef4444;">
+                                Error al cargar el historial de ventas.
+                            </div>
+                        `);
+                    }
+                },
+                error: function() {
+                    $body.html(`
+                        <div style="text-align:center; padding:20px; color:#ef4444;">
+                            Error de conexión al cargar historial.
+                        </div>
+                    `);
+                }
+            });
         }
     };
 

@@ -26,6 +26,7 @@ if (!defined('ABSPATH')) {
                 <select id="caja-screen-select" class="caja-screen-select" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
                     <option value="tab-orders">🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
                     <option value="tab-products">📦 <?php _e('Productos', 'emp-caja'); ?></option>
+                    <option value="tab-pos-sale">🛒 <?php _e('Venta Caja', 'emp-caja'); ?></option>
                     <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
                 </select>
                 <span class="caja-screen-select-arrow">
@@ -57,7 +58,17 @@ if (!defined('ABSPATH')) {
                 <span class="caja-tab-label-full"><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
                 <span class="caja-tab-label-short"><?php _e('Productos', 'emp-caja'); ?></span>
             </button>
-            <!-- Pestaña 3: Configuración General -->
+            <!-- Pestaña 3: Venta Caja -->
+            <button class="caja-tab-btn" data-tab="tab-pos-sale" id="caja-tab-nav-pos">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <span class="caja-tab-label-full"><?php _e('Venta Caja', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Venta', 'emp-caja'); ?></span>
+            </button>
+            <!-- Pestaña 4: Configuración General -->
             <button class="caja-tab-btn" data-tab="tab-settings" id="caja-tab-nav-settings">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"></circle>
@@ -146,7 +157,12 @@ if (!defined('ABSPATH')) {
         <section id="tab-products" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-products.php'; ?>
         </section>
-        <!-- Pestaña 3: Configuración -->
+        <!-- Pestaña 3: Venta Caja -->
+        <section id="tab-pos-sale" class="caja-tab-panel" style="display:none;">
+            <?php include EMP_CAJA_PATH . 'templates/tab-pos-sale.php'; ?>
+        </section>
+
+        <!-- Pestaña 4: Configuración -->
         <section id="tab-settings" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-settings.php'; ?>
         </section>
