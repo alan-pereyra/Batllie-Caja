@@ -5539,35 +5539,49 @@ body.caja-modal-locked {
 }
 
 .caja-pos-pay-chips-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
+    display: flex;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--caja-bg, #0f172a);
+    border: 1px solid var(--caja-card-border, #334155);
+    box-sizing: border-box;
+    margin: 2px 0 4px;
 }
 
 .caja-pos-pay-chip {
-    background: var(--caja-bg, #0f172a);
-    border: 1px solid var(--caja-card-border, #334155);
-    border-radius: 8px;
-    padding: 8px 4px;
+    flex: 1 1 0;
+    width: 33.333%;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--caja-card-border, #334155);
+    border-radius: 0;
+    padding: 10px 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     cursor: pointer;
-    color: var(--caja-text, #f8fafc);
-    font-size: 0.8rem;
+    color: var(--caja-text-muted, #94a3b8);
+    font-size: 0.84rem;
     font-weight: 600;
     transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.caja-pos-pay-chip:last-child {
+    border-right: none;
 }
 
 .caja-pos-pay-chip:hover {
-    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--caja-text, #f8fafc);
 }
 
 .caja-pos-pay-chip.active {
-    border-color: var(--caja-primary, #10b981);
-    background: rgba(16, 185, 129, 0.15);
-    color: #ffffff;
+    background: var(--caja-primary, #10b981);
+    color: #ffffff !important;
+    font-weight: 700;
 }
 
 .caja-pos-field-label {
@@ -5589,35 +5603,43 @@ body.caja-modal-locked {
     box-sizing: border-box;
 }
 
-.caja-pos-status-pill-toggle {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
+/* Desplegable de Estado de Cobro (100% ancho) */
+.caja-pos-status-dropdown-wrap {
+    width: 100%;
+    margin-top: 2px;
 }
 
-.caja-pos-status-btn {
+.caja-pos-status-select {
+    width: 100%;
+    height: 44px;
+    padding: 10px 14px;
     background: var(--caja-bg, #0f172a);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: 8px;
-    padding: 8px;
-    font-size: 0.78rem;
-    font-weight: 600;
     color: var(--caja-text, #f8fafc);
+    font-size: 0.88rem;
+    font-weight: 600;
     cursor: pointer;
-    text-align: center;
-    transition: all 0.15s ease;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
 }
 
-.caja-pos-status-btn.active#btn-status-pagado {
-    border-color: var(--caja-status-completed, #10b981);
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--caja-status-completed, #10b981);
+.caja-pos-status-select:focus,
+.caja-pos-status-select:hover {
+    border-color: var(--caja-primary, #10b981);
 }
 
-.caja-pos-status-btn.active#btn-status-pendiente {
-    border-color: var(--caja-status-pending, #f59e0b);
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--caja-status-pending, #f59e0b);
+.caja-pos-status-select option {
+    background: #1e293b;
+    color: #f8fafc;
+    padding: 10px 14px;
 }
 
 /* Nota de Venta (Exacto al Mockup) */

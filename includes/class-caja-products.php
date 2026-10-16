@@ -251,15 +251,30 @@ class Batllie_Caja_Products {
             }
         }
 
+        $calc_price = $product->get_price();
+        if (($calc_price === '' || $calc_price === null || floatval($calc_price) <= 0) && $product->is_type('variable')) {
+            $min_price = $product->get_variation_price('min', true);
+            if ($min_price !== '' && $min_price !== null && floatval($min_price) > 0) {
+                $calc_price = $min_price;
+            } else {
+                $min_reg = $product->get_variation_regular_price('min', true);
+                if ($min_reg !== '' && $min_reg !== null && floatval($min_reg) > 0) {
+                    $calc_price = $min_reg;
+                }
+            }
+        }
+        $price_float = floatval($calc_price);
+
         return array(
             'id'                       => $product->get_id(),
             'name'                     => $product->get_name(),
             'sku'                      => $product->get_sku() ? $product->get_sku() : __('S/N', 'emp-caja'),
-            'price'                    => wc_price($product->get_price()),
-            'price_raw'                => (float) $product->get_price(),
+            'price'                    => wc_price($price_float),
+            'price_raw'                => $price_float,
+            'price_numeric'            => $price_float,
             'regular_price'            => ($product->get_regular_price() !== '' && $product->get_regular_price() !== null) 
                                             ? $product->get_regular_price() 
-                                            : ($product->is_type('grouped') ? ($grouped_fixed_price ?: get_post_meta($product->get_id(), '_regular_price', true) ?: '') : ''),
+                                            : ($price_float > 0 ? (string)$price_float : ($product->is_type('grouped') ? ($grouped_fixed_price ?: get_post_meta($product->get_id(), '_regular_price', true) ?: '') : '')),
             'sale_price'               => $product->get_sale_price(),
             'is_on_sale'               => $product->is_on_sale(),
             'categories'               => implode(', ', $category_names),

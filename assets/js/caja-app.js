@@ -6095,13 +6095,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
-            // Conmutador de Estado de Cobro (Pagado vs Pendiente)
-            $('.caja-pos-status-btn').on('click', function() {
-                $('.caja-pos-status-btn').removeClass('active');
-                $(this).addClass('active');
-                const status = $(this).data('status');
-                $('#caja-pos-selected-status').val(status);
-            });
 
             // Confirmar y Cobrar Venta
             $('#caja-pos-checkout-btn').on('click', function() {
