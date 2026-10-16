@@ -1560,25 +1560,28 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-modal-edit-stock').fadeOut(150);
             });
 
-            // Selector de modo de stock: Sumar ingreso vs Fijar directo
+            // Selector de modo de stock: Sumar ingreso vs Restar mercadería vs Fijar directo
             $(document).on('click', '.caja-stock-mode-btn', function() {
                 const mode = $(this).data('mode');
                 $('.caja-stock-mode-btn').removeClass('active');
                 $(this).addClass('active');
                 $('#stock-modal-mode').val(mode);
 
+                $('#caja-panel-mode-add, #caja-panel-mode-subtract, #caja-panel-mode-set').hide();
+
                 if (mode === 'add') {
                     $('#caja-panel-mode-add').show();
-                    $('#caja-panel-mode-set').hide();
                     $('#stock-incoming-qty').focus();
+                } else if (mode === 'subtract') {
+                    $('#caja-panel-mode-subtract').show();
+                    $('#stock-subtract-qty').focus();
                 } else {
-                    $('#caja-panel-mode-add').hide();
                     $('#caja-panel-mode-set').show();
                     $('#stock-direct-qty').focus();
                 }
             });
 
-            // Cálculo reactivo en vivo al tipear unidades que ingresan
+            // Cálculo reactivo en vivo al tipear unidades que ingresan (Sumar)
             $('#stock-incoming-qty').on('input', function() {
                 const incoming = parseInt($(this).val()) || 0;
                 const current = parseInt($('#calc-current-num').text()) || 0;
@@ -1586,6 +1589,23 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 $('#calc-incoming-num').text(incoming > 0 ? `+${incoming}` : '+0');
                 $('#calc-result-num').text(total);
+            });
+
+            // Cálculo reactivo en vivo al tipear unidades que se restan (Restar)
+            $('#stock-subtract-qty').on('input', function() {
+                const sub = parseInt($(this).val()) || 0;
+                const current = parseInt($('#calc-sub-current-num').text()) || 0;
+                const total = Math.max(0, current - sub);
+
+                $('#calc-sub-incoming-num').text(sub > 0 ? `-${sub}` : '-0');
+                $('#calc-sub-result-num').text(total);
+            });
+
+            // Reactividad al cambiar el switch de activar control de stock
+            $('#stock-prod-manage-stock').on('change', function() {
+                if (!$(this).is(':checked')) {
+                    $('#stock-modal-current-badge').attr('class', 'caja-badge caja-badge-success').text('Ilimitado');
+                }
             });
 
             // Envío formulario de actualización de stock
@@ -5043,12 +5063,20 @@ $('#caja-modal-new-product').fadeIn(200);
                 .attr('title', p.bottleneck_item ? ('Limitado dinámicamente por: ' + p.bottleneck_item) : '')
                 .text(p.stock_label || '');
 
+            // Cálculo reactivo Sumar
             $('#calc-current-num').text(currentQty);
             $('#calc-incoming-num').text('+0');
             $('#calc-result-num').text(currentQty);
 
+            // Cálculo reactivo Restar
+            $('#calc-sub-current-num').text(currentQty);
+            $('#calc-sub-incoming-num').text('-0');
+            $('#calc-sub-result-num').text(currentQty);
+
             $('#stock-incoming-qty').val('');
+            $('#stock-subtract-qty').val('');
             $('#stock-direct-qty').val(currentQty);
+            $('#stock-modal-note').val('');
 
             $('#stock-prod-price').val(p.regular_price || '');
             $('#stock-prod-sale-price').val(p.sale_price || '');
@@ -5058,12 +5086,72 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-stock-mode-btn').removeClass('active');
             $('#btn-mode-add').addClass('active');
             $('#caja-panel-mode-add').show();
+            $('#caja-panel-mode-subtract').hide();
             $('#caja-panel-mode-set').hide();
+
+            // Renderizar Historial de Cambios de Stock
+            self.renderStockHistory(p.stock_history || []);
 
             $('#caja-modal-edit-stock').fadeIn(200);
             setTimeout(() => {
                 $('#stock-incoming-qty').focus();
             }, 100);
+        },
+
+        renderStockHistory: function(history) {
+            const self = this;
+            const $list = $('#stock-modal-history-list');
+            const $count = $('#stock-modal-history-count');
+            $list.empty();
+
+            if (!history || !Array.isArray(history) || history.length === 0) {
+                $count.text('0 registros');
+                $list.html(`
+                    <div style="text-align:center; padding:18px 12px; color:#64748b; font-size:0.83rem; background:rgba(255,255,255,0.02); border-radius:6px;">
+                        No hay registros de cambios de stock para este producto todavía.
+                    </div>
+                `);
+                return;
+            }
+
+            $count.text(`${history.length} registro${history.length === 1 ? '' : 's'}`);
+
+            history.forEach(entry => {
+                let badgeClass = 'is-add';
+                let badgeIcon = '➕';
+                let badgeText = `Ingreso: +${entry.quantity || entry.qty || 0}`;
+                if (entry.mode === 'subtract') {
+                    badgeClass = 'is-subtract';
+                    badgeIcon = '➖';
+                    badgeText = `Egreso: -${entry.quantity || entry.qty || 0}`;
+                } else if (entry.mode === 'set') {
+                    badgeClass = 'is-set';
+                    badgeIcon = '✏️';
+                    badgeText = `Recuento: ${entry.new_stock !== undefined ? entry.new_stock : (entry.quantity || 0)}`;
+                }
+
+                const dateStr = entry.date_formatted || (entry.timestamp ? new Date(entry.timestamp * 1000).toLocaleString('es-AR') : '');
+                const noteHtml = entry.note ? `<div class="caja-stock-history-note">💬 "${self.escapeHtml(entry.note)}"</div>` : '';
+                const userStr = entry.user ? `<span class="caja-stock-history-user">👤 ${self.escapeHtml(entry.user)}</span>` : '';
+
+                const itemHtml = `
+                    <div class="caja-stock-history-item">
+                        <div class="caja-stock-history-header">
+                            <span class="caja-stock-history-badge ${badgeClass}">
+                                <span>${badgeIcon}</span>
+                                <span>${badgeText}</span>
+                            </span>
+                            <span class="caja-stock-history-date">${dateStr}</span>
+                        </div>
+                        <div class="caja-stock-history-detail">
+                            <span>Stock: <strong>${entry.old_stock !== undefined ? entry.old_stock : '-'}</strong> ➔ <strong>${entry.new_stock !== undefined ? entry.new_stock : '-'}</strong></span>
+                        </div>
+                        ${noteHtml}
+                        ${userStr}
+                    </div>
+                `;
+                $list.append(itemHtml);
+            });
         },
 
         handleUpdateStock: function($form) {
@@ -5080,7 +5168,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const productId = parseInt($('#stock-modal-prod-id').val());
             const mode = $('#stock-modal-mode').val();
             const incomingQty = $('#stock-incoming-qty').val();
+            const subtractQty = $('#stock-subtract-qty').val();
             const directQty = $('#stock-direct-qty').val();
+            const note = $('#stock-modal-note').val();
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -5091,7 +5181,9 @@ $('#caja-modal-new-product').fadeIn(200);
                     product_id: productId,
                     mode: mode,
                     incoming_quantity: incomingQty,
+                    subtract_quantity: subtractQty,
                     direct_quantity: directQty,
+                    note: note,
                     regular_price: $('#stock-prod-price').val(),
                     sale_price: $('#stock-prod-sale-price').val(),
                     manage_stock: $('#stock-prod-manage-stock').is(':checked') ? 'yes' : 'no'

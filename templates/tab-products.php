@@ -267,21 +267,34 @@ if (!defined('ABSPATH')) {
                     </div>
                 </div>
 
-                <!-- Banner de Stock Actual -->
+                <!-- Banner de Stock Actual y Botón Activar Control de Stock -->
                 <div class="caja-stock-current-banner">
-                    <span class="caja-stock-current-label"><?php _e('Stock Actual en WooCommerce:', 'emp-caja'); ?></span>
-                    <div class="caja-stock-current-badge-wrap">
-                        <strong class="caja-stock-current-val" id="stock-modal-current-qty">0</strong>
-                        <span class="caja-badge" id="stock-modal-current-badge"></span>
+                    <div class="caja-stock-current-main-row">
+                        <div class="caja-stock-current-info">
+                            <span class="caja-stock-current-label"><?php _e('Stock Actual:', 'emp-caja'); ?></span>
+                            <div class="caja-stock-current-badge-wrap">
+                                <strong class="caja-stock-current-val" id="stock-modal-current-qty">0</strong>
+                                <span class="caja-badge" id="stock-modal-current-badge"></span>
+                            </div>
+                        </div>
+                        <label class="caja-stock-manage-toggle" title="<?php esc_attr_e('Activar o desactivar control de stock', 'emp-caja'); ?>">
+                            <input type="checkbox" id="stock-prod-manage-stock" value="yes" checked />
+                            <span class="caja-stock-manage-toggle-text"><?php _e('Activar control de stock', 'emp-caja'); ?></span>
+                        </label>
                     </div>
                 </div>
 
-                <!-- Selector de Modo de Carga / Renovación -->
+                <!-- Selector de Modo de Carga / Renovación (100% ancho cada botón) -->
                 <div class="caja-stock-mode-selector">
                     <button type="button" class="caja-stock-mode-btn active" data-mode="add" id="btn-mode-add">
                         <span class="caja-mode-icon">➕</span>
                         <span class="caja-mode-title"><?php _e('Sumar Ingreso de Mercadería', 'emp-caja'); ?></span>
                         <small><?php _e('Llegaron unidades nuevas', 'emp-caja'); ?></small>
+                    </button>
+                    <button type="button" class="caja-stock-mode-btn mode-subtract" data-mode="subtract" id="btn-mode-subtract">
+                        <span class="caja-mode-icon">➖</span>
+                        <span class="caja-mode-title"><?php _e('Restar Mercadería', 'emp-caja'); ?></span>
+                        <small><?php _e('Salida, merma o unidades retiradas', 'emp-caja'); ?></small>
                     </button>
                     <button type="button" class="caja-stock-mode-btn" data-mode="set" id="btn-mode-set">
                         <span class="caja-mode-icon">✏️</span>
@@ -321,7 +334,38 @@ if (!defined('ABSPATH')) {
                     </div>
                 </div>
 
-                <!-- Panel Modo 2: Fijar Total Directo -->
+                <!-- Panel Modo 2: Restar Mercadería -->
+                <div id="caja-panel-mode-subtract" class="caja-stock-panel" style="display:none;">
+                    <div class="caja-form-group">
+                        <label for="stock-subtract-qty">
+                            <strong><?php _e('¿Cuántas unidades deseas restar?', 'emp-caja'); ?></strong>
+                        </label>
+                        <div class="caja-stock-input-wrap caja-stock-input-subtract">
+                            <span class="caja-input-prefix">-</span>
+                            <input type="number" id="stock-subtract-qty" min="1" step="1" placeholder="Ej: 5" class="caja-stock-large-input" />
+                        </div>
+                        <small class="caja-form-hint"><?php _e('Ingresá las unidades a descontar. El sistema las restará del stock actual automáticamente.', 'emp-caja'); ?></small>
+                    </div>
+
+                    <!-- Vista previa en vivo del cálculo de resta -->
+                    <div class="caja-stock-calc-preview" id="caja-stock-calc-preview-sub">
+                        <div class="caja-calc-row">
+                            <span><?php _e('Stock actual:', 'emp-caja'); ?></span>
+                            <strong id="calc-sub-current-num">0</strong>
+                        </div>
+                        <div class="caja-calc-row caja-calc-incoming" style="color:#ef4444;">
+                            <span><?php _e('- Unidades que se restan:', 'emp-caja'); ?></span>
+                            <strong id="calc-sub-incoming-num" style="color:#ef4444;">-0</strong>
+                        </div>
+                        <div class="caja-calc-divider"></div>
+                        <div class="caja-calc-row caja-calc-total">
+                            <span><?php _e('Nuevo Stock Total Resultante:', 'emp-caja'); ?></span>
+                            <strong id="calc-sub-result-num">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Modo 3: Fijar Total Directo -->
                 <div id="caja-panel-mode-set" class="caja-stock-panel" style="display:none;">
                     <div class="caja-form-group">
                         <label for="stock-direct-qty">
@@ -332,7 +376,29 @@ if (!defined('ABSPATH')) {
                     </div>
                 </div>
 
-                <!-- Opciones avanzadas de producto (Precios y Gestión) -->
+                <!-- Nota o motivo del movimiento -->
+                <div class="caja-form-group caja-stock-note-group" style="margin-top: 14px;">
+                    <label for="stock-modal-note" style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span>📝</span>
+                        <strong><?php _e('Nota o motivo del cambio de stock (opcional):', 'emp-caja'); ?></strong>
+                    </label>
+                    <input type="text" id="stock-modal-note" name="stock_note" placeholder="<?php esc_attr_e('Ej: Llegó pedido de proveedor, merma, rotura, recuento...', 'emp-caja'); ?>" class="caja-input" style="width:100%; border-radius:8px; padding:10px 12px; background:var(--caja-bg, #0f172a); border:1px solid var(--caja-card-border); color:var(--caja-text); font-size:0.9rem;" />
+                </div>
+
+                <!-- Historial de Cambios de Stock -->
+                <div class="caja-stock-history-section" style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,0.12);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <strong style="font-size:0.92rem; color:var(--caja-text, #f8fafc); display:flex; align-items:center; gap:6px;">
+                            <span>📜</span> <?php _e('Historial de Cambios de Stock', 'emp-caja'); ?>
+                        </strong>
+                        <span id="stock-modal-history-count" class="caja-badge" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 registros</span>
+                    </div>
+                    <div id="stock-modal-history-list" class="caja-stock-history-list">
+                        <!-- Llenado dinámicamente con JS -->
+                    </div>
+                </div>
+
+                <!-- Opciones avanzadas de producto (Precios) -->
                 <details class="caja-stock-extra-details">
                     <summary><?php _e('⚙️ Editar Precios y Configuración (Opcional)', 'emp-caja'); ?></summary>
                     <div class="caja-extra-fields-wrap">
@@ -345,12 +411,6 @@ if (!defined('ABSPATH')) {
                                 <label for="stock-prod-sale-price"><?php _e('Precio Oferta ($)', 'emp-caja'); ?></label>
                                 <input type="number" step="0.01" min="0" id="stock-prod-sale-price" />
                             </div>
-                        </div>
-                        <div class="caja-form-group">
-                            <label class="caja-checkbox-label">
-                                <input type="checkbox" id="stock-prod-manage-stock" value="yes" checked />
-                                <span><?php _e('Activar control de inventario de WooCommerce para este producto', 'emp-caja'); ?></span>
-                            </label>
                         </div>
                     </div>
                 </details>

@@ -258,6 +258,26 @@ class Batllie_Caja_Ajax {
         $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
         $stock_data = isset($_POST['stock_data']) ? (array) $_POST['stock_data'] : array();
 
+        if (empty($stock_data)) {
+            $mode = isset($_POST['mode']) ? sanitize_key($_POST['mode']) : 'add';
+            $qty = 0;
+            if ($mode === 'add') {
+                $qty = isset($_POST['incoming_quantity']) ? intval($_POST['incoming_quantity']) : (isset($_POST['quantity']) ? intval($_POST['quantity']) : 0);
+            } elseif ($mode === 'subtract') {
+                $qty = isset($_POST['subtract_quantity']) ? intval($_POST['subtract_quantity']) : (isset($_POST['incoming_quantity']) ? intval($_POST['incoming_quantity']) : 0);
+            } else {
+                $qty = isset($_POST['direct_quantity']) ? intval($_POST['direct_quantity']) : (isset($_POST['quantity']) ? intval($_POST['quantity']) : 0);
+            }
+            $stock_data = array(
+                'mode'          => $mode,
+                'quantity'      => $qty,
+                'manage_stock'  => isset($_POST['manage_stock']) ? sanitize_text_field($_POST['manage_stock']) : 'yes',
+                'regular_price' => isset($_POST['regular_price']) ? sanitize_text_field($_POST['regular_price']) : '',
+                'sale_price'    => isset($_POST['sale_price']) ? sanitize_text_field($_POST['sale_price']) : '',
+                'note'          => isset($_POST['note']) ? sanitize_text_field(wp_unslash($_POST['note'])) : '',
+            );
+        }
+
         if (!$product_id || empty($stock_data)) {
             wp_send_json_error(array('message' => __('Datos de inventario incompletos.', 'emp-caja')));
         }

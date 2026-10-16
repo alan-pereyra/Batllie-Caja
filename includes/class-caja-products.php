@@ -278,6 +278,7 @@ class Batllie_Caja_Products {
             'dynamic_stock'            => $dynamic_stock_info,
             'is_dynamic_stock'         => !empty($dynamic_stock_info),
             'bottleneck_item'          => !empty($dynamic_stock_info['bottleneck_item']) ? $dynamic_stock_info['bottleneck_item'] : '',
+            'stock_history'            => (array) (get_post_meta($product->get_id(), '_caja_stock_history', true) ?: array()),
             'description'              => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
     }
@@ -453,12 +454,15 @@ class Batllie_Caja_Products {
             $current_stock = 0;
         }
 
-        // Si el modo es 'add' (ingreso de mercadería), se suma la cantidad que ingresó al stock existente.
-        // Ejemplo: 15 actuales + 30 ingresadas = 45 total.
+        // Modos:
+        // 'add': Sumar ingreso de mercadería (unidades que llegaron)
+        // 'subtract': Restar mercadería (merma, retiro, egreso)
+        // 'set': Fijar total directo (recuento manual)
         if ($mode === 'add') {
             $new_stock = max(0, $current_stock + $quantity);
+        } elseif ($mode === 'subtract') {
+            $new_stock = max(0, $current_stock - $quantity);
         } else {
-            // Si el modo es 'set' (recuento / fijar total directo), se establece la cantidad indicada.
             $new_stock = max(0, $quantity);
         }
 
@@ -492,6 +496,36 @@ class Batllie_Caja_Products {
         if (function_exists('wc_update_product_stock')) {
             wc_update_product_stock($product, $new_stock, 'set');
         }
+
+        // Registrar en historial de cambios de stock
+        $note = isset($data['note']) ? sanitize_text_field(wp_unslash($data['note'])) : '';
+        $history = get_post_meta($product_id, '_caja_stock_history', true);
+        if (!is_array($history)) {
+            $history = array();
+        }
+
+        $current_user = wp_get_current_user();
+        $user_name = ($current_user && $current_user->exists()) ? $current_user->display_name : __('Caja POS', 'emp-caja');
+
+        $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+        $now_dt = new DateTime('now', $tz);
+        $date_formatted = $now_dt->format('d/m/Y H:i');
+
+        $history_entry = array(
+            'timestamp'      => time(),
+            'date_formatted' => $date_formatted,
+            'mode'           => $mode,
+            'quantity'       => $quantity,
+            'old_stock'      => $current_stock,
+            'new_stock'      => $new_stock,
+            'note'           => $note,
+            'user'           => $user_name
+        );
+        array_unshift($history, $history_entry);
+        if (count($history) > 60) {
+            $history = array_slice($history, 0, 60);
+        }
+        update_post_meta($product_id, '_caja_stock_history', $history);
 
         return self::format_product($product);
     }

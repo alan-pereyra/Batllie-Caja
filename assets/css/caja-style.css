@@ -2323,19 +2323,69 @@ body.batllie-caja-active .container {
     color: var(--caja-text);
 }
 
-/* Selector de Modo */
+.caja-stock-current-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+}
+
+.caja-stock-current-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.caja-stock-manage-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    margin: 0;
+    transition: all 0.2s ease;
+}
+
+.caja-stock-manage-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.caja-stock-manage-toggle input[type="checkbox"] {
+    accent-color: var(--caja-primary, #10b981);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.caja-stock-manage-toggle-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--caja-text, #f8fafc);
+    user-select: none;
+}
+
+/* Selector de Modo: 100% ancho en cada botÃ³n */
 .caja-stock-mode-selector {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
     margin-bottom: 20px;
+    width: 100%;
 }
 
 .caja-stock-mode-btn {
+    width: 100%;
     background: rgba(15, 23, 42, 0.5);
     border: 2px solid var(--caja-card-border);
     border-radius: 8px;
-    padding: 12px 10px;
+    padding: 12px 14px;
     color: var(--caja-text-muted);
     cursor: pointer;
     display: flex;
@@ -2355,6 +2405,107 @@ body.batllie-caja-active .container {
     background: rgba(16, 185, 129, 0.12);
     border-color: var(--caja-primary, #10b981);
     color: #ffffff;
+}
+
+.caja-stock-mode-btn.mode-subtract.active {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: #ef4444;
+    color: #ffffff;
+}
+
+.caja-stock-input-subtract .caja-input-prefix {
+    color: #ef4444 !important;
+}
+
+.caja-stock-input-subtract:focus-within {
+    border-color: #ef4444 !important;
+}
+
+/* Historial de cambios de stock */
+.caja-stock-history-list {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+}
+
+.caja-stock-history-item {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.caja-stock-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.caja-stock-history-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.caja-stock-history-badge.is-add {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.caja-stock-history-badge.is-subtract {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.caja-stock-history-badge.is-set {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.caja-stock-history-date {
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+.caja-stock-history-detail {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--caja-text, #f8fafc);
+    font-size: 0.84rem;
+}
+
+.caja-stock-history-note {
+    background: rgba(255, 255, 255, 0.04);
+    border-left: 3px solid var(--caja-primary, #10b981);
+    padding: 4px 8px;
+    border-radius: 0 4px 4px 0;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    font-style: italic;
+    margin-top: 2px;
+    word-break: break-word;
+}
+
+.caja-stock-history-user {
+    font-size: 0.72rem;
+    color: #64748b;
+    align-self: flex-end;
 }
 
 .caja-mode-icon {
@@ -3463,7 +3614,7 @@ span#edit-grouped-selected-badge {
     }
 
     .caja-stock-mode-selector {
-        grid-template-columns: 1fr !important;
+        flex-direction: column !important;
         gap: 8px !important;
     }
 
