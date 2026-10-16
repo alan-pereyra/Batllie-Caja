@@ -5595,7 +5595,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-products-grid').html(`
                     <div class="caja-pos-loading-catalog" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
                         <span class="caja-spinner">⏳</span>
-                        <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">${cajaTranslations.loading || 'Cargando catálogo de productos...'}</p>
+                        <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">Cargando catálogo de productos...</p>
                     </div>
                 `);
                 this.loadProducts(false, function() {
