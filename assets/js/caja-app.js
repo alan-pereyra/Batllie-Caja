@@ -5714,31 +5714,82 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.populatePosCatalog(filter, undefined);
             });
 
-            // Stepper de agregado rápido
-            $('#caja-pos-quick-qty-minus').on('click', function() {
-                const $in = $('#caja-pos-quick-qty-input');
-                const val = Math.max(1, (parseInt($in.val()) || 1) - 1);
-                $in.val(val);
-            });
-
-            $('#caja-pos-quick-qty-plus').on('click', function() {
-                const $in = $('#caja-pos-quick-qty-input');
-                const val = (parseInt($in.val()) || 1) + 1;
-                $in.val(val);
-            });
-
-            // Botón Agregar Rápido desde dropdown
-            $('#caja-pos-quick-add-btn').on('click', function() {
-                const prodId = parseInt($('#caja-pos-product-select').val());
-                const qty = Math.max(1, parseInt($('#caja-pos-quick-qty-input').val()) || 1);
-                if (!prodId) {
-                    self.showToast('Por favor seleccioná un producto de la lista.', 'warning');
-                    $('#caja-pos-product-select').focus();
+            // Buscador Rápido integrado en el Ticket
+            $('#caja-pos-cart-quicksearch').on('input', function() {
+                const q = $(this).val().trim().toLowerCase();
+                const $drop = $('#caja-pos-quicksearch-dropdown');
+                const $clear = $('#caja-pos-cart-quicksearch-clear');
+                if (q.length > 0) {
+                    $clear.show();
+                } else {
+                    $clear.hide();
+                    $drop.hide().empty();
                     return;
                 }
-                self.addToPosCart(prodId, qty);
-                $('#caja-pos-product-select').val('');
-                $('#caja-pos-quick-qty-input').val(1);
+
+                if (!self.cachedProducts || !self.cachedProducts.length) return;
+                const matches = self.cachedProducts.filter(p => {
+                    const nameMatch = p.name && p.name.toLowerCase().includes(q);
+                    const skuMatch = p.sku && p.sku.toLowerCase().includes(q);
+                    return nameMatch || skuMatch;
+                }).slice(0, 10);
+
+                if (matches.length === 0) {
+                    $drop.html('<div class="caja-pos-qs-item is-empty">No se encontraron productos</div>').show();
+                    return;
+                }
+
+                let dHtml = '';
+                matches.forEach(prod => {
+                    const isOutOfStock = prod.manage_stock && prod.stock_quantity !== null && prod.stock_quantity <= 0;
+                    const stockLabel = prod.manage_stock 
+                        ? (prod.stock_quantity > 0 ? `${prod.stock_quantity} disp.` : 'Agotado') 
+                        : 'Stock ilimitado';
+                    const img = prod.image || '';
+
+                    dHtml += `
+                        <div class="caja-pos-qs-item ${isOutOfStock ? 'is-out-of-stock' : ''}" data-id="${prod.id}">
+                            ${img ? `<img src="${img}" class="caja-pos-qs-thumb" onerror="this.style.display='none'" />` : '<div class="caja-pos-qs-thumb">📦</div>'}
+                            <div class="caja-pos-qs-details">
+                                <div class="caja-pos-qs-title">${self.escapeHtml(prod.name)}</div>
+                                <div class="caja-pos-qs-sub">
+                                    <strong class="caja-pos-qs-price">$${self.formatCurrencyNumber(prod.price || prod.regular_price || 0)}</strong>
+                                    <span class="caja-pos-qs-stock ${isOutOfStock ? 'no-stock' : 'has-stock'}">${stockLabel}</span>
+                                </div>
+                            </div>
+                            <span class="caja-pos-qs-add-icon">+</span>
+                        </div>
+                    `;
+                });
+                $drop.html(dHtml).show();
+            });
+
+            $('#caja-pos-cart-quicksearch-clear').on('click', function() {
+                $('#caja-pos-cart-quicksearch').val('');
+                $(this).hide();
+                $('#caja-pos-quicksearch-dropdown').hide().empty();
+            });
+
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.caja-pos-cart-quicksearch-wrap').length) {
+                    $('#caja-pos-quicksearch-dropdown').hide();
+                }
+            });
+
+            $(document).on('click', '.caja-pos-qs-item', function() {
+                if ($(this).hasClass('is-out-of-stock') || $(this).hasClass('is-empty')) return;
+                const prodId = parseInt($(this).data('id'));
+                if (prodId) {
+                    self.addToPosCart(prodId, 1);
+                    $('#caja-pos-cart-quicksearch').val('');
+                    $('#caja-pos-cart-quicksearch-clear').hide();
+                    $('#caja-pos-quicksearch-dropdown').hide().empty();
+                }
+            });
+
+            // Toggle Catálogo de Productos (Mobile y Desktop)
+            $('#caja-pos-toggle-catalog-btn, #caja-pos-cart-expand-trigger').on('click', function() {
+                $('#caja-pos-catalog-panel').slideToggle(200);
             });
 
             // Clic en tarjeta de producto del catálogo
@@ -5754,7 +5805,8 @@ $('#caja-modal-new-product').fadeIn(200);
             });
 
             // Controles de cantidad dentro del Ticket (Carrito)
-            $(document).on('click', '.caja-pos-cart-btn-qty.btn-minus', function() {
+            $(document).on('click', '.caja-pos-cart-btn-qty.btn-minus', function(e) {
+                e.stopPropagation();
                 const prodId = parseInt($(this).data('id'));
                 const item = self.posCart.find(i => i.id === prodId);
                 if (item) {
@@ -5766,7 +5818,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
-            $(document).on('click', '.caja-pos-cart-btn-qty.btn-plus', function() {
+            $(document).on('click', '.caja-pos-cart-btn-qty.btn-plus', function(e) {
+                e.stopPropagation();
                 const prodId = parseInt($(this).data('id'));
                 const item = self.posCart.find(i => i.id === prodId);
                 if (item) {
@@ -5780,7 +5833,8 @@ $('#caja-modal-new-product').fadeIn(200);
             });
 
             // Eliminar ítem del ticket
-            $(document).on('click', '.caja-pos-cart-remove-btn', function() {
+            $(document).on('click', '.caja-pos-cart-remove-btn', function(e) {
+                e.stopPropagation();
                 const prodId = parseInt($(this).data('id'));
                 self.posCart = self.posCart.filter(i => i.id !== prodId);
                 self.renderPosCart();
@@ -5794,24 +5848,23 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.showToast('Ticket vaciado.', 'info');
             });
 
-            // Conmutador Modo de Orden (Compra Realizada vs Pedido por Despachar)
-            $('.caja-pos-mode-btn').on('click', function() {
-                $('.caja-pos-mode-btn').removeClass('active');
-                $(this).addClass('active');
+            // Conmutador Modo de Orden estilo Switch iOS (Compra Realizada vs Pedido por Despachar)
+            $(document).on('click', '.caja-pos-switch-row', function() {
+                $('.caja-pos-switch-row').removeClass('is-active');
+                $(this).addClass('is-active');
                 const mode = $(this).data('mode');
                 $('#caja-pos-selected-mode').val(mode);
 
                 const $btn = $('#caja-pos-checkout-btn');
-                const $icon = $('#caja-pos-checkout-icon');
                 const $text = $('#caja-pos-checkout-text');
 
                 if (mode === 'compra_realizada') {
                     $btn.removeClass('is-dispatch');
-                    $icon.text('✅');
-                    $text.text('Cobrar y Entregar Ahora');
+                    $text.text('Confirmar y Cobrar');
+                    // Por defecto en compra realizada se asume pagado
+                    $('#btn-status-pagado').trigger('click');
                 } else {
                     $btn.addClass('is-dispatch');
-                    $icon.text('📦');
                     $text.text('Enviar a Cola de Despacho');
                 }
             });
@@ -5837,13 +5890,6 @@ $('#caja-modal-new-product').fadeIn(200);
                 $(this).addClass('active');
                 const status = $(this).data('status');
                 $('#caja-pos-selected-status').val(status);
-
-                const $hint = $('#caja-pos-pay-status-hint');
-                if (status === 'pagado') {
-                    $hint.css({'background': 'rgba(16,185,129,0.15)', 'color': '#10b981'}).text('Cobrado');
-                } else {
-                    $hint.css({'background': 'rgba(245,158,11,0.15)', 'color': '#f59e0b'}).text('Pendiente de Pago');
-                }
             });
 
             // Confirmar y Cobrar Venta
@@ -5920,15 +5966,18 @@ $('#caja-modal-new-product').fadeIn(200);
             const self = this;
             const $items = $('#caja-pos-cart-items');
             const $btn = $('#caja-pos-checkout-btn');
+            const $badge = $('#caja-pos-cart-badge-count');
 
             if (!this.posCart || this.posCart.length === 0) {
                 $items.html(`
-                    <div class="caja-pos-empty-cart">
-                        <span style="font-size:2rem; opacity:0.4;">🛒</span>
-                        <p style="margin:8px 0 0; color:var(--caja-text-muted, #94a3b8); font-size:0.88rem;">El ticket está vacío.<br>Hacé clic en un producto o buscalo para agregarlo.</p>
+                    <div class="caja-pos-empty-cart-state" id="caja-pos-empty-cart">
+                        <span style="font-size:2rem; opacity:0.35;">🛒</span>
+                        <p style="margin:8px 0 0; color:var(--caja-text-muted, #94a3b8); font-size:0.88rem;">
+                            El ticket está vacío.<br>Buscá un producto arriba o tocá en <strong>"🔍 Catálogo"</strong> para agregarlo.
+                        </p>
                     </div>
                 `);
-                $('#caja-pos-total-items-count').text('0');
+                $badge.hide().text('0');
                 $('#caja-pos-subtotal-val').text('$0,00');
                 $('#caja-pos-total-val').text('$0,00');
                 $btn.prop('disabled', true);
@@ -5949,21 +5998,20 @@ $('#caja-modal-new-product').fadeIn(200);
                         <img src="${item.image || ''}" class="caja-pos-cart-thumb" onerror="this.style.display='none'" />
                         <div class="caja-pos-cart-details">
                             <div class="caja-pos-cart-title" title="${self.escapeHtml(item.name)}">${self.escapeHtml(item.name)}</div>
-                            <div class="caja-pos-cart-unit-price">$${self.formatCurrencyNumber(item.price)} c/u</div>
+                            <span class="caja-pos-cart-meta">${item.quantity} x $${self.formatCurrencyNumber(item.price)}</span>
                         </div>
                         <div class="caja-pos-cart-stepper">
-                            <button type="button" class="caja-pos-cart-btn-qty btn-minus" data-id="${item.id}" title="Restar">-</button>
+                            <button type="button" class="caja-pos-cart-btn-qty btn-minus" data-id="${item.id}" title="Restar">−</button>
                             <span class="caja-pos-cart-qty-val">${item.quantity}</span>
                             <button type="button" class="caja-pos-cart-btn-qty btn-plus" data-id="${item.id}" title="Sumar">+</button>
                         </div>
-                        <div class="caja-pos-cart-line-total">$${self.formatCurrencyNumber(lineTotal)}</div>
                         <button type="button" class="caja-pos-cart-remove-btn" data-id="${item.id}" title="Eliminar ítem">&times;</button>
                     </div>
                 `;
             });
 
             $items.html(html);
-            $('#caja-pos-total-items-count').text(totalItems);
+            $badge.text(totalItems).show();
             $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
             $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(totalPrice));
             $btn.prop('disabled', false);
