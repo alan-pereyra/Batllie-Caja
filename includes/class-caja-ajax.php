@@ -600,258 +600,284 @@ class Batllie_Caja_Ajax {
         self::check_auth();
 
         if (!current_user_can('edit_shop_orders') && !current_user_can('manage_woocommerce') && !is_user_logged_in()) {
-            wp_send_json_error(array('message' => __('Permisos insuficientes para registrar ventas.', 'emp-caja')), 403);
+            wp_send_json_error(array('message' => __('Permisos insuficientes para registrar ventas.', 'emp-caja')));
+            return;
         }
 
-        $raw_items = isset($_POST['items']) ? $_POST['items'] : array();
-        if (is_string($raw_items)) {
-            $raw_items = json_decode(stripslashes($raw_items), true);
-        }
-
-        if (empty($raw_items) || !is_array($raw_items)) {
-            wp_send_json_error(array('message' => __('El ticket de venta está vacío. Selecciona al menos un producto.', 'emp-caja')));
-        }
-
-        $mode           = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'compra_realizada';
-        $delivery_type  = isset($_POST['delivery_type']) ? sanitize_text_field($_POST['delivery_type']) : 'con_envio';
-        $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'efectivo';
-        $payment_status = isset($_POST['payment_status']) ? sanitize_text_field($_POST['payment_status']) : 'pagado';
-        $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
-        $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
-
-        $current_user = wp_get_current_user();
-        $cashier_name = ($current_user && $current_user->exists()) ? $current_user->display_name : __('Administrador', 'emp-caja');
-        $customer_id  = ($current_user && $current_user->exists()) ? $current_user->ID : 0;
-
-        // Determinar estado de la orden en WooCommerce
-        // Si es 'compra_realizada': se completa la venta en el acto
-        // Si es 'pedido_despachar': pasa a preparación (processing) para figurar en Pedidos en Vivo
-        $order_status = ($mode === 'compra_realizada') ? 'completed' : 'processing';
-
-        $order = wc_create_order(array(
-            'status'      => $order_status,
-            'customer_id' => $customer_id,
-        ));
-
-        if (is_wp_error($order) || !$order) {
-            wp_send_json_error(array('message' => __('Error al crear la orden en WooCommerce.', 'emp-caja')));
-        }
-
-        // Agregar productos y registrar stocks previos para auditoría
-        $stock_movements = array();
-        foreach ($raw_items as $item) {
-            $product_id = isset($item['id']) ? intval($item['id']) : 0;
-            $qty        = isset($item['quantity']) ? max(1, intval($item['quantity'])) : 1;
-            $product    = wc_get_product($product_id);
-
-            if (!$product) {
-                continue;
+        try {
+            $raw_items = isset($_POST['items']) ? $_POST['items'] : array();
+            if (is_string($raw_items)) {
+                $raw_items = json_decode(stripslashes($raw_items), true);
             }
 
-            $stock_before = $product->managing_stock() ? $product->get_stock_quantity() : null;
-            $order->add_product($product, $qty);
-
-            $stock_movements[] = array(
-                'prod_id'      => $product_id,
-                'qty'          => $qty,
-                'stock_before' => $stock_before
-            );
-        }
-
-        // Método de Pago
-        if ($payment_method === 'tarjeta') {
-            $order->set_payment_method('caja_tarjeta');
-            $pay_title = __('Tarjeta', 'emp-caja');
-            if (!empty($card_op)) {
-                $pay_title .= ' (Op: #' . $card_op . ')';
+            if (empty($raw_items) || !is_array($raw_items)) {
+                wp_send_json_error(array('message' => __('El ticket de venta está vacío. Selecciona al menos un producto.', 'emp-caja')));
+                return;
             }
-            $order->set_payment_method_title($pay_title);
-        } elseif ($payment_method === 'transferencia') {
-            $order->set_payment_method('bacs');
-            $order->set_payment_method_title(__('Transferencia bancaria', 'emp-caja'));
-        } else {
-            $order->set_payment_method('cod');
-            $order->set_payment_method_title(__('Efectivo (Caja POS)', 'emp-caja'));
-        }
 
-        // Datos del cliente / cajero y notas
-        $order->set_billing_first_name($cashier_name);
-        $order->set_billing_last_name(__('Venta Mostrador', 'emp-caja'));
+            $mode           = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'compra_realizada';
+            $delivery_type  = isset($_POST['delivery_type']) ? sanitize_text_field($_POST['delivery_type']) : 'con_envio';
+            $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'efectivo';
+            $payment_status = isset($_POST['payment_status']) ? sanitize_text_field($_POST['payment_status']) : 'pagado';
+            $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
+            $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
 
-        if (!empty($note)) {
-            $order->set_customer_note($note);
-            $order->update_meta_data('_caja_staff_note', $note);
-        }
+            $current_user = wp_get_current_user();
+            $cashier_name = ($current_user && $current_user->exists()) ? $current_user->display_name : __('Administrador', 'emp-caja');
+            $customer_id  = ($current_user && $current_user->exists()) ? $current_user->ID : 0;
 
-        // Metadatos de auditoría de Caja POS
-        $order->update_meta_data('_caja_pos_sale', 'yes');
-        $order->update_meta_data('_caja_pos_mode', $mode);
-        $order->update_meta_data('_caja_payment_status', $payment_status);
-        if (!empty($card_op)) {
-            $order->update_meta_data('_caja_card_op_number', $card_op);
-        }
-        $order->update_meta_data('_caja_pos_cashier', $cashier_name);
-        $order->update_meta_data('_created_by_caja_pos', true);
+            // Determinar estado final de la orden en WooCommerce
+            // Si es 'compra_realizada': se completa la venta en el acto
+            // Si es 'pedido_despachar': pasa a preparación (processing) para figurar en Pedidos en Vivo
+            $order_status = ($mode === 'compra_realizada') ? 'completed' : 'processing';
 
-        if ($mode === 'compra_realizada') {
-            $order->update_meta_data('_caja_shipping_status', 'entregado');
-            $order->update_meta_data('_caja_delivery_type', 'in_situ');
-            $order->update_meta_data('_caja_is_pickup', 'no');
-            $mode_label = __('Compra In Situ', 'emp-caja');
-        } else {
-            $order->update_meta_data('_caja_shipping_status', 'no_gestionado');
-            $order->update_meta_data('_caja_delivery_type', $delivery_type);
+            // Crear la orden inicialmente sin status para no disparar hooks de proceso sobre orden vacía
+            $order = wc_create_order(array(
+                'customer_id' => $customer_id,
+            ));
 
-            $shipping_item = new WC_Order_Item_Shipping();
-            if ($delivery_type === 'retiro_local') {
-                $order->update_meta_data('_caja_is_pickup', 'yes');
-                $shipping_item->set_method_title(__('Retiro por el local', 'emp-caja'));
-                $shipping_item->set_method_id('local_pickup');
-                $mode_label = __('Retiro en Local', 'emp-caja');
+            if (is_wp_error($order) || !$order) {
+                $err_msg = is_wp_error($order) ? $order->get_error_message() : __('Error al crear la orden en WooCommerce.', 'emp-caja');
+                wp_send_json_error(array('message' => $err_msg));
+                return;
+            }
+
+            // Agregar productos y registrar stocks previos para auditoría
+            $stock_movements = array();
+            foreach ($raw_items as $item) {
+                $product_id = isset($item['id']) ? intval($item['id']) : 0;
+                $qty        = isset($item['quantity']) ? max(1, intval($item['quantity'])) : 1;
+                $product    = wc_get_product($product_id);
+
+                if (!$product) {
+                    continue;
+                }
+
+                $stock_before = $product->managing_stock() ? $product->get_stock_quantity() : null;
+                $order->add_product($product, $qty);
+
+                $stock_movements[] = array(
+                    'prod_id'      => $product_id,
+                    'qty'          => $qty,
+                    'stock_before' => $stock_before
+                );
+            }
+
+            // Método de Pago
+            if ($payment_method === 'tarjeta') {
+                $order->set_payment_method('caja_tarjeta');
+                $pay_title = __('Tarjeta', 'emp-caja');
+                if (!empty($card_op)) {
+                    $pay_title .= ' (Op: #' . $card_op . ')';
+                }
+                $order->set_payment_method_title($pay_title);
+            } elseif ($payment_method === 'transferencia') {
+                $order->set_payment_method('bacs');
+                $order->set_payment_method_title(__('Transferencia bancaria', 'emp-caja'));
             } else {
+                $order->set_payment_method('cod');
+                $order->set_payment_method_title(__('Efectivo (Caja POS)', 'emp-caja'));
+            }
+
+            // Datos del cliente / cajero y notas
+            $order->set_billing_first_name($cashier_name);
+            $order->set_billing_last_name(__('Venta Mostrador', 'emp-caja'));
+
+            if (!empty($note)) {
+                $order->set_customer_note($note);
+                $order->update_meta_data('_caja_staff_note', $note);
+            }
+
+            // Metadatos de auditoría de Caja POS
+            $order->update_meta_data('_caja_pos_sale', 'yes');
+            $order->update_meta_data('_caja_pos_mode', $mode);
+            $order->update_meta_data('_caja_payment_status', $payment_status);
+            if (!empty($card_op)) {
+                $order->update_meta_data('_caja_card_op_number', $card_op);
+            }
+            $order->update_meta_data('_caja_pos_cashier', $cashier_name);
+            $order->update_meta_data('_created_by_caja_pos', true);
+
+            if ($mode === 'compra_realizada') {
+                $order->update_meta_data('_caja_shipping_status', 'entregado');
+                $order->update_meta_data('_caja_delivery_type', 'in_situ');
                 $order->update_meta_data('_caja_is_pickup', 'no');
-                $shipping_item->set_method_title(__('Con Envío', 'emp-caja'));
-                $shipping_item->set_method_id('flat_rate');
-                $mode_label = __('Con Envío', 'emp-caja');
-            }
-            $shipping_item->set_total(0);
-            $order->add_item($shipping_item);
-        }
+                $mode_label = __('Compra In Situ', 'emp-caja');
+            } else {
+                $order->update_meta_data('_caja_shipping_status', 'no_gestionado');
+                $order->update_meta_data('_caja_delivery_type', $delivery_type);
 
-        $now_ts = time();
-        $c_day = Batllie_Caja_Orders::format_datetime('l', $now_ts);
-        $c_day_cap = mb_convert_case($c_day, MB_CASE_TITLE, 'UTF-8');
-        $c_d_str = Batllie_Caja_Orders::format_datetime('d/m/Y', $now_ts);
-        $time_str = Batllie_Caja_Orders::format_datetime('H:i', $now_ts);
-        $date_key = Batllie_Caja_Orders::format_datetime('Y-m-d', $now_ts);
-        $date_str = Batllie_Caja_Orders::format_datetime('d/m', $now_ts);
-
-        if ($mode === 'compra_realizada') {
-            $initial_timeline = array(
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('llegó el pedido', 'emp-caja'),
-                    'icon'           => '📥',
-                    'type'           => 'created'
-                ),
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('se confirmó el pago', 'emp-caja'),
-                    'icon'           => '💳',
-                    'type'           => 'payment'
-                ),
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('pedido completado', 'emp-caja'),
-                    'icon'           => '✅',
-                    'type'           => 'status_comp'
-                )
-            );
-            $order->update_meta_data('_caja_timeline', $initial_timeline);
-        } else {
-            $initial_timeline = array(
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('llegó el pedido', 'emp-caja'),
-                    'icon'           => '📥',
-                    'type'           => 'created'
-                ),
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('se confirmó el pago', 'emp-caja'),
-                    'icon'           => '💳',
-                    'type'           => 'payment'
-                ),
-                array(
-                    'time'           => $time_str,
-                    'date'           => $date_str,
-                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
-                    'date_key'       => $date_key,
-                    'timestamp'      => $now_ts,
-                    'text'           => __('en preparación', 'emp-caja'),
-                    'icon'           => '📦',
-                    'type'           => 'status_prep'
-                )
-            );
-            $order->update_meta_data('_caja_timeline', $initial_timeline);
-        }
-
-        $order->calculate_totals();
-        $order->save();
-
-        // Descontar inventario automáticamente mediante WooCommerce
-        wc_reduce_stock_levels($order->get_id());
-
-        // Registrar en el historial de cambios de stock (_caja_stock_history) de cada producto
-        $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
-        $now_dt = new DateTime('now', $tz);
-        $date_formatted = $now_dt->format('d/m/Y H:i');
-
-        foreach ($stock_movements as $mov) {
-            $p = wc_get_product($mov['prod_id']);
-            $stock_after = ($p && $p->managing_stock()) ? $p->get_stock_quantity() : null;
-            $hist = get_post_meta($mov['prod_id'], '_caja_stock_history', true);
-            if (!is_array($hist)) {
-                $hist = array();
+                if (class_exists('WC_Order_Item_Shipping')) {
+                    $shipping_item = new WC_Order_Item_Shipping();
+                    if ($delivery_type === 'retiro_local') {
+                        $order->update_meta_data('_caja_is_pickup', 'yes');
+                        $shipping_item->set_method_title(__('Retiro por el local', 'emp-caja'));
+                        $shipping_item->set_method_id('local_pickup');
+                        $mode_label = __('Retiro en Local', 'emp-caja');
+                    } else {
+                        $order->update_meta_data('_caja_is_pickup', 'no');
+                        $shipping_item->set_method_title(__('Con Envío', 'emp-caja'));
+                        $shipping_item->set_method_id('flat_rate');
+                        $mode_label = __('Con Envío', 'emp-caja');
+                    }
+                    $shipping_item->set_total(0);
+                    $order->add_item($shipping_item);
+                } else {
+                    if ($delivery_type === 'retiro_local') {
+                        $order->update_meta_data('_caja_is_pickup', 'yes');
+                        $mode_label = __('Retiro en Local', 'emp-caja');
+                    } else {
+                        $order->update_meta_data('_caja_is_pickup', 'no');
+                        $mode_label = __('Con Envío', 'emp-caja');
+                    }
+                }
             }
 
-            $entry = array(
-                'timestamp'      => time(),
-                'date_formatted' => $date_formatted,
-                'mode'           => 'subtract',
-                'quantity'       => $mov['qty'],
-                'old_stock'      => $mov['stock_before'],
-                'new_stock'      => $stock_after,
-                'note'           => sprintf(__('Venta POS #%d (%s - Pago: %s)', 'emp-caja'), $order->get_id(), $mode_label, ucfirst($payment_status)),
-                'user'           => $cashier_name
-            );
-            array_unshift($hist, $entry);
-            if (count($hist) > 60) {
-                $hist = array_slice($hist, 0, 60);
+            $now_ts = time();
+            $c_day = Batllie_Caja_Orders::format_datetime('l', $now_ts);
+            $c_day_cap = mb_convert_case($c_day, MB_CASE_TITLE, 'UTF-8');
+            $c_d_str = Batllie_Caja_Orders::format_datetime('d/m/Y', $now_ts);
+            $time_str = Batllie_Caja_Orders::format_datetime('H:i', $now_ts);
+            $date_key = Batllie_Caja_Orders::format_datetime('Y-m-d', $now_ts);
+            $date_str = Batllie_Caja_Orders::format_datetime('d/m', $now_ts);
+
+            if ($mode === 'compra_realizada') {
+                $initial_timeline = array(
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('llegó el pedido', 'emp-caja'),
+                        'icon'           => '📥',
+                        'type'           => 'created'
+                    ),
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('se confirmó el pago', 'emp-caja'),
+                        'icon'           => '💳',
+                        'type'           => 'payment'
+                    ),
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('pedido completado', 'emp-caja'),
+                        'icon'           => '✅',
+                        'type'           => 'status_comp'
+                    )
+                );
+                $order->update_meta_data('_caja_timeline', $initial_timeline);
+            } else {
+                $initial_timeline = array(
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('llegó el pedido', 'emp-caja'),
+                        'icon'           => '📥',
+                        'type'           => 'created'
+                    ),
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('se confirmó el pago', 'emp-caja'),
+                        'icon'           => '💳',
+                        'type'           => 'payment'
+                    ),
+                    array(
+                        'time'           => $time_str,
+                        'date'           => $date_str,
+                        'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                        'date_key'       => $date_key,
+                        'timestamp'      => $now_ts,
+                        'text'           => __('en preparación', 'emp-caja'),
+                        'icon'           => '📦',
+                        'type'           => 'status_prep'
+                    )
+                );
+                $order->update_meta_data('_caja_timeline', $initial_timeline);
             }
-            update_post_meta($mov['prod_id'], '_caja_stock_history', $hist);
+
+            $order->calculate_totals();
+            $order->set_status($order_status);
+            $order->save();
+
+            // Descontar inventario de forma segura
+            try {
+                wc_reduce_stock_levels($order->get_id());
+            } catch (Throwable $stk_e) {
+                error_log('Caja POS aviso reduciendo stock: ' . $stk_e->getMessage());
+            }
+
+            // Registrar en el historial de cambios de stock (_caja_stock_history) de cada producto
+            $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+            $now_dt = new DateTime('now', $tz);
+            $date_formatted = $now_dt->format('d/m/Y H:i');
+
+            foreach ($stock_movements as $mov) {
+                $p = wc_get_product($mov['prod_id']);
+                $stock_after = ($p && $p->managing_stock()) ? $p->get_stock_quantity() : null;
+                $hist = get_post_meta($mov['prod_id'], '_caja_stock_history', true);
+                if (!is_array($hist)) {
+                    $hist = array();
+                }
+
+                $entry = array(
+                    'timestamp'      => time(),
+                    'date_formatted' => $date_formatted,
+                    'mode'           => 'subtract',
+                    'quantity'       => $mov['qty'],
+                    'old_stock'      => $mov['stock_before'],
+                    'new_stock'      => $stock_after,
+                    'note'           => sprintf(__('Venta POS #%d (%s - Pago: %s)', 'emp-caja'), $order->get_id(), $mode_label, ucfirst($payment_status)),
+                    'user'           => $cashier_name
+                );
+                array_unshift($hist, $entry);
+                if (count($hist) > 60) {
+                    $hist = array_slice($hist, 0, 60);
+                }
+                update_post_meta($mov['prod_id'], '_caja_stock_history', $hist);
+            }
+
+            // Agregar notas de auditoría a la orden
+            if ($payment_status === 'pendiente' && $mode === 'pedido_despachar') {
+                $order->add_order_note(sprintf(__('⚠️ AVISO CAJA POS: Pedido tomado por %s. Pago PENDIENTE (%s). Cobrar antes o al momento del despacho.', 'emp-caja'), $cashier_name, $order->get_payment_method_title()));
+            } else {
+                $order->add_order_note(sprintf(__('Venta POS registrada por %s (%s). Método: %s. Estado de cobro: %s.', 'emp-caja'), $cashier_name, $mode_label, $order->get_payment_method_title(), ucfirst($payment_status)));
+            }
+
+            $formatted_order = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_order($order) : null;
+
+            wp_send_json_success(array(
+                'order_id'       => $order->get_id(),
+                'order_number'   => $order->get_order_number(),
+                'total'          => $order->get_formatted_order_total(),
+                'mode'           => $mode,
+                'payment_status' => $payment_status,
+                'order'          => $formatted_order,
+                'message'        => ($mode === 'compra_realizada')
+                    ? sprintf(__('¡Venta #%s completada y stock descontado con éxito!', 'emp-caja'), $order->get_order_number())
+                    : sprintf(__('¡Pedido #%s enviado a cola de despacho!', 'emp-caja'), $order->get_order_number())
+            ));
+        } catch (Throwable $e) {
+            error_log('Error en ajax_create_pos_order: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
+            wp_send_json_error(array(
+                'message' => sprintf(__('Error al procesar la venta: %s', 'emp-caja'), $e->getMessage())
+            ));
         }
-
-        // Agregar notas de auditoría a la orden
-        if ($payment_status === 'pendiente' && $mode === 'pedido_despachar') {
-            $order->add_order_note(sprintf(__('⚠️ AVISO CAJA POS: Pedido tomado por %s. Pago PENDIENTE (%s). Cobrar antes o al momento del despacho.', 'emp-caja'), $cashier_name, $order->get_payment_method_title()));
-        } else {
-            $order->add_order_note(sprintf(__('Venta POS registrada por %s (%s). Método: %s. Estado de cobro: %s.', 'emp-caja'), $cashier_name, $mode_label, $order->get_payment_method_title(), ucfirst($payment_status)));
-        }
-
-        $formatted_order = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_order($order) : null;
-
-        wp_send_json_success(array(
-            'order_id'       => $order->get_id(),
-            'order_number'   => $order->get_order_number(),
-            'total'          => $order->get_formatted_order_total(),
-            'mode'           => $mode,
-            'payment_status' => $payment_status,
-            'order'          => $formatted_order,
-            'message'        => ($mode === 'compra_realizada')
-                ? sprintf(__('¡Venta #%s completada y stock descontado con éxito!', 'emp-caja'), $order->get_order_number())
-                : sprintf(__('¡Pedido #%s enviado a cola de despacho!', 'emp-caja'), $order->get_order_number())
-        ));
     }
 
     /**

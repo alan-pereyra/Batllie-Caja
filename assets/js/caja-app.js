@@ -6212,9 +6212,20 @@ $('#caja-modal-new-product').fadeIn(200);
                         self.showToast(res && res.data && res.data.message ? res.data.message : 'Error al registrar la venta.', 'error');
                     }
                 },
-                error: function() {
+                error: function(xhr) {
                     $btn.prop('disabled', false).html(originalHtml);
-                    self.showToast('Error de conexión al registrar la venta.', 'error');
+                    let errMsg = 'Error de conexión al registrar la venta.';
+                    if (xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
+                        errMsg = xhr.responseJSON.data.message;
+                    } else if (xhr && xhr.responseText) {
+                        try {
+                            const parsed = JSON.parse(xhr.responseText);
+                            if (parsed && parsed.data && parsed.data.message) {
+                                errMsg = parsed.data.message;
+                            }
+                        } catch(e) {}
+                    }
+                    self.showToast(errMsg, 'error');
                 }
             });
         },

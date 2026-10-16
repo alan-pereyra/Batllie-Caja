@@ -2142,7 +2142,11 @@ class Batllie_Caja_Orders {
             if (isset($ev['timestamp']) && is_numeric($ev['timestamp'])) {
                 $diff = (int)$ev['timestamp'] - $base_ts;
                 if ($is_venta_mostrador || in_array($diff, array(60, 120, 360, 600, 900))) {
-                    $ev['timestamp'] = $base_ts;
+                    $ev['timestamp']      = $base_ts;
+                    $ev['time']           = self::format_datetime('H:i', $base_ts);
+                    $ev['date']           = self::format_datetime('d/m', $base_ts);
+                    $ev['date_formatted'] = mb_convert_case(self::format_datetime('l', $base_ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $base_ts);
+                    $ev['date_key']       = self::format_datetime('Y-m-d', $base_ts);
                 }
             }
         }
@@ -2272,8 +2276,10 @@ class Batllie_Caja_Orders {
             if ($ts_a !== $ts_b) {
                 return $ts_a - $ts_b;
             }
-            $p_a = isset($type_priority[$a['type'] ?? '']) ? $type_priority[$a['type']] : 99;
-            $p_b = isset($type_priority[$b['type'] ?? '']) ? $type_priority[$b['type']] : 99;
+            $t_a = isset($a['type']) ? $a['type'] : '';
+            $t_b = isset($b['type']) ? $b['type'] : '';
+            $p_a = isset($type_priority[$t_a]) ? $type_priority[$t_a] : 99;
+            $p_b = isset($type_priority[$t_b]) ? $type_priority[$t_b] : 99;
             return $p_a - $p_b;
         });
 
