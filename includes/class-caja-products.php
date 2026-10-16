@@ -99,7 +99,32 @@ class Batllie_Caja_Products {
                 $image_id = absint($grouped_box_img);
             }
         }
-        $image_url = $image_id ? wp_get_attachment_image_url($image_id, 'medium') : wc_placeholder_img_src('medium');
+        if (!$image_id && $product->is_type('variable')) {
+            $children = $product->get_children();
+            if (!empty($children)) {
+                foreach ($children as $child_id) {
+                    $c_img = get_post_thumbnail_id($child_id);
+                    if ($c_img) {
+                        $image_id = $c_img;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $image_url = '';
+        if ($image_id) {
+            $image_url = wp_get_attachment_image_url($image_id, 'medium');
+            if (!$image_url) {
+                $image_url = wp_get_attachment_image_url($image_id, 'thumbnail');
+            }
+            if (!$image_url) {
+                $image_url = wp_get_attachment_url($image_id);
+            }
+        }
+        if (!$image_url && function_exists('wc_placeholder_img_src')) {
+            $image_url = wc_placeholder_img_src('medium');
+        }
 
         $is_featured = $product->is_featured();
         $catalog_visibility = $product->get_catalog_visibility();
@@ -238,7 +263,7 @@ class Batllie_Caja_Products {
             'sale_price'               => $product->get_sale_price(),
             'is_on_sale'               => $product->is_on_sale(),
             'categories'               => implode(', ', $category_names),
-            'category_ids'             => !empty($category_ids) ? $category_ids : $product->get_category_ids(),
+            'category_ids'             => !empty($category_ids) ? array_map('intval', $category_ids) : array_map('intval', (array) $product->get_category_ids()),
             'category_slugs'           => $category_slugs,
             'stock_status'             => $product->get_stock_status(),
             'manage_stock'             => $manage_stock,
@@ -248,10 +273,11 @@ class Batllie_Caja_Products {
             'stock_badge'              => $stock_badge,
             'stock_label'              => $stock_label,
             'raw_sku'                  => $product->get_sku(),
-            'category_ids'             => $product->get_category_ids(),
             'raw_description'          => $product->get_short_description() ?: $product->get_description(),
             'image_id'                 => $image_id ? intval($image_id) : 0,
+            'image'                    => $image_url,
             'image_url'                => $image_url,
+            'price_numeric'            => (float) $product->get_price(),
             'is_featured'              => (bool) $is_featured,
             'catalog_visibility'       => $catalog_visibility,
             'product_type'             => $product_type,
@@ -419,13 +445,30 @@ class Batllie_Caja_Products {
         $cats = array();
         if ($terms && !is_wp_error($terms)) {
             foreach ($terms as $term) {
-                if ($term->slug !== 'uncategorized' && $term->slug !== 'sin-categorizar') {
-                    $cats[] = array(
-                        'id'   => $term->term_id,
-                        'name' => $term->name,
-                        'slug' => $term->slug
-                    );
+                $is_uncat = ($term->slug === 'uncategorized' || $term->slug === 'sin-categorizar');
+                // Si es sin categorizar pero no tiene productos, omitir
+                if ($is_uncat && $term->count <= 0) {
+                    continue;
                 }
+
+                $thumbnail_id = get_term_meta($term->term_id, 'thumbnail_id', true);
+                $image_url = '';
+                if ($thumbnail_id) {
+                    $image_url = wp_get_attachment_image_url($thumbnail_id, 'medium');
+                    if (!$image_url) {
+                        $image_url = wp_get_attachment_url($thumbnail_id);
+                    }
+                }
+
+                $name = $is_uncat ? __('Sin categorizar', 'emp-caja') : $term->name;
+                $cats[] = array(
+                    'id'        => (int) $term->term_id,
+                    'name'      => $name,
+                    'slug'      => $term->slug,
+                    'count'     => (int) $term->count,
+                    'image_url' => $image_url,
+                    'parent'    => (int) $term->parent
+                );
             }
         }
 

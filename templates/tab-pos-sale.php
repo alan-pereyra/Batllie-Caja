@@ -14,10 +14,26 @@ if (!defined('ABSPATH')) {
         <div class="caja-pos-catalog-panel" id="caja-pos-catalog-panel">
             <div class="caja-pos-card caja-pos-catalog-card">
                 <div class="caja-pos-catalog-card-header">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:1.1rem;">📦</span>
-                        <strong style="color:var(--caja-text); font-size:0.98rem;"><?php _e('Catálogo de Productos', 'emp-caja'); ?></strong>
-                        <span class="caja-badge" id="caja-pos-catalog-count" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 productos</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:1.1rem;" id="caja-pos-catalog-header-icon">📁</span>
+                            <strong style="color:var(--caja-text); font-size:0.98rem;" id="caja-pos-catalog-header-title"><?php _e('Categorías de Productos', 'emp-caja'); ?></strong>
+                            <span class="caja-badge" id="caja-pos-catalog-count" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 categorías</span>
+                        </div>
+                        <button type="button" class="caja-btn caja-btn-tool" id="caja-pos-back-categories-btn" style="display:none; font-size:0.8rem; padding:4px 10px; border-radius:6px; cursor:pointer;">
+                            ⬅️ <?php _e('Volver a categorías', 'emp-caja'); ?>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra de navegación rápida de categoría (visible al ingresar a una categoría) -->
+                <div class="caja-pos-category-nav-bar" id="caja-pos-category-nav-bar" style="display:none;">
+                    <button type="button" class="caja-pos-btn-back-categories" id="caja-pos-btn-back-categories">
+                        <span>⬅️ <?php _e('Volver a categorías', 'emp-caja'); ?></span>
+                    </button>
+                    <div class="caja-pos-category-current-badge">
+                        <span class="caja-pos-cat-label"><?php _e('Categoría:', 'emp-caja'); ?></span>
+                        <strong class="caja-pos-cat-name" id="caja-pos-cat-current-name">...</strong>
                     </div>
                 </div>
                 <div class="caja-pos-search-header">

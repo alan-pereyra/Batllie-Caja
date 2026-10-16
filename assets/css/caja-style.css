@@ -5789,6 +5789,113 @@ body.caja-modal-locked {
     color: var(--caja-primary, #10b981);
 }
 
+/* Barra de navegación de categorías dentro del catálogo POS */
+.caja-pos-category-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.caja-pos-btn-back-categories {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    border-radius: 6px;
+    background: var(--caja-primary, #10b981);
+    color: #ffffff !important;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.caja-pos-btn-back-categories:hover {
+    background: var(--caja-primary-hover, #059669);
+    transform: translateX(-2px);
+}
+
+.caja-pos-category-current-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    min-width: 0;
+}
+
+.caja-pos-cat-label {
+    color: var(--caja-text-muted, #94a3b8);
+    font-size: 0.8rem;
+}
+
+.caja-pos-cat-name {
+    color: var(--caja-primary, #10b981);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Tarjeta de Categoría en el grid POS */
+.caja-pos-category-card {
+    background: var(--caja-bg, #0f172a);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    position: relative;
+}
+
+.caja-pos-category-card:hover {
+    border-color: var(--caja-primary, #10b981);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.caja-pos-category-card:active {
+    transform: scale(0.98);
+}
+
+.caja-pos-card-cat-count {
+    font-size: 0.75rem;
+    color: var(--caja-text-muted, #94a3b8);
+    font-weight: 500;
+}
+
+.caja-pos-cat-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--caja-primary, #10b981);
+    font-size: 0.75rem;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.caja-pos-category-card:hover .caja-pos-cat-arrow {
+    background: var(--caja-primary, #10b981);
+    color: #ffffff;
+    transform: translateX(3px);
+}
+
 .caja-pos-products-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));

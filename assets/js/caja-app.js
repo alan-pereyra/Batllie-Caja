@@ -5586,21 +5586,28 @@ $('#caja-modal-new-product').fadeIn(200);
         posHistoryLoaded: false,
         posCatalogFilter: 'all',
         posSearchQuery: '',
+        posCurrentCategory: null, // null = Vista de Categorías, o { id, name, slug }
 
         initPosTab: function() {
             const self = this;
             this.bindPosEvents();
 
-            if (!this.cachedProducts || !this.cachedProducts.length) {
+            const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
+            const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
+
+            if (needsProducts || needsCategories) {
                 $('#caja-pos-products-grid').html(`
                     <div class="caja-pos-loading-catalog" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
                         <span class="caja-spinner">⏳</span>
-                        <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">Cargando catálogo de productos...</p>
+                        <p style="margin-top: 10px; color: var(--caja-text-muted, #94a3b8);">Cargando categorías y productos...</p>
                     </div>
                 `);
-                this.loadProducts(false, function() {
-                    self.populatePosCatalog();
-                    self.populatePosDropdown();
+
+                this.loadCategories(function() {
+                    self.loadProducts(false, function() {
+                        self.populatePosCatalog();
+                        self.populatePosDropdown();
+                    });
                 });
             } else {
                 this.populatePosCatalog();
@@ -5617,7 +5624,8 @@ $('#caja-modal-new-product').fadeIn(200);
             if (this.cachedProducts && this.cachedProducts.length) {
                 const sorted = [...this.cachedProducts].sort((a, b) => a.name.localeCompare(b.name));
                 sorted.forEach(p => {
-                    const priceFormatted = '$' + self.formatCurrencyNumber(p.price || p.regular_price || 0);
+                    const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? p.price_raw : (p.regular_price || 0);
+                    const priceFormatted = '$' + self.formatCurrencyNumber(rawPrice);
                     const stockLabel = p.manage_stock 
                         ? (p.stock_quantity !== null && p.stock_quantity > 0 ? `(Stock: ${p.stock_quantity})` : '(Sin Stock)') 
                         : '(Ilimitado)';
@@ -5631,6 +5639,12 @@ $('#caja-modal-new-product').fadeIn(200);
             const self = this;
             const $grid = $('#caja-pos-products-grid');
             const $count = $('#caja-pos-catalog-count');
+            const $headerTitle = $('#caja-pos-catalog-header-title');
+            const $headerIcon = $('#caja-pos-catalog-header-icon');
+            const $backBtn = $('#caja-pos-back-categories-btn');
+            const $categoryNav = $('#caja-pos-category-nav-bar');
+            const $categoryName = $('#caja-pos-cat-current-name');
+
             if (!$grid.length) return;
 
             if (filter !== undefined) this.posCatalogFilter = filter;
@@ -5639,43 +5653,188 @@ $('#caja-modal-new-product').fadeIn(200);
             const activeFilter = this.posCatalogFilter || 'all';
             const query = (this.posSearchQuery || '').trim().toLowerCase();
 
-            if (!this.cachedProducts || !this.cachedProducts.length) {
-                $grid.html(`
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #64748b;">
-                        No hay productos disponibles en la tienda.
-                    </div>
-                `);
-                $count.text('0 productos');
-                return;
-            }
+            // MODO A: Búsqueda activa en el catálogo
+            if (query.length > 0) {
+                $headerIcon.text('🔍');
+                $headerTitle.text(`Búsqueda: "${this.posSearchQuery}"`);
+                $backBtn.show();
+                $categoryNav.show();
+                $categoryName.text(`Búsqueda: "${this.posSearchQuery}"`);
 
-            let filtered = this.cachedProducts.filter(p => {
-                if (query) {
+                let matches = (this.cachedProducts || []).filter(p => {
                     const nameMatch = p.name && p.name.toLowerCase().includes(query);
                     const skuMatch = p.sku && p.sku.toLowerCase().includes(query);
                     if (!nameMatch && !skuMatch) return false;
-                }
-                if (activeFilter === 'instock') {
-                    if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) {
-                        return false;
+                    if (activeFilter === 'instock') {
+                        if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) return false;
                     }
-                }
-                return true;
-            });
+                    return true;
+                });
 
-            $count.text(`${filtered.length} producto${filtered.length === 1 ? '' : 's'}`);
+                $count.text(`${matches.length} producto${matches.length === 1 ? '' : 's'}`);
+                this.renderPosProductsGrid(matches);
+                return;
+            }
 
-            if (filtered.length === 0) {
+            // MODO B: Dentro de una categoría seleccionada
+            if (this.posCurrentCategory) {
+                const cat = this.posCurrentCategory;
+                $headerIcon.text('📂');
+                $headerTitle.text(cat.name);
+                $backBtn.show();
+                $categoryNav.show();
+                $categoryName.text(cat.name);
+
+                let catProducts = (this.cachedProducts || []).filter(p => {
+                    const catIds = Array.isArray(p.category_ids) ? p.category_ids.map(Number) : [];
+                    const catSlugs = Array.isArray(p.category_slugs) ? p.category_slugs : [];
+                    const matchId = cat.id && catIds.includes(Number(cat.id));
+                    const matchSlug = cat.slug && catSlugs.includes(cat.slug);
+                    if (!matchId && !matchSlug) return false;
+
+                    if (activeFilter === 'instock') {
+                        if (p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0)) return false;
+                    }
+                    return true;
+                });
+
+                $count.text(`${catProducts.length} producto${catProducts.length === 1 ? '' : 's'}`);
+                this.renderPosProductsGrid(catProducts);
+                return;
+            }
+
+            // MODO C: Vista Principal de Categorías
+            $headerIcon.text('📁');
+            $headerTitle.text('Categorías');
+            $backBtn.hide();
+            $categoryNav.hide();
+
+            this.renderPosCategoriesGrid();
+        },
+
+        renderPosCategoriesGrid: function() {
+            const self = this;
+            const $grid = $('#caja-pos-products-grid');
+            const $count = $('#caja-pos-catalog-count');
+
+            let categoriesMap = new Map();
+
+            // 1. Tomar categorías del backend
+            if (this.cachedCategories && this.cachedCategories.length) {
+                this.cachedCategories.forEach(c => {
+                    categoriesMap.set(Number(c.id), {
+                        id: Number(c.id),
+                        name: c.name,
+                        slug: c.slug,
+                        image_url: c.image_url || '',
+                        count: 0
+                    });
+                });
+            }
+
+            // 2. Asociar productos a las categorías para contar y obtener portada
+            if (this.cachedProducts && this.cachedProducts.length) {
+                this.cachedProducts.forEach(p => {
+                    const catIds = Array.isArray(p.category_ids) ? p.category_ids.map(Number) : [];
+                    const catSlugs = Array.isArray(p.category_slugs) ? p.category_slugs : [];
+                    const pImg = p.image_url || p.image || '';
+
+                    if (catIds.length > 0) {
+                        catIds.forEach((cid, idx) => {
+                            if (!categoriesMap.has(cid)) {
+                                const slug = catSlugs[idx] || '';
+                                const name = p.categories ? p.categories.split(',')[idx] || ('Categoría ' + cid) : ('Categoría ' + cid);
+                                categoriesMap.set(cid, {
+                                    id: cid,
+                                    name: name.trim(),
+                                    slug: slug,
+                                    image_url: '',
+                                    count: 0
+                                });
+                            }
+                            const cObj = categoriesMap.get(cid);
+                            cObj.count++;
+                            if (!cObj.image_url && pImg) {
+                                cObj.image_url = pImg;
+                            }
+                        });
+                    } else {
+                        const uncatId = 999999;
+                        if (!categoriesMap.has(uncatId)) {
+                            categoriesMap.set(uncatId, {
+                                id: uncatId,
+                                name: 'Sin categorizar',
+                                slug: 'sin-categorizar',
+                                image_url: pImg,
+                                count: 0
+                            });
+                        }
+                        const uncatObj = categoriesMap.get(uncatId);
+                        uncatObj.count++;
+                        if (!uncatObj.image_url && pImg) {
+                            uncatObj.image_url = pImg;
+                        }
+                    }
+                });
+            }
+
+            // Filtrar solo categorías que contengan productos
+            let catList = Array.from(categoriesMap.values()).filter(c => c.count > 0);
+            catList.sort((a, b) => a.name.localeCompare(b.name));
+
+            $count.text(`${catList.length} categoría${catList.length === 1 ? '' : 's'}`);
+
+            if (catList.length === 0) {
                 $grid.html(`
-                    <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #64748b;">
-                        No se encontraron productos que coincidan con la búsqueda.
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
+                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">📁</span>
+                        No se encontraron categorías con productos disponibles.
                     </div>
                 `);
                 return;
             }
 
             let html = '';
-            filtered.forEach(p => {
+            catList.forEach(c => {
+                const thumb = c.image_url || '';
+                html += `
+                    <div class="caja-pos-category-card" data-cat-id="${c.id}" data-cat-name="${self.escapeHtml(c.name)}" data-cat-slug="${c.slug}">
+                        <div class="caja-pos-card-img-wrap">
+                            ${thumb ? `<img src="${thumb}" alt="${self.escapeHtml(c.name)}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'font-size:2rem; opacity:0.5;\\'>📁</span>';" />` : '<span style="font-size:2rem; opacity:0.5;">📁</span>'}
+                        </div>
+                        <div class="caja-pos-card-info">
+                            <h4 class="caja-pos-card-title">${self.escapeHtml(c.name)}</h4>
+                        </div>
+                        <div class="caja-pos-card-footer">
+                            <span class="caja-pos-card-cat-count">${c.count} producto${c.count === 1 ? '' : 's'}</span>
+                            <span class="caja-pos-cat-arrow">➔</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            $grid.html(html);
+        },
+
+        renderPosProductsGrid: function(products) {
+            const self = this;
+            const $grid = $('#caja-pos-products-grid');
+
+            if (!products || products.length === 0) {
+                $grid.html(`
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--caja-text-muted);">
+                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">📦</span>
+                        No se encontraron productos en esta sección.<br>
+                        <button type="button" class="caja-btn caja-btn-tool caja-pos-back-action-btn" style="margin-top:14px; display:inline-flex; align-items:center; gap:6px;">
+                            ⬅️ Volver a categorías
+                        </button>
+                    </div>
+                `);
+                return;
+            }
+
+            let html = '';
+            products.forEach(p => {
                 const isOutOfStock = p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0);
                 const cardClass = isOutOfStock ? 'caja-pos-product-card is-out-of-stock' : 'caja-pos-product-card';
                 
@@ -5688,13 +5847,14 @@ $('#caja-modal-new-product').fadeIn(200);
                     stockBadge = '<span class="caja-pos-card-stock-badge no-stock">Sin Stock</span>';
                 }
 
-                const price = '$' + self.formatCurrencyNumber(p.price || p.regular_price || 0);
-                const imgSrc = p.image || '';
+                const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? p.price_raw : (p.regular_price || 0);
+                const price = '$' + self.formatCurrencyNumber(rawPrice);
+                const imgSrc = p.image_url || p.image || '';
 
                 html += `
                     <div class="${cardClass}" data-id="${p.id}" title="${self.escapeHtml(p.name)}">
                         <div class="caja-pos-card-img-wrap">
-                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" loading="lazy" />` : '<span style="font-size:1.8rem; opacity:0.4;">📦</span>'}
+                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<span style=\\'font-size:1.8rem; opacity:0.4;\\'>📦</span>';" />` : '<span style="font-size:1.8rem; opacity:0.4;">📦</span>'}
                         </div>
                         <div class="caja-pos-card-info">
                             <h4 class="caja-pos-card-title">${self.escapeHtml(p.name)}</h4>
@@ -5772,15 +5932,16 @@ $('#caja-modal-new-product').fadeIn(200);
                     const stockLabel = prod.manage_stock 
                         ? (prod.stock_quantity > 0 ? `${prod.stock_quantity} disp.` : 'Agotado') 
                         : 'Stock ilimitado';
-                    const img = prod.image || '';
+                    const rawPrice = (prod.price_raw !== undefined && prod.price_raw !== null) ? prod.price_raw : (prod.regular_price || 0);
+                    const img = prod.image_url || prod.image || '';
 
                     dHtml += `
                         <div class="caja-pos-qs-item ${isOutOfStock ? 'is-out-of-stock' : ''}" data-id="${prod.id}">
-                            ${img ? `<img src="${img}" class="caja-pos-qs-thumb" onerror="this.style.display='none'" />` : '<div class="caja-pos-qs-thumb">📦</div>'}
+                            ${img ? `<img src="${img}" class="caja-pos-qs-thumb" onerror="this.onerror=null; this.style.display='none';" />` : '<div class="caja-pos-qs-thumb">📦</div>'}
                             <div class="caja-pos-qs-details">
                                 <div class="caja-pos-qs-title">${self.escapeHtml(prod.name)}</div>
                                 <div class="caja-pos-qs-sub">
-                                    <strong class="caja-pos-qs-price">$${self.formatCurrencyNumber(prod.price || prod.regular_price || 0)}</strong>
+                                    <strong class="caja-pos-qs-price">$${self.formatCurrencyNumber(rawPrice)}</strong>
                                     <span class="caja-pos-qs-stock ${isOutOfStock ? 'no-stock' : 'has-stock'}">${stockLabel}</span>
                                 </div>
                             </div>
@@ -5817,6 +5978,29 @@ $('#caja-modal-new-product').fadeIn(200);
             // Toggle Catálogo de Productos (Mobile y Desktop)
             $('#caja-pos-toggle-catalog-btn, #caja-pos-cart-expand-trigger').on('click', function() {
                 $('#caja-pos-catalog-panel').slideToggle(200);
+            });
+
+            // Clic en tarjeta de Categoría del catálogo
+            $(document).on('click', '.caja-pos-category-card', function(e) {
+                e.preventDefault();
+                const catId = $(this).data('cat-id');
+                const catName = $(this).data('cat-name');
+                const catSlug = $(this).data('cat-slug');
+                self.posCurrentCategory = { id: catId, name: catName, slug: catSlug };
+                $('#caja-pos-search-input').val('');
+                $('#caja-pos-search-clear').hide();
+                self.posSearchQuery = '';
+                self.populatePosCatalog();
+            });
+
+            // Clic en Volver a categorías
+            $(document).on('click', '#caja-pos-back-categories-btn, #caja-pos-btn-back-categories, .caja-pos-back-action-btn', function(e) {
+                e.preventDefault();
+                self.posCurrentCategory = null;
+                self.posSearchQuery = '';
+                $('#caja-pos-search-input').val('');
+                $('#caja-pos-search-clear').hide();
+                self.populatePosCatalog();
             });
 
             // Clic en tarjeta de producto del catálogo
@@ -5973,6 +6157,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const currentInCart = existing ? existing.quantity : 0;
             const newTotalQty = currentInCart + quantity;
 
+            const rawPrice = (prod.price_raw !== undefined && prod.price_raw !== null) ? parseFloat(prod.price_raw) : parseFloat(prod.regular_price || 0);
+            const prodImg = prod.image_url || prod.image || '';
+
             if (prod.manage_stock && prod.stock_quantity !== null) {
                 if (newTotalQty > prod.stock_quantity) {
                     const availableToAdd = Math.max(0, prod.stock_quantity - currentInCart);
@@ -5983,8 +6170,8 @@ $('#caja-modal-new-product').fadeIn(200);
                             this.posCart.push({
                                 id: prod.id,
                                 name: prod.name,
-                                price: parseFloat(prod.price || prod.regular_price || 0),
-                                image: prod.image,
+                                price: rawPrice,
+                                image: prodImg,
                                 stock: prod.stock_quantity,
                                 manage_stock: prod.manage_stock,
                                 quantity: availableToAdd
@@ -6006,8 +6193,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.posCart.push({
                     id: prod.id,
                     name: prod.name,
-                    price: parseFloat(prod.price || prod.regular_price || 0),
-                    image: prod.image,
+                    price: rawPrice,
+                    image: prodImg,
                     stock: prod.stock_quantity,
                     manage_stock: prod.manage_stock,
                     quantity: quantity
