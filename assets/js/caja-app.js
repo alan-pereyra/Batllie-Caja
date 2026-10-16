@@ -6015,11 +6015,33 @@ $('#caja-modal-new-product').fadeIn(200);
             const self = this;
             let totalItems = 0;
             let totalPrice = 0;
+            let itemsHtml = '';
 
             this.posCart.forEach(item => {
+                const lineTotal = item.price * item.quantity;
                 totalItems += item.quantity;
-                totalPrice += (item.price * item.quantity);
+                totalPrice += lineTotal;
+
+                itemsHtml += `
+                    <div class="caja-pos-summary-item-row">
+                        <div class="caja-pos-summary-item-name">
+                            <span class="caja-pos-summary-item-qty">${item.quantity}x</span>
+                            <span class="caja-pos-summary-item-title" title="${self.escapeHtml(item.name)}">${self.escapeHtml(item.name)}</span>
+                            ${item.quantity > 1 ? `<span class="caja-pos-summary-unit-price">($${self.formatCurrencyNumber(item.price)} c/u)</span>` : ''}
+                        </div>
+                        <div class="caja-pos-summary-item-price">$${self.formatCurrencyNumber(lineTotal)}</div>
+                    </div>
+                `;
             });
+
+            const $summaryContainer = $('#caja-pos-summary-items');
+            if ($summaryContainer.length) {
+                if (totalItems > 0) {
+                    $summaryContainer.html(itemsHtml).show();
+                } else {
+                    $summaryContainer.html('<div class="caja-pos-summary-empty">Sin productos seleccionados</div>').show();
+                }
+            }
 
             const $btn = $('#caja-pos-checkout-btn');
             const $badge = $('#caja-pos-cart-badge-count');

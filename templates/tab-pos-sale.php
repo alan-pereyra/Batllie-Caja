@@ -105,9 +105,14 @@ if (!defined('ABSPATH')) {
                 <textarea id="caja-pos-note" class="caja-input caja-pos-note-textarea" rows="2" placeholder="<?php esc_attr_e('Nota o aclaraciones de la venta...', 'emp-caja'); ?>"></textarea>
             </div>
 
-            <!-- Resumen de Totales -->
+            <!-- Resumen de Totales y Productos Seleccionados -->
             <div class="caja-pos-totals-block">
-                <div class="caja-pos-total-line">
+                <!-- Lista de productos y precios en el Subtotal -->
+                <div class="caja-pos-summary-items" id="caja-pos-summary-items">
+                    <div class="caja-pos-summary-empty"><?php _e('Sin productos seleccionados', 'emp-caja'); ?></div>
+                </div>
+
+                <div class="caja-pos-total-line caja-pos-subtotal-row">
                     <span><?php _e('Subtotal:', 'emp-caja'); ?></span>
                     <strong id="caja-pos-subtotal-val">$0,00</strong>
                 </div>

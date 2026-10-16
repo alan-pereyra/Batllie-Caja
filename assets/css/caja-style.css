@@ -5676,12 +5676,81 @@ body.caja-modal-locked {
     border-color: var(--caja-primary, #10b981);
 }
 
-/* Bloque de Totales (Exacto al Mockup) */
+/* Bloque de Totales y Productos Seleccionados */
 .caja-pos-totals-block {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     padding: 6px 0;
+}
+
+/* Lista de Productos y Precios en el Subtotal */
+.caja-pos-summary-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    margin-bottom: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.caja-pos-summary-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.86rem;
+    color: var(--caja-text, #f8fafc);
+}
+
+.caja-pos-summary-item-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.caja-pos-summary-item-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.caja-pos-summary-item-qty {
+    color: var(--caja-primary, #10b981);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.caja-pos-summary-unit-price {
+    font-size: 0.74rem;
+    color: var(--caja-text-muted, #94a3b8);
+    flex-shrink: 0;
+}
+
+.caja-pos-summary-item-price {
+    font-weight: 700;
+    color: var(--caja-text, #f8fafc);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.caja-pos-summary-empty {
+    color: var(--caja-text-muted, #94a3b8);
+    font-size: 0.82rem;
+    font-style: italic;
+    text-align: center;
+    padding: 4px 0;
+}
+
+.caja-pos-subtotal-row {
+    padding-top: 4px;
 }
 
 .caja-pos-total-line {
