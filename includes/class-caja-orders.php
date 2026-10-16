@@ -1670,6 +1670,8 @@ class Batllie_Caja_Orders {
             } else {
                 $shipping_slot_badge = "{$shipping_slot} hs";
             }
+        }
+
         // Detección de Retiro por el Local
         $is_local_pickup = false;
         $delivery_type_meta = $order->get_meta('_caja_delivery_type');
