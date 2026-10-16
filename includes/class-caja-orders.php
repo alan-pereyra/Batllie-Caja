@@ -1564,9 +1564,21 @@ class Batllie_Caja_Orders {
         // Datos del cliente
         $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
         $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
-        $customer_name = trim($first_name . ' ' . $last_name);
-        if (empty($customer_name)) {
-            $customer_name = __('Cliente mostrador / Anónimo', 'emp-caja');
+
+        $is_pos_sale = ($order->get_meta('_caja_pos_sale') === 'yes' || $order->get_meta('_created_by_caja_pos'));
+        $pos_mode = $order->get_meta('_caja_pos_mode');
+        $is_venta_mostrador = ($is_pos_sale && $pos_mode === 'compra_realizada') || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
+
+        if ($is_venta_mostrador) {
+            $customer_name = trim(str_ireplace('Venta Mostrador', '', $first_name . ' ' . $last_name));
+            if (empty($customer_name)) {
+                $customer_name = __('Cliente mostrador', 'emp-caja');
+            }
+        } else {
+            $customer_name = trim($first_name . ' ' . $last_name);
+            if (empty($customer_name)) {
+                $customer_name = __('Cliente mostrador / Anónimo', 'emp-caja');
+            }
         }
 
         $phone = method_exists($order, 'get_billing_phone') ? $order->get_billing_phone() : '';
@@ -1584,6 +1596,9 @@ class Batllie_Caja_Orders {
         if (empty($clean_address)) {
             $raw_addr = $order->get_formatted_shipping_address() ? $order->get_formatted_shipping_address() : $order->get_formatted_billing_address();
             $clean_address = trim(strip_tags(str_replace('<br/>', ', ', $raw_addr)));
+        }
+        if ($clean_address === $customer_name || $clean_address === trim($first_name . ' ' . $last_name) || stripos($clean_address, 'Venta Mostrador') !== false) {
+            $clean_address = '';
         }
 
         $status = $order->get_status();
@@ -1699,6 +1714,7 @@ class Batllie_Caja_Orders {
             'shipping_status' => $shipping_status,
             'shipping_method' => $order->get_shipping_method(),
             'is_local_pickup' => $is_local_pickup,
+            'is_venta_mostrador' => $is_venta_mostrador,
             'delivery_type'   => !empty($delivery_type_meta) ? $delivery_type_meta : ($is_local_pickup ? 'retiro_local' : 'con_envio'),
             'shipping_slot'   => $shipping_slot,
             'shipping_slot_date'        => $shipping_slot_date,
@@ -2105,6 +2121,31 @@ class Batllie_Caja_Orders {
         $shipping = $order->get_meta('_caja_shipping_status');
         $base_ts  = $created_ts ?: time();
 
+        $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
+        $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
+        $is_pos_sale = ($order->get_meta('_caja_pos_sale') === 'yes' || $order->get_meta('_created_by_caja_pos'));
+        $pos_mode = $order->get_meta('_caja_pos_mode');
+        $is_venta_mostrador = ($is_pos_sale && $pos_mode === 'compra_realizada') || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
+
+        // Si es venta mostrador o se completó en el acto, limpiar eventos simulados de reparto/moto
+        if ($is_venta_mostrador) {
+            $timeline = array_filter($timeline, function($ev) {
+                $type = isset($ev['type']) ? $ev['type'] : '';
+                return !in_array($type, array('shipping_coord', 'shipping_out', 'shipping_door', 'shipping_dest'));
+            });
+        }
+
+        // Eliminar tiempos simulados artificiales de registros previos (+60, +120, +360, +600, +900 segundos)
+        foreach ($timeline as &$ev) {
+            if (isset($ev['timestamp']) && is_numeric($ev['timestamp'])) {
+                $diff = (int)$ev['timestamp'] - $base_ts;
+                if ($is_venta_mostrador || in_array($diff, array(60, 120, 360, 600, 900))) {
+                    $ev['timestamp'] = $base_ts;
+                }
+            }
+        }
+        unset($ev);
+
         $has_prep = false;
         $has_coord = false;
         $has_ship = false;
@@ -2120,42 +2161,41 @@ class Batllie_Caja_Orders {
             }
         }
 
-        if (!$has_prep && in_array($status, array('processing', 'enviando', 'completed', 'recibido-problema'))) {
-            $ts = $base_ts + 60;
+        $base_day_cap = mb_convert_case(self::format_datetime('l', $base_ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $base_ts);
+
+        if (!$has_prep && in_array($status, array('processing', 'enviando', 'completed', 'recibido-problema')) && !$is_venta_mostrador) {
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => __('en preparación', 'emp-caja'),
                 'icon'           => '📦',
                 'type'           => 'status_prep'
             );
         }
 
-        if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas'))) {
-            $ts = $base_ts + 120;
+        if (!$has_coord && in_array($shipping, array('esperando_repartidor', 'enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas')) && !$is_venta_mostrador) {
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => __('se coordinó el envío', 'emp-caja'),
                 'icon'           => '⏳',
                 'type'           => 'shipping_coord'
             );
         }
 
-        if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas'))) {
-            $ts = $base_ts + 360;
+        if (!$has_ship && in_array($shipping, array('enviando', 'demorado', 'en_puerta', 'entregado', 'entregado_problemas')) && !$is_venta_mostrador) {
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => __('el envío salió a su destino', 'emp-caja'),
                 'icon'           => '🛵',
                 'type'           => 'shipping_out'
@@ -2169,28 +2209,26 @@ class Batllie_Caja_Orders {
                 break;
             }
         }
-        if (!$has_door && in_array($shipping, array('en_puerta', 'entregado', 'entregado_problemas')) && $shipping === 'en_puerta') {
-            $ts = $base_ts + 600;
+        if (!$has_door && in_array($shipping, array('en_puerta', 'entregado', 'entregado_problemas')) && $shipping === 'en_puerta' && !$is_venta_mostrador) {
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => __('el repartidor está en la puerta', 'emp-caja'),
                 'icon'           => '🚪',
                 'type'           => 'shipping_door'
             );
         }
 
-        if (!$has_dest && in_array($shipping, array('entregado', 'entregado_problemas'))) {
-            $ts = $base_ts + 900;
+        if (!$has_dest && in_array($shipping, array('entregado', 'entregado_problemas')) && !$is_venta_mostrador) {
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => $shipping === 'entregado' ? __('llegó a destino (sin inconvenientes)', 'emp-caja') : __('llegó a destino (con inconvenientes)', 'emp-caja'),
                 'icon'           => $shipping === 'entregado' ? '🏁' : '🛑',
                 'type'           => 'shipping_dest'
@@ -2198,13 +2236,12 @@ class Batllie_Caja_Orders {
         }
 
         if (!$has_comp && in_array($status, array('completed', 'recibido-problema'))) {
-            $ts = $base_ts + 900;
             $timeline[] = array(
-                'time'           => self::format_datetime('H:i', $ts),
-                'date'           => self::format_datetime('d/m', $ts),
-                'date_formatted' => mb_convert_case(self::format_datetime('l', $ts), MB_CASE_TITLE, 'UTF-8') . ' ' . self::format_datetime('d/m/Y', $ts),
-                'date_key'       => self::format_datetime('Y-m-d', $ts),
-                'timestamp'      => $ts,
+                'time'           => self::format_datetime('H:i', $base_ts),
+                'date'           => self::format_datetime('d/m', $base_ts),
+                'date_formatted' => $base_day_cap,
+                'date_key'       => self::format_datetime('Y-m-d', $base_ts),
+                'timestamp'      => $base_ts,
                 'text'           => $status === 'completed' ? __('pedido completado', 'emp-caja') : __('pedido completado con inconvenientes', 'emp-caja'),
                 'icon'           => '✅',
                 'type'           => 'status_comp'
@@ -2216,8 +2253,26 @@ class Batllie_Caja_Orders {
             return is_array($e) && !empty($e['text']) && !empty($e['time']) && $e['text'] !== 'undefined' && $e['time'] !== 'undefined';
         }));
 
-        usort($timeline, function($a, $b) {
-            return ($a['timestamp'] ?? 0) - ($b['timestamp'] ?? 0);
+        $type_priority = array(
+            'created'        => 1,
+            'payment'        => 2,
+            'status_prep'    => 3,
+            'shipping_coord' => 4,
+            'shipping_out'   => 5,
+            'shipping_door'  => 6,
+            'shipping_dest'  => 7,
+            'status_comp'    => 8,
+        );
+
+        usort($timeline, function($a, $b) use ($type_priority) {
+            $ts_a = isset($a['timestamp']) ? (int)$a['timestamp'] : 0;
+            $ts_b = isset($b['timestamp']) ? (int)$b['timestamp'] : 0;
+            if ($ts_a !== $ts_b) {
+                return $ts_a - $ts_b;
+            }
+            $p_a = isset($type_priority[$a['type'] ?? '']) ? $type_priority[$a['type']] : 99;
+            $p_b = isset($type_priority[$b['type'] ?? '']) ? $type_priority[$b['type']] : 99;
+            return $p_a - $p_b;
         });
 
         foreach ($timeline as &$ev) {

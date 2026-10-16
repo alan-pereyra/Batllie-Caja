@@ -2748,6 +2748,13 @@ $('#caja-modal-new-product').fadeIn(200);
                     `;
                 }
 
+                const isVentaMostrador = !!(order.is_venta_mostrador || (order.customer_name && order.customer_name.toLowerCase().includes('venta mostrador')));
+                let cleanCustomerName = order.customer_name || '';
+                if (isVentaMostrador) {
+                    cleanCustomerName = cleanCustomerName.replace(/Venta\s+Mostrador/gi, '').trim();
+                    if (!cleanCustomerName) cleanCustomerName = 'Cliente mostrador';
+                }
+
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
                         <div class="caja-card-header">
@@ -2772,11 +2779,16 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
 
                         <div class="caja-customer-block">
-                            <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(order.customer_name)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
-                                <span>👤 ${order.customer_name}</span>
-                                <span class="caja-cust-history-pill" style="font-size:0.74rem; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:2px 7px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; vertical-align:middle;">
-                                    📜 Historial
-                                </span>
+                            <div class="caja-customer-header-row">
+                                <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(cleanCustomerName)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
+                                    <span>👤 ${cleanCustomerName}</span>
+                                    <span class="caja-cust-history-pill" style="font-size:0.74rem; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:2px 7px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; vertical-align:middle;">
+                                        📜 Historial
+                                    </span>
+                                </div>
+                                ${isVentaMostrador ? `
+                                    <span class="caja-badge-venta-mostrador">Venta Mostrador</span>
+                                ` : ''}
                             </div>
                             ${phoneHtml}
                             ${order.address ? `<div class="caja-customer-address">📍 ${order.address}</div>` : ''}
@@ -3208,7 +3220,8 @@ $('#caja-modal-new-product').fadeIn(200);
                     const matchName = ord.customer_name && ord.customer_name.toLowerCase().includes(kw);
                     const matchPhone = ord.phone && ord.phone.includes(kw);
                     const matchNote = ord.customer_note && ord.customer_note.toLowerCase().includes(kw);
-                    if (!matchNum && !matchName && !matchPhone && !matchNote) {
+                    const matchVentaMostrador = ord.is_venta_mostrador && 'venta mostrador'.includes(kw);
+                    if (!matchNum && !matchName && !matchPhone && !matchNote && !matchVentaMostrador) {
                         return false;
                     }
                 }

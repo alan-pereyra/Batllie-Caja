@@ -718,6 +718,84 @@ class Batllie_Caja_Ajax {
             $order->add_item($shipping_item);
         }
 
+        $now_ts = time();
+        $c_day = Batllie_Caja_Orders::format_datetime('l', $now_ts);
+        $c_day_cap = mb_convert_case($c_day, MB_CASE_TITLE, 'UTF-8');
+        $c_d_str = Batllie_Caja_Orders::format_datetime('d/m/Y', $now_ts);
+        $time_str = Batllie_Caja_Orders::format_datetime('H:i', $now_ts);
+        $date_key = Batllie_Caja_Orders::format_datetime('Y-m-d', $now_ts);
+        $date_str = Batllie_Caja_Orders::format_datetime('d/m', $now_ts);
+
+        if ($mode === 'compra_realizada') {
+            $initial_timeline = array(
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('llegó el pedido', 'emp-caja'),
+                    'icon'           => '📥',
+                    'type'           => 'created'
+                ),
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('se confirmó el pago', 'emp-caja'),
+                    'icon'           => '💳',
+                    'type'           => 'payment'
+                ),
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('pedido completado', 'emp-caja'),
+                    'icon'           => '✅',
+                    'type'           => 'status_comp'
+                )
+            );
+            $order->update_meta_data('_caja_timeline', $initial_timeline);
+        } else {
+            $initial_timeline = array(
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('llegó el pedido', 'emp-caja'),
+                    'icon'           => '📥',
+                    'type'           => 'created'
+                ),
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('se confirmó el pago', 'emp-caja'),
+                    'icon'           => '💳',
+                    'type'           => 'payment'
+                ),
+                array(
+                    'time'           => $time_str,
+                    'date'           => $date_str,
+                    'date_formatted' => $c_day_cap . ' ' . $c_d_str,
+                    'date_key'       => $date_key,
+                    'timestamp'      => $now_ts,
+                    'text'           => __('en preparación', 'emp-caja'),
+                    'icon'           => '📦',
+                    'type'           => 'status_prep'
+                )
+            );
+            $order->update_meta_data('_caja_timeline', $initial_timeline);
+        }
+
         $order->calculate_totals();
         $order->save();
 
