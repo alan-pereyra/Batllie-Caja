@@ -5540,6 +5540,57 @@ body.caja-modal-locked {
     color: var(--caja-status-processing, #3b82f6);
 }
 
+/* Submenú de Despacho */
+.caja-pos-dispatch-subgroup {
+    margin: 2px 0 6px;
+    padding: 2px 0;
+}
+
+.caja-pos-dispatch-chips-row {
+    display: flex;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--caja-bg, #0f172a);
+    border: 1px solid var(--caja-card-border, #334155);
+    box-sizing: border-box;
+}
+
+.caja-pos-dispatch-chip {
+    flex: 1 1 0;
+    width: 50%;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--caja-card-border, #334155);
+    border-radius: 0;
+    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--caja-text-muted, #94a3b8);
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+
+.caja-pos-dispatch-chip:last-child {
+    border-right: none;
+}
+
+.caja-pos-dispatch-chip:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--caja-text, #f8fafc);
+}
+
+.caja-pos-dispatch-chip.active {
+    background: var(--caja-status-processing, #3b82f6);
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
 /* Métodos de Pago y Estado */
 .caja-pos-payment-subgroup {
     display: flex;

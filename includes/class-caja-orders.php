@@ -1655,6 +1655,28 @@ class Batllie_Caja_Orders {
             } else {
                 $shipping_slot_badge = "{$shipping_slot} hs";
             }
+        // Detección de Retiro por el Local
+        $is_local_pickup = false;
+        $delivery_type_meta = $order->get_meta('_caja_delivery_type');
+        if ($delivery_type_meta === 'retiro_local' || $order->get_meta('_caja_is_pickup') === 'yes') {
+            $is_local_pickup = true;
+        } else {
+            $shipping_method_name = strtolower((string) $order->get_shipping_method());
+            $methods = $order->get_shipping_methods();
+            foreach ($methods as $method) {
+                $mid = strtolower($method->get_method_id());
+                if (strpos($mid, 'local_pickup') !== false || strpos($mid, 'pickup') !== false || strpos($mid, 'retiro') !== false) {
+                    $is_local_pickup = true;
+                    break;
+                }
+            }
+            if (!$is_local_pickup && (strpos($shipping_method_name, 'retiro') !== false || strpos($shipping_method_name, 'local') !== false || strpos($shipping_method_name, 'pickup') !== false || strpos($shipping_method_name, 'mostrador') !== false)) {
+                $is_local_pickup = true;
+            }
+        }
+
+        if ($is_local_pickup && ($status === 'enviando' || $status === 'on-hold')) {
+            $status_name = __('Esperando a ser retirado', 'emp-caja');
         }
 
         return array(
@@ -1676,6 +1698,8 @@ class Batllie_Caja_Orders {
             'payment_status'  => $payment_status,
             'shipping_status' => $shipping_status,
             'shipping_method' => $order->get_shipping_method(),
+            'is_local_pickup' => $is_local_pickup,
+            'delivery_type'   => !empty($delivery_type_meta) ? $delivery_type_meta : ($is_local_pickup ? 'retiro_local' : 'con_envio'),
             'shipping_slot'   => $shipping_slot,
             'shipping_slot_date'        => $shipping_slot_date,
             'shipping_slot_label'       => $shipping_slot_label,

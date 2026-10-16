@@ -66,6 +66,19 @@ if (!defined('ABSPATH')) {
                         <span class="caja-pos-switch-sub"><?php _e('(Mostrador/Envío)', 'emp-caja'); ?></span>
                     </div>
                 </div>
+
+                <!-- Submenú de Despacho (Solo visible si "Pedido por Despachar" está activo) -->
+                <div class="caja-pos-dispatch-subgroup" id="caja-pos-dispatch-subgroup" style="display:none;">
+                    <div class="caja-pos-dispatch-chips-row">
+                        <button type="button" class="caja-pos-dispatch-chip active" data-delivery="con_envio" id="btn-delivery-con-envio">
+                            <span>🚚</span> <span><?php _e('Con Envío', 'emp-caja'); ?></span>
+                        </button>
+                        <button type="button" class="caja-pos-dispatch-chip" data-delivery="retiro_local" id="btn-delivery-retiro-local">
+                            <span>🏪</span> <span><?php _e('Retira posteriormente por el local', 'emp-caja'); ?></span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="caja-pos-selected-delivery" value="con_envio" />
+                </div>
             </div>
             <input type="hidden" id="caja-pos-selected-mode" value="compra_realizada" />
 

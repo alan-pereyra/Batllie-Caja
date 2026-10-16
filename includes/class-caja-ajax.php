@@ -613,6 +613,7 @@ class Batllie_Caja_Ajax {
         }
 
         $mode           = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'compra_realizada';
+        $delivery_type  = isset($_POST['delivery_type']) ? sanitize_text_field($_POST['delivery_type']) : 'con_envio';
         $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'efectivo';
         $payment_status = isset($_POST['payment_status']) ? sanitize_text_field($_POST['payment_status']) : 'pagado';
         $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
@@ -694,8 +695,27 @@ class Batllie_Caja_Ajax {
 
         if ($mode === 'compra_realizada') {
             $order->update_meta_data('_caja_shipping_status', 'entregado');
+            $order->update_meta_data('_caja_delivery_type', 'in_situ');
+            $order->update_meta_data('_caja_is_pickup', 'no');
+            $mode_label = __('Compra In Situ', 'emp-caja');
         } else {
             $order->update_meta_data('_caja_shipping_status', 'no_gestionado');
+            $order->update_meta_data('_caja_delivery_type', $delivery_type);
+
+            $shipping_item = new WC_Order_Item_Shipping();
+            if ($delivery_type === 'retiro_local') {
+                $order->update_meta_data('_caja_is_pickup', 'yes');
+                $shipping_item->set_method_title(__('Retiro por el local', 'emp-caja'));
+                $shipping_item->set_method_id('local_pickup');
+                $mode_label = __('Retiro en Local', 'emp-caja');
+            } else {
+                $order->update_meta_data('_caja_is_pickup', 'no');
+                $shipping_item->set_method_title(__('Con Envío', 'emp-caja'));
+                $shipping_item->set_method_id('flat_rate');
+                $mode_label = __('Con Envío', 'emp-caja');
+            }
+            $shipping_item->set_total(0);
+            $order->add_item($shipping_item);
         }
 
         $order->calculate_totals();
@@ -708,7 +728,6 @@ class Batllie_Caja_Ajax {
         $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
         $now_dt = new DateTime('now', $tz);
         $date_formatted = $now_dt->format('d/m/Y H:i');
-        $mode_label = ($mode === 'compra_realizada') ? __('Compra In Situ', 'emp-caja') : __('Pedido Despacho', 'emp-caja');
 
         foreach ($stock_movements as $mov) {
             $p = wc_get_product($mov['prod_id']);

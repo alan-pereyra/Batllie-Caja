@@ -270,10 +270,15 @@
                 const $controlBtnWrap = $card.find('.caja-control-pedido-btn-wrap');
                 const isApproved = (val === 'pagado' || val === 'efectivo_entrega');
 
+                // Determinar si es retiro en el local para la etiqueta de Enviando
+                const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
+                const isPickup = cachedOrder && (cachedOrder.is_local_pickup === true || cachedOrder.is_local_pickup === 'yes');
+                const enviandoLabel = isPickup ? 'Esperando a ser retirado' : 'Enviando';
+
                 // Bloqueo de pasos posteriores si el pago no fue aprobado
                 if (isApproved) {
                     $mainDropdown.find('option[value="processing"]').prop('disabled', false).text('En preparación');
-                    $mainDropdown.find('option[value="enviando"]').prop('disabled', false).text('Enviando');
+                    $mainDropdown.find('option[value="enviando"]').prop('disabled', false).text(enviandoLabel);
                     $mainDropdown.find('option[value="completed"]').prop('disabled', false).text('Completado');
                     $shipSelect.find('option').prop('disabled', false);
                     if ($mainDropdown.val() === 'enviando' || $mainDropdown.val() === 'on-hold') {
@@ -283,7 +288,7 @@
                     }
                 } else {
                     $mainDropdown.find('option[value="processing"]').prop('disabled', true).text('En preparación 🔒 (requiere pago)');
-                    $mainDropdown.find('option[value="enviando"]').prop('disabled', true).text('Enviando 🔒 (requiere pago)');
+                    $mainDropdown.find('option[value="enviando"]').prop('disabled', true).text(`${enviandoLabel} 🔒 (requiere pago)`);
                     $mainDropdown.find('option[value="completed"]').prop('disabled', true).text('Completado 🔒 (requiere pago)');
                     $shipSelect.find('option:not([value="no_gestionado"])').prop('disabled', true);
                     $controlBtnWrap.hide();
@@ -294,7 +299,6 @@
                        .addClass('status-pay-' + val);
 
                 // Actualizar objeto en caché
-                const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
                 if (cachedOrder) {
                     cachedOrder.payment_status = val;
                 }
@@ -395,6 +399,7 @@
                 };
 
                 const isPkgVerified = cachedOrder && (cachedOrder.control_pedido_verified === true || cachedOrder.control_pedido_verified === 'yes');
+                const isPickup = cachedOrder && (cachedOrder.is_local_pickup === true || cachedOrder.is_local_pickup === 'yes');
 
                 // Ajustar visibilidad dinámica del menú ubicado ARRIBA del botón de estado
                 if (newStatus === 'pending') {
@@ -410,7 +415,7 @@
                 } else if (newStatus === 'enviando' || newStatus === 'on-hold') {
                     setVisible($payBox, false);
                     setVisible($pkgBox, !isPkgVerified);
-                    setVisible($shipBox, true);
+                    setVisible($shipBox, !isPickup);
                     $controlBtnWrap.show();
                     const $controlBtn = $controlBtnWrap.find('.caja-btn-control-pedido');
                     if (isPkgVerified) {
@@ -421,7 +426,7 @@
                 } else if (newStatus === 'completed') {
                     setVisible($payBox, false);
                     setVisible($pkgBox, false);
-                    setVisible($shipBox, true);
+                    setVisible($shipBox, !isPickup);
                     $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido sin problemas
                     $shipSelect.val('entregado');
@@ -430,7 +435,7 @@
                 } else if (newStatus === 'recibido-problema') {
                     setVisible($payBox, false);
                     setVisible($pkgBox, false);
-                    setVisible($shipBox, true);
+                    setVisible($shipBox, !isPickup);
                     $controlBtnWrap.hide();
                     // Sincronización: selector de la moto se pone en Recibido con problemas
                     $shipSelect.val('entregado_problemas');
@@ -842,7 +847,12 @@
                                 order.shipping_status = 'enviando';
                             }
                             self.applyFilters();
-                            self.showToast('🚀 Control de pedido completado al 100%. Repartidor enviando.');
+                            const isPickup = order && (order.is_local_pickup === true || order.is_local_pickup === 'yes');
+                            if (isPickup) {
+                                self.showToast('📋 Control de pedido completado al 100%. Esperando retiro por el local.');
+                            } else {
+                                self.showToast('🚀 Control de pedido completado al 100%. Repartidor enviando.');
+                            }
                         } else {
                             alert(res.data && res.data.message ? res.data.message : 'Error al verificar control de pedido.');
                         }
@@ -2623,6 +2633,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 // Reglas de visibilidad condicional para el menú de pago, empaque y envío (ubicado ARRIBA del selector de estado):
                 const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
                 const isVerified = (order.control_pedido_verified === true || order.control_pedido_verified === 'yes');
+                const isPickup = (order.is_local_pickup === true || order.is_local_pickup === 'yes');
                 let showPaymentBox = false;
                 let showPackagingBox = false;
                 let showShippingBox = false;
@@ -2638,11 +2649,11 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else if (order.status === 'enviando' || order.status === 'on-hold') {
                     showPaymentBox = false;
                     showPackagingBox = !isVerified;
-                    showShippingBox = true;
+                    showShippingBox = !isPickup;
                 } else if (order.status === 'completed' || order.status === 'recibido-problema' || order.status === 'failed') {
                     showPaymentBox = false;
                     showPackagingBox = false;
-                    showShippingBox = true;
+                    showShippingBox = !isPickup;
                 } else if (order.status === 'cancelled' || order.status === 'refunded') {
                     showPaymentBox = true;
                     showPackagingBox = false;
@@ -3000,7 +3011,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <select class="caja-main-status-dropdown status-bg-${order.status} ${isVerified && (order.status === 'enviando' || order.status === 'on-hold') ? 'is-verified-primary' : ''}" data-order-id="${order.id}">
                                         <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
                                         <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>En preparación${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
-                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Enviando${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>${isPickup ? 'Esperando a ser retirado' : 'Enviando'}${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                         <option value="completed" ${order.status === 'completed' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Completado${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                         <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
                                         <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
@@ -5869,14 +5880,25 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 const $btn = $('#caja-pos-checkout-btn');
                 const $text = $('#caja-pos-checkout-text');
+                const $dispatchSubgroup = $('#caja-pos-dispatch-subgroup');
 
                 if (mode === 'compra_realizada') {
                     $btn.removeClass('is-dispatch');
                     $text.text('Confirmar y Cobrar');
+                    $dispatchSubgroup.slideUp(180);
                 } else {
                     $btn.addClass('is-dispatch');
                     $text.text('Enviar a Cola de Despacho');
+                    $dispatchSubgroup.slideDown(180);
                 }
+            });
+
+            // Selector de Entrega en Despacho (Con Envío vs Retiro por el Local)
+            $(document).on('click', '.caja-pos-dispatch-chip', function() {
+                $('.caja-pos-dispatch-chip').removeClass('active');
+                $(this).addClass('active');
+                const delivery = $(this).data('delivery');
+                $('#caja-pos-selected-delivery').val(delivery);
             });
 
             // Selector de Método de Pago
@@ -6064,6 +6086,13 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
             $('.caja-pos-prod-row').removeClass('has-selected');
             $('.caja-pos-cat-badge-qty').text('0').hide();
+            // Reset de opciones de despacho
+            $('.caja-pos-dispatch-chip').removeClass('active');
+            $('#btn-delivery-con-envio').addClass('active');
+            $('#caja-pos-selected-delivery').val('con_envio');
+            if ($('#caja-pos-selected-mode').val() !== 'pedido_despachar') {
+                $('#caja-pos-dispatch-subgroup').hide();
+            }
             this.updatePosTotals();
             this.showToast('Selección vaciada.', 'info');
         },
@@ -6080,6 +6109,7 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+            const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             const paymentMethod = $('#caja-pos-selected-pay').val() || 'efectivo';
             const paymentStatus = $('#caja-pos-selected-status').val() || 'pagado';
             const cardOp = $('#caja-pos-card-op').val() || '';
@@ -6098,6 +6128,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     security: self.config.nonce,
                     items: JSON.stringify(self.posCart),
                     mode: mode,
+                    delivery_type: deliveryType,
                     payment_method: paymentMethod,
                     payment_status: paymentStatus,
                     card_op_number: cardOp,
