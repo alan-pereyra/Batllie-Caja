@@ -12,23 +12,6 @@ $user_display = ($current_user && $current_user->exists()) ? $current_user->disp
 ?>
 
 <div class="caja-pos-container" id="caja-pos-main-container">
-    <!-- Encabezado / Banner Superior de Venta Caja -->
-    <div class="caja-pos-header">
-        <div class="caja-pos-header-left">
-            <div class="caja-pos-header-badge">🛒</div>
-            <div>
-                <h2 class="caja-pos-title"><?php _e('Venta Caja (Punto de Venta Mostrador)', 'emp-caja'); ?></h2>
-                <p class="caja-pos-subtitle"><?php _e('Registrá ventas directas de mostrador o tomá pedidos para despacho con descuento automático de stock.', 'emp-caja'); ?></p>
-            </div>
-        </div>
-        <div class="caja-pos-header-right">
-            <span class="caja-pos-cashier-badge">
-                <span class="caja-pos-cashier-dot"></span>
-                <span><?php _e('Cajero:', 'emp-caja'); ?> <strong><?php echo esc_html($user_display); ?></strong></span>
-            </span>
-        </div>
-    </div>
-
     <!-- Layout Principal en 2 Columnas (Catálogo y Ticket de Cobro) -->
     <div class="caja-pos-grid">
         <!-- Columna Izquierda: Selector y Catálogo Rápido -->
