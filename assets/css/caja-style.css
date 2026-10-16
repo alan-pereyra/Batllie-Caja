@@ -5579,6 +5579,7 @@ body.caja-modal-locked {
 
 .caja-pos-dispatch-chips-row {
     display: flex;
+    align-items: stretch !important;
     width: 100%;
     border-radius: 8px;
     overflow: hidden;
@@ -5590,10 +5591,14 @@ body.caja-modal-locked {
 .caja-pos-dispatch-chip {
     flex: 1 1 0;
     width: 50%;
+    align-self: stretch !important;
+    height: auto !important;
+    min-height: 100% !important;
+    margin: 0 !important;
     background: transparent;
     border: none;
     border-right: 1px solid var(--caja-card-border, #334155);
-    border-radius: 0;
+    border-radius: 0 !important;
     padding: 10px 8px;
     display: flex;
     align-items: center;
@@ -5603,8 +5608,10 @@ body.caja-modal-locked {
     color: var(--caja-text-muted, #94a3b8);
     font-size: 0.82rem;
     font-weight: 600;
+    line-height: 1.25;
     transition: all 0.15s ease;
     text-align: center;
+    box-sizing: border-box;
 }
 
 .caja-pos-dispatch-chip:last-child {
@@ -5617,7 +5624,7 @@ body.caja-modal-locked {
 }
 
 .caja-pos-dispatch-chip.active {
-    background: var(--caja-status-processing, #3b82f6);
+    background: var(--caja-status-processing, #3b82f6) !important;
     color: #ffffff !important;
     font-weight: 700;
 }
@@ -5632,6 +5639,7 @@ body.caja-modal-locked {
 
 .caja-pos-pay-chips-row {
     display: flex;
+    align-items: stretch !important;
     width: 100%;
     border-radius: 8px;
     overflow: hidden;
@@ -5644,10 +5652,14 @@ body.caja-modal-locked {
 .caja-pos-pay-chip {
     flex: 1 1 0;
     width: 33.333%;
+    align-self: stretch !important;
+    height: auto !important;
+    min-height: 100% !important;
+    margin: 0 !important;
     background: transparent;
     border: none;
     border-right: 1px solid var(--caja-card-border, #334155);
-    border-radius: 0;
+    border-radius: 0 !important;
     padding: 10px 4px;
     display: flex;
     align-items: center;
@@ -5659,6 +5671,7 @@ body.caja-modal-locked {
     font-weight: 600;
     transition: all 0.15s ease;
     white-space: nowrap;
+    box-sizing: border-box;
 }
 
 .caja-pos-pay-chip:last-child {
@@ -5671,7 +5684,7 @@ body.caja-modal-locked {
 }
 
 .caja-pos-pay-chip.active {
-    background: var(--caja-primary, #10b981);
+    background: var(--caja-primary, #10b981) !important;
     color: #ffffff !important;
     font-weight: 700;
 }
