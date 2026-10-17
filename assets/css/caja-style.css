@@ -5716,12 +5716,14 @@ body.caja-modal-locked {
 
 .caja-pos-text-input {
     width: 100%;
+    min-height: 38px;
     padding: 8px 10px;
     background: var(--caja-bg, #0f172a);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: 8px;
     color: var(--caja-text, #f8fafc);
     font-size: 0.85rem;
+    line-height: 1.4;
     box-sizing: border-box;
 }
 
@@ -6101,9 +6103,24 @@ body.caja-modal-locked {
 
 /* Buscador de clientes con colores invertidos (Fondo claro, texto oscuro) */
 .caja-pos-cust-search-inverted {
+    width: 100% !important;
+    min-height: 38px !important;
+    padding: 8px 36px 8px 10px !important;
     background-color: var(--caja-text, #f8fafc) !important;
     color: var(--caja-bg, #0f172a) !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    font-size: 0.85rem !important;
     font-weight: 600 !important;
+    line-height: 1.4 !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.caja-pos-cust-search-inverted:focus {
+    border-color: var(--caja-primary, #10b981) !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
 }
 
 .caja-pos-cust-search-inverted::placeholder {
@@ -6121,9 +6138,63 @@ body.caja-modal-locked {
     opacity: 0.9;
 }
 
+/* Cabecera colapsable de datos del cliente con alineación baseline */
+.caja-pos-customer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    width: 100% !important;
+}
+
 .caja-pos-customer-header:hover {
     opacity: 0.9;
 }
 
+.caja-pos-cust-header-left {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 8px !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+}
 
+.caja-pos-cust-icon {
+    font-size: 0.95rem !important;
+    line-height: 1 !important;
+    align-self: center !important;
+    display: inline-block !important;
+}
 
+.caja-pos-cust-title {
+    font-size: 0.92rem !important;
+    font-weight: 700 !important;
+    color: var(--caja-text, #ffffff) !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+}
+
+.caja-pos-cust-req-badge {
+    font-size: 0.72rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--caja-text-muted, #94a3b8);
+    white-space: nowrap !important;
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    vertical-align: baseline !important;
+}
+
+.caja-pos-cust-toggle-icon {
+    margin-left: auto !important;
+    color: var(--caja-text-muted, #94a3b8);
+    font-size: 0.82rem !important;
+    transition: transform 0.2s ease !important;
+    flex-shrink: 0 !important;
+}

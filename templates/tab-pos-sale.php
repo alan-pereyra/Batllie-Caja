@@ -114,24 +114,23 @@ if (!defined('ABSPATH')) {
 
             <!-- Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección) -->
             <div class="caja-pos-customer-subgroup" id="caja-pos-customer-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
-                <!-- Cabecera colapsable: Título y Badge alineados a la izquierda en la misma línea -->
-                <div class="caja-pos-customer-header" id="caja-pos-customer-header" style="display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;">
-                    <label class="caja-pos-field-label" style="margin: 0; font-weight: 700; color: var(--caja-text, #ffffff); font-size: 0.92rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <span>👤</span> <span><?php _e('Datos del Cliente', 'emp-caja'); ?></span>
-                    </label>
-                    <span id="caja-pos-cust-req-badge" class="caja-badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--caja-text-muted, #94a3b8); font-weight: 600;">
-                        <?php _e('Opcional', 'emp-caja'); ?>
-                    </span>
-                    <span id="caja-pos-cust-toggle-icon" style="margin-left: auto; color: var(--caja-text-muted, #94a3b8); font-size: 0.82rem; transition: transform 0.2s ease;">▼</span>
+                <!-- Cabecera colapsable: Título y Badge alineados a la izquierda en la misma línea con base de texto coincidente -->
+                <div class="caja-pos-customer-header" id="caja-pos-customer-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; width: 100%;">
+                    <div class="caja-pos-cust-header-left" style="display: flex; align-items: baseline; gap: 8px; flex: 0 1 auto;">
+                        <span class="caja-pos-cust-icon" style="font-size: 0.95rem; line-height: 1; align-self: center;">👤</span>
+                        <span class="caja-pos-cust-title" style="font-size: 0.92rem; font-weight: 700; color: var(--caja-text, #ffffff); line-height: 1.2; margin: 0; padding: 0; white-space: nowrap;"><?php _e('Datos del Cliente', 'emp-caja'); ?></span>
+                        <span id="caja-pos-cust-req-badge" class="caja-pos-cust-req-badge" style="font-size: 0.72rem; font-weight: 600; line-height: 1.2; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--caja-text-muted, #94a3b8); white-space: nowrap;"><?php _e('Opcional', 'emp-caja'); ?></span>
+                    </div>
+                    <span id="caja-pos-cust-toggle-icon" class="caja-pos-cust-toggle-icon" style="margin-left: auto; color: var(--caja-text-muted, #94a3b8); font-size: 0.82rem; transition: transform 0.2s ease;">▼</span>
                 </div>
 
                 <!-- Contenido colapsable (se despliega si es obligatorio o si se hace clic) -->
                 <div class="caja-pos-customer-body" id="caja-pos-customer-body" style="margin-top: 12px; display: none;">
-                    <!-- Buscador con colores invertidos (Fondo claro, texto oscuro) y sin label -->
+                    <!-- Buscador con colores invertidos (Fondo claro, texto oscuro) y mismo diseño redondeado que inputs inferiores -->
                     <div class="caja-pos-cust-search-wrap" style="position: relative; margin-bottom: 14px;">
-                        <div style="position: relative; display: flex; align-items: center;">
-                            <input type="text" id="caja-pos-cust-search-input" class="caja-input caja-pos-cust-search-inverted" placeholder="<?php esc_attr_e('buscar cliente registrado', 'emp-caja'); ?>" autocomplete="off" style="width: 100%; box-sizing: border-box; padding-right: 36px; background-color: var(--caja-text, #f8fafc) !important; color: var(--caja-bg, #0f172a) !important; font-weight: 600; border: 1px solid rgba(255,255,255,0.4);" />
-                            <button type="button" id="caja-pos-cust-search-clear" style="display: none; position: absolute; right: 8px; background: transparent; border: none; color: #0f172a; font-size: 1.1rem; font-weight: 700; cursor: pointer; padding: 2px 6px; border-radius: 50%; line-height: 1;" title="<?php esc_attr_e('Limpiar datos del cliente', 'emp-caja'); ?>">✕</button>
+                        <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                            <input type="text" id="caja-pos-cust-search-input" class="caja-pos-text-input caja-pos-cust-search-inverted" placeholder="<?php esc_attr_e('Buscar cliente registrado', 'emp-caja'); ?>" autocomplete="off" style="width: 100%; border-radius: 8px !important; padding: 8px 36px 8px 10px !important; font-size: 0.85rem !important; background-color: var(--caja-text, #f8fafc) !important; color: var(--caja-bg, #0f172a) !important; font-weight: 600 !important; border: 1px solid #cbd5e1 !important; box-sizing: border-box !important;" />
+                            <button type="button" id="caja-pos-cust-search-clear" style="display: none; position: absolute; right: 10px; background: transparent; border: none; color: #0f172a; font-size: 1.1rem; font-weight: 700; cursor: pointer; padding: 2px 6px; border-radius: 50%; line-height: 1;" title="<?php esc_attr_e('Limpiar datos del cliente', 'emp-caja'); ?>">✕</button>
                         </div>
                         <!-- Dropdown de resultados de clientes -->
                         <div id="caja-pos-cust-search-results" class="caja-pos-cust-results-dropdown" style="display: none;"></div>
