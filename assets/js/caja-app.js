@@ -6177,6 +6177,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 if ($body.is(':visible')) {
                     $body.slideUp(180);
                     $chevron.css('transform', 'rotate(0deg)');
+                    $refreshBtn.hide();
                 } else {
                     $body.slideDown(180);
                     $chevron.css('transform', 'rotate(180deg)');
@@ -6191,6 +6192,15 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar Historial de Ventas manualmente con el botón
             $(document).on('click', '#caja-pos-history-refresh-btn', function(e) {
                 e.stopPropagation();
+                const $span = $(this).find('span');
+                $span.css({
+                    'display': 'inline-block',
+                    'transition': 'transform 0.5s ease',
+                    'transform': 'rotate(360deg)'
+                });
+                setTimeout(function() {
+                    $span.css({ 'transition': 'none', 'transform': 'rotate(0deg)' });
+                }, 500);
                 self.loadPosHistory();
             });
         },
@@ -6649,7 +6659,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     if (res.success && res.data && res.data.history) {
                         self.posHistoryLoaded = true;
                         const history = res.data.history;
-                        $count.text(`${history.length} venta${history.length === 1 ? '' : 's'}`).show();
+                        $count.text(`${history.length}`).show();
 
                         if (history.length === 0) {
                             $body.html(`

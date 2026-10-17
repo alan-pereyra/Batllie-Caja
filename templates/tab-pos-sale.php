@@ -228,15 +228,14 @@ if (!defined('ABSPATH')) {
         <div class="caja-pos-card caja-pos-history-card">
             <div class="caja-pos-history-card-header" id="caja-pos-history-header-toggle" style="cursor: pointer; user-select: none;">
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.2rem;">📜</span>
-                    <strong style="color:var(--caja-text); font-size:1rem;"><?php _e('Historial de Ventas de Caja', 'emp-caja'); ?></strong>
-                    <span id="caja-pos-history-count" class="caja-pos-cart-badge-count" style="display:none;">0 ventas</span>
+                    <span style="font-size:1.15rem;">📜</span>
+                    <strong style="color:var(--caja-text); font-size:0.95rem; white-space:nowrap;"><?php _e('Historial', 'emp-caja'); ?></strong>
+                    <span id="caja-pos-history-count" class="caja-pos-cart-badge-count" style="display:none;">0</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <button type="button" class="caja-btn-tool" id="caja-pos-history-refresh-btn" style="display:none;" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
-                        <span>🔄 <?php _e('Actualizar', 'emp-caja'); ?></span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <button type="button" id="caja-pos-history-refresh-btn" style="display:none;" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
+                        <span>🔄</span>
                     </button>
-                    <span class="caja-pos-history-toggle-text" style="font-size:0.8rem; color:var(--caja-text-muted);"><?php _e('Ver historial', 'emp-caja'); ?></span>
                     <span class="caja-pos-history-chevron" id="caja-pos-history-chevron" style="color:var(--caja-text-muted); font-size:0.85rem; transition:transform 0.2s ease;">▼</span>
                 </div>
             </div>
