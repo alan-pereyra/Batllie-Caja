@@ -6076,7 +6076,14 @@ $('#caja-modal-new-product').fadeIn(200);
                                 $dropdown.html(html).show();
                                 $dropdown.data('customers', res.data.customers);
                             } else {
-                                $dropdown.html('<div class="caja-pos-cust-result-empty">No se encontraron clientes coincidentes</div>').show();
+                                const isEmailLike = term.indexOf('@') !== -1 && term.indexOf('.') !== -1;
+                                let emptyHtml = '<div class="caja-pos-cust-result-empty">No se encontraron clientes coincidentes</div>';
+                                if (isEmailLike) {
+                                    emptyHtml += '<div class="caja-pos-cust-use-email-btn" data-email="' + self.escapeHtml(term) + '" style="padding:10px 12px; cursor:pointer; background:rgba(16,185,129,0.12); border-top:1px solid rgba(16,185,129,0.25); color:#34d399; font-weight:600; font-size:0.84rem; text-align:left; display:flex; align-items:center; gap:6px;">' +
+                                        '<span>➕</span> <span>Usar como nuevo cliente: <strong>' + self.escapeHtml(term) + '</strong></span>' +
+                                    '</div>';
+                                }
+                                $dropdown.html(emptyHtml).show();
                             }
                         },
                         error: function() {
@@ -6084,6 +6091,20 @@ $('#caja-modal-new-product').fadeIn(200);
                         }
                     });
                 }, 250);
+            });
+
+            // Asignar email escrito en buscador a campos de cliente nuevo
+            $(document).on('click', '.caja-pos-cust-use-email-btn', function(e) {
+                e.stopPropagation();
+                const email = $(this).data('email');
+                $('#caja-pos-cust-email').val(email);
+                $('#caja-pos-customer-body').slideDown(180);
+                $('#caja-pos-cust-toggle-icon').text('▲');
+                $('#caja-pos-cust-search-results').hide().empty();
+                $('#caja-pos-cust-search-input').val('');
+                $('#caja-pos-cust-search-clear').hide();
+                $('#caja-pos-cust-name').focus();
+                self.showToast('Email asignado. Completa el nombre del cliente.', 'info');
             });
 
             // Desplegar/Colapsar sección de datos del cliente

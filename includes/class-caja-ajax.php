@@ -1375,13 +1375,34 @@ class Batllie_Caja_Ajax {
         <?php
         $body_content = ob_get_clean();
 
+        $mail_failed_error = null;
+        $hook_mail_failed = function($wp_error) use (&$mail_failed_error) {
+            if (is_wp_error($wp_error)) {
+                $mail_failed_error = $wp_error->get_error_message();
+            }
+        };
+        add_action('wp_mail_failed', $hook_mail_failed);
+
+        $sent = false;
         if (function_exists('WC') && WC()->mailer()) {
             $mailer = WC()->mailer();
             $email_content = $mailer->wrap_message($heading, $body_content);
-            $mailer->send($user->user_email, $subject, $email_content, "Content-Type: text/html; charset=UTF-8\r\n", array());
+            $sent = $mailer->send($user->user_email, $subject, $email_content, "Content-Type: text/html; charset=UTF-8\r\n", array());
         } else {
             $headers = array('Content-Type: text/html; charset=UTF-8');
-            wp_mail($user->user_email, $subject, $body_content, $headers);
+            $sent = wp_mail($user->user_email, $subject, $body_content, $headers);
+        }
+
+        remove_action('wp_mail_failed', $hook_mail_failed);
+
+        if ($order) {
+            if ($sent) {
+                $order->add_order_note(sprintf(__('📧 Correo de bienvenida y activación de contraseña enviado a %s.', 'emp-caja'), $user->user_email));
+            } else {
+                $err_detail = $mail_failed_error ? (' - Causa: ' . $mail_failed_error) : ' (Función wp_mail() devolvió falso. Revisa la configuración SMTP del servidor).';
+                $order->add_order_note(sprintf(__('⚠️ No se pudo despachar el correo a %s%s', 'emp-caja'), $user->user_email, $err_detail));
+                error_log('Error enviando email POS: ' . $err_detail);
+            }
         }
     }
 
