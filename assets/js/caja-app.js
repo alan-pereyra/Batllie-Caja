@@ -6316,10 +6316,10 @@ $('#caja-modal-new-product').fadeIn(200);
             self.updatePosCustomerRequirements();
 
             if (totalItems > 0) {
-                $badge.text(`${totalItems} seleccionado${totalItems === 1 ? '' : 's'}`).show();
+                $badge.text(`${totalItems} seleccionado${totalItems === 1 ? '' : 's'}`).addClass('has-items').show();
                 $btn.prop('disabled', false);
             } else {
-                $badge.text('0 seleccionados');
+                $badge.text('0 seleccionados').removeClass('has-items');
                 $btn.prop('disabled', true);
             }
         },

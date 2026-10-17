@@ -108,12 +108,6 @@ if (!defined('ABSPATH')) {
                 <span><?php _e('Test', 'emp-caja'); ?></span>
             </button>
 
-            <!-- Pantalla Completa -->
-            <button type="button" class="caja-btn-tool" id="caja-fullscreen-btn" title="<?php esc_attr_e('Pantalla Completa', 'emp-caja'); ?>">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-                </svg>
-            </button>
 
             <!-- Botón Instalar como App (PWA) -->
             <button type="button" class="caja-btn-tool" id="caja-btn-install-pwa" style="display:none;" title="<?php esc_attr_e('Instalar Caja POS como Aplicación', 'emp-caja'); ?>">

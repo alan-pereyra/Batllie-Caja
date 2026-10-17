@@ -6226,3 +6226,29 @@ body.caja-modal-locked {
     padding: 0 !important;
     line-height: 1.1 !important;
 }
+
+/* Ocultar botón de ventana completa (reemplazado por modo PWA instalada) */
+#caja-fullscreen-btn {
+    display: none !important;
+}
+
+/* Badge de productos y ventas con alto contraste usando variables del tema */
+.caja-pos-cart-badge-count {
+    background-color: var(--caja-text, #f8fafc) !important;
+    color: var(--caja-bg, #0f172a) !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    padding: 3px 9px !important;
+    border-radius: 6px !important;
+    line-height: 1.2 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    letter-spacing: 0.2px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+}
+
+.caja-pos-cart-badge-count.has-items {
+    background-color: var(--caja-primary, #10b981) !important;
+    color: var(--caja-btn-text, #ffffff) !important;
+}
+

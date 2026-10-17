@@ -16,7 +16,7 @@ if (!defined('ABSPATH')) {
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:1.15rem;">📦</span>
                     <strong style="color:var(--caja-text); font-size:1.02rem;"><?php _e('Productos', 'emp-caja'); ?></strong>
-                    <span class="caja-badge" id="caja-pos-cart-badge-count" style="background:rgba(255,255,255,0.08); font-size:0.75rem;">0 seleccionados</span>
+                    <span id="caja-pos-cart-badge-count" class="caja-pos-cart-badge-count">0 seleccionados</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-clear-cart" title="<?php esc_attr_e('Vaciar selección', 'emp-caja'); ?>">
@@ -230,7 +230,7 @@ if (!defined('ABSPATH')) {
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:1.2rem;">📜</span>
                     <strong style="color:var(--caja-text); font-size:1rem;"><?php _e('Historial de Ventas de Caja', 'emp-caja'); ?></strong>
-                    <span class="caja-badge" id="caja-pos-history-count" style="display:none; background:rgba(255,255,255,0.08); font-size:0.75rem;">0 ventas</span>
+                    <span id="caja-pos-history-count" class="caja-pos-cart-badge-count" style="display:none;">0 ventas</span>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <button type="button" class="caja-btn-tool" id="caja-pos-history-refresh-btn" style="display:none;" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
