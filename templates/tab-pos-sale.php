@@ -103,8 +103,8 @@ if (!defined('ABSPATH')) {
                     <input type="text" id="caja-pos-card-op" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 0049210 o autorización...', 'emp-caja'); ?>" />
                 </div>
 
-                <!-- Estado de Cobro (Desplegable 100% de ancho) -->
-                <div class="caja-pos-status-dropdown-wrap">
+                <!-- Estado de Cobro (Desplegable 100% de ancho - Solo visible en Pedido por Despachar) -->
+                <div class="caja-pos-status-dropdown-wrap" id="caja-pos-status-dropdown-wrap" style="display:none;">
                     <select id="caja-pos-selected-status" class="caja-input caja-pos-status-select">
                         <option value="pagado" selected>🟢 <?php _e('Ya está pagado', 'emp-caja'); ?></option>
                         <option value="pendiente">🟠 <?php _e('Falta pagar (Pendiente de cobro)', 'emp-caja'); ?></option>

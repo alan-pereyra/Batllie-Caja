@@ -5977,15 +5977,19 @@ $('#caja-modal-new-product').fadeIn(200);
                 const $btn = $('#caja-pos-checkout-btn');
                 const $text = $('#caja-pos-checkout-text');
                 const $dispatchSubgroup = $('#caja-pos-dispatch-subgroup');
+                const $statusDropdownWrap = $('#caja-pos-status-dropdown-wrap');
 
                 if (mode === 'compra_realizada') {
                     $btn.removeClass('is-dispatch');
                     $text.text('Confirmar y Cobrar');
                     $dispatchSubgroup.slideUp(180);
+                    $statusDropdownWrap.slideUp(180);
+                    $('#caja-pos-selected-status').val('pagado');
                 } else {
                     $btn.addClass('is-dispatch');
                     $text.text('Enviar a Cola de Despacho');
                     $dispatchSubgroup.slideDown(180);
+                    $statusDropdownWrap.slideDown(180);
                 }
                 self.updatePosCustomerRequirements();
             });
@@ -6337,6 +6341,8 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-pos-selected-delivery').val('con_envio');
             if ($('#caja-pos-selected-mode').val() !== 'pedido_despachar') {
                 $('#caja-pos-dispatch-subgroup').hide();
+                $('#caja-pos-status-dropdown-wrap').hide();
+                $('#caja-pos-selected-status').val('pagado');
             }
             this.updatePosTotals();
             this.updatePosCustomerRequirements();
@@ -6401,7 +6407,7 @@ $('#caja-modal-new-product').fadeIn(200);
             const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
             const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             const paymentMethod = $('#caja-pos-selected-pay').val() || 'efectivo';
-            const paymentStatus = $('#caja-pos-selected-status').val() || 'pagado';
+            const paymentStatus = (mode === 'compra_realizada') ? 'pagado' : ($('#caja-pos-selected-status').val() || 'pagado');
             const cardOp = $('#caja-pos-card-op').val() || '';
             const note = $('#caja-pos-note').val() || '';
 

@@ -625,6 +625,12 @@ class Batllie_Caja_Ajax {
             $delivery_type  = isset($_POST['delivery_type']) ? sanitize_text_field($_POST['delivery_type']) : 'con_envio';
             $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'efectivo';
             $payment_status = isset($_POST['payment_status']) ? sanitize_text_field($_POST['payment_status']) : 'pagado';
+
+            // En Compra Realizada (entregada en el local) la mercadería siempre sale cobrada
+            if ($mode === 'compra_realizada') {
+                $payment_status = 'pagado';
+            }
+
             $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
             $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
 
