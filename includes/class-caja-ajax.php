@@ -50,6 +50,7 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_create_pos_order', array(__CLASS__, 'ajax_create_pos_order'));
         add_action('wp_ajax_emp_caja_get_pos_history', array(__CLASS__, 'ajax_get_pos_history'));
         add_action('wp_ajax_emp_caja_search_customers', array(__CLASS__, 'ajax_search_customers'));
+        add_action('wp_ajax_emp_caja_update_customer', array(__CLASS__, 'ajax_update_customer'));
 
         // Redirección directa a pedidos y auto-login tras definir contraseña
         add_action('woocommerce_customer_reset_password', array(__CLASS__, 'handle_auto_login_on_password_reset'), 10, 1);
@@ -1170,6 +1171,56 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('customers' => $results));
+    }
+
+    /**
+     * AJAX: Actualizar datos de cliente registrado desde el POS
+     */
+    public static function ajax_update_customer() {
+        self::check_auth();
+
+        $customer_id_raw = isset($_POST['customer_id']) ? sanitize_text_field($_POST['customer_id']) : '';
+        $name            = isset($_POST['name']) ? sanitize_text_field(wp_unslash($_POST['name'])) : '';
+        $dni             = isset($_POST['dni']) ? sanitize_text_field(wp_unslash($_POST['dni'])) : '';
+        $phone           = isset($_POST['phone']) ? sanitize_text_field(wp_unslash($_POST['phone'])) : '';
+        $email           = isset($_POST['email']) ? sanitize_email(wp_unslash($_POST['email'])) : '';
+        $address         = isset($_POST['address']) ? sanitize_text_field(wp_unslash($_POST['address'])) : '';
+
+        if (strpos($customer_id_raw, 'user_') === 0) {
+            $user_id = intval(substr($customer_id_raw, 5));
+            if ($user_id > 0) {
+                $name_parts = !empty($name) ? explode(' ', trim($name), 2) : array('', '');
+                $first_name = $name_parts[0];
+                $last_name  = isset($name_parts[1]) ? $name_parts[1] : '';
+
+                $user_data = array('ID' => $user_id);
+                if (!empty($first_name)) $user_data['first_name'] = $first_name;
+                if (!empty($last_name))  $user_data['last_name']  = $last_name;
+                if (!empty($name))       $user_data['display_name'] = $name;
+                if (!empty($email) && is_email($email)) {
+                    $existing_owner = email_exists($email);
+                    if (!$existing_owner || $existing_owner === $user_id) {
+                        $user_data['user_email'] = $email;
+                    }
+                }
+                wp_update_user($user_data);
+
+                if (!empty($first_name)) update_user_meta($user_id, 'billing_first_name', $first_name);
+                if (!empty($last_name))  update_user_meta($user_id, 'billing_last_name', $last_name);
+                if (!empty($phone))      update_user_meta($user_id, 'billing_phone', $phone);
+                if (!empty($address)) {
+                    update_user_meta($user_id, 'billing_address_1', $address);
+                    update_user_meta($user_id, 'shipping_address_1', $address);
+                }
+                if (!empty($dni)) {
+                    update_user_meta($user_id, '_billing_dni', $dni);
+                    update_user_meta($user_id, 'billing_dni', $dni);
+                    update_user_meta($user_id, '_caja_customer_dni', $dni);
+                }
+            }
+        }
+
+        wp_send_json_success(array('message' => __('Datos del cliente guardados con éxito.', 'emp-caja')));
     }
 
     /**

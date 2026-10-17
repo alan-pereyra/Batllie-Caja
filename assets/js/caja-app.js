@@ -6110,10 +6110,21 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-cust-email').val(c.email || '');
                 $('#caja-pos-cust-address').val(c.address || '');
 
+                // Guardar copia de respaldo de los datos originales del cliente
+                self.posActiveCustomerData = {
+                    id: c.id || '',
+                    name: c.name || '',
+                    dni: c.dni || '',
+                    phone: c.phone || '',
+                    email: c.email || '',
+                    address: c.address || ''
+                };
+
                 // Bloquear campos para evitar edición accidental
                 self.lockPosCustomerFields(true);
-                $('#caja-pos-cust-edit-wrap').css('display', 'flex');
-                $('#caja-pos-cust-edit-btn').html('<span>✏️</span> <span>Editar datos del cliente</span>');
+                $('#caja-pos-cust-edit-wrap').show();
+                $('#caja-pos-cust-edit-btn').show();
+                $('#caja-pos-cust-edit-actions').hide();
 
                 // Limpiar el buscador para que vuelva a su placeholder y no duplique ni reemplace el campo Nombre
                 $('#caja-pos-cust-search-input').val('');
@@ -6128,22 +6139,73 @@ $('#caja-modal-new-product').fadeIn(200);
             $(document).on('click', '#caja-pos-cust-edit-btn', function(e) {
                 e.preventDefault();
                 self.lockPosCustomerFields(false);
-                $(this).html('<span>🔓</span> <span>Edición habilitada (puedes modificar los datos)</span>');
+                $(this).hide();
+                $('#caja-pos-cust-edit-actions').css('display', 'flex');
                 $('#caja-pos-cust-name').focus();
-                self.showToast('Campos habilitados para edición.', 'info');
+                self.showToast('Edición habilitada. Puedes modificar los datos.', 'info');
             });
 
-            // Botón limpiar todos los datos del cliente
-            $(document).on('click', '#caja-pos-cust-clear-all-btn', function(e) {
+            // Botón descartar cambios y restaurar datos previamente guardados
+            $(document).on('click', '#caja-pos-cust-discard-btn', function(e) {
                 e.preventDefault();
-                $('#caja-pos-cust-search-input').val('');
-                $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
-                self.lockPosCustomerFields(false);
-                $('#caja-pos-cust-edit-wrap').hide();
-                $('#caja-pos-cust-search-results').hide().empty();
-                $('#caja-pos-cust-search-clear').hide();
+                if (self.posActiveCustomerData) {
+                    $('#caja-pos-cust-name').val(self.posActiveCustomerData.name || '');
+                    $('#caja-pos-cust-dni').val(self.posActiveCustomerData.dni || '');
+                    $('#caja-pos-cust-phone').val(self.posActiveCustomerData.phone || '');
+                    $('#caja-pos-cust-email').val(self.posActiveCustomerData.email || '');
+                    $('#caja-pos-cust-address').val(self.posActiveCustomerData.address || '');
+                }
+                self.lockPosCustomerFields(true);
+                $('#caja-pos-cust-edit-actions').hide();
+                $('#caja-pos-cust-edit-btn').show();
                 self.updatePosCustomerRequirements();
-                self.showToast('Datos del cliente borrados.', 'info');
+                self.showToast('Cambios descartados. Se restauraron los datos originales.', 'info');
+            });
+
+            // Botón guardar cambios y bloquear edición nuevamente
+            $(document).on('click', '#caja-pos-cust-save-btn', function(e) {
+                e.preventDefault();
+                const newName = $.trim($('#caja-pos-cust-name').val() || '');
+                const newDni = $.trim($('#caja-pos-cust-dni').val() || '');
+                const newPhone = $.trim($('#caja-pos-cust-phone').val() || '');
+                const newEmail = $.trim($('#caja-pos-cust-email').val() || '');
+                const newAddress = $.trim($('#caja-pos-cust-address').val() || '');
+
+                if (!self.posActiveCustomerData) {
+                    self.posActiveCustomerData = {};
+                }
+                self.posActiveCustomerData.name = newName;
+                self.posActiveCustomerData.dni = newDni;
+                self.posActiveCustomerData.phone = newPhone;
+                self.posActiveCustomerData.email = newEmail;
+                self.posActiveCustomerData.address = newAddress;
+
+                // Bloquear nuevamente la edición
+                self.lockPosCustomerFields(true);
+                $('#caja-pos-cust-edit-actions').hide();
+                $('#caja-pos-cust-edit-btn').show();
+                self.updatePosCustomerRequirements();
+
+                // Persistir en base de datos si es un cliente registrado
+                if (self.posActiveCustomerData.id && String(self.posActiveCustomerData.id).indexOf('user_') === 0) {
+                    $.ajax({
+                        url: self.config.ajaxUrl,
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            action: 'emp_caja_update_customer',
+                            security: self.config.nonce,
+                            customer_id: self.posActiveCustomerData.id,
+                            name: newName,
+                            dni: newDni,
+                            phone: newPhone,
+                            email: newEmail,
+                            address: newAddress
+                        }
+                    });
+                }
+
+                self.showToast('Cambios guardados con éxito.', 'success');
             });
 
             // Botón limpiar input de búsqueda
@@ -6509,7 +6571,10 @@ $('#caja-modal-new-product').fadeIn(200);
                         $('#caja-pos-card-op').val('');
                         $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
                         self.lockPosCustomerFields(false);
+                        self.posActiveCustomerData = null;
                         $('#caja-pos-cust-edit-wrap').hide();
+                        $('#caja-pos-cust-edit-actions').hide();
+                        $('#caja-pos-cust-edit-btn').show();
                         $('#caja-pos-cust-search-input').val('');
                         $('#caja-pos-cust-search-clear').hide();
                         $('#caja-pos-cust-search-results').hide().empty();

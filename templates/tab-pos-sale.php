@@ -181,16 +181,23 @@ if (!defined('ABSPATH')) {
                         </div>
                     </div>
 
-                    <!-- Botones para Editar Datos o Limpiar cuando están bloqueados tras seleccionar cliente -->
-                    <div id="caja-pos-cust-edit-wrap" style="display: none; margin-top: 14px; display: none; align-items: center; gap: 8px;">
-                        <button type="button" class="caja-btn-tool" id="caja-pos-cust-edit-btn" style="flex: 1; justify-content: center; padding: 9px 12px; font-size: 0.85rem; font-weight: 600; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <!-- Botones para Editar Datos del Cliente (Guardar / Descartar) -->
+                    <div id="caja-pos-cust-edit-wrap" style="display: none; margin-top: 14px; width: 100%;">
+                        <button type="button" class="caja-btn-tool" id="caja-pos-cust-edit-btn" style="width: 100%; justify-content: center; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-sizing: border-box;">
                             <span id="caja-pos-cust-edit-icon">✏️</span>
                             <span id="caja-pos-cust-edit-text"><?php _e('Editar datos del cliente', 'emp-caja'); ?></span>
                         </button>
-                        <button type="button" class="caja-btn-tool" id="caja-pos-cust-clear-all-btn" style="justify-content: center; padding: 9px 12px; font-size: 0.85rem; font-weight: 600; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="<?php esc_attr_e('Limpiar datos del cliente', 'emp-caja'); ?>">
-                            <span>✕</span>
-                            <span><?php _e('Limpiar', 'emp-caja'); ?></span>
-                        </button>
+
+                        <div id="caja-pos-cust-edit-actions" style="display: none; width: 100%; gap: 8px;">
+                            <button type="button" class="caja-btn-tool" id="caja-pos-cust-save-btn" style="flex: 1; justify-content: center; padding: 10px 14px; font-size: 0.85rem; font-weight: 700; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #34d399; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-sizing: border-box;">
+                                <span>💾</span>
+                                <span><?php _e('Guardar cambios', 'emp-caja'); ?></span>
+                            </button>
+                            <button type="button" class="caja-btn-tool" id="caja-pos-cust-discard-btn" style="flex: 1; justify-content: center; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-sizing: border-box;">
+                                <span>✕</span>
+                                <span><?php _e('Descartar cambios', 'emp-caja'); ?></span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
