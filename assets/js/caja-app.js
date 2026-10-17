@@ -1803,7 +1803,6 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-tab-panel').hide();
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
-            $('.caja-dashboard').toggleClass('caja-pos-mode', tabId === 'tab-pos-sale');
 
             // Sincronizar el selector desplegable rápido de pantallas
             const $screenSelect = $('#caja-screen-select');
