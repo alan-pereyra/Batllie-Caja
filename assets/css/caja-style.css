@@ -1168,21 +1168,31 @@ body.batllie-caja-active .container {
     gap: 4px;
 }
 
+.caja-badge-venta-mostrador-row {
+    width: 100%;
+    margin-bottom: 8px;
+    display: block;
+}
+
 .caja-badge-venta-mostrador {
-    margin-left: auto;
-    background: #f59e0b;
-    color: #0f172a;
-    font-weight: 800;
-    font-size: 0.72rem;
-    padding: 3px 9px;
-    border-radius: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    display: inline-flex;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    white-space: nowrap;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+    background: #f59e0b !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    font-size: 0.8rem !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    white-space: nowrap !important;
 }
 
 .caja-phone-row {

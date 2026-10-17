@@ -622,6 +622,30 @@ class Batllie_Caja_Ajax {
             $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
             $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
 
+            // Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección)
+            $cust_name    = isset($_POST['customer_name']) ? sanitize_text_field(wp_unslash($_POST['customer_name'])) : '';
+            $cust_dni     = isset($_POST['customer_dni']) ? sanitize_text_field(wp_unslash($_POST['customer_dni'])) : '';
+            $cust_phone   = isset($_POST['customer_phone']) ? sanitize_text_field(wp_unslash($_POST['customer_phone'])) : '';
+            $cust_email   = isset($_POST['customer_email']) ? sanitize_email(wp_unslash($_POST['customer_email'])) : '';
+            $cust_address = isset($_POST['customer_address']) ? sanitize_text_field(wp_unslash($_POST['customer_address'])) : '';
+
+            // Validación A: Si es pedido con envío, todos los datos del cliente son OBLIGATORIOS
+            if ($mode === 'pedido_despachar' && $delivery_type === 'con_envio') {
+                $missing_fields = array();
+                if (empty($cust_name))    $missing_fields[] = __('Nombre y Apellido', 'emp-caja');
+                if (empty($cust_address)) $missing_fields[] = __('Dirección', 'emp-caja');
+                if (empty($cust_dni))     $missing_fields[] = __('DNI / CUIT', 'emp-caja');
+                if (empty($cust_phone))   $missing_fields[] = __('Teléfono', 'emp-caja');
+                if (empty($cust_email))   $missing_fields[] = __('Email', 'emp-caja');
+
+                if (!empty($missing_fields)) {
+                    wp_send_json_error(array(
+                        'message' => __('Para pedidos con envío es obligatorio completar todos los datos del cliente: ', 'emp-caja') . implode(', ', $missing_fields)
+                    ));
+                    return;
+                }
+            }
+
             $current_user = wp_get_current_user();
             $cashier_name = ($current_user && $current_user->exists()) ? $current_user->display_name : __('Administrador', 'emp-caja');
             $customer_id  = ($current_user && $current_user->exists()) ? $current_user->ID : 0;
@@ -679,9 +703,32 @@ class Batllie_Caja_Ajax {
                 $order->set_payment_method_title(__('Efectivo (Caja POS)', 'emp-caja'));
             }
 
-            // Datos del cliente / cajero y notas
-            $order->set_billing_first_name($cashier_name);
-            $order->set_billing_last_name(__('Venta Mostrador', 'emp-caja'));
+            // Datos del cliente / facturación y notas
+            if (!empty($cust_name)) {
+                $name_parts = explode(' ', $cust_name, 2);
+                $order->set_billing_first_name($name_parts[0]);
+                $order->set_billing_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
+                $order->set_shipping_first_name($name_parts[0]);
+                $order->set_shipping_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
+            } else {
+                $order->set_billing_first_name(__('Cliente', 'emp-caja'));
+                $order->set_billing_last_name(__('Mostrador', 'emp-caja'));
+            }
+
+            if (!empty($cust_phone)) {
+                $order->set_billing_phone($cust_phone);
+            }
+            if (!empty($cust_email)) {
+                $order->set_billing_email($cust_email);
+            }
+            if (!empty($cust_address)) {
+                $order->set_billing_address_1($cust_address);
+                $order->set_shipping_address_1($cust_address);
+            }
+            if (!empty($cust_dni)) {
+                $order->update_meta_data('_billing_dni', $cust_dni);
+                $order->update_meta_data('_caja_customer_dni', $cust_dni);
+            }
 
             if (!empty($note)) {
                 $order->set_customer_note($note);
@@ -812,6 +859,26 @@ class Batllie_Caja_Ajax {
             }
 
             $order->calculate_totals();
+
+            // Validación B: Si el total de la orden supera el monto umbral configurado, los datos son obligatorios
+            $options = Batllie_Caja_Plugin::get_color_settings();
+            $threshold = floatval($options['pos_customer_threshold'] ?? 0);
+            if ($threshold > 0 && floatval($order->get_total()) >= $threshold) {
+                $missing_th = array();
+                if (empty($cust_name))    $missing_th[] = __('Nombre y Apellido', 'emp-caja');
+                if (empty($cust_dni))     $missing_th[] = __('DNI / CUIT', 'emp-caja');
+                if (empty($cust_phone))   $missing_th[] = __('Teléfono', 'emp-caja');
+                if (empty($cust_address)) $missing_th[] = __('Dirección', 'emp-caja');
+
+                if (!empty($missing_th)) {
+                    $order->delete(true);
+                    wp_send_json_error(array(
+                        'message' => sprintf(__('Para ventas a partir de $%s es obligatorio ingresar: ', 'emp-caja'), number_format($threshold, 2, ',', '.')) . implode(', ', $missing_th)
+                    ));
+                    return;
+                }
+            }
+
             $order->set_status($order_status);
             $order->save();
 

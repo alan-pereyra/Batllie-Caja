@@ -3,7 +3,7 @@
  * Plugin Name: Caja POS & Control de Pedidos
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.32
+ * Version: 1.9.33
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.32');
+define('EMP_CAJA_VERSION', '1.9.33');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -258,6 +258,7 @@ class Batllie_Caja_Plugin {
             'shipping_slots'            => array('09:00', '12:00', '18:00'), // Horarios de despacho por día
             'shipping_slots_cutoff'     => 5,         // Minutos de corte antes de la tanda (ej. 5 min)
             'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
+            'pos_customer_threshold'    => 0,         // Monto mínimo para exigir datos del cliente en mostrador/caja (0 = opcional)
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -566,6 +567,7 @@ class Batllie_Caja_Plugin {
             'shippingSlots'        => $options['shipping_slots'] ?? array('09:00', '12:00', '18:00'),
             'shippingSlotsEnabled' => (($options['shipping_slots_enabled'] ?? 'yes') === 'yes'),
             'shippingSlotsCutoff'  => intval($options['shipping_slots_cutoff'] ?? 5),
+            'posCustomerThreshold' => floatval($options['pos_customer_threshold'] ?? 0),
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
@@ -967,6 +969,10 @@ JS;
             $output['shipping_slots'] = $slots;
         } elseif (isset($input['shipping_slots_present'])) {
             $output['shipping_slots'] = array();
+        }
+
+        if (isset($input['pos_customer_threshold'])) {
+            $output['pos_customer_threshold'] = max(0, floatval(str_replace(',', '.', trim($input['pos_customer_threshold']))));
         }
 
         return $output;

@@ -810,21 +810,22 @@
                 }
             });
 
-            // Acción 2 permitida: Iniciar envío tras chequear el 100% de los checkboxes
+            // Acción 2 permitida: Iniciar envío / Entregar pedido tras chequear el 100% de los checkboxes
             $(document).on('click', '#caja-btn-iniciar-envio', function(e) {
                 e.preventDefault();
                 const orderId = self.currentControlOrderId;
                 if (!orderId) return;
 
+                const isPickup = self.isCurrentControlPickup;
                 const total = $('.caja-control-chk').length;
                 const checked = $('.caja-control-chk:checked').length;
                 if (checked < total || total === 0) {
-                    alert('Debes chequear todos los productos y empaques antes de iniciar el envío.');
+                    alert(isPickup ? 'Debes chequear todos los productos y empaques antes de entregar el pedido.' : 'Debes chequear todos los productos y empaques antes de iniciar el envío.');
                     return;
                 }
 
                 const $btn = $(this);
-                $btn.prop('disabled', true).text('Iniciando envío...');
+                $btn.prop('disabled', true).text(isPickup ? 'Entregando pedido...' : 'Iniciando envío...');
 
                 $.ajax({
                     url: self.config.ajaxUrl,
@@ -837,19 +838,23 @@
                     success: function(res) {
                         $('body').removeClass('caja-modal-locked');
                         $('#caja-modal-control-pedido').fadeOut(150);
-                        $btn.html('<span>🚀 Iniciar envío</span>');
+                        $btn.html(isPickup ? '<span>🏪 Entregar pedido</span>' : '<span>🚀 Iniciar envío</span>');
 
                         if (res.success) {
                             const order = self.cachedOrders.find(o => o.id == orderId);
                             if (order) {
                                 order.control_pedido_verified = true;
-                                order.status = 'enviando';
-                                order.shipping_status = 'enviando';
+                                if (isPickup) {
+                                    order.status = 'completed';
+                                    order.shipping_status = 'entregado';
+                                } else {
+                                    order.status = 'enviando';
+                                    order.shipping_status = 'enviando';
+                                }
                             }
                             self.applyFilters();
-                            const isPickup = order && (order.is_local_pickup === true || order.is_local_pickup === 'yes');
                             if (isPickup) {
-                                self.showToast('📋 Control de pedido completado al 100%. Esperando retiro por el local.');
+                                self.showToast('🏪 Control de pedido completado al 100%. ¡Pedido entregado al cliente con éxito!');
                             } else {
                                 self.showToast('🚀 Control de pedido completado al 100%. Repartidor enviando.');
                             }
@@ -858,8 +863,8 @@
                         }
                     },
                     error: function() {
-                        $btn.prop('disabled', false).html('<span>🚀 Iniciar envío</span>');
-                        alert('Error de conexión al iniciar envío.');
+                        $btn.prop('disabled', false).html(isPickup ? '<span>🏪 Entregar pedido</span>' : '<span>🚀 Iniciar envío</span>');
+                        alert('Error de conexión al procesar el pedido.');
                     }
                 });
             });
@@ -2779,6 +2784,11 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
 
                         <div class="caja-customer-block">
+                            ${isVentaMostrador ? `
+                                <div class="caja-badge-venta-mostrador-row">
+                                    <span class="caja-badge-venta-mostrador">🏪 Venta Mostrador</span>
+                                </div>
+                            ` : ''}
                             <div class="caja-customer-header-row">
                                 <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(cleanCustomerName)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
                                     <span>👤 ${cleanCustomerName}</span>
@@ -2786,11 +2796,9 @@ $('#caja-modal-new-product').fadeIn(200);
                                         📜 Historial
                                     </span>
                                 </div>
-                                ${isVentaMostrador ? `
-                                    <span class="caja-badge-venta-mostrador">Venta Mostrador</span>
-                                ` : ''}
                             </div>
                             ${phoneHtml}
+                            ${order.dni ? `<div class="caja-customer-dni" style="font-size:0.83rem; color:var(--caja-text-muted); margin-bottom:4px;">🪪 DNI/CUIT: <strong style="color:var(--caja-text);">${self.escapeHtml(order.dni)}</strong></div>` : ''}
                             ${order.address ? `<div class="caja-customer-address">📍 ${order.address}</div>` : ''}
                             ${order.customer_note ? `
                                 <div class="caja-customer-note-row">
@@ -4424,6 +4432,24 @@ $('#caja-modal-new-product').fadeIn(200);
             const total = $('.caja-control-chk').length;
             $('#caja-control-checked-count').text(0);
             $('#caja-control-total-count').text(total);
+
+            const isPickup = (
+                order.is_local_pickup === true ||
+                order.is_local_pickup === 'yes' ||
+                order.delivery_type === 'retiro_local' ||
+                (order.shipping_method && order.shipping_method.toLowerCase().indexOf('local') !== -1) ||
+                order.status === 'on-hold'
+            );
+            self.isCurrentControlPickup = isPickup;
+
+            if (isPickup) {
+                $('#caja-control-intro-text').text('Chequeá todos los productos incluidos en cada caja, los sueltos y empaques antes de entregar al cliente:');
+                $('#caja-btn-iniciar-envio').html('<span>🏪 Entregar pedido</span>');
+            } else {
+                $('#caja-control-intro-text').text('Chequeá todos los productos incluidos en cada caja, los sueltos y las bolsas de envío antes de entregar al repartidor:');
+                $('#caja-btn-iniciar-envio').html('<span>🚀 Iniciar envío</span>');
+            }
+
             $('#caja-btn-iniciar-envio').prop('disabled', true).removeClass('is-ready');
 
             $('body').addClass('caja-modal-locked');
@@ -5616,6 +5642,7 @@ $('#caja-modal-new-product').fadeIn(200);
         initPosTab: function() {
             const self = this;
             this.bindPosEvents();
+            this.updatePosCustomerRequirements();
 
             const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
@@ -5904,6 +5931,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     $text.text('Enviar a Cola de Despacho');
                     $dispatchSubgroup.slideDown(180);
                 }
+                self.updatePosCustomerRequirements();
             });
 
             // Selector de Entrega en Despacho (Con Envío vs Retiro por el Local)
@@ -5912,6 +5940,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 $(this).addClass('active');
                 const delivery = $(this).data('delivery');
                 $('#caja-pos-selected-delivery').val(delivery);
+                self.updatePosCustomerRequirements();
             });
 
             // Selector de Método de Pago
@@ -6084,6 +6113,9 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
             $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(totalPrice));
 
+            self.currentPosTotal = totalPrice;
+            self.updatePosCustomerRequirements();
+
             if (totalItems > 0) {
                 $badge.text(`${totalItems} seleccionado${totalItems === 1 ? '' : 's'}`).show();
                 $btn.prop('disabled', false);
@@ -6095,6 +6127,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
         clearPosCart: function(silent) {
             this.posCart = [];
+            this.currentPosTotal = 0;
             $('.caja-pos-qty-val').text('0');
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
             $('.caja-pos-prod-row').removeClass('has-selected');
@@ -6107,9 +6140,32 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-dispatch-subgroup').hide();
             }
             this.updatePosTotals();
+            this.updatePosCustomerRequirements();
             $('#caja-pos-checkout-btn').prop('disabled', true);
             if (!silent) {
                 this.showToast('Selección vaciada.', 'info');
+            }
+        },
+
+        updatePosCustomerRequirements: function() {
+            const self = this;
+            const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+            const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
+            const threshold = parseFloat((self.config && self.config.posCustomerThreshold) || 0);
+            const total = self.currentPosTotal || 0;
+
+            const $badge = $('#caja-pos-cust-req-badge');
+            const $stars = $('.caja-pos-req-star');
+
+            if (mode === 'pedido_despachar' && deliveryType === 'con_envio') {
+                $badge.css({ 'background': 'rgba(239, 68, 68, 0.2)', 'color': '#ef4444' }).text('Obligatorio (Envío)');
+                $stars.show();
+            } else if (threshold > 0 && total >= threshold) {
+                $badge.css({ 'background': 'rgba(245, 158, 11, 0.2)', 'color': '#f59e0b' }).text(`Obligatorio (Monto ≥ $${self.formatCurrencyNumber(threshold)})`);
+                $stars.show();
+            } else {
+                $badge.css({ 'background': 'rgba(255, 255, 255, 0.06)', 'color': 'var(--caja-text-muted, #94a3b8)' }).text('Opcional');
+                $stars.hide();
             }
         },
 
@@ -6131,6 +6187,59 @@ $('#caja-modal-new-product').fadeIn(200);
             const cardOp = $('#caja-pos-card-op').val() || '';
             const note = $('#caja-pos-note').val() || '';
 
+            // Datos del cliente
+            const custName = $.trim($('#caja-pos-cust-name').val() || '');
+            const custDni = $.trim($('#caja-pos-cust-dni').val() || '');
+            const custPhone = $.trim($('#caja-pos-cust-phone').val() || '');
+            const custEmail = $.trim($('#caja-pos-cust-email').val() || '');
+            const custAddress = $.trim($('#caja-pos-cust-address').val() || '');
+
+            // Validación de obligatoriedad de datos del cliente
+            const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
+            const threshold = parseFloat((self.config && self.config.posCustomerThreshold) || 0);
+            const total = self.currentPosTotal || 0;
+            const isThresholdMet = (threshold > 0 && total >= threshold);
+
+            if (isConEnvio) {
+                let missing = [];
+                if (!custName) missing.push('Nombre y Apellido');
+                if (!custAddress) missing.push('Dirección');
+                if (!custDni) missing.push('DNI / CUIT');
+                if (!custPhone) missing.push('Teléfono');
+                if (!custEmail) missing.push('Email');
+
+                if (missing.length > 0) {
+                    alert('Para pedidos con envío es obligatorio completar los siguientes datos del cliente:\n• ' + missing.join('\n• '));
+                    if (!custName) $('#caja-pos-cust-name').focus();
+                    else if (!custAddress) $('#caja-pos-cust-address').focus();
+                    else if (!custDni) $('#caja-pos-cust-dni').focus();
+                    else if (!custPhone) $('#caja-pos-cust-phone').focus();
+                    else if (!custEmail) $('#caja-pos-cust-email').focus();
+                    return;
+                }
+            } else if (isThresholdMet) {
+                let missing = [];
+                if (!custName) missing.push('Nombre y Apellido');
+                if (!custDni) missing.push('DNI / CUIT');
+                if (!custPhone) missing.push('Teléfono');
+                if (!custAddress) missing.push('Dirección');
+
+                if (missing.length > 0) {
+                    alert(`Para ventas a partir de $${self.formatCurrencyNumber(threshold)} es obligatorio registrar los datos del cliente:\n• ` + missing.join('\n• '));
+                    if (!custName) $('#caja-pos-cust-name').focus();
+                    else if (!custDni) $('#caja-pos-cust-dni').focus();
+                    else if (!custPhone) $('#caja-pos-cust-phone').focus();
+                    else if (!custAddress) $('#caja-pos-cust-address').focus();
+                    return;
+                }
+            }
+
+            if (custEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(custEmail)) {
+                alert('Por favor ingresa una dirección de Email válida.');
+                $('#caja-pos-cust-email').focus();
+                return;
+            }
+
             const $btn = $('#caja-pos-checkout-btn');
             const originalHtml = $btn.html();
             $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Procesando...');
@@ -6148,7 +6257,12 @@ $('#caja-modal-new-product').fadeIn(200);
                     payment_method: paymentMethod,
                     payment_status: paymentStatus,
                     card_op_number: cardOp,
-                    note: note
+                    note: note,
+                    customer_name: custName,
+                    customer_dni: custDni,
+                    customer_phone: custPhone,
+                    customer_email: custEmail,
+                    customer_address: custAddress
                 },
                 success: function(res) {
                     if (res && res.success) {
@@ -6159,6 +6273,8 @@ $('#caja-modal-new-product').fadeIn(200);
                         self.clearPosCart(true);
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
+                        $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                        self.updatePosCustomerRequirements();
 
                         // 3. Mantener el botón deshabilitado con su texto original (previene doble clic)
                         $btn.prop('disabled', true).html(originalHtml);
@@ -6238,28 +6354,28 @@ $('#caja-modal-new-product').fadeIn(200);
             const modalHtml = `
                 <div id="caja-pos-success-modal" class="caja-modal" style="display:flex; z-index:100060;">
                     <div class="caja-modal-backdrop"></div>
-                    <div class="caja-modal-dialog" style="max-width:440px; text-align:center; padding:24px 20px;">
+                    <div class="caja-modal-dialog" style="max-width:440px; text-align:center; padding:24px 20px; background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); color:var(--caja-text, #ffffff); box-shadow:0 15px 35px rgba(0,0,0,0.5);">
                         <span style="font-size:3rem; display:block; margin-bottom:10px;">🎉</span>
-                        <h3 style="margin:0 0 8px; color:#ffffff; font-size:1.3rem;">¡Venta #${data.order_number || data.order_id} Registrada!</h3>
-                        <p style="color:#94a3b8; font-size:0.9rem; margin:0 0 16px;">${self.escapeHtml(data.message || '')}</p>
+                        <h3 style="margin:0 0 8px; color:var(--caja-text, #ffffff); font-size:1.35rem; font-weight:800;">¡Venta #${data.order_number || data.order_id} Registrada!</h3>
+                        <p style="color:var(--caja-text, #ffffff); opacity:0.95; font-size:0.95rem; margin:0 0 16px;">${self.escapeHtml(data.message || '')}</p>
                         
-                        <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; margin-bottom:20px; font-size:0.88rem; text-align:left;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                                <span style="color:#94a3b8;">Total:</span>
-                                <strong style="color:#10b981;">${data.total || ''}</strong>
+                        <div style="background:rgba(0,0,0,0.3); border:1px solid var(--caja-card-border, rgba(255,255,255,0.15)); border-radius:8px; padding:14px; margin-bottom:20px; font-size:0.92rem; text-align:left;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                <span style="color:var(--caja-text, #ffffff); font-weight:700;">Total:</span>
+                                <strong style="color:var(--caja-primary, #10b981); font-size:1.15rem; font-weight:800;">${data.total || ''}</strong>
                             </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-                                <span style="color:#94a3b8;">Modo:</span>
-                                <span>${modeText}</span>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                <span style="color:var(--caja-text, #ffffff); font-weight:700;">Modo:</span>
+                                <span style="color:var(--caja-text, #ffffff); font-weight:600;">${modeText}</span>
                             </div>
-                            <div style="display:flex; justify-content:space-between;">
-                                <span style="color:#94a3b8;">Estado de Cobro:</span>
-                                <span>${payText}</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:var(--caja-text, #ffffff); font-weight:700;">Estado de Cobro:</span>
+                                <span style="color:var(--caja-text, #ffffff); font-weight:600;">${payText}</span>
                             </div>
                         </div>
 
                         <div style="display:flex; gap:10px;">
-                            <button type="button" class="caja-btn caja-btn-primary" id="btn-close-pos-success" style="width:100%; padding:10px;">
+                            <button type="button" class="caja-btn caja-btn-primary" id="btn-close-pos-success" style="width:100%; padding:12px; font-size:1rem; font-weight:700;">
                                 <span>Nueva Venta</span>
                             </button>
                         </div>

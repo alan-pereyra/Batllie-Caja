@@ -346,6 +346,32 @@ $options = Batllie_Caja_Plugin::get_color_settings();
             </div>
         </div>
 
+        <!-- 8. Requisitos de Datos del Cliente en Caja POS -->
+        <div class="caja-settings-card">
+            <div class="caja-settings-card-header">
+                <h2>
+                    <span class="caja-card-icon">👤</span>
+                    <span><?php _e('Caja POS - Datos del Cliente y Facturación', 'emp-caja'); ?></span>
+                </h2>
+                <p class="caja-settings-card-desc"><?php _e('Configuración de requisitos para los datos del cliente (Nombre y Apellido, DNI, Teléfono, Dirección, Email) en ventas de mostrador y pedidos con despacho.', 'emp-caja'); ?></p>
+            </div>
+            <div class="caja-settings-card-body">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_pos_customer_threshold"><?php _e('Monto mínimo para exigir datos en mostrador ($)', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <input type="number" step="any" min="0" id="caja_setting_pos_customer_threshold" name="batllie_caja_options[pos_customer_threshold]" value="<?php echo esc_attr($options['pos_customer_threshold'] ?? '0'); ?>" class="regular-text caja-input" placeholder="0" style="max-width: 220px;" />
+                            <p class="description">
+                                <?php _e('En ventas con envío, los datos del cliente son <strong>siempre obligatorios</strong>. En compras ya pagadas / retiro por el local, ingresar los datos es opcional a menos que el total de la venta sea <strong>igual o superior a este monto</strong> (por normativa de facturación/AFIP). Ingresa 0 si deseas que en mostrador sea siempre opcional.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
         <!-- Barra Inferior de Guardar -->
         <div class="caja-settings-submit-bar">
             <button type="submit" class="caja-btn caja-btn-primary caja-btn-lg caja-btn-save-settings" id="caja-btn-save-settings">

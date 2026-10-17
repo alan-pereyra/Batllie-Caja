@@ -1567,11 +1567,11 @@ class Batllie_Caja_Orders {
 
         $is_pos_sale = ($order->get_meta('_caja_pos_sale') === 'yes' || $order->get_meta('_created_by_caja_pos'));
         $pos_mode = $order->get_meta('_caja_pos_mode');
-        $is_venta_mostrador = ($is_pos_sale && $pos_mode === 'compra_realizada') || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
+        $is_venta_mostrador = $is_pos_sale || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
 
         if ($is_venta_mostrador) {
             $customer_name = trim(str_ireplace('Venta Mostrador', '', $first_name . ' ' . $last_name));
-            if (empty($customer_name)) {
+            if (empty($customer_name) || $customer_name === 'Administrador') {
                 $customer_name = __('Cliente mostrador', 'emp-caja');
             }
         } else {
@@ -1708,6 +1708,8 @@ class Batllie_Caja_Orders {
             'phone_clean'     => $phone_data['clean'],
             'phone_formatted' => $phone_data['formatted'],
             'phone_wa'        => $phone_data['wa'],
+            'email'           => method_exists($order, 'get_billing_email') ? (string) $order->get_billing_email() : '',
+            'dni'             => (string) ($order->get_meta('_billing_dni') ?: ($order->get_meta('_caja_customer_dni') ?: ($order->get_meta('billing_dni') ?: ''))),
             'address'         => $clean_address,
             'customer_note'   => $order->get_customer_note(),
             'caja_note'       => (string) $order->get_meta('_caja_staff_note'),
@@ -2797,17 +2799,50 @@ class Batllie_Caja_Orders {
 
         // Marcar control de pedido verificado
         $order->update_meta_data('_batllie_control_pedido_verified', 'yes');
-        $order->update_meta_data('_caja_shipping_status', 'enviando');
-        $order->update_status('enviando', __('Control de pedido completado al 100%. Paquete entregado al repartidor.', 'emp-caja'));
 
-        self::add_timeline_event($order, __('Control de pedido verificado al 100%. Paquete entregado al repartidor.', 'emp-caja'), '📋', 'shipping_out');
-        self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
+        // Detección de Retiro por el Local / Entrega en mano
+        $is_local_pickup = false;
+        $delivery_type_meta = $order->get_meta('_caja_delivery_type');
+        if ($delivery_type_meta === 'retiro_local' || $order->get_meta('_caja_is_pickup') === 'yes') {
+            $is_local_pickup = true;
+        } else {
+            $shipping_method_name = strtolower((string) $order->get_shipping_method());
+            $methods = $order->get_shipping_methods();
+            foreach ($methods as $method) {
+                $mid = strtolower($method->get_method_id());
+                if (strpos($mid, 'local_pickup') !== false || strpos($mid, 'pickup') !== false || strpos($mid, 'retiro') !== false) {
+                    $is_local_pickup = true;
+                    break;
+                }
+            }
+            if (!$is_local_pickup && (strpos($shipping_method_name, 'retiro') !== false || strpos($shipping_method_name, 'local') !== false || strpos($shipping_method_name, 'pickup') !== false || strpos($shipping_method_name, 'mostrador') !== false)) {
+                $is_local_pickup = true;
+            }
+        }
 
-        $order->save();
+        if ($is_local_pickup) {
+            $order->update_meta_data('_caja_shipping_status', 'entregado');
+            $order->update_status('completed', __('Control de pedido completado al 100%. Paquete entregado al cliente en el local.', 'emp-caja'));
+            self::add_timeline_event($order, __('Control de pedido verificado al 100%. Paquete entregado al cliente en el local.', 'emp-caja'), '📋', 'delivered_local');
+            self::add_timeline_event($order, __('pedido entregado al cliente', 'emp-caja'), '🏪', 'delivered_local');
+            self::add_timeline_event($order, __('pedido completado', 'emp-caja'), '✅', 'status_comp');
+            $order->save();
 
-        wp_send_json_success(array(
-            'order'   => self::format_order($order),
-            'message' => __('¡Control de pedido verificado! Envío iniciado con éxito.', 'emp-caja'),
-        ));
+            wp_send_json_success(array(
+                'order'   => self::format_order($order),
+                'message' => __('¡Control de pedido verificado! Pedido entregado al cliente con éxito.', 'emp-caja'),
+            ));
+        } else {
+            $order->update_meta_data('_caja_shipping_status', 'enviando');
+            $order->update_status('enviando', __('Control de pedido completado al 100%. Paquete entregado al repartidor.', 'emp-caja'));
+            self::add_timeline_event($order, __('Control de pedido verificado al 100%. Paquete entregado al repartidor.', 'emp-caja'), '📋', 'shipping_out');
+            self::add_timeline_event($order, __('el envío salió a su destino', 'emp-caja'), '🛵', 'shipping_out');
+            $order->save();
+
+            wp_send_json_success(array(
+                'order'   => self::format_order($order),
+                'message' => __('¡Control de pedido verificado! Envío iniciado con éxito.', 'emp-caja'),
+            ));
+        }
     }
 }

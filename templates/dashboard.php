@@ -180,7 +180,7 @@ if (!defined('ABSPATH')) {
                 <button type="button" class="caja-control-close-btn" id="caja-control-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
             </div>
             <div class="caja-control-pedido-intro">
-                <span><?php _e('Chequeá todos los productos incluidos en cada caja, los sueltos y las bolsas de envío antes de entregar al repartidor:', 'emp-caja'); ?></span>
+                <span id="caja-control-intro-text"><?php _e('Chequeá todos los productos incluidos en cada caja, los sueltos y las bolsas de envío antes de entregar al repartidor:', 'emp-caja'); ?></span>
             </div>
             <div class="caja-control-pedido-body" id="caja-control-body">
                 <!-- Se genera dinámicamente -->
