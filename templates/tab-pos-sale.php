@@ -13,14 +13,20 @@ if (!defined('ABSPATH')) {
         <!-- 1. SECCIÓN UNIFICADA: PRODUCTOS -->
         <div class="caja-pos-card caja-pos-products-card" id="caja-pos-products-card">
             <div class="caja-pos-card-header">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.15rem;">📦</span>
-                    <strong style="color:var(--caja-text); font-size:1.02rem;"><?php _e('Productos', 'emp-caja'); ?></strong>
-                    <span id="caja-pos-cart-badge-count" class="caja-pos-cart-badge-count">0 seleccionados</span>
+                <div class="caja-pos-header-left" style="display:flex; align-items:center; gap:6px; min-width:0;">
+                    <span style="font-size:1.15rem; flex-shrink:0;">📦</span>
+                    <strong class="caja-pos-header-title" style="color:var(--caja-text); font-size:0.95rem; white-space:nowrap;"><?php _e('Productos', 'emp-caja'); ?></strong>
+                    <span id="caja-pos-cart-badge-count" class="caja-pos-cart-badge-count" style="font-size:0.72rem; padding:2px 6px;">0</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div class="caja-pos-header-actions" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                    <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-open-history-btn" title="<?php esc_attr_e('Ver Historial de Ventas', 'emp-caja'); ?>">
+                        <span>📜</span>
+                        <span class="caja-btn-txt-responsive"><?php _e('Historial', 'emp-caja'); ?></span>
+                        <span id="caja-pos-history-badge-top" class="caja-pos-cart-badge-count" style="display:none; font-size:0.68rem; padding:1px 5px; margin-left:2px;">0</span>
+                    </button>
                     <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-clear-cart" title="<?php esc_attr_e('Vaciar selección', 'emp-caja'); ?>">
-                        <span>🗑️ <?php _e('Vaciar', 'emp-caja'); ?></span>
+                        <span>🗑️</span>
+                        <span class="caja-btn-txt-responsive"><?php _e('Vaciar', 'emp-caja'); ?></span>
                     </button>
                 </div>
             </div>
@@ -44,8 +50,10 @@ if (!defined('ABSPATH')) {
         </div>
 
         <!-- 2. SECCIÓN DE COBRO -->
-        <div class="caja-pos-card caja-pos-checkout-card">
-            <!-- Selector de Modo de Entrega tipo Switch iOS -->
+        <div class="caja-pos-card caja-pos-checkout-card" id="caja-pos-checkout-card">
+            <!-- Cuerpo scrolleable del cobro -->
+            <div class="caja-pos-checkout-scrollable">
+                <!-- Selector de Modo de Entrega tipo Switch iOS -->
             <div class="caja-pos-switches-group">
                 <div class="caja-pos-switch-row is-active" data-mode="compra_realizada" id="pos-row-compra-realizada">
                     <div class="caja-pos-switch-pill">
@@ -208,48 +216,54 @@ if (!defined('ABSPATH')) {
                 <textarea id="caja-pos-note" class="caja-input caja-pos-note-textarea" rows="2" placeholder="<?php esc_attr_e('Nota o aclaraciones de la venta...', 'emp-caja'); ?>"></textarea>
             </div>
 
-            <!-- Resumen de Totales y Productos Seleccionados -->
-            <div class="caja-pos-totals-block">
                 <!-- Lista de productos y precios en el Subtotal -->
                 <div class="caja-pos-summary-items" id="caja-pos-summary-items">
                     <div class="caja-pos-summary-empty"><?php _e('Sin productos seleccionados', 'emp-caja'); ?></div>
                 </div>
+            </div> <!-- /.caja-pos-checkout-scrollable -->
 
-                <div class="caja-pos-total-line caja-pos-subtotal-row">
-                    <span><?php _e('Subtotal:', 'emp-caja'); ?></span>
-                    <strong id="caja-pos-subtotal-val">$0,00</strong>
+            <!-- Footer fijo del cobro (Totales y Botón Confirmar) -->
+            <div class="caja-pos-checkout-footer">
+                <div class="caja-pos-totals-block">
+                    <div class="caja-pos-total-line caja-pos-subtotal-row">
+                        <span><?php _e('Subtotal:', 'emp-caja'); ?></span>
+                        <strong id="caja-pos-subtotal-val">$0,00</strong>
+                    </div>
+                    <div class="caja-pos-total-line caja-pos-total-line-grand">
+                        <span><?php _e('Total:', 'emp-caja'); ?></span>
+                        <strong id="caja-pos-total-val">$0,00</strong>
+                    </div>
                 </div>
-                <div class="caja-pos-total-line caja-pos-total-line-grand">
-                    <span><?php _e('Total:', 'emp-caja'); ?></span>
-                    <strong id="caja-pos-total-val">$0,00</strong>
-                </div>
+
+                <!-- Botón de Acción Principal -->
+                <button type="button" class="caja-btn caja-pos-main-confirm-btn" id="caja-pos-checkout-btn" disabled>
+                    <span id="caja-pos-checkout-text"><?php _e('Confirmar y Cobrar', 'emp-caja'); ?></span>
+                </button>
             </div>
-
-            <!-- Botón de Acción Principal -->
-            <button type="button" class="caja-btn caja-pos-main-confirm-btn" id="caja-pos-checkout-btn" disabled>
-                <span id="caja-pos-checkout-text"><?php _e('Confirmar y Cobrar', 'emp-caja'); ?></span>
-            </button>
         </div>
+    </div> <!-- /.caja-pos-stack -->
 
-        <!-- 3. HISTORIAL DE VENTAS -->
-        <div class="caja-pos-card caja-pos-history-card">
-            <div class="caja-pos-history-card-header" id="caja-pos-history-header-toggle" style="cursor: pointer; user-select: none;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:1.15rem;">📜</span>
-                    <strong style="color:var(--caja-text); font-size:0.95rem; white-space:nowrap;"><?php _e('Historial', 'emp-caja'); ?></strong>
-                    <span id="caja-pos-history-count" class="caja-pos-cart-badge-count" style="display:none;">0</span>
+    <!-- MODAL: HISTORIAL DE VENTAS POS -->
+    <div id="caja-modal-pos-history" class="caja-modal" style="display:none; z-index: 100050;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog" style="max-width: 860px; width: 95%;">
+            <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">📜</span>
+                    <h3 class="caja-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--caja-text, #f8fafc);"><?php _e('Historial', 'emp-caja'); ?></h3>
+                    <span id="caja-pos-history-count" class="caja-pos-cart-badge-count" style="display:none; font-size:0.75rem; padding: 2px 7px;">0</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <button type="button" id="caja-pos-history-refresh-btn" style="display:none;" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button type="button" id="caja-pos-history-refresh-btn" style="background: transparent; border: none; font-size: 1.15rem; cursor: pointer; padding: 2px; color: var(--caja-text-muted, #94a3b8);" title="<?php esc_attr_e('Actualizar historial', 'emp-caja'); ?>">
                         <span>🔄</span>
                     </button>
-                    <span class="caja-pos-history-chevron" id="caja-pos-history-chevron" style="color:var(--caja-text-muted); font-size:0.85rem; transition:transform 0.2s ease;">▼</span>
+                    <button type="button" class="caja-modal-close" id="caja-pos-history-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>" style="background: transparent; border: none; font-size: 1.4rem; color: var(--caja-text-muted, #94a3b8); cursor: pointer; line-height: 1;">&times;</button>
                 </div>
             </div>
-            <div class="caja-pos-history-body" id="caja-pos-history-body" style="display:none;">
-                <div style="text-align:center; padding:30px; color:var(--caja-text-muted);">
+            <div class="caja-modal-body" id="caja-pos-history-body" style="padding: 14px; max-height: 75vh; overflow-y: auto;">
+                <div style="text-align: center; padding: 30px; color: var(--caja-text-muted, #94a3b8);">
                     <span class="caja-spinner">⏳</span>
-                    <p style="margin-top:8px;"><?php _e('Cargando historial de ventas...', 'emp-caja'); ?></p>
+                    <p style="margin-top: 8px;"><?php _e('Cargando historial de ventas...', 'emp-caja'); ?></p>
                 </div>
             </div>
         </div>

@@ -1803,6 +1803,7 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-tab-panel').hide();
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
+            $('.caja-dashboard').toggleClass('caja-pos-mode', tabId === 'tab-pos-sale');
 
             // Sincronizar el selector desplegable rápido de pantallas
             const $screenSelect = $('#caja-screen-select');
@@ -6249,27 +6250,19 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.handlePosCheckout();
             });
 
-            // Historial de ventas: Solo carga si se toca para verlo
-            $(document).on('click', '#caja-pos-history-header-toggle', function(e) {
-                if ($(e.target).closest('#caja-pos-history-refresh-btn').length) return;
+            // Abrir Modal de Historial de Ventas POS
+            $(document).on('click', '#caja-pos-open-history-btn', function(e) {
+                e.preventDefault();
+                $('#caja-modal-pos-history').fadeIn(150);
+                $('body').addClass('caja-modal-locked');
+                self.loadPosHistory();
+            });
 
-                const $body = $('#caja-pos-history-body');
-                const $chevron = $('#caja-pos-history-chevron');
-                const $refreshBtn = $('#caja-pos-history-refresh-btn');
-
-                if ($body.is(':visible')) {
-                    $body.slideUp(180);
-                    $chevron.css('transform', 'rotate(0deg)');
-                    $refreshBtn.hide();
-                } else {
-                    $body.slideDown(180);
-                    $chevron.css('transform', 'rotate(180deg)');
-                    $refreshBtn.show();
-
-                    if (!self.posHistoryLoaded) {
-                        self.loadPosHistory();
-                    }
-                }
+            // Cerrar Modal de Historial de Ventas POS
+            $(document).on('click', '#caja-pos-history-close-btn, #caja-modal-pos-history .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-pos-history').fadeOut(150);
+                $('body').removeClass('caja-modal-locked');
             });
 
             // Actualizar Historial de Ventas manualmente con el botón
@@ -6746,6 +6739,7 @@ $('#caja-modal-new-product').fadeIn(200);
                         self.posHistoryLoaded = true;
                         const history = res.data.history;
                         $count.text(`${history.length}`).show();
+                        $('#caja-pos-history-badge-top').text(`${history.length}`).show();
 
                         if (history.length === 0) {
                             $body.html(`
