@@ -6433,3 +6433,70 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     font-weight: 700;
 }
 
+/* Sección de Empaque y Bolsas en Venta Caja */
+.caja-pos-packaging-subgroup {
+    transition: border-color 0.2s ease;
+}
+
+.caja-pos-pkg-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 8px;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.caja-pos-pkg-row.has-selected {
+    background: rgba(16, 185, 129, 0.1) !important;
+    border-color: rgba(16, 185, 129, 0.5) !important;
+}
+
+.caja-pos-pkg-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    font-size: 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.caja-pos-pkg-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.caja-pos-pkg-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--caja-text, #ffffff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.caja-pos-pkg-stock-lbl {
+    font-size: 0.72rem;
+    color: var(--caja-text-muted, #94a3b8);
+}
+
+.caja-pos-pkg-count-badge {
+    background: var(--caja-primary, #10b981) !important;
+    color: #ffffff !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0.2px !important;
+}
+

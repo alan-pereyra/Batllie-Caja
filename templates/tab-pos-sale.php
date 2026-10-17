@@ -210,6 +210,27 @@ if (!defined('ABSPATH')) {
                 </div>
             </div>
 
+            <!-- Empaque y Bolsas Utilizadas (Sección colapsable opcional) -->
+            <div class="caja-pos-packaging-subgroup" id="caja-pos-packaging-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
+                <!-- Cabecera colapsable: Título y Badge alineados a la izquierda -->
+                <div class="caja-pos-packaging-header" id="caja-pos-packaging-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; width: 100%;">
+                    <div class="caja-pos-pkg-header-left" style="display: flex; align-items: baseline; gap: 8px; flex: 0 1 auto;">
+                        <span class="caja-pos-pkg-icon" style="font-size: 0.95rem; line-height: 1; align-self: center;">📦</span>
+                        <span class="caja-pos-pkg-title" style="font-size: 0.92rem; font-weight: 700; color: var(--caja-text, #ffffff); line-height: 1.2; margin: 0; padding: 0; white-space: nowrap;"><?php _e('Empaque / Bolsas', 'emp-caja'); ?></span>
+                        <span id="caja-pos-pkg-req-badge" class="caja-pos-pkg-req-badge" style="font-size: 0.72rem; font-weight: 600; line-height: 1.2; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--caja-text-muted, #94a3b8); white-space: nowrap;"><?php _e('Opcional', 'emp-caja'); ?></span>
+                        <span id="caja-pos-pkg-count-badge" class="caja-pos-pkg-count-badge" style="display: none; font-size: 0.72rem; font-weight: 700; line-height: 1.2; padding: 2px 8px; border-radius: 4px; background: var(--caja-primary, #10b981); color: #ffffff; white-space: nowrap;">0</span>
+                    </div>
+                    <span id="caja-pos-pkg-toggle-icon" class="caja-pos-pkg-toggle-icon" style="margin-left: auto; color: var(--caja-text-muted, #94a3b8); font-size: 0.82rem; transition: transform 0.2s ease;">▼</span>
+                </div>
+
+                <!-- Contenido colapsable: Lista de paquetes y bolsas -->
+                <div class="caja-pos-packaging-body" id="caja-pos-packaging-body" style="margin-top: 12px; display: none;">
+                    <div id="caja-pos-packaging-list" class="caja-pos-packaging-list" style="display: flex; flex-direction: column; gap: 6px;">
+                        <!-- Se renderiza dinámicamente con packagingProducts -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Campo de Nota de la Venta -->
             <div class="caja-pos-note-group">
                 <label for="caja-pos-note" class="caja-pos-field-label"><?php _e('Nota de la venta', 'emp-caja'); ?></label>

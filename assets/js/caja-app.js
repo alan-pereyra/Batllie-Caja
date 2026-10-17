@@ -5706,6 +5706,7 @@ $('#caja-modal-new-product').fadeIn(200);
             this.bindPosEvents();
             this.updatePosCustomerRequirements();
             this.updatePosUnpaidWarning();
+            this.renderPosPackagingSection();
 
             const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
@@ -5735,9 +5736,22 @@ $('#caja-modal-new-product').fadeIn(200);
 
             const query = (this.posSearchQuery || '').trim().toLowerCase();
 
+            // Filtrar productos excluyendo cajas y empaques (no se venden como productos de góndola)
+            const availableProducts = (this.cachedProducts || []).filter(p => {
+                if (p.is_packaging) return false;
+                if (self.packagingProducts && self.packagingProducts.some(pkg => pkg.id == p.id)) return false;
+                const pCats = (p.categories || '').toLowerCase();
+                const pSlugs = Array.isArray(p.category_slugs) ? p.category_slugs.map(s => String(s).toLowerCase()) : [];
+                if (pCats.includes('empaques') || pSlugs.includes('empaques')) return false;
+                if (p.is_official_box || p.official_box_role) return false;
+                const pName = (p.name || '').toLowerCase();
+                if (pName.includes('caja de empaque') || pName.includes('(empaque)') || pName.includes('paquete / caja')) return false;
+                return true;
+            });
+
             // MODO BÚSQUEDA ACTIVA
             if (query.length > 0) {
-                let matches = (this.cachedProducts || []).filter(p => {
+                let matches = availableProducts.filter(p => {
                     const nameMatch = p.name && p.name.toLowerCase().includes(query);
                     const skuMatch = p.sku && p.sku.toLowerCase().includes(query);
                     return nameMatch || skuMatch;
@@ -5769,6 +5783,9 @@ $('#caja-modal-new-product').fadeIn(200);
             // 1. Agregar categorías desde backend
             if (this.cachedCategories && this.cachedCategories.length) {
                 this.cachedCategories.forEach(c => {
+                    const cSlug = (c.slug || '').toLowerCase();
+                    const cName = (c.name || '').toLowerCase();
+                    if (cSlug === 'empaques' || cName === 'empaques') return;
                     categoriesMap.set(Number(c.id), {
                         id: Number(c.id),
                         name: c.name,
@@ -5779,17 +5796,19 @@ $('#caja-modal-new-product').fadeIn(200);
                 });
             }
 
-            // 2. Distribuir productos en las categorías
-            if (this.cachedProducts && this.cachedProducts.length) {
-                this.cachedProducts.forEach(p => {
+            // 2. Distribuir productos disponibles en las categorías
+            if (availableProducts.length) {
+                availableProducts.forEach(p => {
                     const catIds = Array.isArray(p.category_ids) ? p.category_ids.map(Number) : [];
                     const catSlugs = Array.isArray(p.category_slugs) ? p.category_slugs : [];
 
                     if (catIds.length > 0) {
                         catIds.forEach((cid, idx) => {
+                            const slug = catSlugs[idx] || '';
+                            if (slug.toLowerCase() === 'empaques') return;
                             if (!categoriesMap.has(cid)) {
-                                const slug = catSlugs[idx] || '';
                                 const name = p.categories ? p.categories.split(',')[idx] || ('Categoría ' + cid) : ('Categoría ' + cid);
+                                if (name.trim().toLowerCase() === 'empaques') return;
                                 categoriesMap.set(cid, {
                                     id: cid,
                                     name: name.trim(),
@@ -5816,8 +5835,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 });
             }
 
-            // Filtrar solo categorías que contengan productos
-            let catList = Array.from(categoriesMap.values()).filter(c => c.products.length > 0);
+            // Filtrar solo categorías que contengan productos y no sean Empaques
+            let catList = Array.from(categoriesMap.values()).filter(c => {
+                if (!c.products || !c.products.length) return false;
+                const cSlug = (c.slug || '').toLowerCase();
+                const cName = (c.name || '').toLowerCase();
+                return cSlug !== 'empaques' && cName !== 'empaques';
+            });
             catList.sort((a, b) => a.name.localeCompare(b.name));
 
             if (catList.length === 0) {
@@ -6005,6 +6029,55 @@ $('#caja-modal-new-product').fadeIn(200);
             // Estado de pago en Despacho (Pagado vs Falta Pagar)
             $(document).on('change', '#caja-pos-selected-status', function() {
                 self.updatePosUnpaidWarning();
+            });
+
+            // Toggle de la sección colapsable de Empaque / Bolsas
+            $(document).on('click', '#caja-pos-packaging-header', function() {
+                const $body = $('#caja-pos-packaging-body');
+                const $icon = $('#caja-pos-pkg-toggle-icon');
+                if ($body.is(':visible')) {
+                    $body.slideUp(180);
+                    $icon.text('▼');
+                } else {
+                    $body.slideDown(180);
+                    $icon.text('▲');
+                }
+            });
+
+            // Stepper de empaque: sumar unidad (+)
+            $(document).on('click', '.caja-pos-pkg-btn-plus', function(e) {
+                e.stopPropagation();
+                const pkgId = parseInt($(this).data('id'), 10);
+                const pkg = (self.packagingProducts || []).find(p => p.id == pkgId);
+                const $val = $(`#caja-pos-pkg-qty-${pkgId}`);
+                let qty = parseInt($val.text(), 10) || 0;
+
+                if (pkg && pkg.managing_stock && pkg.stock !== null && (qty + 1) > pkg.stock) {
+                    self.showToast(`Stock máximo alcanzado para ${pkg.name} (${pkg.stock} disp.)`, 'warning');
+                    return;
+                }
+                qty++;
+                $val.text(qty);
+                $(this).siblings('.caja-pos-pkg-btn-minus').prop('disabled', false);
+                $(this).closest('.caja-pos-pkg-row').addClass('has-selected');
+                self.updatePosPackagingBadge();
+            });
+
+            // Stepper de empaque: restar unidad (-)
+            $(document).on('click', '.caja-pos-pkg-btn-minus', function(e) {
+                e.stopPropagation();
+                const pkgId = parseInt($(this).data('id'), 10);
+                const $val = $(`#caja-pos-pkg-qty-${pkgId}`);
+                let qty = parseInt($val.text(), 10) || 0;
+                if (qty > 0) {
+                    qty--;
+                    $val.text(qty);
+                }
+                if (qty === 0) {
+                    $(this).prop('disabled', true);
+                    $(this).closest('.caja-pos-pkg-row').removeClass('has-selected');
+                }
+                self.updatePosPackagingBadge();
             });
 
             // Selector de Entrega en Despacho (Con Envío vs Retiro por el Local)
@@ -6445,6 +6518,13 @@ $('#caja-modal-new-product').fadeIn(200);
             this.updatePosTotals();
             this.updatePosCustomerRequirements();
             this.updatePosUnpaidWarning();
+
+            // Reset de empaques y bolsas seleccionados
+            $('.caja-pos-pkg-qty-val').text('0');
+            $('.caja-pos-pkg-btn-minus').prop('disabled', true);
+            $('.caja-pos-pkg-row').removeClass('has-selected');
+            this.updatePosPackagingBadge();
+
             $('#caja-pos-checkout-btn').prop('disabled', true);
             if (!silent) {
                 this.showToast('Selección vaciada.', 'info');
@@ -6538,6 +6618,106 @@ $('#caja-modal-new-product').fadeIn(200);
             return `${mins} ${mins === 1 ? 'minuto' : 'minutos'}`;
         },
 
+        renderPosPackagingSection: function() {
+            const self = this;
+            const $list = $('#caja-pos-packaging-list');
+            if (!$list.length) return;
+
+            if (!self.packagingProducts || !self.packagingProducts.length) {
+                // Si aún no están cargados, consultar vía AJAX
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_get_packaging_items',
+                        security: self.config.nonce
+                    },
+                    success: function(res) {
+                        if (res && res.success && res.data && res.data.packaging_products && res.data.packaging_products.length) {
+                            self.packagingProducts = res.data.packaging_products;
+                            self.renderPosPackagingSection();
+                        } else {
+                            $list.html(`
+                                <div style="text-align: center; padding: 12px 8px; color: var(--caja-text-muted, #94a3b8); font-size: 0.8rem;">
+                                    No hay productos de empaque o bolsas configurados.
+                                </div>
+                            `);
+                        }
+                    },
+                    error: function() {
+                        $list.html(`
+                            <div style="text-align: center; padding: 12px 8px; color: var(--caja-text-muted, #94a3b8); font-size: 0.8rem;">
+                                No hay productos de empaque o bolsas configurados.
+                            </div>
+                        `);
+                    }
+                });
+                return;
+            }
+
+            let html = '';
+            self.packagingProducts.forEach(pkg => {
+                const stockText = (pkg.managing_stock && pkg.stock !== null) 
+                    ? (pkg.stock > 0 ? `${pkg.stock} disp.` : '<span style="color:#ef4444; font-weight:700;">Sin stock</span>') 
+                    : 'Stock ilimitado';
+                const isOutOfStock = (pkg.managing_stock && pkg.stock !== null && pkg.stock <= 0);
+                const imgSrc = pkg.image || '';
+
+                html += `
+                    <div class="caja-pos-pkg-row" data-pkg-id="${pkg.id}">
+                        <div class="caja-pos-pkg-row-left" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                            <div class="caja-pos-pkg-thumb">
+                                ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(pkg.name)}" />` : '📦'}
+                            </div>
+                            <div style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
+                                <span class="caja-pos-pkg-name" title="${self.escapeHtml(pkg.name)}">${self.escapeHtml(pkg.name)}</span>
+                                <span class="caja-pos-pkg-stock-lbl">${stockText}</span>
+                            </div>
+                        </div>
+                        <div class="caja-pos-stepper" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--caja-card-border, #334155); border-radius: 6px; padding: 2px 4px; flex-shrink: 0;">
+                            <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-minus" data-id="${pkg.id}" disabled style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">−</button>
+                            <span class="caja-pos-qty-val caja-pos-pkg-qty-val" id="caja-pos-pkg-qty-${pkg.id}" data-id="${pkg.id}" style="min-width: 22px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--caja-text, #ffffff);">0</span>
+                            <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-plus" data-id="${pkg.id}" ${isOutOfStock ? 'disabled' : ''} style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            $list.html(html);
+            self.updatePosPackagingBadge();
+        },
+
+        updatePosPackagingBadge: function() {
+            let total = 0;
+            $('.caja-pos-pkg-qty-val').each(function() {
+                total += parseInt($(this).text(), 10) || 0;
+            });
+
+            const $reqBadge = $('#caja-pos-pkg-req-badge');
+            const $countBadge = $('#caja-pos-pkg-count-badge');
+
+            if (total > 0) {
+                $countBadge.text(total + (total === 1 ? ' usado' : ' usados')).show();
+                $reqBadge.hide();
+            } else {
+                $countBadge.hide();
+                $reqBadge.show();
+            }
+        },
+
+        getUsedPackaging: function() {
+            const list = [];
+            $('.caja-pos-pkg-qty-val').each(function() {
+                const id = parseInt($(this).data('id'), 10);
+                const qty = parseInt($(this).text(), 10) || 0;
+                if (id && qty > 0) {
+                    list.push({ id: id, qty: qty });
+                }
+            });
+            return list;
+        },
+
         handlePosCheckout: function() {
             const self = this;
             if (!this.posCart || this.posCart.length === 0) {
@@ -6627,12 +6807,14 @@ $('#caja-modal-new-product').fadeIn(200);
                     customer_dni: custDni,
                     customer_phone: custPhone,
                     customer_email: custEmail,
-                    customer_address: custAddress
+                    customer_address: custAddress,
+                    used_packaging: JSON.stringify(self.getUsedPackaging())
                 },
                 success: function(res) {
                     if (res && res.success) {
-                        // 1. Guardar copia de items para descuento de stock antes de vaciar
+                        // 1. Guardar copia de items y empaques para descuento de stock antes de vaciar
                         const purchasedItems = [...self.posCart];
+                        const usedPackaging = self.getUsedPackaging();
 
                         // 2. Limpiar inmediatamente el carrito, notas y campos para que no se duplique
                         self.clearPosCart(true);
@@ -6668,6 +6850,17 @@ $('#caja-modal-new-product').fadeIn(200);
                             } catch(e) {
                                 console.error('Error actualizando stock local', e);
                             }
+                        }
+
+                        // Descontar inventario local de empaques utilizados
+                        if (usedPackaging && usedPackaging.length > 0 && self.packagingProducts) {
+                            usedPackaging.forEach(u => {
+                                const p = self.packagingProducts.find(pkg => pkg.id == u.id);
+                                if (p && p.managing_stock && p.stock !== null) {
+                                    p.stock = Math.max(0, p.stock - u.qty);
+                                }
+                            });
+                            self.renderPosPackagingSection();
                         }
 
                         // 5. Re-renderizar el acordeón para resetear todos los steppers a 0

@@ -2542,6 +2542,52 @@ class Batllie_Caja_Orders {
             update_option('_caja_official_packaging_items', $items_option, 'yes');
         }
 
+        // Auto-descubrimiento dinámico de productos de empaque
+        $extra_ids = array();
+        $cat_prods = wc_get_products(array(
+            'status'   => 'publish',
+            'limit'    => 50,
+            'category' => array('empaques'),
+            'return'   => 'ids',
+        ));
+        if (!empty($cat_prods)) {
+            $extra_ids = array_merge($extra_ids, $cat_prods);
+        }
+
+        $meta_prods = get_posts(array(
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => 50,
+            'fields'         => 'ids',
+            'meta_query'     => array(
+                'relation' => 'OR',
+                array('key' => '_caja_is_packaging_product', 'value' => 'yes'),
+                array('key' => '_is_batllie_packaging_product', 'value' => 'yes'),
+            ),
+        ));
+        if (!empty($meta_prods)) {
+            $extra_ids = array_merge($extra_ids, $meta_prods);
+        }
+
+        $batllie_pkg_id = (int) get_option('_batllie_packaging_product_id', 0);
+        if ($batllie_pkg_id) {
+            $extra_ids[] = $batllie_pkg_id;
+        }
+
+        $search_prods = wc_get_products(array(
+            'status' => 'publish',
+            'limit'  => 50,
+            's'      => 'empaque',
+            'return' => 'ids',
+        ));
+        if (!empty($search_prods)) {
+            $extra_ids = array_merge($extra_ids, $search_prods);
+        }
+
+        if (!empty($extra_ids)) {
+            $items_option = array_values(array_unique(array_merge((array)$items_option, array_map('intval', $extra_ids))));
+        }
+
         $packaging_list = array();
         foreach ($items_option as $pid) {
             $prod = wc_get_product($pid);

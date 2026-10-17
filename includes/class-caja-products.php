@@ -41,29 +41,6 @@ class Batllie_Caja_Products {
             $formatted[] = self::format_product($product);
         }
 
-        // Asegurar que las cajas de empaque oficiales siempre aparezcan en la lista del POS para control de stock
-        if (empty($search) && empty($category) && class_exists('Batllie_Caja_Packing')) {
-            $official_ids = array_filter(array(
-                Batllie_Caja_Packing::get_official_box_id(6),
-                Batllie_Caja_Packing::get_official_box_id(12),
-            ));
-            foreach ($official_ids as $box_id) {
-                $already_present = false;
-                foreach ($formatted as $item) {
-                    if ($item['id'] === $box_id) {
-                        $already_present = true;
-                        break;
-                    }
-                }
-                if (!$already_present) {
-                    $box_prod = wc_get_product($box_id);
-                    if ($box_prod && $box_prod->exists() && $box_prod->get_status() !== 'trash') {
-                        array_unshift($formatted, self::format_product($box_prod));
-                    }
-                }
-            }
-        }
-
         return $formatted;
     }
 
@@ -320,8 +297,72 @@ class Batllie_Caja_Products {
             'is_dynamic_stock'         => !empty($dynamic_stock_info),
             'bottleneck_item'          => !empty($dynamic_stock_info['bottleneck_item']) ? $dynamic_stock_info['bottleneck_item'] : '',
             'stock_history'            => (array) (get_post_meta($product->get_id(), '_caja_stock_history', true) ?: array()),
+            'is_packaging'             => self::is_packaging_product($product),
             'description'              => wp_trim_words(strip_tags($product->get_short_description()), 15)
         );
+    }
+
+    /**
+     * Comprobar si un producto corresponde a un empaque, paquete o bolsa
+     */
+    public static function is_packaging_product($product) {
+        if (!is_a($product, 'WC_Product')) {
+            $product = wc_get_product($product);
+        }
+        if (!$product) {
+            return false;
+        }
+        $pid = $product->get_id();
+
+        // 1. Metas específicos de empaque
+        if (get_post_meta($pid, '_caja_is_packaging_product', true) === 'yes' ||
+            get_post_meta($pid, '_is_batllie_packaging_product', true) === 'yes' ||
+            get_post_meta($pid, '_batllie_is_official_box', true)) {
+            return true;
+        }
+
+        // 2. Opciones de empaque oficial registradas
+        $official_items = (array) get_option('_caja_official_packaging_items', array());
+        if (in_array($pid, array_map('intval', $official_items), true)) {
+            return true;
+        }
+        $batllie_pkg_id = (int) get_option('_batllie_packaging_product_id', 0);
+        if ($batllie_pkg_id && $pid === $batllie_pkg_id) {
+            return true;
+        }
+
+        // 3. Categoría 'Empaques'
+        $terms = get_the_terms($pid, 'product_cat');
+        if ($terms && !is_wp_error($terms)) {
+            foreach ($terms as $t) {
+                if (mb_strtolower($t->slug, 'UTF-8') === 'empaques' || mb_strtolower($t->name, 'UTF-8') === 'empaques') {
+                    return true;
+                }
+            }
+        }
+
+        // 4. Cajas y bolsas oficiales
+        if (class_exists('Batllie_Caja_Packing')) {
+            $box_ids = array_filter(array(
+                Batllie_Caja_Packing::get_official_box_id(6),
+                Batllie_Caja_Packing::get_official_box_id(12),
+                Batllie_Caja_Packing::get_official_bag_id('large'),
+                Batllie_Caja_Packing::get_official_bag_id('small'),
+            ));
+            if (in_array($pid, array_map('intval', $box_ids), true)) {
+                return true;
+            }
+        }
+
+        // 5. Coincidencia por nombre
+        $name = mb_strtolower($product->get_name(), 'UTF-8');
+        if (strpos($name, 'caja de empaque') !== false ||
+            strpos($name, '(empaque)') !== false ||
+            strpos($name, 'paquete / caja') !== false) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

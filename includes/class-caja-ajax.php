@@ -953,6 +953,85 @@ class Batllie_Caja_Ajax {
                 update_post_meta($mov['prod_id'], '_caja_stock_history', $hist);
             }
 
+            // Registro y descuento de empaques o bolsas utilizados en la venta POS
+            $raw_used_pkg = isset($_POST['used_packaging']) ? $_POST['used_packaging'] : array();
+            if (is_string($raw_used_pkg)) {
+                $raw_used_pkg = json_decode(stripslashes($raw_used_pkg), true);
+            }
+
+            if (!empty($raw_used_pkg) && is_array($raw_used_pkg)) {
+                $saved_pkg_items = array();
+                foreach ($raw_used_pkg as $it) {
+                    $pkg_id  = absint($it['id'] ?? 0);
+                    $pkg_qty = max(0, intval($it['qty'] ?? 0));
+                    if (!$pkg_id || $pkg_qty <= 0) continue;
+
+                    $p = wc_get_product($pkg_id);
+                    if (!$p) continue;
+
+                    $saved_pkg_items[] = array(
+                        'id'   => $pkg_id,
+                        'name' => $p->get_name(),
+                        'qty'  => $pkg_qty,
+                    );
+
+                    // Descontar inventario de empaque si gestiona stock
+                    if ($p->managing_stock()) {
+                        $stock_before = $p->get_stock_quantity();
+                        wc_update_product_stock($p, $pkg_qty, 'decrease');
+                        $stock_after = $p->get_stock_quantity();
+
+                        $hist = get_post_meta($pkg_id, '_caja_stock_history', true);
+                        if (!is_array($hist)) {
+                            $hist = array();
+                        }
+                        $hist_entry = array(
+                            'timestamp'      => time(),
+                            'date_formatted' => $date_formatted,
+                            'mode'           => 'subtract',
+                            'quantity'       => $pkg_qty,
+                            'old_stock'      => $stock_before,
+                            'new_stock'      => $stock_after,
+                            'note'           => sprintf(__('Empaque utilizado en Venta POS #%d (%s)', 'emp-caja'), $order->get_id(), $mode_label),
+                            'user'           => $cashier_name
+                        );
+                        array_unshift($hist, $hist_entry);
+                        if (count($hist) > 60) {
+                            $hist = array_slice($hist, 0, 60);
+                        }
+                        update_post_meta($pkg_id, '_caja_stock_history', $hist);
+                    }
+                }
+
+                if (!empty($saved_pkg_items)) {
+                    $order->update_meta_data('_caja_order_packaging', $saved_pkg_items);
+
+                    // Mapeo retrocompatible con cajas y bolsas fijas
+                    $b12_id = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(12) : 0;
+                    $b6_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_box_id(6) : 0;
+                    $bl_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('large') : 0;
+                    $bs_id  = class_exists('Batllie_Caja_Packing') ? Batllie_Caja_Packing::get_official_bag_id('small') : 0;
+
+                    $found_b12 = 0; $found_b6 = 0; $found_bl = 0; $found_bs = 0;
+                    foreach ($saved_pkg_items as $si) {
+                        if ($si['id'] == $b12_id) $found_b12 += $si['qty'];
+                        if ($si['id'] == $b6_id)  $found_b6  += $si['qty'];
+                        if ($si['id'] == $bl_id)  $found_bl  += $si['qty'];
+                        if ($si['id'] == $bs_id)  $found_bs  += $si['qty'];
+                    }
+                    $order->update_meta_data('_batllie_boxes_used', array('box_6' => $found_b6, 'box_12' => $found_b12));
+                    $order->update_meta_data('_batllie_boxes_6_qty', $found_b6);
+                    $order->update_meta_data('_batllie_boxes_12_qty', $found_b12);
+                    $order->update_meta_data('_batllie_packaging_bags', array('large' => $found_bl, 'small' => $found_bs));
+                    $order->update_meta_data('_batllie_bags_large_qty', $found_bl);
+                    $order->update_meta_data('_batllie_bags_small_qty', $found_bs);
+
+                    $pkg_names = array_map(function($pi) { return "{$pi['qty']}x {$pi['name']}"; }, $saved_pkg_items);
+                    $order->add_order_note(sprintf(__('Empaque / Bolsas utilizadas: %s', 'emp-caja'), implode(', ', $pkg_names)));
+                    $order->save();
+                }
+            }
+
             // Agregar notas de auditoría a la orden
             if ($payment_status === 'pendiente' && $mode === 'pedido_despachar') {
                 $order->add_order_note(sprintf(__('⚠️ AVISO CAJA POS: Pedido tomado por %s. Pago PENDIENTE (%s). Cobrar antes o al momento del despacho.', 'emp-caja'), $cashier_name, $order->get_payment_method_title()));
