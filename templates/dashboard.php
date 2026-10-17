@@ -96,7 +96,7 @@ if (!defined('ABSPATH')) {
                         <line x1="17" y1="9" x2="23" y2="15"></line>
                     </svg>
                 </span>
-                <span class="caja-btn-tool-label"><?php _e('Alarma Activa', 'emp-caja'); ?></span>
+                <span class="caja-btn-tool-label"><?php _e('Activa', 'emp-caja'); ?></span>
             </button>
 
             <!-- Botón Probar Sonido -->
@@ -122,7 +122,7 @@ if (!defined('ABSPATH')) {
                     <polyline points="7 10 12 15 17 10"></polyline>
                     <line x1="12" y1="15" x2="12" y2="3"></line>
                 </svg>
-                <span class="caja-btn-tool-label"><?php _e('Instalar App', 'emp-caja'); ?></span>
+                <span class="caja-btn-tool-label"><?php _e('Instalar', 'emp-caja'); ?></span>
             </button>
 
             <!-- Usuario y Logout -->

@@ -658,11 +658,15 @@ body.batllie-caja-active .container {
 .caja-btn-tool {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     background: rgba(15, 23, 42, 0.5);
     border: 1px solid var(--caja-card-border);
     color: var(--caja-text);
-    padding: 7px 12px;
+    padding: 6px 12px;
+    height: 38px;
+    box-sizing: border-box;
+    white-space: nowrap;
     border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 500;
@@ -3319,8 +3323,11 @@ span#edit-grouped-selected-badge {
     }
 
     .caja-btn-tool {
-        padding: 6px 10px !important;
-        font-size: 0.8rem !important;
+        padding: 5px 8px !important;
+        font-size: 0.78rem !important;
+        height: 36px !important;
+        white-space: nowrap !important;
+        box-sizing: border-box !important;
     }
 
     /* Pestañas de navegación en móvil: Fila propia a todo el ancho (3 pestañas) */

@@ -1721,7 +1721,7 @@ $('#caja-modal-new-product').fadeIn(200);
             if (enabled) {
                 $('#caja-toggle-sound .sound-icon-on').show();
                 $('#caja-toggle-sound .sound-icon-off').hide();
-                $('#caja-toggle-sound .caja-btn-tool-label').text('Alarma Activa');
+                $('#caja-toggle-sound .caja-btn-tool-label').text('Activa');
                 $('#caja-toggle-sound').removeClass('caja-btn-tool-muted');
             } else {
                 $('#caja-toggle-sound .sound-icon-on').hide();
