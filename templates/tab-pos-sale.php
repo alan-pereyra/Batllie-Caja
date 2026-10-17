@@ -239,6 +239,12 @@ if (!defined('ABSPATH')) {
                 <button type="button" class="caja-btn caja-pos-main-confirm-btn" id="caja-pos-checkout-btn" disabled>
                     <span id="caja-pos-checkout-text"><?php _e('Confirmar y Cobrar', 'emp-caja'); ?></span>
                 </button>
+
+                <!-- Aviso dinámico si falta pagar con tiempo real de cancelación de WooCommerce -->
+                <div id="caja-pos-unpaid-warning" class="caja-pos-unpaid-warning" style="display:none;">
+                    <span class="caja-pos-unpaid-icon">⏱️</span>
+                    <span id="caja-pos-unpaid-text"></span>
+                </div>
             </div>
         </div>
     </div> <!-- /.caja-pos-stack -->

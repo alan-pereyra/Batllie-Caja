@@ -5705,6 +5705,7 @@ $('#caja-modal-new-product').fadeIn(200);
             const self = this;
             this.bindPosEvents();
             this.updatePosCustomerRequirements();
+            this.updatePosUnpaidWarning();
 
             const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
@@ -5998,6 +5999,12 @@ $('#caja-modal-new-product').fadeIn(200);
                     $statusDropdownWrap.slideDown(180);
                 }
                 self.updatePosCustomerRequirements();
+                self.updatePosUnpaidWarning();
+            });
+
+            // Estado de pago en Despacho (Pagado vs Falta Pagar)
+            $(document).on('change', '#caja-pos-selected-status', function() {
+                self.updatePosUnpaidWarning();
             });
 
             // Selector de Entrega en Despacho (Con Envío vs Retiro por el Local)
@@ -6437,6 +6444,7 @@ $('#caja-modal-new-product').fadeIn(200);
             }
             this.updatePosTotals();
             this.updatePosCustomerRequirements();
+            this.updatePosUnpaidWarning();
             $('#caja-pos-checkout-btn').prop('disabled', true);
             if (!silent) {
                 this.showToast('Selección vaciada.', 'info');
@@ -6486,6 +6494,48 @@ $('#caja-modal-new-product').fadeIn(200);
 
         formatCurrencyNumber: function(num) {
             return (parseFloat(num) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+
+        updatePosUnpaidWarning: function() {
+            const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+            const status = $('#caja-pos-selected-status').val() || 'pagado';
+            const $warning = $('#caja-pos-unpaid-warning');
+            const $text = $('#caja-pos-unpaid-text');
+
+            if (mode === 'pedido_despachar' && status === 'pendiente') {
+                const timeText = this.getCancelTimeText();
+                $text.html(`El cliente tiene un máximo de <strong>${timeText}</strong> para pagar el pedido, sino se cancela automáticamente.`);
+                $warning.slideDown(150);
+            } else {
+                $warning.slideUp(150);
+            }
+        },
+
+        getCancelTimeText: function() {
+            const mins = parseInt(
+                (this.config && this.config.holdStockMinutes !== undefined)
+                    ? this.config.holdStockMinutes
+                    : (window.batllieCajaConfig && window.batllieCajaConfig.holdStockMinutes !== undefined ? window.batllieCajaConfig.holdStockMinutes : 60),
+                10
+            );
+
+            if (!mins || mins <= 0) {
+                return 'tiempo determinado';
+            }
+            if (mins >= 1440 && mins % 1440 === 0) {
+                const days = Math.floor(mins / 1440);
+                return `${days} ${days === 1 ? 'día' : 'días'}`;
+            }
+            if (mins >= 60) {
+                const hours = Math.floor(mins / 60);
+                const rem = mins % 60;
+                if (rem === 0) {
+                    return `${hours} ${hours === 1 ? 'hora' : 'horas'}`;
+                } else {
+                    return `${hours} ${hours === 1 ? 'hora' : 'horas'} y ${rem} ${rem === 1 ? 'minuto' : 'minutos'}`;
+                }
+            }
+            return `${mins} ${mins === 1 ? 'minuto' : 'minutos'}`;
         },
 
         handlePosCheckout: function() {

@@ -6406,3 +6406,30 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     color: var(--caja-btn-text, #ffffff) !important;
 }
 
+/* Aviso dinámico de tiempo límite de cancelación automática para pedidos pendientes */
+.caja-pos-unpaid-warning {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 8px;
+    color: #fbbf24;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.caja-pos-unpaid-warning .caja-pos-unpaid-icon {
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.caja-pos-unpaid-warning strong {
+    color: var(--caja-text, #ffffff);
+    font-weight: 700;
+}
+
