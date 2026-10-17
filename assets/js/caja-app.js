@@ -5824,7 +5824,7 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             let html = '';
-            catList.forEach(c => {
+            catList.forEach((c, idx) => {
                 // Ordenar productos de la categoría por nombre
                 c.products.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -5840,8 +5840,11 @@ $('#caja-modal-new-product').fadeIn(200);
                     prodsHtml += self.buildPosProductRowHtml(p);
                 });
 
+                // Abrir la primera categoría por defecto para que los productos sean visibles inmediatamente
+                const isOpen = (idx === 0);
+
                 html += `
-                    <div class="caja-pos-cat-item" data-cat-id="${c.id}">
+                    <div class="caja-pos-cat-item ${isOpen ? 'is-open' : ''}" data-cat-id="${c.id}">
                         <div class="caja-pos-cat-header">
                             <div class="caja-pos-cat-header-left">
                                 <span class="caja-pos-cat-icon">📁</span>
@@ -5853,7 +5856,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-pos-cat-chevron">▼</span>
                             </div>
                         </div>
-                        <div class="caja-pos-cat-body" style="display:none;">
+                        <div class="caja-pos-cat-body" style="${isOpen ? 'display:block;' : 'display:none;'}">
                             ${prodsHtml}
                         </div>
                     </div>

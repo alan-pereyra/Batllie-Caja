@@ -5162,10 +5162,18 @@ body.caja-modal-locked {
    ========================================================================== */
 .caja-pos-container {
     width: 100%;
-    max-width: 1350px;
+    max-width: none !important;
     margin: 0 auto;
     padding: 10px 14px;
     box-sizing: border-box;
+}
+
+body.batllie-caja-active .caja-main-content:has(#tab-pos-sale.active),
+#tab-pos-sale {
+    max-width: none !important;
+    width: 100% !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
 }
 
 .caja-pos-stack {
@@ -5188,7 +5196,7 @@ body.caja-modal-locked {
 
 /* Tarjeta 1: Productos (Izquierda en PC) */
 .caja-pos-products-card {
-    flex: 1.05 1 0;
+    flex: 1 1 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -5517,8 +5525,8 @@ body.caja-modal-locked {
 
 /* Tarjeta 2: Opciones de Entrega, Cobro y Botón (Derecha en PC) */
 .caja-pos-checkout-card {
-    flex: 0.95 1 0;
-    min-width: 0;
+    width: 30%;
+    min-width: 300px;
     display: flex;
     flex-direction: column;
     height: calc(100vh - 120px);
@@ -6108,6 +6116,7 @@ body.caja-modal-locked {
     .caja-pos-checkout-card {
         flex: none !important;
         width: 100% !important;
+        min-width: unset !important;
         height: auto !important;
         min-height: unset !important;
         max-height: none !important;
@@ -6115,9 +6124,13 @@ body.caja-modal-locked {
     }
 
     .caja-pos-accordion-container {
-        max-height: 500px !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
+        flex: none !important;
+        height: auto !important;
+        min-height: unset !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
 
     .caja-pos-checkout-card {
