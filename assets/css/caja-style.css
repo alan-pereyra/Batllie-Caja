@@ -5162,17 +5162,17 @@ body.caja-modal-locked {
    ========================================================================== */
 .caja-pos-container {
     width: 100%;
-    max-width: 100%;
+    max-width: 1350px;
     margin: 0 auto;
-    padding: 6px 8px;
+    padding: 10px 14px;
     box-sizing: border-box;
 }
 
 .caja-pos-stack {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: stretch !important;
-    gap: 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 16px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -5186,15 +5186,15 @@ body.caja-modal-locked {
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
-/* Tarjeta 1: Productos (Izquierda) */
+/* Tarjeta 1: Productos (Izquierda en PC) */
 .caja-pos-products-card {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    height: calc(100vh - 120px) !important;
-    height: calc(100dvh - 120px) !important;
-    min-height: 480px !important;
+    flex: 1.05 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    height: calc(100dvh - 120px);
+    min-height: 520px;
     background: var(--caja-card-bg, #1e293b);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: 14px;
@@ -5515,19 +5515,19 @@ body.caja-modal-locked {
     color: var(--caja-primary, #10b981);
 }
 
-/* Tarjeta 2: Opciones de Entrega, Cobro y Botón (Derecha) */
+/* Tarjeta 2: Opciones de Entrega, Cobro y Botón (Derecha en PC) */
 .caja-pos-checkout-card {
-    flex: 1 1 0 !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    height: calc(100vh - 120px) !important;
-    height: calc(100dvh - 120px) !important;
-    min-height: 480px !important;
+    flex: 0.95 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    height: calc(100dvh - 120px);
+    min-height: 520px;
     background: var(--caja-card-bg, #1e293b);
     border: 1px solid var(--caja-card-border, #334155);
     border-radius: 14px;
-    padding: 12px 14px 10px;
+    padding: 14px 16px 12px;
     gap: 0;
     overflow: hidden;
     box-sizing: border-box;
@@ -6092,215 +6092,60 @@ body.caja-modal-locked {
     font-weight: 700;
 }
 
-/* Adaptación a Móviles y Tablets: Columnas una al lado de la otra y sin scroll de página */
+/* Adaptación a Móviles y Teléfonos: Diseño VERTICAL natural como antes */
 @media (max-width: 860px) {
     .caja-pos-container {
-        padding: 4px 2px;
+        padding: 8px 4px;
+        max-width: 100%;
     }
 
     .caja-pos-stack {
-        flex-direction: row !important; /* Siempre una al lado de la otra en teléfono */
-        gap: 6px !important;
+        flex-direction: column !important; /* En teléfono vuelve al diseño vertical */
+        gap: 14px !important;
     }
 
     .caja-pos-products-card,
     .caja-pos-checkout-card {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        height: calc(100vh - 120px) !important;
-        height: calc(100dvh - 120px) !important;
-        min-height: 400px !important;
+        flex: none !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: unset !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .caja-pos-accordion-container {
+        max-height: 500px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
     }
 
     .caja-pos-checkout-card {
-        padding: 8px 8px 8px !important;
+        padding: 16px !important;
     }
 
     .caja-pos-checkout-scrollable {
-        gap: 8px !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: unset !important;
+        gap: 12px !important;
+        padding-right: 0 !important;
+    }
+
+    .caja-pos-checkout-footer {
+        position: static !important;
+        margin-top: 10px !important;
+        padding-top: 10px !important;
     }
 
     .caja-pos-prod-row {
-        padding: 6px 8px !important;
-        gap: 6px !important;
+        padding: 8px 10px !important;
+        gap: 10px !important;
     }
 
     .caja-pos-history-table {
         display: block;
         overflow-x: auto;
-    }
-}
-
-@media (max-width: 640px) {
-    .caja-pos-btn-lbl {
-        display: none !important; /* Solo iconos en los botones del header de productos en pantallas angostas */
-    }
-
-    .caja-pos-card-header {
-        padding: 6px 8px !important;
-    }
-
-    .caja-pos-search-header {
-        padding: 6px 8px !important;
-    }
-
-    .caja-pos-search-input {
-        padding: 6px 26px 6px 26px !important;
-        font-size: 0.78rem !important;
-    }
-
-    .caja-pos-search-icon {
-        left: 8px !important;
-        font-size: 0.8rem !important;
-    }
-
-    .caja-pos-cat-header {
-        padding: 7px 8px !important;
-    }
-
-    .caja-pos-cat-title {
-        font-size: 0.8rem !important;
-    }
-
-    .caja-pos-cat-count {
-        font-size: 0.68rem !important;
-    }
-
-    .caja-pos-cat-body {
-        padding: 6px 4px !important;
-        gap: 5px !important;
-    }
-
-    .caja-pos-prod-row {
-        padding: 5px 6px !important;
-        gap: 5px !important;
-    }
-
-    .caja-pos-prod-thumb {
-        width: 30px !important;
-        height: 30px !important;
-        font-size: 0.82rem !important;
-        border-radius: 6px !important;
-    }
-
-    .caja-pos-prod-title {
-        font-size: 0.76rem !important;
-    }
-
-    .caja-pos-prod-price {
-        font-size: 0.74rem !important;
-    }
-
-    .caja-pos-prod-stock {
-        display: none !important;
-    }
-
-    .caja-pos-btn-qty {
-        width: 22px !important;
-        height: 22px !important;
-        font-size: 0.8rem !important;
-    }
-
-    .caja-pos-qty-val {
-        width: 18px !important;
-        font-size: 0.75rem !important;
-    }
-
-    .caja-pos-switch-row {
-        padding: 5px 6px !important;
-        gap: 6px !important;
-    }
-
-    .caja-pos-switch-pill {
-        width: 32px !important;
-        height: 18px !important;
-    }
-
-    .caja-pos-switch-knob {
-        width: 14px !important;
-        height: 14px !important;
-        font-size: 0.55rem !important;
-    }
-
-    .caja-pos-switch-row.is-active .caja-pos-switch-knob {
-        left: 16px !important;
-    }
-
-    .caja-pos-switch-title {
-        font-size: 0.72rem !important;
-    }
-
-    .caja-pos-switch-sub {
-        font-size: 0.6rem !important;
-    }
-
-    .caja-pos-pay-chips-row {
-        margin: 1px 0 2px !important;
-    }
-
-    .caja-pos-pay-chip {
-        padding: 6px 2px !important;
-        font-size: 0.68rem !important;
-        gap: 2px !important;
-    }
-
-    .caja-pos-dispatch-chip {
-        padding: 6px 2px !important;
-        font-size: 0.66rem !important;
-        gap: 2px !important;
-    }
-
-    .caja-pos-field-label {
-        font-size: 0.7rem !important;
-        margin-bottom: 2px !important;
-    }
-
-    .caja-pos-note-textarea {
-        min-height: 32px !important;
-        font-size: 0.74rem !important;
-        padding: 4px 6px !important;
-    }
-
-    .caja-pos-customer-subgroup {
-        padding: 6px 6px !important;
-        margin-bottom: 4px !important;
-    }
-
-    .caja-pos-cust-title {
-        font-size: 0.74rem !important;
-    }
-
-    .caja-pos-cust-req-badge {
-        font-size: 0.64rem !important;
-        padding: 1px 4px !important;
-    }
-
-    .caja-pos-summary-items {
-        max-height: 65px !important;
-        padding: 4px 6px !important;
-        font-size: 0.72rem !important;
-    }
-
-    .caja-pos-summary-item-row {
-        font-size: 0.7rem !important;
-    }
-
-    .caja-pos-total-line {
-        font-size: 0.75rem !important;
-    }
-
-    .caja-pos-total-line-grand {
-        font-size: 0.9rem !important;
-        margin-top: 2px !important;
-    }
-
-    .caja-pos-total-line-grand strong {
-        font-size: 1rem !important;
-    }
-
-    .caja-pos-main-confirm-btn {
-        padding: 9px 8px !important;
-        font-size: 0.86rem !important;
     }
 }
 
