@@ -731,6 +731,26 @@ class Batllie_Caja_Ajax {
                 $order->update_meta_data('_caja_customer_dni', $cust_dni);
             }
 
+            // Si el cliente es un usuario registrado (o coincide por email), asociarlo y actualizar sus datos
+            if (!empty($cust_email) && email_exists($cust_email)) {
+                $matched_user = get_user_by('email', $cust_email);
+                if ($matched_user) {
+                    $order->set_customer_id($matched_user->ID);
+                    if (!empty($name_parts[0])) update_user_meta($matched_user->ID, 'billing_first_name', $name_parts[0]);
+                    if (isset($name_parts[1])) update_user_meta($matched_user->ID, 'billing_last_name', $name_parts[1]);
+                    if (!empty($cust_phone)) update_user_meta($matched_user->ID, 'billing_phone', $cust_phone);
+                    if (!empty($cust_address)) {
+                        update_user_meta($matched_user->ID, 'billing_address_1', $cust_address);
+                        update_user_meta($matched_user->ID, 'shipping_address_1', $cust_address);
+                    }
+                    if (!empty($cust_dni)) {
+                        update_user_meta($matched_user->ID, '_billing_dni', $cust_dni);
+                        update_user_meta($matched_user->ID, '_caja_customer_dni', $cust_dni);
+                        update_user_meta($matched_user->ID, 'billing_dni', $cust_dni);
+                    }
+                }
+            }
+
             if (!empty($note)) {
                 $order->set_customer_note($note);
                 $order->update_meta_data('_caja_staff_note', $note);

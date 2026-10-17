@@ -6092,4 +6092,31 @@ body.caja-modal-locked {
     color: var(--caja-text-muted, #94a3b8);
 }
 
+/* Buscador de clientes con colores invertidos (Fondo claro, texto oscuro) */
+.caja-pos-cust-search-inverted {
+    background-color: var(--caja-text, #f8fafc) !important;
+    color: var(--caja-bg, #0f172a) !important;
+    font-weight: 600 !important;
+}
+
+.caja-pos-cust-search-inverted::placeholder {
+    color: #475569 !important;
+    font-weight: 500 !important;
+    opacity: 0.85;
+}
+
+/* Campos de clientes bloqueados / solo lectura */
+.caja-pos-text-input.is-locked {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+    color: var(--caja-text, #f8fafc) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    cursor: default !important;
+    opacity: 0.9;
+}
+
+.caja-pos-customer-header:hover {
+    opacity: 0.9;
+}
+
+
 

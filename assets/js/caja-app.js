@@ -6082,6 +6082,15 @@ $('#caja-modal-new-product').fadeIn(200);
                 }, 250);
             });
 
+            // Desplegar/Colapsar sección de datos del cliente
+            $(document).on('click', '#caja-pos-customer-header', function(e) {
+                const $body = $('#caja-pos-customer-body');
+                const $icon = $('#caja-pos-cust-toggle-icon');
+                $body.slideToggle(180, function() {
+                    $icon.text($body.is(':visible') ? '▲' : '▼');
+                });
+            });
+
             // Seleccionar cliente de la lista predictiva
             $(document).on('click', '.caja-pos-cust-result-item', function(e) {
                 e.stopPropagation();
@@ -6097,6 +6106,11 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-cust-email').val(c.email || '');
                 $('#caja-pos-cust-address').val(c.address || '');
 
+                // Bloquear campos para evitar edición accidental
+                self.lockPosCustomerFields(true);
+                $('#caja-pos-cust-edit-wrap').show();
+                $('#caja-pos-cust-edit-btn').html('<span>✏️</span> <span>Editar datos del cliente</span>');
+
                 $('#caja-pos-cust-search-input').val(c.name + (c.dni ? ' (' + c.dni + ')' : ''));
                 $('#caja-pos-cust-search-clear').show();
                 $('#caja-pos-cust-search-results').hide().empty();
@@ -6105,11 +6119,22 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.showToast('Cliente ' + c.name + ' seleccionado.', 'success');
             });
 
+            // Botón habilitar edición de datos de cliente
+            $(document).on('click', '#caja-pos-cust-edit-btn', function(e) {
+                e.preventDefault();
+                self.lockPosCustomerFields(false);
+                $(this).html('<span>🔓</span> <span>Edición habilitada (puedes modificar los datos)</span>');
+                $('#caja-pos-cust-name').focus();
+                self.showToast('Campos habilitados para edición.', 'info');
+            });
+
             // Botón limpiar cliente
             $('#caja-pos-cust-search-clear').on('click', function(e) {
                 e.stopPropagation();
                 $('#caja-pos-cust-search-input').val('');
                 $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                self.lockPosCustomerFields(false);
+                $('#caja-pos-cust-edit-wrap').hide();
                 $('#caja-pos-cust-search-results').hide().empty();
                 $(this).hide();
                 self.updatePosCustomerRequirements();
@@ -6311,6 +6336,15 @@ $('#caja-modal-new-product').fadeIn(200);
             }
         },
 
+        lockPosCustomerFields: function(locked) {
+            const $fields = $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address');
+            if (locked) {
+                $fields.prop('readonly', true).addClass('is-locked');
+            } else {
+                $fields.prop('readonly', false).removeClass('is-locked');
+            }
+        },
+
         updatePosCustomerRequirements: function() {
             const self = this;
             const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
@@ -6320,15 +6354,25 @@ $('#caja-modal-new-product').fadeIn(200);
 
             const $badge = $('#caja-pos-cust-req-badge');
             const $stars = $('.caja-pos-req-star');
+            const $body = $('#caja-pos-customer-body');
+            const $toggleIcon = $('#caja-pos-cust-toggle-icon');
 
             if (mode === 'pedido_despachar' && deliveryType === 'con_envio') {
                 $badge.css({ 'background': 'rgba(239, 68, 68, 0.2)', 'color': '#ef4444' }).text('Obligatorio (Envío)');
                 $stars.show();
+                if (!$body.is(':visible')) {
+                    $body.slideDown(180);
+                    $toggleIcon.text('▲');
+                }
             } else if (threshold > 0 && total >= threshold) {
                 $badge.css({ 'background': 'rgba(245, 158, 11, 0.2)', 'color': '#f59e0b' }).text(`Obligatorio (Monto ≥ $${self.formatCurrencyNumber(threshold)})`);
                 $stars.show();
+                if (!$body.is(':visible')) {
+                    $body.slideDown(180);
+                    $toggleIcon.text('▲');
+                }
             } else {
-                $badge.css({ 'background': 'rgba(255, 255, 255, 0.06)', 'color': 'var(--caja-text-muted, #94a3b8)' }).text('Opcional');
+                $badge.css({ 'background': 'rgba(255, 255, 255, 0.08)', 'color': 'var(--caja-text-muted, #94a3b8)' }).text('Opcional');
                 $stars.hide();
             }
         },
@@ -6438,6 +6482,8 @@ $('#caja-modal-new-product').fadeIn(200);
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
                         $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                        self.lockPosCustomerFields(false);
+                        $('#caja-pos-cust-edit-wrap').hide();
                         $('#caja-pos-cust-search-input').val('');
                         $('#caja-pos-cust-search-clear').hide();
                         $('#caja-pos-cust-search-results').hide().empty();
