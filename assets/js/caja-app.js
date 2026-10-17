@@ -66,6 +66,7 @@
             this.packagingProducts = (this.config && this.config.packagingProducts) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingProducts) || [];
             this.packagingCandidates = (this.config && this.config.packagingCandidates) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingCandidates) || [];
             this.bindEvents();
+            this.initPWA();
 
             if (this.config.isUserLoggedIn) {
                 this.initDashboard();
@@ -5406,6 +5407,61 @@ $('#caja-modal-new-product').fadeIn(200);
                     document.exitFullscreen();
                 }
             }
+        },
+
+        initPWA: function() {
+            const self = this;
+
+            // Asegurar etiqueta manifest en el <head> si no estuviera ya presente
+            if (!document.querySelector('link[rel="manifest"]')) {
+                const manifestUrl = (self.config && self.config.manifestUrl) || '/?batllie_caja_manifest=1';
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = manifestUrl;
+                document.head.appendChild(link);
+            }
+
+            // 1. Registrar Service Worker con Network-First
+            if ('serviceWorker' in navigator) {
+                const swUrl = (self.config && self.config.swUrl) || '/?batllie_caja_sw=1';
+                navigator.serviceWorker.register(swUrl, { scope: '/' })
+                    .then(function(reg) {
+                        // SW registrado correctamente
+                    })
+                    .catch(function(err) {
+                        console.warn('Caja POS Service Worker no pudo registrarse:', err);
+                    });
+            }
+
+            // 2. Controlar evento de instalación de PWA (botón Instalar App)
+            window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                self.deferredInstallPrompt = e;
+
+                const $installBtn = $('#caja-btn-install-pwa');
+                if ($installBtn.length) {
+                    $installBtn.show();
+                    $installBtn.off('click').on('click', function() {
+                        if (self.deferredInstallPrompt) {
+                            self.deferredInstallPrompt.prompt();
+                            self.deferredInstallPrompt.userChoice.then(function(choiceResult) {
+                                if (choiceResult.outcome === 'accepted') {
+                                    self.showToast('¡Instalando Caja POS en tu dispositivo!');
+                                    $installBtn.hide();
+                                }
+                                self.deferredInstallPrompt = null;
+                            });
+                        }
+                    });
+                }
+            });
+
+            // 3. App instalada satisfactoriamente
+            window.addEventListener('appinstalled', function() {
+                self.deferredInstallPrompt = null;
+                $('#caja-btn-install-pwa').hide();
+                self.showToast('Caja POS instalada como aplicación.');
+            });
         },
 
         showToast: function(message) {

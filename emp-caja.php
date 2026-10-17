@@ -3,7 +3,7 @@
  * Plugin Name: Caja POS & Control de Pedidos
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.34
+ * Version: 1.9.35
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.34');
+define('EMP_CAJA_VERSION', '1.9.35');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -147,6 +147,10 @@ class Batllie_Caja_Plugin {
         add_filter('script_loader_tag', array($this, 'prevent_core_scripts_defer'), 99999, 3);
         add_shortcode('batllie_caja', array($this, 'render_caja_shortcode'));
         add_shortcode('caja_pos', array($this, 'render_caja_shortcode'));
+
+        // PWA (Progressive Web App): Manifiesto dinámico, Service Worker y metaetiquetas
+        add_action('init', array($this, 'handle_pwa_endpoints'), 1);
+        add_action('wp_head', array($this, 'render_pwa_head_tags'), 2);
 
         // Garantizar traducciones al español argentino para textos clave de WooCommerce y bloques de carrito/checkout
         add_filter('gettext', array($this, 'filter_woocommerce_translations'), 20, 3);
@@ -568,6 +572,8 @@ class Batllie_Caja_Plugin {
             'shippingSlotsEnabled' => (($options['shipping_slots_enabled'] ?? 'yes') === 'yes'),
             'shippingSlotsCutoff'  => intval($options['shipping_slots_cutoff'] ?? 5),
             'posCustomerThreshold' => floatval($options['pos_customer_threshold'] ?? 0),
+            'swUrl'                => add_query_arg('batllie_caja_sw', '1', home_url('/')),
+            'manifestUrl'          => add_query_arg('batllie_caja_manifest', '1', home_url('/')),
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
@@ -1072,6 +1078,116 @@ JS;
             return str_replace(array(' defer="defer"', ' defer', " defer='defer'"), '', $tag);
         }
         return $tag;
+    }
+
+    /**
+     * Comprobar si la solicitud actual corresponde a la vista de Caja POS
+     */
+    public function is_caja_request() {
+        if (isset($_GET['batllie_caja_app'])) {
+            return true;
+        }
+        global $post;
+        if (is_a($post, 'WP_Post')) {
+            if (has_shortcode($post->post_content, 'batllie_caja') || 
+                has_shortcode($post->post_content, 'caja_pos') || 
+                strpos($post->post_content, 'batllie_caja') !== false || 
+                strpos($post->post_content, 'caja_pos') !== false) {
+                return true;
+            }
+        }
+        if (function_exists('is_page') && (is_page('caja') || is_page('caja-pos') || is_page('pos'))) {
+            return true;
+        }
+        $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        if (preg_match('#/(caja|pos)(/|\?|$)#i', $uri)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Endpoint dinámico para Manifiesto PWA y Service Worker
+     */
+    public function handle_pwa_endpoints() {
+        if (isset($_GET['batllie_caja_sw'])) {
+            header('Content-Type: application/javascript; charset=utf-8');
+            header('Service-Worker-Allowed: /');
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            $sw_path = EMP_CAJA_PATH . 'assets/js/sw.js';
+            if (file_exists($sw_path)) {
+                readfile($sw_path);
+            } else {
+                echo "// Service Worker empty\n";
+            }
+            exit;
+        }
+
+        if (isset($_GET['batllie_caja_manifest'])) {
+            header('Content-Type: application/manifest+json; charset=utf-8');
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+
+            $site_name = get_bloginfo('name') ?: 'Mundo Militar';
+            $caja_page = get_page_by_path('caja');
+            $start_url = $caja_page ? get_permalink($caja_page) : home_url('/caja/');
+
+            $manifest = array(
+                'name'             => 'Caja POS - ' . $site_name,
+                'short_name'       => 'Caja POS',
+                'description'      => 'Sistema de Punto de Venta y Control de Pedidos en Vivo',
+                'start_url'        => $start_url,
+                'scope'            => '/',
+                'display'          => 'standalone',
+                'orientation'      => 'any',
+                'background_color' => '#0f172a',
+                'theme_color'      => '#0f172a',
+                'icons'            => array(
+                    array(
+                        'src'     => EMP_CAJA_URL . 'assets/images/icon-192.png',
+                        'sizes'   => '192x192',
+                        'type'    => 'image/png',
+                        'purpose' => 'any maskable'
+                    ),
+                    array(
+                        'src'     => EMP_CAJA_URL . 'assets/images/icon-512.png',
+                        'sizes'   => '512x512',
+                        'type'    => 'image/png',
+                        'purpose' => 'any maskable'
+                    )
+                )
+            );
+
+            echo wp_json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            exit;
+        }
+    }
+
+    /**
+     * Renderizar meta etiquetas PWA y enlace a manifiesto en el encabezado <head>
+     */
+    public function render_pwa_head_tags() {
+        if (!$this->is_caja_request()) {
+            return;
+        }
+
+        $manifest_url = add_query_arg('batllie_caja_manifest', '1', home_url('/'));
+        $icon_192 = EMP_CAJA_URL . 'assets/images/icon-192.png';
+        $icon_512 = EMP_CAJA_URL . 'assets/images/icon-512.png';
+        ?>
+        <!-- Batllie Caja POS - PWA Manifest & App Tags -->
+        <link rel="manifest" href="<?php echo esc_url($manifest_url); ?>">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Caja POS">
+        <meta name="theme-color" content="#0f172a">
+        <meta name="application-name" content="Caja POS">
+        <link rel="icon" type="image/png" sizes="192x192" href="<?php echo esc_url($icon_192); ?>">
+        <link rel="icon" type="image/png" sizes="512x512" href="<?php echo esc_url($icon_512); ?>">
+        <link rel="apple-touch-icon" href="<?php echo esc_url($icon_192); ?>">
+        <link rel="apple-touch-icon" sizes="192x192" href="<?php echo esc_url($icon_192); ?>">
+        <link rel="apple-touch-icon" sizes="512x512" href="<?php echo esc_url($icon_512); ?>">
+        <?php
     }
 }
 

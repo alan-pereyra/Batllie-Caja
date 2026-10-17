@@ -42,8 +42,11 @@ Upload-FtpFile "C:\Users\Usuario\emp-caja\templates\tab-settings.php" "wp-conten
 Upload-FtpFile "C:\Users\Usuario\emp-caja\templates\tab-pos-sale.php" "wp-content/plugins/emp-caja/templates/tab-pos-sale.php"
 Upload-FtpFile "C:\Users\Usuario\emp-caja\templates\dashboard.php" "wp-content/plugins/emp-caja/templates/dashboard.php"
 Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\js\caja-app.js" "wp-content/plugins/emp-caja/assets/js/caja-app.js"
+Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\js\sw.js" "wp-content/plugins/emp-caja/assets/js/sw.js"
 Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\css\caja-cart.css" "wp-content/plugins/emp-caja/assets/css/caja-cart.css"
 Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\css\caja-style.css" "wp-content/plugins/emp-caja/assets/css/caja-style.css"
+Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\images\icon-192.png" "wp-content/plugins/emp-caja/assets/images/icon-192.png"
+Upload-FtpFile "C:\Users\Usuario\emp-caja\assets\images\icon-512.png" "wp-content/plugins/emp-caja/assets/images/icon-512.png"
 Upload-FtpFile "C:\Users\Usuario\emp-caja\emp-caja.zip" "emp-caja.zip"
 
 Write-Output "=== 3. Uploading Experiencia Images ==="
