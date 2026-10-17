@@ -1804,6 +1804,12 @@ $('#caja-modal-new-product').fadeIn(200);
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
 
+            if (tabId === 'tab-pos-sale') {
+                $('.caja-main-content').addClass('is-pos-tab');
+            } else {
+                $('.caja-main-content').removeClass('is-pos-tab');
+            }
+
             // Sincronizar el selector desplegable rápido de pantallas
             const $screenSelect = $('#caja-screen-select');
             if ($screenSelect.length && $screenSelect.val() !== tabId) {

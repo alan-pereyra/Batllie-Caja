@@ -5168,7 +5168,8 @@ body.caja-modal-locked {
     box-sizing: border-box;
 }
 
-body.batllie-caja-active .caja-main-content:has(#tab-pos-sale.active),
+body.batllie-caja-active .caja-main-content:has(#tab-pos-sale:not([style*="display: none"])),
+body.batllie-caja-active .caja-main-content.is-pos-tab,
 #tab-pos-sale {
     max-width: none !important;
     width: 100% !important;
@@ -6102,14 +6103,34 @@ body.batllie-caja-active .caja-main-content:has(#tab-pos-sale.active),
 
 /* Adaptación a Móviles y Teléfonos: Diseño VERTICAL natural como antes */
 @media (max-width: 860px) {
+    body.batllie-caja-active .caja-main-content:has(#tab-pos-sale:not([style*="display: none"])),
+    body.batllie-caja-active .caja-main-content.is-pos-tab {
+        padding: 6px 4px !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    #tab-pos-sale {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
     .caja-pos-container {
-        padding: 8px 4px;
-        max-width: 100%;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
     }
 
     .caja-pos-stack {
         flex-direction: column !important; /* En teléfono vuelve al diseño vertical */
-        gap: 14px !important;
+        gap: 12px !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     .caja-pos-products-card,
