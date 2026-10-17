@@ -535,7 +535,7 @@ class Batllie_Caja_Tracking {
             $step_label = __('Pedido fallido', 'emp-caja');
         } elseif ($status === 'completed' || $status === 'recibido-problema' || $shipping_status === 'entregado' || $shipping_status === 'entregado_problemas') {
             $step = 4;
-            $step_label = __('Pedido recibido, que lo disfrutes', 'emp-caja');
+            $step_label = __('Pedido recibido. Que lo disfrutes!', 'emp-caja');
         } elseif ($shipping_status === 'en_puerta') {
             $step = 3;
             $step_label = __('El repartidor está en la puerta', 'emp-caja');

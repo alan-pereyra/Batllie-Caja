@@ -125,7 +125,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 <?php printf(__('Seguimiento de tu Pedido #%s', 'emp-caja'), esc_html($order_number)); ?>
             </h3>
             <p class="batllie-tracking-subtitle">
-                <?php _e('Mantené abierta esta ventana para saber en tiempo real de tu pedido', 'emp-caja'); ?>
+                <?php _e('Mantené abierta esta ventana para saber el tiempo real de tu pedido', 'emp-caja'); ?>
             </p>
         </div>
     </div>
@@ -298,7 +298,7 @@ $checkmark_svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
                 <div class="batllie-step-badge"><?php echo $badge_4; ?></div>
             </div>
             <div class="batllie-step-text">
-                <?php _e('Pedido recibido, que lo disfrutes', 'emp-caja'); ?>
+                <?php _e('Pedido recibido. Que lo disfrutes!', 'emp-caja'); ?>
             </div>
         </div>
     </div>
