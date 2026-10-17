@@ -6080,6 +6080,75 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.updatePosPackagingBadge();
             });
 
+            // Toggle de la sección "+ Agregar nuevo empaque" en POS
+            $(document).on('click', '#caja-pos-btn-toggle-add-pkg', function(e) {
+                e.preventDefault();
+                const $content = $('#caja-pos-pkg-add-content');
+                const $arrow = $('#caja-pos-add-pkg-arrow');
+                if ($content.is(':visible')) {
+                    $content.slideUp(180);
+                    $arrow.text('▼');
+                } else {
+                    $content.slideDown(180);
+                    $arrow.text('▲');
+                }
+            });
+
+            // Vincular producto existente de WooCommerce como empaque desde POS
+            $(document).on('click', '#caja-pos-btn-link-pkg', function(e) {
+                e.preventDefault();
+                const pId = parseInt($('#caja-pos-sel-exist-pkg').val(), 10);
+                if (!pId) {
+                    self.showToast('Selecciona un producto para vincular.', 'warning');
+                    return;
+                }
+                const $btn = $(this);
+                const origText = $btn.text();
+                $btn.prop('disabled', true).text('Vinculando...');
+
+                self.addPackagingItem(pId, '', 0, null, function(ok) {
+                    $btn.prop('disabled', false).text(origText);
+                    if (ok) {
+                        $('#caja-pos-pkg-add-content').slideUp(180);
+                        $('#caja-pos-add-pkg-arrow').text('▼');
+                        self.renderPosPackagingSection();
+                        if (typeof self.renderPosCategoriesAccordion === 'function') {
+                            self.renderPosCategoriesAccordion();
+                        }
+                    }
+                });
+            });
+
+            // Crear nuevo producto de empaque oficial desde POS
+            $(document).on('click', '#caja-pos-btn-create-pkg', function(e) {
+                e.preventDefault();
+                const name = $.trim($('#caja-pos-new-pkg-name').val() || '');
+                const stock = parseInt($('#caja-pos-new-pkg-stock').val(), 10) || 0;
+
+                if (!name) {
+                    self.showToast('Ingresa un nombre para el nuevo empaque.', 'warning');
+                    $('#caja-pos-new-pkg-name').focus();
+                    return;
+                }
+
+                const $btn = $(this);
+                const origText = $btn.text();
+                $btn.prop('disabled', true).text('Creando...');
+
+                self.addPackagingItem(0, name, stock, null, function(ok) {
+                    $btn.prop('disabled', false).text(origText);
+                    if (ok) {
+                        $('#caja-pos-new-pkg-name').val('');
+                        $('#caja-pos-pkg-add-content').slideUp(180);
+                        $('#caja-pos-add-pkg-arrow').text('▼');
+                        self.renderPosPackagingSection();
+                        if (typeof self.renderPosCategoriesAccordion === 'function') {
+                            self.renderPosCategoriesAccordion();
+                        }
+                    }
+                });
+            });
+
             // Selector de Entrega en Despacho (Con Envío vs Retiro por el Local)
             $(document).on('click', '.caja-pos-dispatch-chip', function() {
                 $('.caja-pos-dispatch-chip').removeClass('active');
@@ -6623,7 +6692,7 @@ $('#caja-modal-new-product').fadeIn(200);
             const $list = $('#caja-pos-packaging-list');
             if (!$list.length) return;
 
-            if (!self.packagingProducts || !self.packagingProducts.length) {
+            if (!self.packagingProducts) {
                 // Si aún no están cargados, consultar vía AJAX
                 $.ajax({
                     url: self.config.ajaxUrl,
@@ -6634,8 +6703,9 @@ $('#caja-modal-new-product').fadeIn(200);
                         security: self.config.nonce
                     },
                     success: function(res) {
-                        if (res && res.success && res.data && res.data.packaging_products && res.data.packaging_products.length) {
-                            self.packagingProducts = res.data.packaging_products;
+                        if (res && res.success && res.data) {
+                            self.packagingProducts = res.data.packaging_products || [];
+                            self.packagingCandidates = res.data.candidates || [];
                             self.renderPosPackagingSection();
                         } else {
                             $list.html(`
@@ -6656,35 +6726,71 @@ $('#caja-modal-new-product').fadeIn(200);
                 return;
             }
 
-            let html = '';
-            self.packagingProducts.forEach(pkg => {
-                const stockText = (pkg.managing_stock && pkg.stock !== null) 
-                    ? (pkg.stock > 0 ? `${pkg.stock} disp.` : '<span style="color:#ef4444; font-weight:700;">Sin stock</span>') 
-                    : 'Stock ilimitado';
-                const isOutOfStock = (pkg.managing_stock && pkg.stock !== null && pkg.stock <= 0);
-                const imgSrc = pkg.image || '';
-
-                html += `
-                    <div class="caja-pos-pkg-row" data-pkg-id="${pkg.id}">
-                        <div class="caja-pos-pkg-row-left" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                            <div class="caja-pos-pkg-thumb">
-                                ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(pkg.name)}" />` : '📦'}
-                            </div>
-                            <div style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
-                                <span class="caja-pos-pkg-name" title="${self.escapeHtml(pkg.name)}">${self.escapeHtml(pkg.name)}</span>
-                                <span class="caja-pos-pkg-stock-lbl">${stockText}</span>
-                            </div>
-                        </div>
-                        <div class="caja-pos-stepper" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--caja-card-border, #334155); border-radius: 6px; padding: 2px 4px; flex-shrink: 0;">
-                            <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-minus" data-id="${pkg.id}" disabled style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">−</button>
-                            <span class="caja-pos-qty-val caja-pos-pkg-qty-val" id="caja-pos-pkg-qty-${pkg.id}" data-id="${pkg.id}" style="min-width: 22px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--caja-text, #ffffff);">0</span>
-                            <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-plus" data-id="${pkg.id}" ${isOutOfStock ? 'disabled' : ''} style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">+</button>
-                        </div>
-                    </div>
-                `;
+            // Preservar cantidades seleccionadas si ya había alguna
+            const currentSelected = {};
+            $('.caja-pos-pkg-qty-val').each(function() {
+                const id = $(this).data('id');
+                const qty = parseInt($(this).text(), 10) || 0;
+                if (id && qty > 0) currentSelected[id] = qty;
             });
 
-            $list.html(html);
+            if (!self.packagingProducts.length) {
+                $list.html(`
+                    <div style="text-align: center; padding: 12px 8px; color: var(--caja-text-muted, #94a3b8); font-size: 0.8rem;">
+                        No hay productos de empaque o bolsas configurados. Puedes agregar uno abajo.
+                    </div>
+                `);
+            } else {
+                let html = '';
+                self.packagingProducts.forEach(pkg => {
+                    const stockText = (pkg.managing_stock && pkg.stock !== null) 
+                        ? (pkg.stock > 0 ? `${pkg.stock} disp.` : '<span style="color:#ef4444; font-weight:700;">Sin stock</span>') 
+                        : 'Stock ilimitado';
+                    const isOutOfStock = (pkg.managing_stock && pkg.stock !== null && pkg.stock <= 0);
+                    const imgSrc = pkg.image || '';
+                    const qty = currentSelected[pkg.id] || 0;
+                    const hasSelected = qty > 0 ? ' has-selected' : '';
+                    const minusDisabled = qty > 0 ? '' : 'disabled';
+
+                    html += `
+                        <div class="caja-pos-pkg-row${hasSelected}" data-pkg-id="${pkg.id}">
+                            <div class="caja-pos-pkg-row-left" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                <div class="caja-pos-pkg-thumb">
+                                    ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(pkg.name)}" />` : '📦'}
+                                </div>
+                                <div style="display: flex; flex-direction: column; min-width: 0; overflow: hidden;">
+                                    <span class="caja-pos-pkg-name" title="${self.escapeHtml(pkg.name)}">${self.escapeHtml(pkg.name)}</span>
+                                    <span class="caja-pos-pkg-stock-lbl">${stockText}</span>
+                                </div>
+                            </div>
+                            <div class="caja-pos-stepper" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--caja-card-border, #334155); border-radius: 6px; padding: 2px 4px; flex-shrink: 0;">
+                                <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-minus" data-id="${pkg.id}" ${minusDisabled} style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">−</button>
+                                <span class="caja-pos-qty-val caja-pos-pkg-qty-val" id="caja-pos-pkg-qty-${pkg.id}" data-id="${pkg.id}" style="min-width: 22px; text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--caja-text, #ffffff);">${qty}</span>
+                                <button type="button" class="caja-pos-btn-qty caja-pos-pkg-btn-plus" data-id="${pkg.id}" ${isOutOfStock ? 'disabled' : ''} style="width: 26px; height: 26px; border: none; background: transparent; color: #ffffff; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 4px;">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                $list.html(html);
+            }
+
+            // Actualizar selector de candidatos existentes para vincular
+            const $candWrap = $('#caja-pos-link-candidate-wrap');
+            const $selExist = $('#caja-pos-sel-exist-pkg');
+            if ($selExist.length) {
+                if (self.packagingCandidates && self.packagingCandidates.length > 0) {
+                    let optHtml = '<option value="">-- Seleccionar producto --</option>';
+                    self.packagingCandidates.forEach(c => {
+                        optHtml += `<option value="${c.id}">${self.escapeHtml(c.name)} (Stock: ${c.stock})</option>`;
+                    });
+                    $selExist.html(optHtml);
+                    $candWrap.show();
+                } else {
+                    $selExist.html('<option value="">-- No hay productos candidatos --</option>');
+                    $candWrap.hide();
+                }
+            }
+
             self.updatePosPackagingBadge();
         },
 

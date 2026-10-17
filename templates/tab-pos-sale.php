@@ -228,6 +228,36 @@ if (!defined('ABSPATH')) {
                     <div id="caja-pos-packaging-list" class="caja-pos-packaging-list" style="display: flex; flex-direction: column; gap: 6px;">
                         <!-- Se renderiza dinámicamente con packagingProducts -->
                     </div>
+
+                    <!-- Sección Desplegable "+ Agregar nuevo empaque" -->
+                    <div class="caja-pkg-add-section" style="margin-top: 10px;">
+                        <button type="button" class="caja-pkg-add-toggle btn-toggle-add-pkg-pos" id="caja-pos-btn-toggle-add-pkg">
+                            <span>➕ <?php _e('Agregar nuevo empaque', 'emp-caja'); ?></span>
+                            <span class="caja-thematic-toggle-arrow" id="caja-pos-add-pkg-arrow">▼</span>
+                        </button>
+                        <div class="caja-pkg-add-content" id="caja-pos-pkg-add-content" style="display: none;">
+                            <!-- Opción A: Vincular producto existente de WooCommerce -->
+                            <div id="caja-pos-link-candidate-wrap" style="margin-bottom: 12px; display: none;">
+                                <label class="caja-pkg-sublabel"><?php _e('Vincular producto existente de WooCommerce:', 'emp-caja'); ?></label>
+                                <div class="caja-pkg-link-row">
+                                    <select class="caja-select-existing-pkg" id="caja-pos-sel-exist-pkg">
+                                        <option value="">-- <?php _e('Seleccionar producto', 'emp-caja'); ?> --</option>
+                                    </select>
+                                    <button type="button" class="caja-btn caja-btn-xs caja-btn-primary" id="caja-pos-btn-link-pkg">+ <?php _e('Vincular', 'emp-caja'); ?></button>
+                                </div>
+                            </div>
+
+                            <!-- Opción B: Crear nuevo producto en el acto -->
+                            <div>
+                                <label class="caja-pkg-sublabel">+ <?php _e('Crear nuevo empaque oficial en WooCommerce:', 'emp-caja'); ?></label>
+                                <div class="caja-pkg-create-inputs-row">
+                                    <input type="text" class="caja-input-new-pkg-name" id="caja-pos-new-pkg-name" placeholder="<?php esc_attr_e('Ej: Caja Reforzada Mediana', 'emp-caja'); ?>" />
+                                    <input type="number" min="0" class="caja-input-new-pkg-stock" id="caja-pos-new-pkg-stock" placeholder="<?php esc_attr_e('Stock', 'emp-caja'); ?>" value="50" title="<?php esc_attr_e('Stock inicial', 'emp-caja'); ?>" />
+                                </div>
+                                <button type="button" class="caja-btn caja-btn-xs caja-btn-primary btn-create-dyn-pkg" id="caja-pos-btn-create-pkg">+ <?php _e('Crear y agregar', 'emp-caja'); ?></button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
