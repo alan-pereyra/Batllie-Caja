@@ -5958,6 +5958,114 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
+            // Buscador predictivo de clientes existentes
+            let custSearchDebounce = null;
+            $('#caja-pos-cust-search-input').on('input', function() {
+                const term = $.trim($(this).val());
+                const $clearBtn = $('#caja-pos-cust-search-clear');
+                const $dropdown = $('#caja-pos-cust-search-results');
+
+                if (term.length > 0) {
+                    $clearBtn.show();
+                } else {
+                    $clearBtn.hide();
+                    $dropdown.hide().empty();
+                    return;
+                }
+
+                if (term.length < 2) {
+                    $dropdown.hide().empty();
+                    return;
+                }
+
+                clearTimeout(custSearchDebounce);
+                custSearchDebounce = setTimeout(function() {
+                    $dropdown.html('<div class="caja-pos-cust-result-empty"><span class="caja-spinner">⏳</span> Buscando clientes...</div>').show();
+
+                    $.ajax({
+                        url: self.config.ajaxUrl,
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            action: 'emp_caja_search_customers',
+                            security: self.config.nonce,
+                            term: term
+                        },
+                        success: function(res) {
+                            if (res && res.success && res.data && res.data.customers && res.data.customers.length > 0) {
+                                let html = '';
+                                res.data.customers.forEach(function(c, idx) {
+                                    const metaParts = [];
+                                    if (c.dni) metaParts.push('<span>🪪 ' + self.escapeHtml(c.dni) + '</span>');
+                                    if (c.phone) metaParts.push('<span>📞 ' + self.escapeHtml(c.phone) + '</span>');
+                                    if (c.email) metaParts.push('<span>✉️ ' + self.escapeHtml(c.email) + '</span>');
+                                    if (c.address) metaParts.push('<span>📍 ' + self.escapeHtml(c.address) + '</span>');
+
+                                    html += '<div class="caja-pos-cust-result-item" data-idx="' + idx + '">';
+                                    html += '  <div class="caja-pos-cust-result-name">';
+                                    html += '    <span>' + self.escapeHtml(c.name) + '</span>';
+                                    if (c.source) {
+                                        html += '    <span class="caja-pos-cust-result-badge">' + self.escapeHtml(c.source) + '</span>';
+                                    }
+                                    html += '  </div>';
+                                    if (metaParts.length > 0) {
+                                        html += '  <div class="caja-pos-cust-result-meta">' + metaParts.join('') + '</div>';
+                                    }
+                                    html += '</div>';
+                                });
+                                $dropdown.html(html).show();
+                                $dropdown.data('customers', res.data.customers);
+                            } else {
+                                $dropdown.html('<div class="caja-pos-cust-result-empty">No se encontraron clientes coincidentes</div>').show();
+                            }
+                        },
+                        error: function() {
+                            $dropdown.html('<div class="caja-pos-cust-result-empty">Error al buscar clientes</div>').show();
+                        }
+                    });
+                }, 250);
+            });
+
+            // Seleccionar cliente de la lista predictiva
+            $(document).on('click', '.caja-pos-cust-result-item', function(e) {
+                e.stopPropagation();
+                const $item = $(this);
+                const idx = $item.data('idx');
+                const customers = $('#caja-pos-cust-search-results').data('customers') || [];
+                const c = customers[idx];
+                if (!c) return;
+
+                $('#caja-pos-cust-name').val(c.name || '');
+                $('#caja-pos-cust-dni').val(c.dni || '');
+                $('#caja-pos-cust-phone').val(c.phone || '');
+                $('#caja-pos-cust-email').val(c.email || '');
+                $('#caja-pos-cust-address').val(c.address || '');
+
+                $('#caja-pos-cust-search-input').val(c.name + (c.dni ? ' (' + c.dni + ')' : ''));
+                $('#caja-pos-cust-search-clear').show();
+                $('#caja-pos-cust-search-results').hide().empty();
+
+                self.updatePosCustomerRequirements();
+                self.showToast('Cliente ' + c.name + ' seleccionado.', 'success');
+            });
+
+            // Botón limpiar cliente
+            $('#caja-pos-cust-search-clear').on('click', function(e) {
+                e.stopPropagation();
+                $('#caja-pos-cust-search-input').val('');
+                $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                $('#caja-pos-cust-search-results').hide().empty();
+                $(this).hide();
+                self.updatePosCustomerRequirements();
+            });
+
+            // Cerrar lista flotante al hacer clic afuera
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.caja-pos-cust-search-wrap').length) {
+                    $('#caja-pos-cust-search-results').hide();
+                }
+            });
+
             // Confirmar y Cobrar Venta
             $('#caja-pos-checkout-btn').on('click', function() {
                 self.handlePosCheckout();
@@ -6274,6 +6382,9 @@ $('#caja-modal-new-product').fadeIn(200);
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
                         $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                        $('#caja-pos-cust-search-input').val('');
+                        $('#caja-pos-cust-search-clear').hide();
+                        $('#caja-pos-cust-search-results').hide().empty();
                         self.updatePosCustomerRequirements();
 
                         // 3. Mantener el botón deshabilitado con su texto original (previene doble clic)

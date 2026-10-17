@@ -114,7 +114,7 @@ if (!defined('ABSPATH')) {
 
             <!-- Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección) -->
             <div class="caja-pos-customer-subgroup" id="caja-pos-customer-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px;">
-                <div class="caja-pos-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="caja-pos-section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <label class="caja-pos-field-label" style="margin: 0; font-weight: 700; color: var(--caja-text, #ffffff); font-size: 0.88rem; display: flex; align-items: center; gap: 5px;">
                         <span>👤</span> <span><?php _e('Datos del Cliente', 'emp-caja'); ?></span>
                     </label>
@@ -122,39 +122,51 @@ if (!defined('ABSPATH')) {
                         <?php _e('Opcional', 'emp-caja'); ?>
                     </span>
                 </div>
+
+                <!-- Buscador Predictivo de Clientes Existentes -->
+                <div class="caja-pos-cust-search-wrap" style="position: relative; margin-bottom: 12px;">
+                    <label for="caja-pos-cust-search-input" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text-muted, #94a3b8); font-weight: 600; display: block; margin-bottom: 4px;">
+                        🔍 <?php _e('Buscar cliente existente (Nombre, DNI, Teléfono o Email)', 'emp-caja'); ?>
+                    </label>
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <input type="text" id="caja-pos-cust-search-input" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Escribe para buscar cliente registrado o de ventas previas...', 'emp-caja'); ?>" autocomplete="off" style="width: 100%; box-sizing: border-box; padding-right: 32px;" />
+                        <button type="button" id="caja-pos-cust-search-clear" style="display: none; position: absolute; right: 8px; background: transparent; border: none; color: var(--caja-text-muted, #94a3b8); font-size: 1rem; cursor: pointer; padding: 2px 6px; border-radius: 50%; line-height: 1;" title="<?php esc_attr_e('Limpiar datos del cliente', 'emp-caja'); ?>">✕</button>
+                    </div>
+                    <!-- Dropdown de resultados de clientes -->
+                    <div id="caja-pos-cust-search-results" class="caja-pos-cust-results-dropdown" style="display: none;"></div>
+                </div>
                 
-                <div class="caja-pos-cust-fields-grid" style="display: flex; flex-direction: column; gap: 8px;">
+                <div class="caja-pos-cust-fields-grid" style="display: flex; flex-direction: column; gap: 10px;">
                     <div class="caja-pos-cust-field">
-                        <label for="caja-pos-cust-name" class="caja-pos-cust-lbl" style="font-size: 0.75rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 3px;">
+                        <label for="caja-pos-cust-name" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 4px;">
                             <?php _e('Nombre y Apellido', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                         </label>
                         <input type="text" id="caja-pos-cust-name" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: Juan Pérez', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                        <div class="caja-pos-cust-field">
-                            <label for="caja-pos-cust-dni" class="caja-pos-cust-lbl" style="font-size: 0.75rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 3px;">
-                                <?php _e('DNI / CUIT', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
-                            </label>
-                            <input type="text" id="caja-pos-cust-dni" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 35123456', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
-                        </div>
-                        <div class="caja-pos-cust-field">
-                            <label for="caja-pos-cust-phone" class="caja-pos-cust-lbl" style="font-size: 0.75rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 3px;">
-                                <?php _e('Teléfono / WhatsApp', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
-                            </label>
-                            <input type="tel" id="caja-pos-cust-phone" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 11 2345 6789', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
-                        </div>
+                    <div class="caja-pos-cust-field">
+                        <label for="caja-pos-cust-dni" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 4px;">
+                            <?php _e('DNI / CUIT', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
+                        </label>
+                        <input type="text" id="caja-pos-cust-dni" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 35123456', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                     </div>
 
                     <div class="caja-pos-cust-field">
-                        <label for="caja-pos-cust-email" class="caja-pos-cust-lbl" style="font-size: 0.75rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 3px;">
+                        <label for="caja-pos-cust-phone" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 4px;">
+                            <?php _e('Teléfono / WhatsApp', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
+                        </label>
+                        <input type="tel" id="caja-pos-cust-phone" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 11 2345 6789', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
+                    </div>
+
+                    <div class="caja-pos-cust-field">
+                        <label for="caja-pos-cust-email" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 4px;">
                             <?php _e('Email', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                         </label>
                         <input type="email" id="caja-pos-cust-email" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: cliente@gmail.com', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                     </div>
 
                     <div class="caja-pos-cust-field">
-                        <label for="caja-pos-cust-address" class="caja-pos-cust-lbl" style="font-size: 0.75rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 3px;">
+                        <label for="caja-pos-cust-address" class="caja-pos-cust-lbl" style="font-size: 0.78rem; color: var(--caja-text, #ffffff); font-weight: 600; display: block; margin-bottom: 4px;">
                             <?php _e('Dirección de Envío / Localidad', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                         </label>
                         <input type="text" id="caja-pos-cust-address" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Calle, número, depto, ciudad...', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />

@@ -49,6 +49,7 @@ class Batllie_Caja_Ajax {
         // Venta Caja POS
         add_action('wp_ajax_emp_caja_create_pos_order', array(__CLASS__, 'ajax_create_pos_order'));
         add_action('wp_ajax_emp_caja_get_pos_history', array(__CLASS__, 'ajax_get_pos_history'));
+        add_action('wp_ajax_emp_caja_search_customers', array(__CLASS__, 'ajax_search_customers'));
     }
 
     /**
@@ -997,6 +998,126 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('history' => $history));
+    }
+
+    /**
+     * AJAX: Búsqueda predictiva de clientes existentes (Usuarios y Pedidos previos)
+     */
+    public static function ajax_search_customers() {
+        self::check_auth();
+
+        $term = isset($_POST['term']) ? sanitize_text_field(wp_unslash($_POST['term'])) : '';
+        $term = trim($term);
+
+        if (mb_strlen($term) < 2) {
+            wp_send_json_success(array('customers' => array()));
+            return;
+        }
+
+        $results = array();
+        $seen = array(); // Dedup
+
+        // 1. Buscar en Usuarios de WordPress (clientes registrados)
+        $user_query = new WP_User_Query(array(
+            'search'         => '*' . esc_attr($term) . '*',
+            'search_columns' => array('user_login', 'user_email', 'user_nicename', 'display_name'),
+            'number'         => 15,
+        ));
+        $users = (array) $user_query->get_results();
+        foreach ($users as $u) {
+            $uid = $u->ID;
+            $first_name = get_user_meta($uid, 'billing_first_name', true) ?: (get_user_meta($uid, 'first_name', true) ?: $u->display_name);
+            $last_name  = get_user_meta($uid, 'billing_last_name', true) ?: get_user_meta($uid, 'last_name', true);
+            $full_name  = trim($first_name . ' ' . $last_name);
+            $phone      = (string) get_user_meta($uid, 'billing_phone', true);
+            $email      = (string) ($u->user_email ?: get_user_meta($uid, 'billing_email', true));
+            $address    = (string) (get_user_meta($uid, 'shipping_address_1', true) ?: get_user_meta($uid, 'billing_address_1', true));
+            $dni        = (string) (get_user_meta($uid, '_billing_dni', true) ?: (get_user_meta($uid, 'billing_dni', true) ?: get_user_meta($uid, '_caja_customer_dni', true)));
+
+            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false) {
+                continue;
+            }
+
+            $dedup_key = !empty($dni) ? ('dni_' . $dni) : (!empty($email) ? ('email_' . strtolower($email)) : (!empty($phone) ? ('phone_' . preg_replace('/[^0-9]/', '', $phone)) : ('name_' . strtolower($full_name))));
+            if (!isset($seen[$dedup_key])) {
+                $seen[$dedup_key] = true;
+                $results[] = array(
+                    'id'      => 'user_' . $uid,
+                    'name'    => $full_name,
+                    'dni'     => $dni,
+                    'phone'   => $phone,
+                    'email'   => $email,
+                    'address' => $address,
+                    'source'  => __('Usuario Registrado', 'emp-caja'),
+                );
+            }
+        }
+
+        // 2. Buscar en Pedidos anteriores de WooCommerce (tanto compras online como mostrador)
+        global $wpdb;
+        $order_ids = array();
+
+        // A. Búsqueda rápida en wp_postmeta por nombre, DNI, teléfono o email
+        $wildcard = '%' . $wpdb->esc_like($term) . '%';
+        $meta_keys = "('_billing_first_name', '_billing_last_name', '_billing_email', '_billing_phone', '_billing_dni', '_caja_customer_dni', 'billing_dni')";
+        
+        $sql = "SELECT DISTINCT post_id FROM {$wpdb->postmeta} WHERE meta_key IN {$meta_keys} AND meta_value LIKE %s ORDER BY post_id DESC LIMIT 30";
+        $found_ids = $wpdb->get_col($wpdb->prepare($sql, $wildcard));
+        if (!empty($found_ids)) {
+            $order_ids = array_merge($order_ids, array_map('intval', $found_ids));
+        }
+
+        // B. Si WooCommerce usa HPOS o además queremos abarcar la búsqueda estándar de wc_get_orders
+        if (class_exists('Automattic\WooCommerce\Utilities\OrderUtil') && Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled()) {
+            $hpos_orders = wc_get_orders(array(
+                's'       => $term,
+                'limit'   => 20,
+                'orderby' => 'date',
+                'order'   => 'DESC',
+                'return'  => 'ids'
+            ));
+            if (!empty($hpos_orders)) {
+                $order_ids = array_unique(array_merge($order_ids, $hpos_orders));
+            }
+        }
+
+        foreach ($order_ids as $oid) {
+            $order = wc_get_order($oid);
+            if (!$order) continue;
+
+            $first_name = $order->get_billing_first_name();
+            $last_name  = $order->get_billing_last_name();
+            $full_name  = trim($first_name . ' ' . $last_name);
+
+            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false || stripos($full_name, 'Cliente Mostrador') !== false) {
+                continue;
+            }
+
+            $dni     = (string) ($order->get_meta('_billing_dni') ?: ($order->get_meta('_caja_customer_dni') ?: ($order->get_meta('billing_dni') ?: '')));
+            $phone   = (string) $order->get_billing_phone();
+            $email   = (string) $order->get_billing_email();
+            $address = (string) ($order->get_shipping_address_1() ?: $order->get_billing_address_1());
+
+            $dedup_key = !empty($dni) ? ('dni_' . $dni) : (!empty($email) ? ('email_' . strtolower($email)) : (!empty($phone) ? ('phone_' . preg_replace('/[^0-9]/', '', $phone)) : ('name_' . strtolower($full_name))));
+            if (!isset($seen[$dedup_key])) {
+                $seen[$dedup_key] = true;
+                $results[] = array(
+                    'id'      => 'order_' . $order->get_id(),
+                    'name'    => $full_name,
+                    'dni'     => $dni,
+                    'phone'   => $phone,
+                    'email'   => $email,
+                    'address' => $address,
+                    'source'  => sprintf(__('Pedido #%s', 'emp-caja'), $order->get_order_number()),
+                );
+            }
+
+            if (count($results) >= 20) {
+                break;
+            }
+        }
+
+        wp_send_json_success(array('customers' => $results));
     }
 
 }
