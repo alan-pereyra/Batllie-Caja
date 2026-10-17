@@ -6198,3 +6198,31 @@ body.caja-modal-locked {
     transition: transform 0.2s ease !important;
     flex-shrink: 0 !important;
 }
+
+/* Espaciado claro y jerarquía visual del formulario de clientes en POS */
+.caja-pos-cust-fields-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 18px !important;
+    margin-top: 6px !important;
+}
+
+.caja-pos-cust-field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.caja-pos-cust-lbl {
+    font-size: 0.72rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    color: var(--caja-text, #ffffff) !important;
+    font-weight: 700 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 1.1 !important;
+}

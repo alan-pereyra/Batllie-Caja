@@ -6108,11 +6108,12 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 // Bloquear campos para evitar edición accidental
                 self.lockPosCustomerFields(true);
-                $('#caja-pos-cust-edit-wrap').show();
+                $('#caja-pos-cust-edit-wrap').css('display', 'flex');
                 $('#caja-pos-cust-edit-btn').html('<span>✏️</span> <span>Editar datos del cliente</span>');
 
-                $('#caja-pos-cust-search-input').val(c.name + (c.dni ? ' (' + c.dni + ')' : ''));
-                $('#caja-pos-cust-search-clear').show();
+                // Limpiar el buscador para que vuelva a su placeholder y no duplique ni reemplace el campo Nombre
+                $('#caja-pos-cust-search-input').val('');
+                $('#caja-pos-cust-search-clear').hide();
                 $('#caja-pos-cust-search-results').hide().empty();
 
                 self.updatePosCustomerRequirements();
@@ -6128,16 +6129,25 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.showToast('Campos habilitados para edición.', 'info');
             });
 
-            // Botón limpiar cliente
-            $('#caja-pos-cust-search-clear').on('click', function(e) {
-                e.stopPropagation();
+            // Botón limpiar todos los datos del cliente
+            $(document).on('click', '#caja-pos-cust-clear-all-btn', function(e) {
+                e.preventDefault();
                 $('#caja-pos-cust-search-input').val('');
                 $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
                 self.lockPosCustomerFields(false);
                 $('#caja-pos-cust-edit-wrap').hide();
                 $('#caja-pos-cust-search-results').hide().empty();
-                $(this).hide();
+                $('#caja-pos-cust-search-clear').hide();
                 self.updatePosCustomerRequirements();
+                self.showToast('Datos del cliente borrados.', 'info');
+            });
+
+            // Botón limpiar input de búsqueda
+            $('#caja-pos-cust-search-clear').on('click', function(e) {
+                e.stopPropagation();
+                $('#caja-pos-cust-search-input').val('');
+                $('#caja-pos-cust-search-results').hide().empty();
+                $(this).hide();
             });
 
             // Cerrar lista flotante al hacer clic afuera
