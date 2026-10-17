@@ -368,6 +368,20 @@ $options = Batllie_Caja_Plugin::get_color_settings();
                             </p>
                         </td>
                     </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_pos_auto_account"><?php _e('Cuenta de usuario y email de seguimiento', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <label class="caja-checkbox-label">
+                                <input type="checkbox" id="caja_setting_pos_auto_account" name="batllie_caja_options[pos_auto_account]" value="1" <?php checked($options['pos_auto_account'] ?? '1', '1'); ?> />
+                                <span><?php _e('Crear automáticamente cuenta de cliente y enviar correo con botón para definir contraseña y ver pedidos', 'emp-caja'); ?></span>
+                            </label>
+                            <p class="description">
+                                <?php _e('Si se ingresa un email en cualquier venta presencial y el cliente es nuevo, se le creará su cuenta de WooCommerce y se le enviará un correo personalizado con la identidad de la tienda. Al hacer clic, podrá definir su contraseña y accederá directamente a su panel de pedidos para ver el estado de su paquete.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
                 </table>
             </div>
         </div>

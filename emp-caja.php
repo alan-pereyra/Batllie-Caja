@@ -3,7 +3,7 @@
  * Plugin Name: Caja POS & Control de Pedidos
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.40
+ * Version: 1.9.41
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.40');
+define('EMP_CAJA_VERSION', '1.9.41');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -263,6 +263,7 @@ class Batllie_Caja_Plugin {
             'shipping_slots_cutoff'     => 5,         // Minutos de corte antes de la tanda (ej. 5 min)
             'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
             'pos_customer_threshold'    => 0,         // Monto mínimo para exigir datos del cliente en mostrador/caja (0 = opcional)
+            'pos_auto_account'          => '1',       // Crear automáticamente cuenta de usuario y enviar correo con botón de contraseña
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -979,6 +980,12 @@ JS;
 
         if (isset($input['pos_customer_threshold'])) {
             $output['pos_customer_threshold'] = max(0, floatval(str_replace(',', '.', trim($input['pos_customer_threshold']))));
+        }
+
+        if (isset($input['pos_auto_account'])) {
+            $output['pos_auto_account'] = ($input['pos_auto_account'] === '1' || $input['pos_auto_account'] === 'yes') ? '1' : '0';
+        } else {
+            $output['pos_auto_account'] = '0';
         }
 
         return $output;

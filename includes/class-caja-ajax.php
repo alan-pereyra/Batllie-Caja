@@ -50,6 +50,11 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_create_pos_order', array(__CLASS__, 'ajax_create_pos_order'));
         add_action('wp_ajax_emp_caja_get_pos_history', array(__CLASS__, 'ajax_get_pos_history'));
         add_action('wp_ajax_emp_caja_search_customers', array(__CLASS__, 'ajax_search_customers'));
+
+        // Redirección directa a pedidos y auto-login tras definir contraseña
+        add_action('woocommerce_customer_reset_password', array(__CLASS__, 'handle_auto_login_on_password_reset'), 10, 1);
+        add_filter('woocommerce_customer_reset_password_redirect', array(__CLASS__, 'handle_redirect_to_orders_on_password_reset'), 10, 2);
+        add_filter('password_reset_redirect', array(__CLASS__, 'handle_wp_password_reset_redirect'), 10, 2);
     }
 
     /**
@@ -649,16 +654,16 @@ class Batllie_Caja_Ajax {
 
             $current_user = wp_get_current_user();
             $cashier_name = ($current_user && $current_user->exists()) ? $current_user->display_name : __('Administrador', 'emp-caja');
-            $customer_id  = ($current_user && $current_user->exists()) ? $current_user->ID : 0;
+            $cashier_id   = ($current_user && $current_user->exists()) ? $current_user->ID : 0;
 
             // Determinar estado final de la orden en WooCommerce
             // Si es 'compra_realizada': se completa la venta en el acto
             // Si es 'pedido_despachar': pasa a preparación (processing) para figurar en Pedidos en Vivo
             $order_status = ($mode === 'compra_realizada') ? 'completed' : 'processing';
 
-            // Crear la orden inicialmente sin status para no disparar hooks de proceso sobre orden vacía
+            // Crear la orden inicialmente con customer_id 0 para no asignarla a la cuenta del cajero
             $order = wc_create_order(array(
-                'customer_id' => $customer_id,
+                'customer_id' => 0,
             ));
 
             if (is_wp_error($order) || !$order) {
@@ -764,6 +769,7 @@ class Batllie_Caja_Ajax {
                 $order->update_meta_data('_caja_card_op_number', $card_op);
             }
             $order->update_meta_data('_caja_pos_cashier', $cashier_name);
+            $order->update_meta_data('_caja_pos_cashier_id', $cashier_id);
             $order->update_meta_data('_created_by_caja_pos', true);
 
             if ($mode === 'compra_realizada') {
@@ -945,6 +951,26 @@ class Batllie_Caja_Ajax {
                 $order->add_order_note(sprintf(__('⚠️ AVISO CAJA POS: Pedido tomado por %s. Pago PENDIENTE (%s). Cobrar antes o al momento del despacho.', 'emp-caja'), $cashier_name, $order->get_payment_method_title()));
             } else {
                 $order->add_order_note(sprintf(__('Venta POS registrada por %s (%s). Método: %s. Estado de cobro: %s.', 'emp-caja'), $cashier_name, $mode_label, $order->get_payment_method_title(), ucfirst($payment_status)));
+            }
+
+            // Creación automática de cuenta de cliente nuevo presencial y envío de correo con enlace para definir contraseña y ver pedidos
+            $caja_options = get_option('batllie_caja_options', array());
+            $auto_account = ($caja_options['pos_auto_account'] ?? '1') === '1';
+
+            if ($auto_account && !empty($cust_email) && is_email($cust_email) && !email_exists($cust_email)) {
+                try {
+                    $new_user_id = self::create_customer_and_send_welcome($cust_email, $cust_name, $cust_phone, $cust_dni, $cust_address, $order);
+                    if ($new_user_id && !is_wp_error($new_user_id)) {
+                        $order->set_customer_id($new_user_id);
+                        $order->save();
+                        if (function_exists('wc_update_new_customer_past_orders')) {
+                            wc_update_new_customer_past_orders($new_user_id);
+                        }
+                        $order->add_order_note(sprintf(__('Cuenta de usuario #%d creada automáticamente para %s y correo de bienvenida/seguimiento enviado.', 'emp-caja'), $new_user_id, $cust_email));
+                    }
+                } catch (Throwable $e_user) {
+                    error_log('Error creando cuenta de cliente desde Caja POS: ' . $e_user->getMessage());
+                }
             }
 
             $formatted_order = class_exists('Batllie_Caja_Orders') ? Batllie_Caja_Orders::format_order($order) : null;
@@ -1138,6 +1164,202 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('customers' => $results));
+    }
+
+    /**
+     * Crear cuenta de usuario de WooCommerce para cliente nuevo presencial
+     */
+    public static function create_customer_and_send_welcome($email, $name, $phone, $dni, $address, $order) {
+        $name_parts = !empty($name) ? explode(' ', trim($name), 2) : array('Cliente', '');
+        $first_name = $name_parts[0];
+        $last_name  = isset($name_parts[1]) ? $name_parts[1] : '';
+
+        // Generar username único a partir del email o nombre
+        $username_base = sanitize_user(current(explode('@', $email)), true);
+        if (empty($username_base)) {
+            $username_base = 'cliente';
+        }
+        $username = $username_base;
+        $counter = 1;
+        while (username_exists($username)) {
+            $username = $username_base . $counter;
+            $counter++;
+        }
+
+        $random_password = wp_generate_password(24, true, true);
+        $userdata = array(
+            'user_login'   => $username,
+            'user_email'   => $email,
+            'user_pass'    => $random_password,
+            'first_name'   => $first_name,
+            'last_name'    => $last_name,
+            'display_name' => trim($first_name . ' ' . $last_name),
+            'role'         => 'customer',
+        );
+
+        $user_id = wp_insert_user($userdata);
+        if (is_wp_error($user_id) || !$user_id) {
+            return false;
+        }
+
+        // Metadatos de facturación y envío en el perfil de WooCommerce
+        if (!empty($first_name)) {
+            update_user_meta($user_id, 'billing_first_name', $first_name);
+            update_user_meta($user_id, 'shipping_first_name', $first_name);
+        }
+        if (!empty($last_name)) {
+            update_user_meta($user_id, 'billing_last_name', $last_name);
+            update_user_meta($user_id, 'shipping_last_name', $last_name);
+        }
+        if (!empty($phone)) {
+            update_user_meta($user_id, 'billing_phone', $phone);
+        }
+        if (!empty($address)) {
+            update_user_meta($user_id, 'billing_address_1', $address);
+            update_user_meta($user_id, 'shipping_address_1', $address);
+        }
+        if (!empty($dni)) {
+            update_user_meta($user_id, '_billing_dni', $dni);
+            update_user_meta($user_id, '_caja_customer_dni', $dni);
+            update_user_meta($user_id, 'billing_dni', $dni);
+        }
+
+        // Enviar el correo personalizado de bienvenida con botón para definir contraseña y ver pedidos
+        self::send_pos_welcome_email($user_id, $order);
+
+        return $user_id;
+    }
+
+    /**
+     * Enviar correo personalizado al cliente con diseño de la tienda y enlace para definir contraseña y ver su pedido
+     */
+    public static function send_pos_welcome_email($user_id, $order) {
+        $user = get_userdata($user_id);
+        if (!$user) return;
+
+        // Generar clave segura de reseteo de contraseña de WordPress
+        $key = get_password_reset_key($user);
+        if (is_wp_error($key)) {
+            return;
+        }
+
+        $myaccount_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/mi-cuenta/');
+        
+        // Link directo al endpoint de restablecer/definir contraseña de WooCommerce
+        if (function_exists('wc_get_endpoint_url')) {
+            $set_password_url = add_query_arg(
+                array(
+                    'action' => 'rp',
+                    'key'    => $key,
+                    'login'  => rawurlencode($user->user_login),
+                ),
+                wc_get_endpoint_url('lost-password', '', $myaccount_url)
+            );
+        } else {
+            $set_password_url = network_site_url("wp-login.php?action=rp&key=$key&login=" . rawurlencode($user->user_login), 'login');
+        }
+
+        $site_name = get_bloginfo('name');
+        $order_num = $order ? $order->get_order_number() : '';
+        $order_total = $order ? $order->get_formatted_order_total() : '';
+        $delivery_type = $order ? $order->get_meta('_caja_delivery_type') : '';
+        $is_envio = ($delivery_type === 'con_envio');
+        $delivery_label = $is_envio ? __('Envío a domicilio', 'emp-caja') : __('Retiro por el local', 'emp-caja');
+
+        $first_name = $user->first_name ?: $user->display_name;
+
+        $subject = sprintf(__('¡Tu cuenta en %s y el seguimiento de tu compra #%s!', 'emp-caja'), $site_name, $order_num);
+        $heading = sprintf(__('¡Gracias por tu compra en %s!', 'emp-caja'), $site_name);
+
+        ob_start();
+        ?>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #334155;">
+            <p style="font-size: 17px; font-weight: 600; color: #0f172a; margin-top: 0;">
+                <?php printf(__('Hola %s,', 'emp-caja'), esc_html($first_name)); ?>
+            </p>
+            <p>
+                <?php printf(__('¡Muchas gracias por tu compra en nuestro local! Hemos creado tu cuenta en <strong>%s</strong> para que puedas seguir el estado de tu pedido en tiempo real y consultar tu historial de compras cuando lo desees.', 'emp-caja'), esc_html($site_name)); ?>
+            </p>
+
+            <?php if ($order): ?>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; font-weight: 700; margin-bottom: 8px;">
+                    <?php _e('Resumen de tu compra', 'emp-caja'); ?>
+                </div>
+                <div style="font-size: 14px; margin-bottom: 5px;">
+                    <strong><?php _e('Número de Pedido:', 'emp-caja'); ?></strong> #<?php echo esc_html($order_num); ?>
+                </div>
+                <div style="font-size: 14px; margin-bottom: 5px;">
+                    <strong><?php _e('Total:', 'emp-caja'); ?></strong> <?php echo wp_strip_all_tags($order_total); ?>
+                </div>
+                <div style="font-size: 14px;">
+                    <strong><?php _e('Tipo de Entrega:', 'emp-caja'); ?></strong> <?php echo esc_html($delivery_label); ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <p style="margin: 22px 0 12px 0;">
+                <?php _e('Para terminar de activar tu cuenta y ver dónde se encuentra tu paquete, haz clic en el siguiente botón para definir tu contraseña:', 'emp-caja'); ?>
+            </p>
+
+            <div style="text-align: center; margin: 26px 0;">
+                <a href="<?php echo esc_url($set_password_url); ?>" style="background-color: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 15px; display: inline-block; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                    <?php _e('Definir mi contraseña y ver mi pedido', 'emp-caja'); ?> &rarr;
+                </a>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; margin-top: 24px;">
+                <?php _e('Una vez que elijas tu contraseña, accederás automáticamente a tu panel de pedidos para ver el estado de preparación y envío.', 'emp-caja'); ?>
+            </p>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                <?php printf(__('Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br><a href="%s" style="color: #10b981; word-break: break-all;">%s</a>', 'emp-caja'), esc_url($set_password_url), esc_url($set_password_url)); ?>
+            </p>
+        </div>
+        <?php
+        $body_content = ob_get_clean();
+
+        if (function_exists('WC') && WC()->mailer()) {
+            $mailer = WC()->mailer();
+            $email_content = $mailer->wrap_message($heading, $body_content);
+            $mailer->send($user->user_email, $subject, $email_content, "Content-Type: text/html; charset=UTF-8\r\n", array());
+        } else {
+            $headers = array('Content-Type: text/html; charset=UTF-8');
+            wp_mail($user->user_email, $subject, $body_content, $headers);
+        }
+    }
+
+    /**
+     * Auto-login automático cuando el cliente define su contraseña vía enlace de reseteo
+     */
+    public static function handle_auto_login_on_password_reset($user) {
+        if ($user && isset($user->ID)) {
+            wp_set_current_user($user->ID);
+            wp_set_auth_cookie($user->ID, true);
+        }
+    }
+
+    /**
+     * Redirigir al cliente directamente a su panel de pedidos (/mi-cuenta/orders/) tras definir la contraseña
+     */
+    public static function handle_redirect_to_orders_on_password_reset($redirect_url, $user) {
+        if (function_exists('wc_get_endpoint_url') && function_exists('wc_get_page_permalink')) {
+            return wc_get_endpoint_url('orders', '', wc_get_page_permalink('myaccount'));
+        }
+        return $redirect_url;
+    }
+
+    /**
+     * Redirección fallback para wp-login.php
+     */
+    public static function handle_wp_password_reset_redirect($redirect_url, $user) {
+        if ($user && isset($user->ID)) {
+            wp_set_current_user($user->ID);
+            wp_set_auth_cookie($user->ID, true);
+            if (function_exists('wc_get_endpoint_url') && function_exists('wc_get_page_permalink')) {
+                return wc_get_endpoint_url('orders', '', wc_get_page_permalink('myaccount'));
+            }
+        }
+        return $redirect_url;
     }
 
 }
