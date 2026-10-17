@@ -15,3 +15,9 @@ verify_*
 potrace_tool/
 cleanup*
 copy_to_demo*
+mm_*
+plugins_list.html
+*.ps1
+!deploy_to_ftp.ps1
+!sync_style_update_to_empralidad.ps1
+!deploy_full_sync.ps1
