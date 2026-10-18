@@ -7056,7 +7056,7 @@ $('#caja-modal-new-product').fadeIn(200);
         showPosSuccessDialog: function(data) {
             const self = this;
             const modeText = data.mode === 'compra_realizada' ? '🟢 Compra Realizada (Entregada)' : '📦 Pedido por Despachar';
-            const payText = data.payment_status === 'pagado' ? '🟢 Pagado' : '🟠 Falta Pagar (Pendiente)';
+            const payText = data.payment_status === 'pagado' ? '🟢 Paga ahora' : '🟠 Pendiente de pago';
             
             const modalHtml = `
                 <div id="caja-pos-success-modal" class="caja-modal" style="display:flex; z-index:100060;">
@@ -7148,8 +7148,8 @@ $('#caja-modal-new-product').fadeIn(200);
 
                             const isPaid = sale.payment_status === 'pagado';
                             const payStatusBadge = isPaid
-                                ? '<span class="caja-pos-badge-pay is-paid">🟢 Pagado</span>'
-                                : '<span class="caja-pos-badge-warning-unpaid">⚠️ Falta Pagar</span>';
+                                ? '<span class="caja-pos-badge-pay is-paid">🟢 Paga ahora</span>'
+                                : '<span class="caja-pos-badge-warning-unpaid">🟠 Pendiente de pago</span>';
 
                             let payDetails = self.escapeHtml(sale.payment_method || 'Efectivo');
                             if (sale.card_op) {

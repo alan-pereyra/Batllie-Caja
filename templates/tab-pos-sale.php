@@ -114,8 +114,8 @@ if (!defined('ABSPATH')) {
                 <!-- Estado de Cobro (Desplegable 100% de ancho - Solo visible en Pedido por Despachar) -->
                 <div class="caja-pos-status-dropdown-wrap" id="caja-pos-status-dropdown-wrap" style="display:none;">
                     <select id="caja-pos-selected-status" class="caja-input caja-pos-status-select">
-                        <option value="pagado" selected>🟢 <?php _e('Ya está pagado', 'emp-caja'); ?></option>
-                        <option value="pendiente">🟠 <?php _e('Falta pagar (Pendiente de cobro)', 'emp-caja'); ?></option>
+                        <option value="pagado" selected>🟢 <?php _e('Paga ahora', 'emp-caja'); ?></option>
+                        <option value="pendiente">🟠 <?php _e('Pendiente de pago', 'emp-caja'); ?></option>
                     </select>
                 </div>
             </div>
