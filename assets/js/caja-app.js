@@ -385,6 +385,21 @@
                 const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
                 const currentStatus = cachedOrder ? cachedOrder.status : 'pending';
 
+                const isVentaMostrador = !!(cachedOrder && (cachedOrder.is_venta_mostrador || (cachedOrder.customer_name && cachedOrder.customer_name.toLowerCase().includes('venta mostrador'))));
+                const isVentaCaja = !!(cachedOrder && (cachedOrder.is_venta_caja || cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || isVentaMostrador));
+
+                if (isVentaCaja) {
+                    select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
+                    select.addClass('status-bg-' + newStatus);
+                    $grid.hide();
+                    $payBox.hide();
+                    $pkgBox.hide();
+                    $shipBox.hide();
+                    $controlBtnWrap.hide();
+                    self.updateOrderStatus(orderId, newStatus, select, { restore_box_stock: 'yes' });
+                    return;
+                }
+
                 if ((newStatus === 'processing' || newStatus === 'enviando' || newStatus === 'completed') && !isApproved) {
                     alert('⚠️ No se puede avanzar el pedido porque el pago aún no ha sido confirmado (Pagado o Efectivo en entrega).');
                     select.val(currentStatus);
@@ -2646,11 +2661,17 @@ $('#caja-modal-new-product').fadeIn(200);
                 const isPayApproved = (order.payment_status === 'pagado' || order.payment_status === 'efectivo_entrega');
                 const isVerified = (order.control_pedido_verified === true || order.control_pedido_verified === 'yes');
                 const isPickup = (order.is_local_pickup === true || order.is_local_pickup === 'yes');
+                const isVentaMostrador = !!(order.is_venta_mostrador || (order.customer_name && order.customer_name.toLowerCase().includes('venta mostrador')));
+                const isVentaCaja = Boolean(order.is_venta_caja || order.pos_mode === 'compra_realizada' || order.delivery_type === 'in_situ' || isVentaMostrador);
                 let showPaymentBox = false;
                 let showPackagingBox = false;
                 let showShippingBox = false;
 
-                if (order.status === 'pending') {
+                if (isVentaCaja) {
+                    showPaymentBox = false;
+                    showPackagingBox = false;
+                    showShippingBox = false;
+                } else if (order.status === 'pending') {
                     showPaymentBox = true;
                     showPackagingBox = false;
                     showShippingBox = false;
@@ -2676,9 +2697,9 @@ $('#caja-modal-new-product').fadeIn(200);
                     showShippingBox = false;
                 }
 
-                let showMetaGrid = (showPaymentBox || showPackagingBox || showShippingBox);
+                let showMetaGrid = !isVentaCaja && (showPaymentBox || showPackagingBox || showShippingBox);
 
-                const showControlPedidoBtn = (order.status === 'enviando' || order.status === 'on-hold');
+                const showControlPedidoBtn = !isVentaCaja && (order.status === 'enviando' || order.status === 'on-hold');
 
                 let felicitacionHtml = '';
                 if ((order.aumento_pedido || order.decision_correcta) && !hasShippedOrFinished) {
@@ -2760,7 +2781,6 @@ $('#caja-modal-new-product').fadeIn(200);
                     `;
                 }
 
-                const isVentaMostrador = !!(order.is_venta_mostrador || (order.customer_name && order.customer_name.toLowerCase().includes('venta mostrador')));
                 let cleanCustomerName = order.customer_name || '';
                 if (isVentaMostrador) {
                     cleanCustomerName = cleanCustomerName.replace(/Venta\s+Mostrador/gi, '').trim();
@@ -2775,12 +2795,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-order-time">${order.time_diff || order.time_formatted}</span>
                             </div>
                             <div class="caja-card-header-badges">
-                                ${order.shipping_slot_badge ? `
+                                ${!isVentaCaja && order.shipping_slot_badge ? `
                                     <span class="caja-dispatch-pill" title="Tanda de despacho: ${order.shipping_slot_label || order.shipping_slot_badge}">
                                         <span class="caja-dispatch-icon">🚚</span>
                                         <span class="caja-dispatch-text">${order.shipping_slot_badge}</span>
                                     </span>
-                                ` : (order.shipping_method && order.shipping_method.toLowerCase().indexOf('local') !== -1 ? `
+                                ` : (!isVentaCaja && order.shipping_method && order.shipping_method.toLowerCase().indexOf('local') !== -1 ? `
                                     <span class="caja-dispatch-pill caja-dispatch-pickup" title="Retiro en local">
                                         <span class="caja-dispatch-icon">🏬</span>
                                         <span class="caja-dispatch-text">Retiro local</span>
@@ -3036,13 +3056,18 @@ $('#caja-modal-new-product').fadeIn(200);
                             <div class="caja-order-status-select-wrap">
                                 <div class="caja-dropdown-relative">
                                     <select class="caja-main-status-dropdown status-bg-${order.status} ${isVerified && (order.status === 'enviando' || order.status === 'on-hold') ? 'is-verified-primary' : ''}" data-order-id="${order.id}">
-                                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
-                                        <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>En preparación${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
-                                        <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>${isPickup ? 'Esperando a ser retirado' : 'Enviando'}${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
-                                        <option value="completed" ${order.status === 'completed' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Completado${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
-                                        <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
-                                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
-                                        <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                        ${isVentaCaja ? `
+                                            <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completado</option>
+                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                        ` : `
+                                            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
+                                            <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>En preparación${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="enviando" ${order.status === 'enviando' || order.status === 'on-hold' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>${isPickup ? 'Esperando a ser retirado' : 'Enviando'}${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="completed" ${order.status === 'completed' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Completado${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
+                                            <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
+                                            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                        `}
                                     </select>
                                     <span class="caja-dropdown-arrow">▼</span>
                                 </div>
@@ -3364,6 +3389,10 @@ $('#caja-modal-new-product').fadeIn(200);
             const $shipBox = $(`#caja-meta-shipping-${orderId}`);
             const $controlBtnWrap = $card.find('.caja-control-pedido-btn-wrap');
 
+            const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
+            const isVentaMostrador = !!(cachedOrder && (cachedOrder.is_venta_mostrador || (cachedOrder.customer_name && cachedOrder.customer_name.toLowerCase().includes('venta mostrador'))));
+            const isVentaCaja = !!(cachedOrder && (cachedOrder.is_venta_caja || cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || isVentaMostrador));
+
             const setVisible = ($el, show) => {
                 if (show) {
                     $el.removeClass('caja-meta-hidden').show();
@@ -3372,13 +3401,19 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             };
 
-            setVisible($payBox, true);
-            setVisible($pkgBox, false);
-            setVisible($shipBox, false);
+            if (isVentaCaja) {
+                setVisible($payBox, false);
+                setVisible($pkgBox, false);
+                setVisible($shipBox, false);
+                setVisible($grid, false);
+            } else {
+                setVisible($payBox, true);
+                setVisible($pkgBox, false);
+                setVisible($shipBox, false);
+                const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
+                setVisible($grid, hasVisibleMeta);
+            }
             $controlBtnWrap.hide();
-
-            const hasVisibleMeta = $payBox.is(':visible') || $pkgBox.is(':visible') || $shipBox.is(':visible');
-            setVisible($grid, hasVisibleMeta);
 
             $select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
             $select.addClass('status-bg-refunded');
