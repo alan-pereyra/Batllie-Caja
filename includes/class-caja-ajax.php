@@ -642,18 +642,32 @@ class Batllie_Caja_Ajax {
             $cust_email   = isset($_POST['customer_email']) ? sanitize_email(wp_unslash($_POST['customer_email'])) : '';
             $cust_address = isset($_POST['customer_address']) ? sanitize_text_field(wp_unslash($_POST['customer_address'])) : '';
 
-            // Validación A: Si es pedido con envío, todos los datos del cliente son OBLIGATORIOS
+            // Envío a otra dirección (Destinatario)
+            $ship_different   = !empty($_POST['ship_different']) && ($_POST['ship_different'] === '1' || $_POST['ship_different'] === 'yes' || $_POST['ship_different'] === true || $_POST['ship_different'] === 'true');
+            $shipping_name    = isset($_POST['shipping_name']) ? sanitize_text_field(wp_unslash($_POST['shipping_name'])) : '';
+            $shipping_dni     = isset($_POST['shipping_dni']) ? sanitize_text_field(wp_unslash($_POST['shipping_dni'])) : '';
+            $shipping_phone   = isset($_POST['shipping_phone']) ? sanitize_text_field(wp_unslash($_POST['shipping_phone'])) : '';
+            $shipping_address = isset($_POST['shipping_address']) ? sanitize_text_field(wp_unslash($_POST['shipping_address'])) : '';
+
+            // Validación A: Si es pedido con envío, los datos requeridos son OBLIGATORIOS
             if ($mode === 'pedido_despachar' && $delivery_type === 'con_envio') {
                 $missing_fields = array();
-                if (empty($cust_name))    $missing_fields[] = __('Nombre y Apellido', 'emp-caja');
-                if (empty($cust_address)) $missing_fields[] = __('Dirección', 'emp-caja');
-                if (empty($cust_dni))     $missing_fields[] = __('DNI / CUIT', 'emp-caja');
-                if (empty($cust_phone))   $missing_fields[] = __('Teléfono', 'emp-caja');
-                if (empty($cust_email))   $missing_fields[] = __('Email', 'emp-caja');
+                if (empty($cust_name))  $missing_fields[] = __('Nombre y Apellido del Cliente', 'emp-caja');
+                if (empty($cust_dni))   $missing_fields[] = __('DNI / CUIT del Cliente', 'emp-caja');
+                if (empty($cust_phone)) $missing_fields[] = __('Teléfono del Cliente', 'emp-caja');
+                if (empty($cust_email)) $missing_fields[] = __('Email del Cliente', 'emp-caja');
+
+                if ($ship_different) {
+                    if (empty($shipping_name))    $missing_fields[] = __('Nombre del Destinatario', 'emp-caja');
+                    if (empty($shipping_address)) $missing_fields[] = __('Dirección de Envío (Destino)', 'emp-caja');
+                    if (empty($shipping_phone))   $missing_fields[] = __('Teléfono del Destinatario', 'emp-caja');
+                } else {
+                    if (empty($cust_address)) $missing_fields[] = __('Dirección del Cliente / Envío', 'emp-caja');
+                }
 
                 if (!empty($missing_fields)) {
                     wp_send_json_error(array(
-                        'message' => __('Para pedidos con envío es obligatorio completar todos los datos del cliente: ', 'emp-caja') . implode(', ', $missing_fields)
+                        'message' => __('Para pedidos con envío es obligatorio completar los siguientes datos: ', 'emp-caja') . implode(', ', $missing_fields)
                     ));
                     return;
                 }
@@ -716,13 +730,12 @@ class Batllie_Caja_Ajax {
                 $order->set_payment_method_title(__('Efectivo (Caja POS)', 'emp-caja'));
             }
 
-            // Datos del cliente / facturación y notas
+            // Datos del cliente / facturación
+            $name_parts = array('', '');
             if (!empty($cust_name)) {
                 $name_parts = explode(' ', $cust_name, 2);
                 $order->set_billing_first_name($name_parts[0]);
                 $order->set_billing_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
-                $order->set_shipping_first_name($name_parts[0]);
-                $order->set_shipping_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
             } else {
                 $order->set_billing_first_name(__('Cliente', 'emp-caja'));
                 $order->set_billing_last_name(__('Mostrador', 'emp-caja'));
@@ -736,11 +749,37 @@ class Batllie_Caja_Ajax {
             }
             if (!empty($cust_address)) {
                 $order->set_billing_address_1($cust_address);
-                $order->set_shipping_address_1($cust_address);
             }
             if (!empty($cust_dni)) {
                 $order->update_meta_data('_billing_dni', $cust_dni);
                 $order->update_meta_data('_caja_customer_dni', $cust_dni);
+            }
+
+            // Datos de Envío (Shipping)
+            if ($ship_different && !empty($shipping_name)) {
+                $ship_name_parts = explode(' ', $shipping_name, 2);
+                $order->set_shipping_first_name($ship_name_parts[0]);
+                $order->set_shipping_last_name(isset($ship_name_parts[1]) ? $ship_name_parts[1] : '');
+                $order->set_shipping_address_1($shipping_address);
+                if (!empty($shipping_phone)) {
+                    if (method_exists($order, 'set_shipping_phone')) {
+                        $order->set_shipping_phone($shipping_phone);
+                    }
+                    $order->update_meta_data('_shipping_phone', $shipping_phone);
+                }
+                if (!empty($shipping_dni)) {
+                    $order->update_meta_data('_shipping_dni', $shipping_dni);
+                }
+                $order->update_meta_data('_caja_ship_to_different_address', 'yes');
+            } else {
+                if (!empty($cust_name)) {
+                    $order->set_shipping_first_name($name_parts[0]);
+                    $order->set_shipping_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
+                }
+                if (!empty($cust_address)) {
+                    $order->set_shipping_address_1($cust_address);
+                }
+                $order->update_meta_data('_caja_ship_to_different_address', 'no');
             }
 
             // Si el cliente es un usuario registrado (o coincide por email), asociarlo y actualizar sus datos
@@ -753,7 +792,10 @@ class Batllie_Caja_Ajax {
                     if (!empty($cust_phone)) update_user_meta($matched_user->ID, 'billing_phone', $cust_phone);
                     if (!empty($cust_address)) {
                         update_user_meta($matched_user->ID, 'billing_address_1', $cust_address);
-                        update_user_meta($matched_user->ID, 'shipping_address_1', $cust_address);
+                        // Solo actualizar shipping_address_1 del usuario si NO se envió a otra dirección
+                        if (!$ship_different) {
+                            update_user_meta($matched_user->ID, 'shipping_address_1', $cust_address);
+                        }
                     }
                     if (!empty($cust_dni)) {
                         update_user_meta($matched_user->ID, '_billing_dni', $cust_dni);

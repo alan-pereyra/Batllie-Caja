@@ -1602,6 +1602,21 @@ class Batllie_Caja_Orders {
             $clean_address = '';
         }
 
+        // Datos del Destinatario si se realiza envío a otra dirección
+        $ship_first_name = method_exists($order, 'get_shipping_first_name') ? $order->get_shipping_first_name() : '';
+        $ship_last_name  = method_exists($order, 'get_shipping_last_name') ? $order->get_shipping_last_name() : '';
+        $shipping_name   = trim($ship_first_name . ' ' . $ship_last_name);
+        $ship_to_diff_meta = $order->get_meta('_caja_ship_to_different_address');
+        $has_different_shipping = ($ship_to_diff_meta === 'yes') || (!empty($shipping_name) && !empty($customer_name) && $shipping_name !== $customer_name);
+        $sphone = method_exists($order, 'get_shipping_phone') ? $order->get_shipping_phone() : '';
+        if (empty($sphone)) {
+            $sphone = (string) $order->get_meta('_shipping_phone');
+        }
+        $sphone_data = !empty($sphone) ? self::normalize_argentine_phone($sphone) : array('formatted' => '', 'wa' => '');
+        $shipping_phone = !empty($sphone_data['formatted']) ? $sphone_data['formatted'] : $sphone;
+        $shipping_phone_wa = !empty($sphone_data['wa']) ? $sphone_data['wa'] : '';
+        $shipping_dni = (string) ($order->get_meta('_shipping_dni') ?: ($order->get_meta('shipping_dni') ?: ''));
+
         $status = $order->get_status();
         
         $statuses_labels = array(
@@ -1712,6 +1727,11 @@ class Batllie_Caja_Orders {
             'email'           => method_exists($order, 'get_billing_email') ? (string) $order->get_billing_email() : '',
             'dni'             => (string) ($order->get_meta('_billing_dni') ?: ($order->get_meta('_caja_customer_dni') ?: ($order->get_meta('billing_dni') ?: ''))),
             'address'         => $clean_address,
+            'has_different_shipping' => (bool) $has_different_shipping,
+            'shipping_name'          => $shipping_name,
+            'shipping_phone'         => $shipping_phone,
+            'shipping_phone_wa'      => $shipping_phone_wa,
+            'shipping_dni'           => $shipping_dni,
             'customer_note'   => $order->get_customer_note(),
             'caja_note'       => (string) $order->get_meta('_caja_staff_note'),
             'payment_method'  => $order->get_payment_method_title() ? $order->get_payment_method_title() : __('No especificado', 'emp-caja'),

@@ -2533,6 +2533,39 @@ $('#caja-modal-new-product').fadeIn(200);
                     `;
                 }
 
+                let recipientHtml = '';
+                if (order.has_different_shipping && order.shipping_name) {
+                    let shipWa = order.shipping_phone_wa || '';
+                    if (!shipWa && order.shipping_phone) {
+                        shipWa = String(order.shipping_phone).replace(/\D+/g, '');
+                    }
+                    if (shipWa && !shipWa.startsWith('549') && !shipWa.startsWith('54')) {
+                        shipWa = '549' + shipWa.replace(/^0+/, '').replace(/^15/, '');
+                    }
+                    let recipientPhoneHtml = '';
+                    if (order.shipping_phone) {
+                        recipientPhoneHtml = `
+                            <div style="margin-top: 3px; display: flex; align-items: center; gap: 6px;">
+                                <a href="https://wa.me/${shipWa}" target="_blank" style="color: #22c55e; text-decoration: none; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;" title="Contactar destinatario por WhatsApp">
+                                    <span>📱</span>
+                                    <span>${self.escapeHtml(order.shipping_phone)}</span>
+                                    <span style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 4px; padding: 1px 4px; font-size: 0.68rem; color: #4ade80;">WhatsApp</span>
+                                </a>
+                            </div>
+                        `;
+                    }
+                    recipientHtml = `
+                        <div class="caja-shipping-recipient-box" style="margin-top: 6px; margin-bottom: 6px; padding: 7px 10px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; font-size: 0.82rem; line-height: 1.35;">
+                            <div style="font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 5px; margin-bottom: 2px;">
+                                <span>🚚</span>
+                                <span>Destinatario: ${self.escapeHtml(order.shipping_name)}</span>
+                            </div>
+                            ${order.shipping_dni ? `<div style="color: var(--caja-text-muted, #94a3b8); font-size: 0.78rem;">🪪 DNI Destinatario: <strong style="color: var(--caja-text, #ffffff);">${self.escapeHtml(order.shipping_dni)}</strong></div>` : ''}
+                            ${recipientPhoneHtml}
+                        </div>
+                    `;
+                }
+
                 let noteHtml = '';
                 if (order.customer_note) {
                     noteHtml = `
@@ -2826,6 +2859,7 @@ $('#caja-modal-new-product').fadeIn(200);
                             </div>
                             ${phoneHtml}
                             ${order.dni ? `<div class="caja-customer-dni" style="font-size:0.83rem; color:var(--caja-text-muted); margin-bottom:4px;">🪪 DNI/CUIT: <strong style="color:var(--caja-text);">${self.escapeHtml(order.dni)}</strong></div>` : ''}
+                            ${recipientHtml}
                             ${order.address ? `<div class="caja-customer-address">📍 ${order.address}</div>` : ''}
                             ${order.customer_note ? `
                                 <div class="caja-customer-note-row">
@@ -6434,6 +6468,22 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
+            // Toggle Envío a otra dirección
+            $(document).on('change', '#caja-pos-ship-diff-checkbox', function() {
+                const isChecked = $(this).is(':checked');
+                if (isChecked) {
+                    $('#caja-pos-ship-diff-fields').slideDown(180);
+                    $('#caja-pos-cust-address').closest('.caja-pos-cust-field').find('.caja-pos-req-star').hide();
+                } else {
+                    $('#caja-pos-ship-diff-fields').slideUp(180);
+                    const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+                    const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
+                    if (mode === 'pedido_despachar' && deliveryType === 'con_envio') {
+                        $('#caja-pos-cust-address').closest('.caja-pos-cust-field').find('.caja-pos-req-star').show();
+                    }
+                }
+            });
+
             // Confirmar y Cobrar Venta
             $('#caja-pos-checkout-btn').on('click', function() {
                 self.handlePosCheckout();
@@ -6629,6 +6679,11 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-pos-pkg-row').removeClass('has-selected');
             this.updatePosPackagingBadge();
 
+            // Reset de envío a otra dirección
+            $('#caja-pos-ship-diff-checkbox').prop('checked', false);
+            $('#caja-pos-ship-diff-fields').hide();
+            $('#caja-pos-ship-name, #caja-pos-ship-dni, #caja-pos-ship-phone, #caja-pos-ship-address').val('');
+
             $('#caja-pos-checkout-btn').prop('disabled', true);
             if (!silent) {
                 this.showToast('Selección vaciada.', 'info');
@@ -6655,10 +6710,16 @@ $('#caja-modal-new-product').fadeIn(200);
             const $stars = $('.caja-pos-req-star');
             const $body = $('#caja-pos-customer-body');
             const $toggleIcon = $('#caja-pos-cust-toggle-icon');
+            const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
+            const isShipDiff = $('#caja-pos-ship-diff-checkbox').is(':checked');
 
-            if (mode === 'pedido_despachar' && deliveryType === 'con_envio') {
+            if (isConEnvio) {
                 $badge.css({ 'background': 'rgba(239, 68, 68, 0.2)', 'color': '#ef4444' }).text('Obligatorio (Envío)');
                 $stars.show();
+                $('#caja-pos-ship-diff-wrap').show();
+                if (isShipDiff) {
+                    $('#caja-pos-cust-address').closest('.caja-pos-cust-field').find('.caja-pos-req-star').hide();
+                }
                 if (!$body.is(':visible')) {
                     $body.slideDown(180);
                     $toggleIcon.text('▲');
@@ -6666,6 +6727,9 @@ $('#caja-modal-new-product').fadeIn(200);
             } else if (threshold > 0 && total >= threshold) {
                 $badge.css({ 'background': 'rgba(245, 158, 11, 0.2)', 'color': '#f59e0b' }).text(`Obligatorio (Monto ≥ $${self.formatCurrencyNumber(threshold)})`);
                 $stars.show();
+                $('#caja-pos-ship-diff-wrap').hide();
+                $('#caja-pos-ship-diff-checkbox').prop('checked', false);
+                $('#caja-pos-ship-diff-fields').hide();
                 if (!$body.is(':visible')) {
                     $body.slideDown(180);
                     $toggleIcon.text('▲');
@@ -6673,6 +6737,9 @@ $('#caja-modal-new-product').fadeIn(200);
             } else {
                 $badge.css({ 'background': 'rgba(255, 255, 255, 0.08)', 'color': 'var(--caja-text-muted, #94a3b8)' }).text('Opcional');
                 $stars.hide();
+                $('#caja-pos-ship-diff-wrap').hide();
+                $('#caja-pos-ship-diff-checkbox').prop('checked', false);
+                $('#caja-pos-ship-diff-fields').hide();
             }
         },
 
@@ -6880,6 +6947,13 @@ $('#caja-modal-new-product').fadeIn(200);
             const custEmail = $.trim($('#caja-pos-cust-email').val() || '');
             const custAddress = $.trim($('#caja-pos-cust-address').val() || '');
 
+            // Envío a otra dirección
+            const shipDiff = $('#caja-pos-ship-diff-checkbox').is(':checked');
+            const shipName = $.trim($('#caja-pos-ship-name').val() || '');
+            const shipDni = $.trim($('#caja-pos-ship-dni').val() || '');
+            const shipPhone = $.trim($('#caja-pos-ship-phone').val() || '');
+            const shipAddress = $.trim($('#caja-pos-ship-address').val() || '');
+
             // Validación de obligatoriedad de datos del cliente
             const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
             const threshold = parseFloat((self.config && self.config.posCustomerThreshold) || 0);
@@ -6888,19 +6962,29 @@ $('#caja-modal-new-product').fadeIn(200);
 
             if (isConEnvio) {
                 let missing = [];
-                if (!custName) missing.push('Nombre y Apellido');
-                if (!custAddress) missing.push('Dirección');
-                if (!custDni) missing.push('DNI / CUIT');
-                if (!custPhone) missing.push('Teléfono');
-                if (!custEmail) missing.push('Email');
+                if (!custName) missing.push('Nombre y Apellido del Cliente');
+                if (!custDni) missing.push('DNI / CUIT del Cliente');
+                if (!custPhone) missing.push('Teléfono del Cliente');
+                if (!custEmail) missing.push('Email del Cliente');
+
+                if (shipDiff) {
+                    if (!shipName) missing.push('Nombre del Destinatario');
+                    if (!shipAddress) missing.push('Dirección de Envío (Destino)');
+                    if (!shipPhone) missing.push('Teléfono del Destinatario');
+                } else {
+                    if (!custAddress) missing.push('Dirección del Cliente / Envío');
+                }
 
                 if (missing.length > 0) {
-                    alert('Para pedidos con envío es obligatorio completar los siguientes datos del cliente:\n• ' + missing.join('\n• '));
+                    alert('Para pedidos con envío es obligatorio completar los siguientes datos:\n• ' + missing.join('\n• '));
                     if (!custName) $('#caja-pos-cust-name').focus();
-                    else if (!custAddress) $('#caja-pos-cust-address').focus();
                     else if (!custDni) $('#caja-pos-cust-dni').focus();
                     else if (!custPhone) $('#caja-pos-cust-phone').focus();
                     else if (!custEmail) $('#caja-pos-cust-email').focus();
+                    else if (!shipDiff && !custAddress) $('#caja-pos-cust-address').focus();
+                    else if (shipDiff && !shipName) $('#caja-pos-ship-name').focus();
+                    else if (shipDiff && !shipAddress) $('#caja-pos-ship-address').focus();
+                    else if (shipDiff && !shipPhone) $('#caja-pos-ship-phone').focus();
                     return;
                 }
             } else if (isThresholdMet) {
@@ -6949,6 +7033,11 @@ $('#caja-modal-new-product').fadeIn(200);
                     customer_phone: custPhone,
                     customer_email: custEmail,
                     customer_address: custAddress,
+                    ship_different: shipDiff ? '1' : '0',
+                    shipping_name: shipName,
+                    shipping_dni: shipDni,
+                    shipping_phone: shipPhone,
+                    shipping_address: shipAddress,
                     used_packaging: JSON.stringify(self.getUsedPackaging())
                 },
                 success: function(res) {
@@ -6962,6 +7051,9 @@ $('#caja-modal-new-product').fadeIn(200);
                         $('#caja-pos-note').val('');
                         $('#caja-pos-card-op').val('');
                         $('#caja-pos-cust-name, #caja-pos-cust-dni, #caja-pos-cust-phone, #caja-pos-cust-email, #caja-pos-cust-address').val('');
+                        $('#caja-pos-ship-diff-checkbox').prop('checked', false);
+                        $('#caja-pos-ship-diff-fields').hide();
+                        $('#caja-pos-ship-name, #caja-pos-ship-dni, #caja-pos-ship-phone, #caja-pos-ship-address').val('');
                         self.lockPosCustomerFields(false);
                         self.posActiveCustomerData = null;
                         $('#caja-pos-cust-edit-wrap').hide();
