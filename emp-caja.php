@@ -3,7 +3,7 @@
  * Plugin Name: Caja POS & Control de Pedidos
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.61
+ * Version: 1.9.62
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.61');
+define('EMP_CAJA_VERSION', '1.9.62');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -265,10 +265,15 @@ class Batllie_Caja_Plugin {
             'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
             'pos_customer_threshold'    => 0,         // Monto mínimo para exigir datos del cliente en mostrador/caja (0 = opcional)
             'pos_auto_account'          => '1',       // Crear automáticamente cuenta de usuario y enviar correo con botón de contraseña
+            'hold_stock_minutes'        => intval(get_option('woocommerce_hold_stock_minutes', 60)), // Límite para cancelar pedidos sin pagar
         );
 
         $saved = get_option('batllie_caja_options', array());
-        return wp_parse_args($saved, $defaults);
+        $options = wp_parse_args($saved, $defaults);
+        if (empty($options['hold_stock_minutes']) || intval($options['hold_stock_minutes']) <= 0) {
+            $options['hold_stock_minutes'] = intval(get_option('woocommerce_hold_stock_minutes', 60)) ?: 60;
+        }
+        return $options;
     }
 
     /**
@@ -574,7 +579,7 @@ class Batllie_Caja_Plugin {
             'shippingSlotsEnabled' => (($options['shipping_slots_enabled'] ?? 'yes') === 'yes'),
             'shippingSlotsCutoff'  => intval($options['shipping_slots_cutoff'] ?? 5),
             'posCustomerThreshold' => floatval($options['pos_customer_threshold'] ?? 0),
-            'holdStockMinutes'     => intval(get_option('woocommerce_hold_stock_minutes', 60)),
+            'holdStockMinutes'     => intval(get_option('woocommerce_hold_stock_minutes', $options['hold_stock_minutes'] ?? 60)),
             'swUrl'                => add_query_arg('batllie_caja_sw', '1', home_url('/')),
             'manifestUrl'          => add_query_arg('batllie_caja_manifest', '1', home_url('/')),
             'i18n'             => array(
@@ -833,6 +838,46 @@ class Batllie_Caja_Plugin {
                 $(this).closest('.caja-slot-chip').remove();
             });
 
+            // Tiempo límite de cancelación de pedidos pendientes (Vista previa y Presets)
+            function formatHoldStockPreview(mins) {
+                mins = parseInt(mins, 10);
+                if (!mins || mins <= 0) return 'tiempo determinado';
+                if (mins >= 1440 && mins % 1440 === 0) {
+                    var d = Math.floor(mins / 1440);
+                    return d + (d === 1 ? ' día' : ' días');
+                }
+                if (mins >= 60) {
+                    var h = Math.floor(mins / 60);
+                    var r = mins % 60;
+                    if (r === 0) {
+                        return h + (h === 1 ? ' hora' : ' horas');
+                    } else {
+                        return h + (h === 1 ? ' hora' : ' horas') + ' y ' + r + (r === 1 ? ' minuto' : ' minutos');
+                    }
+                }
+                return mins + (mins === 1 ? ' minuto' : ' minutos');
+            }
+
+            function updateHoldStockPreview() {
+                var val = parseInt($('#caja_setting_hold_stock_minutes').val(), 10) || 60;
+                var text = formatHoldStockPreview(val);
+                $('#caja-hold-stock-preview-text').html('El cliente tiene un máximo de <strong>' + text + '</strong> para pagar el pedido, sino se cancela automáticamente.');
+                if ($('#caja_select_hold_stock_presets option[value="' + val + '"]').length) {
+                    $('#caja_select_hold_stock_presets').val(val);
+                } else {
+                    $('#caja_select_hold_stock_presets').val('');
+                }
+            }
+
+            $('#caja_setting_hold_stock_minutes').on('input change', updateHoldStockPreview);
+            $('#caja_select_hold_stock_presets').on('change', function() {
+                var v = $(this).val();
+                if (v) {
+                    $('#caja_setting_hold_stock_minutes').val(v).trigger('input');
+                }
+            });
+            updateHoldStockPreview();
+
             // Guardar configuración vía AJAX o Fallback
             $('#caja-settings-form').on('submit', function(e) {
                 e.preventDefault();
@@ -988,6 +1033,12 @@ JS;
             $output['pos_auto_account'] = ($input['pos_auto_account'] === '1' || $input['pos_auto_account'] === 'yes') ? '1' : '0';
         } else {
             $output['pos_auto_account'] = '0';
+        }
+
+        if (isset($input['hold_stock_minutes'])) {
+            $mins = max(1, intval($input['hold_stock_minutes']));
+            $output['hold_stock_minutes'] = $mins;
+            update_option('woocommerce_hold_stock_minutes', $mins);
         }
 
         return $output;

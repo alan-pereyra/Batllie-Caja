@@ -386,6 +386,53 @@ $options = Batllie_Caja_Plugin::get_color_settings();
             </div>
         </div>
 
+        <!-- 9. Cancelación Automática de Pedidos sin Pagar -->
+        <div class="caja-settings-card">
+            <div class="caja-settings-card-header">
+                <h2>
+                    <span class="caja-card-icon">⏱️</span>
+                    <span><?php _e('Cancelación Automática de Pedidos sin Pagar', 'emp-caja'); ?></span>
+                </h2>
+                <p class="caja-settings-card-desc"><?php _e('Tiempo límite que tiene el comprador para pagar antes de que WooCommerce cancele el pedido automáticamente y libere el inventario reservado.', 'emp-caja'); ?></p>
+            </div>
+            <div class="caja-settings-card-body">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_hold_stock_minutes"><?php _e('Tiempo límite para abonar', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <input type="number" min="1" step="1" id="caja_setting_hold_stock_minutes" name="batllie_caja_options[hold_stock_minutes]" value="<?php echo esc_attr($options['hold_stock_minutes'] ?? 60); ?>" class="regular-text caja-input" style="max-width: 130px; font-weight: 700; font-size: 15px;" />
+                                <span style="font-weight: 600; color: #475569;"><?php _e('minutos', 'emp-caja'); ?></span>
+                                <select id="caja_select_hold_stock_presets" class="caja-select" style="max-width: 290px; padding: 7px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 500;">
+                                    <option value=""><?php _e('-- Opciones rápidas sugeridas --', 'emp-caja'); ?></option>
+                                    <option value="15" <?php selected($options['hold_stock_minutes'] ?? 60, 15); ?>>15 minutos</option>
+                                    <option value="30" <?php selected($options['hold_stock_minutes'] ?? 60, 30); ?>>30 minutos</option>
+                                    <option value="45" <?php selected($options['hold_stock_minutes'] ?? 60, 45); ?>>45 minutos</option>
+                                    <option value="60" <?php selected($options['hold_stock_minutes'] ?? 60, 60); ?>>1 hora (60 minutos - Por defecto)</option>
+                                    <option value="120" <?php selected($options['hold_stock_minutes'] ?? 60, 120); ?>>2 horas (120 minutos)</option>
+                                    <option value="180" <?php selected($options['hold_stock_minutes'] ?? 60, 180); ?>>3 horas (180 minutos)</option>
+                                    <option value="240" <?php selected($options['hold_stock_minutes'] ?? 60, 240); ?>>4 horas (240 minutos)</option>
+                                    <option value="360" <?php selected($options['hold_stock_minutes'] ?? 60, 360); ?>>6 horas (360 minutos)</option>
+                                    <option value="720" <?php selected($options['hold_stock_minutes'] ?? 60, 720); ?>>12 horas (720 minutos)</option>
+                                    <option value="1440" <?php selected($options['hold_stock_minutes'] ?? 60, 1440); ?>>24 horas / 1 día (1440 minutos)</option>
+                                    <option value="2880" <?php selected($options['hold_stock_minutes'] ?? 60, 2880); ?>>48 horas / 2 días (2880 minutos)</option>
+                                    <option value="4320" <?php selected($options['hold_stock_minutes'] ?? 60, 4320); ?>>72 horas / 3 días (4320 minutos)</option>
+                                </select>
+                            </div>
+                            <div id="caja-hold-stock-preview" style="margin-top: 12px; padding: 10px 14px; background: rgba(245, 158, 11, 0.09); border: 1px dashed #f59e0b; border-radius: 6px; display: inline-block; font-size: 13px; color: #b45309;">
+                                ⏱️ <span><?php _e('Vista previa en Caja POS:', 'emp-caja'); ?></span> <span id="caja-hold-stock-preview-text"></span>
+                            </div>
+                            <p class="description" style="margin-top: 10px;">
+                                <?php _e('Configura cuánto tiempo se reserva el stock para pedidos no abonados. Este ajuste sincroniza en tiempo real con la opción nativa de WooCommerce (<code>woocommerce_hold_stock_minutes</code>). En la terminal de Caja POS, cuando se seleccione un pedido a despachar con pago pendiente, se mostrará automáticamente este tiempo límite en la alerta informativa.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
         <!-- Barra Inferior de Guardar -->
         <div class="caja-settings-submit-bar">
             <button type="submit" class="caja-btn caja-btn-primary caja-btn-lg caja-btn-save-settings" id="caja-btn-save-settings">

@@ -5621,6 +5621,50 @@ $('#caja-modal-new-product').fadeIn(200);
                 $(this).closest('.caja-slot-chip').remove();
             });
 
+            // Tiempo límite de cancelación de pedidos pendientes en pantalla POS
+            function formatHoldStockPreviewPos(mins) {
+                mins = parseInt(mins, 10);
+                if (!mins || mins <= 0) return 'tiempo determinado';
+                if (mins >= 1440 && mins % 1440 === 0) {
+                    const d = Math.floor(mins / 1440);
+                    return `${d} ${d === 1 ? 'día' : 'días'}`;
+                }
+                if (mins >= 60) {
+                    const h = Math.floor(mins / 60);
+                    const r = mins % 60;
+                    if (r === 0) {
+                        return `${h} ${h === 1 ? 'hora' : 'horas'}`;
+                    } else {
+                        return `${h} ${h === 1 ? 'hora' : 'horas'} y ${r} ${r === 1 ? 'minuto' : 'minutos'}`;
+                    }
+                }
+                return `${mins} ${mins === 1 ? 'minuto' : 'minutos'}`;
+            }
+
+            function updateHoldStockPreviewPos() {
+                const val = parseInt($('#caja_setting_hold_stock_minutes').val(), 10) || 60;
+                const text = formatHoldStockPreviewPos(val);
+                $('#caja-hold-stock-preview-text').html(`El cliente tiene un máximo de <strong>${text}</strong> para pagar el pedido, sino se cancela automáticamente.`);
+                if ($('#caja_select_hold_stock_presets option[value="' + val + '"]').length) {
+                    $('#caja_select_hold_stock_presets').val(val);
+                } else {
+                    $('#caja_select_hold_stock_presets').val('');
+                }
+            }
+
+            $(document).off('input.cajaHoldStock change.cajaHoldStock', '#caja_setting_hold_stock_minutes')
+                .on('input.cajaHoldStock change.cajaHoldStock', '#caja_setting_hold_stock_minutes', updateHoldStockPreviewPos);
+
+            $(document).off('change.cajaHoldStockPreset', '#caja_select_hold_stock_presets')
+                .on('change.cajaHoldStockPreset', '#caja_select_hold_stock_presets', function() {
+                    const v = $(this).val();
+                    if (v) {
+                        $('#caja_setting_hold_stock_minutes').val(v).trigger('input');
+                    }
+                });
+
+            updateHoldStockPreviewPos();
+
             // Eventos de guardado
             $('#caja-settings-form').off('submit.cajaSettings').on('submit.cajaSettings', function(e) {
                 e.preventDefault();
@@ -5759,6 +5803,17 @@ $('#caja-modal-new-product').fadeIn(200);
                         self.currentSlotFilter = 'all';
                     }
                 }
+            }
+
+            if (s.hold_stock_minutes !== undefined) {
+                const hsm = parseInt(s.hold_stock_minutes, 10);
+                if (typeof batllieCajaConfig !== 'undefined') {
+                    batllieCajaConfig.holdStockMinutes = hsm;
+                }
+                if (this.config) {
+                    this.config.holdStockMinutes = hsm;
+                }
+                this.updatePosUnpaidWarning();
             }
         },
 
