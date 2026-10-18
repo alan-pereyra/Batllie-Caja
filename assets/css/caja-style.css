@@ -6357,16 +6357,21 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 .caja-pos-cust-fields-grid {
     display: flex !important;
     flex-direction: column !important;
-    gap: 18px !important;
+    gap: 0 !important;
     margin-top: 6px !important;
 }
 
 .caja-pos-cust-field {
     display: flex !important;
     flex-direction: column !important;
-    gap: 4px !important;
-    margin: 0 !important;
+    gap: 5px !important;
+    margin: 0 0 16px 0 !important;
     padding: 0 !important;
+}
+
+.caja-pos-cust-field input.caja-pos-text-input,
+.caja-pos-cust-field input.caja-input {
+    margin-bottom: 2px !important;
 }
 
 .caja-pos-cust-lbl {
@@ -6376,9 +6381,32 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     color: var(--caja-text, #ffffff) !important;
     font-weight: 700 !important;
     display: block !important;
-    margin: 0 !important;
+    margin: 0 0 3px 0 !important;
     padding: 0 !important;
     line-height: 1.1 !important;
+}
+
+.caja-pos-ship-diff-wrap {
+    margin-top: 4px !important;
+    padding-top: 14px !important;
+    margin-bottom: 16px !important;
+    border-top: 1px dashed rgba(255,255,255,0.12) !important;
+}
+
+#caja-pos-ship-diff-fields {
+    margin-top: 12px !important;
+    padding: 14px !important;
+    background: rgba(0,0,0,0.22) !important;
+    border: 1px solid var(--caja-card-border, #334155) !important;
+    border-radius: 8px !important;
+}
+
+#caja-pos-ship-diff-fields .caja-pos-cust-field {
+    margin: 0 0 16px 0 !important;
+}
+
+#caja-pos-ship-diff-fields .caja-pos-cust-field:last-child {
+    margin: 0 0 4px 0 !important;
 }
 
 /* Ocultar botón de ventana completa (reemplazado por modo PWA instalada) */

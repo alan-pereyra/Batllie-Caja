@@ -152,78 +152,78 @@ if (!defined('ABSPATH')) {
                         <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.08);"></div>
                     </div>
                     
-                    <div class="caja-pos-cust-fields-grid" style="display: flex; flex-direction: column; gap: 18px;">
-                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                            <label for="caja-pos-cust-name" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                    <div class="caja-pos-cust-fields-grid" style="display: flex; flex-direction: column;">
+                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                            <label for="caja-pos-cust-name" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                 <?php _e('Nombre y Apellido', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                             </label>
                             <input type="text" id="caja-pos-cust-name" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: Juan Pérez', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                         </div>
 
-                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                            <label for="caja-pos-cust-dni" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                            <label for="caja-pos-cust-dni" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                 <?php _e('DNI / CUIT', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                             </label>
                             <input type="text" id="caja-pos-cust-dni" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 35123456', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                         </div>
 
-                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                            <label for="caja-pos-cust-phone" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                            <label for="caja-pos-cust-phone" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                 <?php _e('Teléfono / WhatsApp', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                             </label>
                             <input type="tel" id="caja-pos-cust-phone" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 11 2345 6789', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                         </div>
 
-                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                            <label for="caja-pos-cust-email" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                            <label for="caja-pos-cust-email" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                 <?php _e('Email', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                             </label>
                             <input type="email" id="caja-pos-cust-email" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: cliente@gmail.com', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                         </div>
 
-                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                            <label for="caja-pos-cust-address" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                        <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                            <label for="caja-pos-cust-address" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                 <?php _e('Dirección del Cliente / Localidad', 'emp-caja'); ?> <span class="caja-pos-req-star" style="color: #ef4444; display: none;">*</span>
                             </label>
                             <input type="text" id="caja-pos-cust-address" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Calle, número, depto, ciudad...', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                         </div>
 
                         <!-- Opción: Envío a otra dirección (Desplegable) -->
-                        <div class="caja-pos-ship-diff-wrap" id="caja-pos-ship-diff-wrap" style="display: none; margin-top: 6px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,0.12);">
+                        <div class="caja-pos-ship-diff-wrap" id="caja-pos-ship-diff-wrap" style="display: none; margin-top: 4px; padding-top: 14px; margin-bottom: 16px; border-top: 1px dashed rgba(255,255,255,0.12);">
                             <label class="caja-pos-ship-diff-label" for="caja-pos-ship-diff-checkbox" style="display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none;">
                                 <input type="checkbox" id="caja-pos-ship-diff-checkbox" class="caja-pos-checkbox" style="width: 17px; height: 17px; cursor: pointer; accent-color: var(--caja-primary, #10b981);" />
                                 <span style="font-size: 0.88rem; font-weight: 700; color: var(--caja-text, #ffffff);"><?php _e('Envío a otra dirección', 'emp-caja'); ?></span>
                             </label>
 
-                            <div id="caja-pos-ship-diff-fields" style="display: none; margin-top: 12px; padding: 14px; background: rgba(0,0,0,0.22); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px;">
-                                <div style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; margin-bottom: 12px;">
+                            <div id="caja-pos-ship-diff-fields" style="display: none; margin-top: 12px; margin-bottom: 4px; padding: 14px; background: rgba(0,0,0,0.22); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px;">
+                                <div style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; margin-bottom: 14px;">
                                     <span>🚚</span>
                                     <span><?php _e('Datos del Destinatario y Dirección de Entrega', 'emp-caja'); ?></span>
                                 </div>
 
-                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px;">
-                                    <label for="caja-pos-ship-name" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                                    <label for="caja-pos-ship-name" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                         <?php _e('Nombre y Apellido (Quien recibe)', 'emp-caja'); ?> <span class="caja-pos-ship-req-star" style="color: #ef4444;">*</span>
                                     </label>
                                     <input type="text" id="caja-pos-ship-name" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: María Gómez', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                                 </div>
 
-                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px;">
-                                    <label for="caja-pos-ship-dni" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                                    <label for="caja-pos-ship-dni" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                         <?php _e('DNI / CUIT (Destinatario)', 'emp-caja'); ?>
                                     </label>
                                     <input type="text" id="caja-pos-ship-dni" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 28999888', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                                 </div>
 
-                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px;">
-                                    <label for="caja-pos-ship-phone" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;">
+                                    <label for="caja-pos-ship-phone" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                         <?php _e('Teléfono / WhatsApp (Destinatario)', 'emp-caja'); ?> <span class="caja-pos-ship-req-star" style="color: #ef4444;">*</span>
                                     </label>
                                     <input type="tel" id="caja-pos-ship-phone" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Ej: 11 9876 5432', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
                                 </div>
 
-                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 4px;">
-                                    <label for="caja-pos-ship-address" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0; padding: 0; line-height: 1.1;">
+                                <div class="caja-pos-cust-field" style="display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px;">
+                                    <label for="caja-pos-ship-address" class="caja-pos-cust-lbl" style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text, #ffffff); font-weight: 700; display: block; margin: 0 0 3px 0; padding: 0; line-height: 1.1;">
                                         <?php _e('Dirección de Envío / Localidad (Destino)', 'emp-caja'); ?> <span class="caja-pos-ship-req-star" style="color: #ef4444;">*</span>
                                     </label>
                                     <input type="text" id="caja-pos-ship-address" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Calle, número, depto, ciudad de entrega...', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box;" />
