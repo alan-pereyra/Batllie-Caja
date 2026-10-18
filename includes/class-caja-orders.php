@@ -1738,6 +1738,7 @@ class Batllie_Caja_Orders {
             'payment_status'  => $payment_status,
             'shipping_status' => $shipping_status,
             'shipping_method' => $order->get_shipping_method(),
+            'shipping_total'  => (floatval($order->get_shipping_total()) > 0) ? wc_price($order->get_shipping_total(), array('currency' => $order->get_currency())) : '',
             'is_local_pickup' => $is_local_pickup,
             'is_venta_mostrador' => $is_venta_mostrador,
             'is_venta_caja'   => (bool) $is_venta_caja,

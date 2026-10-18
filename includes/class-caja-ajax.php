@@ -51,6 +51,7 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_get_pos_history', array(__CLASS__, 'ajax_get_pos_history'));
         add_action('wp_ajax_emp_caja_search_customers', array(__CLASS__, 'ajax_search_customers'));
         add_action('wp_ajax_emp_caja_update_customer', array(__CLASS__, 'ajax_update_customer'));
+        add_action('wp_ajax_emp_caja_calculate_shipping', array(__CLASS__, 'ajax_calculate_shipping'));
 
         // Redirección directa a pedidos y auto-login tras definir contraseña
         add_action('woocommerce_customer_reset_password', array(__CLASS__, 'handle_auto_login_on_password_reset'), 10, 1);
@@ -649,6 +650,12 @@ class Batllie_Caja_Ajax {
             $shipping_phone   = isset($_POST['shipping_phone']) ? sanitize_text_field(wp_unslash($_POST['shipping_phone'])) : '';
             $shipping_address = isset($_POST['shipping_address']) ? sanitize_text_field(wp_unslash($_POST['shipping_address'])) : '';
 
+            // Datos de cálculo de envío (Costo y Método)
+            $shipping_cost         = isset($_POST['shipping_cost']) ? max(0, floatval($_POST['shipping_cost'])) : 0;
+            $shipping_method_title = isset($_POST['shipping_method_title']) ? sanitize_text_field(wp_unslash($_POST['shipping_method_title'])) : '';
+            $shipping_method_id    = isset($_POST['shipping_method_id']) ? sanitize_text_field(wp_unslash($_POST['shipping_method_id'])) : '';
+            $shipping_postcode     = isset($_POST['shipping_postcode']) ? sanitize_text_field(wp_unslash($_POST['shipping_postcode'])) : '';
+
             // Validación A: Si es pedido con envío, los datos requeridos son OBLIGATORIOS
             if ($mode === 'pedido_despachar' && $delivery_type === 'con_envio') {
                 $missing_fields = array();
@@ -836,24 +843,39 @@ class Batllie_Caja_Ajax {
                         $order->update_meta_data('_caja_is_pickup', 'yes');
                         $shipping_item->set_method_title(__('Retiro por el local', 'emp-caja'));
                         $shipping_item->set_method_id('local_pickup');
+                        $shipping_item->set_total(0);
+                        $order->add_item($shipping_item);
                         $mode_label = __('Retiro en Local', 'emp-caja');
                     } else {
                         $order->update_meta_data('_caja_is_pickup', 'no');
-                        $shipping_item->set_method_title(__('Con Envío', 'emp-caja'));
-                        $shipping_item->set_method_id('flat_rate');
+                        $ship_title = !empty($shipping_method_title) ? $shipping_method_title : __('Con Envío', 'emp-caja');
+                        $ship_id    = !empty($shipping_method_id) ? $shipping_method_id : 'flat_rate';
+                        $shipping_item->set_method_title($ship_title);
+                        $shipping_item->set_method_id($ship_id);
+                        $shipping_item->set_total($shipping_cost);
+                        $order->add_item($shipping_item);
+                        $order->set_shipping_total($shipping_cost);
+                        $order->update_meta_data('_caja_shipping_cost', $shipping_cost);
+                        $order->update_meta_data('_caja_shipping_method_title', $ship_title);
+                        $order->update_meta_data('_caja_shipping_method_id', $ship_id);
                         $mode_label = __('Con Envío', 'emp-caja');
                     }
-                    $shipping_item->set_total(0);
-                    $order->add_item($shipping_item);
                 } else {
                     if ($delivery_type === 'retiro_local') {
                         $order->update_meta_data('_caja_is_pickup', 'yes');
                         $mode_label = __('Retiro en Local', 'emp-caja');
                     } else {
                         $order->update_meta_data('_caja_is_pickup', 'no');
+                        $order->set_shipping_total($shipping_cost);
+                        $order->update_meta_data('_caja_shipping_cost', $shipping_cost);
                         $mode_label = __('Con Envío', 'emp-caja');
                     }
                 }
+            }
+
+            if (!empty($shipping_postcode)) {
+                $order->set_shipping_postcode($shipping_postcode);
+                $order->set_billing_postcode($shipping_postcode);
             }
 
             $now_ts = time();
@@ -935,6 +957,11 @@ class Batllie_Caja_Ajax {
             }
 
             $order->calculate_totals();
+
+            if ($mode === 'pedido_despachar' && $delivery_type === 'con_envio' && $shipping_cost > 0) {
+                $ship_note_title = !empty($shipping_method_title) ? $shipping_method_title : __('Envío a domicilio', 'emp-caja');
+                $order->add_order_note(sprintf(__('🚚 Costo de envío agregado: $%s (%s)', 'emp-caja'), number_format($shipping_cost, 2, ',', '.'), $ship_note_title));
+            }
 
             // Validación B: Si el total de la orden supera el monto umbral configurado, los datos son obligatorios
             $options = Batllie_Caja_Plugin::get_color_settings();
@@ -1208,6 +1235,8 @@ class Batllie_Caja_Ajax {
             $address    = (string) (get_user_meta($uid, 'shipping_address_1', true) ?: get_user_meta($uid, 'billing_address_1', true));
             $dni        = (string) (get_user_meta($uid, '_billing_dni', true) ?: (get_user_meta($uid, 'billing_dni', true) ?: get_user_meta($uid, '_caja_customer_dni', true)));
 
+            $postcode   = (string) (get_user_meta($uid, 'shipping_postcode', true) ?: get_user_meta($uid, 'billing_postcode', true));
+
             if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false) {
                 continue;
             }
@@ -1216,13 +1245,14 @@ class Batllie_Caja_Ajax {
             if (!isset($seen[$dedup_key])) {
                 $seen[$dedup_key] = true;
                 $results[] = array(
-                    'id'      => 'user_' . $uid,
-                    'name'    => $full_name,
-                    'dni'     => $dni,
-                    'phone'   => $phone,
-                    'email'   => $email,
-                    'address' => $address,
-                    'source'  => __('Usuario Registrado', 'emp-caja'),
+                    'id'       => 'user_' . $uid,
+                    'name'     => $full_name,
+                    'dni'      => $dni,
+                    'phone'    => $phone,
+                    'email'    => $email,
+                    'address'  => $address,
+                    'postcode' => $postcode,
+                    'source'   => __('Usuario Registrado', 'emp-caja'),
                 );
             }
         }
@@ -1267,22 +1297,24 @@ class Batllie_Caja_Ajax {
                 continue;
             }
 
-            $dni     = (string) ($order->get_meta('_billing_dni') ?: ($order->get_meta('_caja_customer_dni') ?: ($order->get_meta('billing_dni') ?: '')));
-            $phone   = (string) $order->get_billing_phone();
-            $email   = (string) $order->get_billing_email();
-            $address = (string) ($order->get_shipping_address_1() ?: $order->get_billing_address_1());
+            $dni      = (string) ($order->get_meta('_billing_dni') ?: ($order->get_meta('_caja_customer_dni') ?: ($order->get_meta('billing_dni') ?: '')));
+            $phone    = (string) $order->get_billing_phone();
+            $email    = (string) $order->get_billing_email();
+            $address  = (string) ($order->get_shipping_address_1() ?: $order->get_billing_address_1());
+            $postcode = (string) ($order->get_shipping_postcode() ?: $order->get_billing_postcode());
 
             $dedup_key = !empty($dni) ? ('dni_' . $dni) : (!empty($email) ? ('email_' . strtolower($email)) : (!empty($phone) ? ('phone_' . preg_replace('/[^0-9]/', '', $phone)) : ('name_' . strtolower($full_name))));
             if (!isset($seen[$dedup_key])) {
                 $seen[$dedup_key] = true;
                 $results[] = array(
-                    'id'      => 'order_' . $order->get_id(),
-                    'name'    => $full_name,
-                    'dni'     => $dni,
-                    'phone'   => $phone,
-                    'email'   => $email,
-                    'address' => $address,
-                    'source'  => sprintf(__('Pedido #%s', 'emp-caja'), $order->get_order_number()),
+                    'id'       => 'order_' . $order->get_id(),
+                    'name'     => $full_name,
+                    'dni'      => $dni,
+                    'phone'    => $phone,
+                    'email'    => $email,
+                    'address'  => $address,
+                    'postcode' => $postcode,
+                    'source'   => sprintf(__('Pedido #%s', 'emp-caja'), $order->get_order_number()),
                 );
             }
 
@@ -1525,6 +1557,186 @@ class Batllie_Caja_Ajax {
                 error_log('Error enviando email POS: ' . $err_detail);
             }
         }
+    }
+
+    /**
+     * AJAX: Calcular tarifas de envío en tiempo real para el POS
+     */
+    public static function ajax_calculate_shipping() {
+        self::check_auth();
+
+        $raw_items = isset($_POST['items']) ? $_POST['items'] : array();
+        if (is_string($raw_items)) {
+            $raw_items = json_decode(stripslashes($raw_items), true);
+        }
+
+        if (empty($raw_items) || !is_array($raw_items)) {
+            wp_send_json_error(array('message' => __('El ticket está vacío. Agrega productos para calcular el envío.', 'emp-caja')));
+            return;
+        }
+
+        $postcode = isset($_POST['postcode']) ? sanitize_text_field(preg_replace('/[^0-9A-Za-z]/', '', $_POST['postcode'])) : '';
+        $address  = isset($_POST['address']) ? sanitize_text_field(wp_unslash($_POST['address'])) : '';
+        $city     = isset($_POST['city']) ? sanitize_text_field(wp_unslash($_POST['city'])) : '';
+        $state    = isset($_POST['state']) ? sanitize_text_field($_POST['state']) : '';
+
+        // Si el código postal está vacío pero hay dirección, intentar extraer 4 dígitos de CP
+        if (empty($postcode) && !empty($address)) {
+            if (preg_match('/(?:cp|c\.p\.|código postal)?\s*(\b[1-9]\d{3}\b)/i', $address, $cp_matches)) {
+                $postcode = $cp_matches[1];
+            }
+        }
+
+        // Deducir provincia argentina para WooCommerce si no se especificó
+        if (empty($state) && is_numeric($postcode) && strlen($postcode) === 4) {
+            $cp_num = intval($postcode);
+            if ($cp_num >= 1000 && $cp_num <= 1499) {
+                $state = 'C'; // CABA
+            } elseif ($cp_num >= 1600 && $cp_num <= 1999) {
+                $state = 'B'; // Provincia de Buenos Aires
+            } elseif ($cp_num >= 5000 && $cp_num <= 5999) {
+                $state = 'X'; // Córdoba
+            } elseif ($cp_num >= 2000 && $cp_num <= 2999) {
+                $state = 'S'; // Santa Fe
+            } elseif ($cp_num >= 5500 && $cp_num <= 5699) {
+                $state = 'M'; // Mendoza
+            } else {
+                $state = 'B'; // Buenos Aires por defecto
+            }
+        } elseif (empty($state)) {
+            $state = 'B';
+        }
+
+        // Construir paquete de WooCommerce
+        $contents = array();
+        $contents_cost = 0;
+        foreach ($raw_items as $item) {
+            $prod_id = isset($item['id']) ? intval($item['id']) : 0;
+            $qty     = isset($item['quantity']) ? max(1, intval($item['quantity'])) : 1;
+            $product = wc_get_product($prod_id);
+            if (!$product) continue;
+
+            $price = floatval($product->get_price());
+            $line_total = $price * $qty;
+            $contents_cost += $line_total;
+
+            $contents[$prod_id] = array(
+                'product_id'        => $prod_id,
+                'variation_id'      => 0,
+                'variation'         => array(),
+                'quantity'          => $qty,
+                'data'              => $product,
+                'line_total'        => $line_total,
+                'line_tax'          => 0,
+                'line_subtotal'     => $line_total,
+                'line_subtotal_tax' => 0,
+            );
+        }
+
+        $package = array(
+            'contents'        => $contents,
+            'contents_cost'   => $contents_cost,
+            'applied_coupons' => array(),
+            'user'            => array('ID' => get_current_user_id()),
+            'destination'     => array(
+                'country'   => 'AR',
+                'state'     => $state,
+                'postcode'  => $postcode,
+                'city'      => $city,
+                'address'   => $address,
+                'address_2' => '',
+            ),
+        );
+
+        // Inicializar sesión y cliente de WC si no existen (común en llamadas wp-admin AJAX)
+        if (function_exists('WC')) {
+            if (null === WC()->session) {
+                $session_class = apply_filters('woocommerce_session_handler', 'WC_Session_Handler');
+                WC()->session = new $session_class();
+                WC()->session->init();
+            }
+            if (null === WC()->customer) {
+                WC()->customer = new WC_Customer(get_current_user_id(), true);
+            }
+            if (WC()->customer) {
+                WC()->customer->set_shipping_country('AR');
+                WC()->customer->set_shipping_state($state);
+                WC()->customer->set_shipping_postcode($postcode);
+                WC()->customer->set_shipping_city($city);
+                WC()->customer->set_shipping_address($address);
+            }
+        }
+
+        $rates = array();
+
+        // 1. Intentar cálculo general mediante el gestor de envíos de WooCommerce
+        if (function_exists('WC') && WC()->shipping()) {
+            try {
+                WC()->shipping()->load_shipping_methods($package);
+                $calc_result = WC()->shipping()->calculate_shipping_for_package($package);
+                if (!empty($calc_result) && !empty($calc_result['rates'])) {
+                    $rates = $calc_result['rates'];
+                }
+            } catch (Throwable $e) {
+                error_log('Error en WC calculate_shipping_for_package: ' . $e->getMessage());
+            }
+        }
+
+        // 2. Si no devolvió tarifas, buscar la zona correspondiente y ejecutar sus métodos activos
+        if (empty($rates) && class_exists('WC_Shipping_Zones')) {
+            try {
+                $zone = WC_Shipping_Zones::get_zone_matching_package($package);
+                if (!$zone) {
+                    $zone = new WC_Shipping_Zone(0); // Zona resto del mundo
+                }
+                if ($zone) {
+                    $methods = $zone->get_shipping_methods(true);
+                    foreach ($methods as $method) {
+                        try {
+                            $mr = $method->get_rates_for_package($package);
+                            if (!empty($mr) && is_array($mr)) {
+                                foreach ($mr as $rate) {
+                                    $rates[$rate->get_id()] = $rate;
+                                }
+                            }
+                        } catch (Throwable $m_err) {
+                            error_log('Error ejecutando método de envío: ' . $m_err->getMessage());
+                        }
+                    }
+                }
+            } catch (Throwable $ze) {
+                error_log('Error en matching zone: ' . $ze->getMessage());
+            }
+        }
+
+        // Formatear tarifas para el cliente POS
+        $formatted_rates = array();
+        foreach ($rates as $r) {
+            if (!is_object($r)) continue;
+
+            $method_id = method_exists($r, 'get_method_id') ? $r->get_method_id() : '';
+            // Si el método es retiro en local, omitirlo en la calculadora de envío a domicilio
+            if ($method_id === 'local_pickup' || stripos($method_id, 'pickup') !== false || stripos($r->get_label(), 'retiro') !== false) {
+                continue;
+            }
+
+            $cost = floatval($r->get_cost());
+            $formatted_rates[] = array(
+                'id'             => $r->get_id(),
+                'method_id'      => $method_id,
+                'instance_id'    => method_exists($r, 'get_instance_id') ? $r->get_instance_id() : 0,
+                'label'          => $r->get_label(),
+                'cost'           => $cost,
+                'cost_formatted' => wc_price($cost),
+                'cost_plain'     => '$' . number_format($cost, 2, ',', '.'),
+            );
+        }
+
+        wp_send_json_success(array(
+            'rates'    => $formatted_rates,
+            'postcode' => $postcode,
+            'message'  => empty($formatted_rates) ? __('No se encontraron tarifas automáticas para este código postal. Puedes ingresar el costo manualmente.', 'emp-caja') : ''
+        ));
     }
 
     /**

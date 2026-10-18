@@ -253,6 +253,49 @@ if (!defined('ABSPATH')) {
                 </div>
             </div>
 
+            <!-- Calculadora de Envíos (Visible cuando es 'Pedido por Despachar' y 'Con Envío') -->
+            <div class="caja-pos-shipping-calc-group" id="caja-pos-shipping-calc-group" style="display: none; margin-bottom: 14px; background: rgba(56, 189, 248, 0.03); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
+                <!-- Cabecera de la Calculadora -->
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px;">
+                    <span style="font-size: 0.95rem; line-height: 1; align-self: center;">🚚</span>
+                    <span style="font-size: 0.92rem; font-weight: 700; color: #38bdf8; line-height: 1.2; margin: 0; padding: 0;"><?php _e('Calculadora de Envíos', 'emp-caja'); ?></span>
+                    <span id="caja-pos-shipping-applied-badge" style="display: none; font-size: 0.72rem; font-weight: 700; line-height: 1.2; padding: 2px 8px; border-radius: 4px; background: var(--caja-primary, #10b981); color: #ffffff; white-space: nowrap;"><?php _e('Envío Aplicado', 'emp-caja'); ?></span>
+                </div>
+
+                <!-- Fila de Cálculo por Código Postal -->
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" id="caja-pos-calc-postcode" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('Código Postal (CP)', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; letter-spacing: 0.5px;" maxlength="10" />
+                    </div>
+                    <button type="button" id="caja-pos-btn-calc-shipping" class="caja-btn caja-btn-primary" style="flex: 1; justify-content: center; padding: 9px 12px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;">
+                        <span id="caja-pos-btn-calc-icon">⚡</span>
+                        <span id="caja-pos-btn-calc-text"><?php _e('Calcular envío', 'emp-caja'); ?></span>
+                    </button>
+                </div>
+
+                <!-- Contenedor dinámico de Tarifas Encontradas -->
+                <div id="caja-pos-shipping-rates-wrap" style="display: none; margin-bottom: 10px;">
+                    <div id="caja-pos-shipping-rates-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
+                </div>
+
+                <!-- Opción manual o ingreso personalizado -->
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.08);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--caja-text-muted, #94a3b8); font-weight: 600;"><?php _e('O ingresar costo manual:', 'emp-caja'); ?></span>
+                        <button type="button" id="caja-pos-clear-shipping-link" style="display: none; background: none; border: none; font-size: 0.72rem; color: #ef4444; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0;"><?php _e('Quitar costo', 'emp-caja'); ?></button>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="flex: 1; position: relative;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--caja-text-muted, #94a3b8); font-weight: 700; font-size: 0.88rem;">$</span>
+                            <input type="number" step="0.01" min="0" id="caja-pos-custom-shipping-cost" class="caja-input caja-pos-text-input" placeholder="0.00" style="width: 100%; box-sizing: border-box; padding-left: 24px; font-weight: 700;" />
+                        </div>
+                        <button type="button" id="caja-pos-btn-apply-custom-shipping" class="caja-btn" style="background: rgba(255,255,255,0.08); border: 1px solid var(--caja-card-border, #334155); color: var(--caja-text, #ffffff); font-size: 0.82rem; font-weight: 600; padding: 9px 14px; cursor: pointer; white-space: nowrap;">
+                            <?php _e('Aplicar', 'emp-caja'); ?>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Empaque y Bolsas Utilizadas (Sección colapsable opcional) -->
             <div class="caja-pos-packaging-subgroup" id="caja-pos-packaging-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
                 <!-- Cabecera colapsable: Título y Badge alineados a la izquierda -->
@@ -323,8 +366,15 @@ if (!defined('ABSPATH')) {
                         <span><?php _e('Subtotal:', 'emp-caja'); ?></span>
                         <strong id="caja-pos-subtotal-val">$0,00</strong>
                     </div>
+                    <div class="caja-pos-total-line caja-pos-shipping-total-row" id="caja-pos-shipping-total-row" style="display:none; color: #38bdf8;">
+                        <span id="caja-pos-shipping-total-label"><?php _e('Envío:', 'emp-caja'); ?></span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <strong id="caja-pos-shipping-total-val">$0,00</strong>
+                            <button type="button" id="caja-pos-remove-shipping-btn" title="<?php esc_attr_e('Quitar costo de envío', 'emp-caja'); ?>" style="background: none; border: none; color: #ef4444; font-size: 0.9rem; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
+                        </div>
+                    </div>
                     <div class="caja-pos-total-line caja-pos-total-line-grand">
-                        <span><?php _e('Total:', 'emp-caja'); ?></span>
+                        <span><?php _e('Total a pagar:', 'emp-caja'); ?></span>
                         <strong id="caja-pos-total-val">$0,00</strong>
                     </div>
                 </div>

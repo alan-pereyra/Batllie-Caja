@@ -5769,6 +5769,9 @@ $('#caja-modal-new-product').fadeIn(200);
         posEventsBound: false,
         posHistoryLoaded: false,
         posSearchQuery: '',
+        currentPosShippingCost: 0,
+        currentPosShippingMethodTitle: '',
+        currentPosShippingMethodId: '',
 
         initPosTab: function() {
             const self = this;
@@ -6355,6 +6358,15 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-cust-email').val(c.email || '');
                 $('#caja-pos-cust-address').val(c.address || '');
 
+                if (c.postcode) {
+                    $('#caja-pos-calc-postcode').val(c.postcode);
+                } else if (c.address && !$('#caja-pos-calc-postcode').val()) {
+                    const cpMatch = c.address.match(/(?:cp|c\.p\.|código postal)?\s*(\b[1-9]\d{3}\b)/i);
+                    if (cpMatch && cpMatch[1]) {
+                        $('#caja-pos-calc-postcode').val(cpMatch[1]);
+                    }
+                }
+
                 // Guardar copia de respaldo de los datos originales del cliente
                 self.posActiveCustomerData = {
                     id: c.id || '',
@@ -6518,6 +6530,199 @@ $('#caja-modal-new-product').fadeIn(200);
                 }, 500);
                 self.loadPosHistory();
             });
+
+            // Auto-extraer Código Postal al escribir o cambiar la dirección si el CP está vacío
+            $(document).on('blur change', '#caja-pos-cust-address, #caja-pos-ship-address', function() {
+                const val = $.trim($(this).val());
+                if (val && !$('#caja-pos-calc-postcode').val()) {
+                    const cpMatch = val.match(/(?:cp|c\.p\.|código postal)?\s*(\b[1-9]\d{3}\b)/i);
+                    if (cpMatch && cpMatch[1]) {
+                        $('#caja-pos-calc-postcode').val(cpMatch[1]);
+                    }
+                }
+            });
+
+            // Botón Calcular Envío en tiempo real
+            $(document).on('click', '#caja-pos-btn-calc-shipping', function(e) {
+                e.preventDefault();
+                if (!self.posCart || !self.posCart.length) {
+                    self.showToast('Agrega productos al pedido para calcular el envío.', 'warning');
+                    return;
+                }
+
+                let postcode = $.trim($('#caja-pos-calc-postcode').val());
+                const isShipDiff = $('#caja-pos-ship-diff-checkbox').is(':checked');
+                const destAddress = isShipDiff ? $.trim($('#caja-pos-ship-address').val()) : $.trim($('#caja-pos-cust-address').val());
+
+                if (!postcode && destAddress) {
+                    const cpMatch = destAddress.match(/(?:cp|c\.p\.|código postal)?\s*(\b[1-9]\d{3}\b)/i);
+                    if (cpMatch && cpMatch[1]) {
+                        postcode = cpMatch[1];
+                        $('#caja-pos-calc-postcode').val(postcode);
+                    }
+                }
+
+                if (!postcode) {
+                    self.showToast('Ingresa un Código Postal para calcular el costo de envío.', 'warning');
+                    $('#caja-pos-calc-postcode').focus();
+                    return;
+                }
+
+                const $btn = $(this);
+                const $icon = $('#caja-pos-btn-calc-icon');
+                const $text = $('#caja-pos-btn-calc-text');
+                const origText = $text.text();
+
+                $btn.prop('disabled', true);
+                $icon.html('<span class="caja-spinner" style="font-size:0.85rem;">⏳</span>');
+                $text.text('Calculando...');
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_calculate_shipping',
+                        security: self.config.nonce,
+                        items: JSON.stringify(self.posCart),
+                        postcode: postcode,
+                        address: destAddress
+                    },
+                    success: function(res) {
+                        const $wrap = $('#caja-pos-shipping-rates-wrap');
+                        const $list = $('#caja-pos-shipping-rates-list');
+
+                        if (res && res.success && res.data && res.data.rates && res.data.rates.length > 0) {
+                            let html = '';
+                            res.data.rates.forEach((rate, idx) => {
+                                const isSelected = (idx === 0);
+                                if (isSelected) {
+                                    self.currentPosShippingCost = rate.cost;
+                                    self.currentPosShippingMethodTitle = rate.label;
+                                    self.currentPosShippingMethodId = rate.id;
+                                    $('#caja-pos-custom-shipping-cost').val(rate.cost.toFixed(2));
+                                }
+                                html += `
+                                    <div class="caja-pos-shipping-rate-card ${isSelected ? 'selected' : ''}" 
+                                         data-rate-id="${self.escapeHtml(rate.id)}" 
+                                         data-cost="${rate.cost}" 
+                                         data-title="${self.escapeHtml(rate.label)}" 
+                                         style="display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: ${isSelected ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isSelected ? '#10b981' : 'var(--caja-card-border, #334155)'}; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span class="caja-pos-rate-radio" style="font-size: 0.95rem; color: ${isSelected ? '#10b981' : '#94a3b8'};">${isSelected ? '✔' : '⚪'}</span>
+                                            <div style="display: flex; flex-direction: column;">
+                                                <strong style="font-size: 0.85rem; color: var(--caja-text, #ffffff); line-height: 1.2;">${self.escapeHtml(rate.label)}</strong>
+                                                <span style="font-size: 0.72rem; color: var(--caja-text-muted, #94a3b8);">${self.escapeHtml(rate.method_id)}</span>
+                                            </div>
+                                        </div>
+                                        <div style="font-size: 0.95rem; font-weight: 700; color: #38bdf8;">
+                                            $${self.formatCurrencyNumber(rate.cost)}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            $list.html(html);
+                            $wrap.slideDown(150);
+                            self.updatePosTotals();
+                            self.showToast('Tarifa de envío calculada y agregada al total.', 'success');
+                        } else {
+                            const msg = (res && res.data && res.data.message) ? res.data.message : 'No se encontraron tarifas para este código postal.';
+                            $list.html(`
+                                <div style="padding: 10px 12px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; font-size: 0.8rem; color: #fbbf24; line-height: 1.35;">
+                                    ⚠️ ${self.escapeHtml(msg)}
+                                </div>
+                            `);
+                            $wrap.slideDown(150);
+                            $('#caja-pos-custom-shipping-cost').focus();
+                        }
+                    },
+                    error: function() {
+                        self.showToast('Error al conectar con la calculadora de envíos.', 'error');
+                    },
+                    complete: function() {
+                        $btn.prop('disabled', false);
+                        $icon.text('⚡');
+                        $text.text(origText);
+                    }
+                });
+            });
+
+            // Seleccionar tarjeta de tarifa calculada
+            $(document).on('click', '.caja-pos-shipping-rate-card', function() {
+                const $card = $(this);
+                const rateId = $card.data('rate-id');
+                const cost = parseFloat($card.data('cost')) || 0;
+                const title = $card.data('title') || '';
+
+                $('.caja-pos-shipping-rate-card').removeClass('selected').css({
+                    'border-color': 'var(--caja-card-border, #334155)',
+                    'background': 'rgba(255,255,255,0.04)'
+                }).find('.caja-pos-rate-radio').text('⚪').css('color', '#94a3b8');
+
+                $card.addClass('selected').css({
+                    'border-color': '#10b981',
+                    'background': 'rgba(16, 185, 129, 0.12)'
+                }).find('.caja-pos-rate-radio').text('✔').css('color', '#10b981');
+
+                self.currentPosShippingCost = cost;
+                self.currentPosShippingMethodTitle = title;
+                self.currentPosShippingMethodId = rateId;
+                $('#caja-pos-custom-shipping-cost').val(cost.toFixed(2));
+                self.updatePosTotals();
+                self.showToast('Tarifa seleccionada: ' + title, 'info');
+            });
+
+            // Aplicar costo manual de envío
+            $(document).on('click', '#caja-pos-btn-apply-custom-shipping', function(e) {
+                e.preventDefault();
+                const manualVal = parseFloat($('#caja-pos-custom-shipping-cost').val());
+                if (isNaN(manualVal) || manualVal < 0) {
+                    self.showToast('Ingresa un costo de envío válido.', 'warning');
+                    return;
+                }
+
+                $('.caja-pos-shipping-rate-card').removeClass('selected').css({
+                    'border-color': 'var(--caja-card-border, #334155)',
+                    'background': 'rgba(255,255,255,0.04)'
+                }).find('.caja-pos-rate-radio').text('⚪').css('color', '#94a3b8');
+
+                self.currentPosShippingCost = manualVal;
+                self.currentPosShippingMethodTitle = 'Envío a domicilio (Manual)';
+                self.currentPosShippingMethodId = 'custom_shipping';
+                self.updatePosTotals();
+                self.showToast('Costo de envío manual aplicado: $' + self.formatCurrencyNumber(manualVal), 'success');
+            });
+
+            // Presionar Enter en el campo de costo manual aplica el envío directamente
+            $(document).on('keydown', '#caja-pos-custom-shipping-cost', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    $('#caja-pos-btn-apply-custom-shipping').trigger('click');
+                }
+            });
+
+            // Presionar Enter en el código postal ejecuta el cálculo
+            $(document).on('keydown', '#caja-pos-calc-postcode', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    $('#caja-pos-btn-calc-shipping').trigger('click');
+                }
+            });
+
+            // Quitar costo de envío
+            $(document).on('click', '#caja-pos-remove-shipping-btn, #caja-pos-clear-shipping-link', function(e) {
+                e.preventDefault();
+                self.currentPosShippingCost = 0;
+                self.currentPosShippingMethodTitle = '';
+                self.currentPosShippingMethodId = '';
+                $('#caja-pos-custom-shipping-cost').val('');
+                $('.caja-pos-shipping-rate-card').removeClass('selected').css({
+                    'border-color': 'var(--caja-card-border, #334155)',
+                    'background': 'rgba(255,255,255,0.04)'
+                }).find('.caja-pos-rate-radio').text('⚪').css('color', '#94a3b8');
+                self.updatePosTotals();
+                self.showToast('Costo de envío removido.', 'info');
+            });
         },
 
         changePosCartQuantity: function(prodId, delta) {
@@ -6638,10 +6843,30 @@ $('#caja-modal-new-product').fadeIn(200);
             const $btn = $('#caja-pos-checkout-btn');
             const $badge = $('#caja-pos-cart-badge-count');
 
-            $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
-            $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(totalPrice));
+            const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
+            const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
+            const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
+            const shippingCost = isConEnvio ? (parseFloat(self.currentPosShippingCost) || 0) : 0;
+            const grandTotal = totalPrice + shippingCost;
 
-            self.currentPosTotal = totalPrice;
+            $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
+
+            if (isConEnvio && shippingCost > 0) {
+                const shipLabel = self.currentPosShippingMethodTitle ? `🚚 ${self.currentPosShippingMethodTitle}:` : '🚚 Envío:';
+                $('#caja-pos-shipping-total-label').text(shipLabel);
+                $('#caja-pos-shipping-total-val').text('$' + self.formatCurrencyNumber(shippingCost));
+                $('#caja-pos-shipping-total-row').show();
+                $('#caja-pos-shipping-applied-badge').show();
+                $('#caja-pos-clear-shipping-link').show();
+            } else {
+                $('#caja-pos-shipping-total-row').hide();
+                $('#caja-pos-shipping-applied-badge').hide();
+                $('#caja-pos-clear-shipping-link').hide();
+            }
+
+            $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(grandTotal));
+
+            self.currentPosTotal = grandTotal;
             self.updatePosCustomerRequirements();
 
             if (totalItems > 0) {
@@ -6669,6 +6894,19 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-status-dropdown-wrap').hide();
                 $('#caja-pos-selected-status').val('pagado');
             }
+
+            // Reset de calculadora de envíos
+            this.currentPosShippingCost = 0;
+            this.currentPosShippingMethodTitle = '';
+            this.currentPosShippingMethodId = '';
+            $('#caja-pos-calc-postcode').val('');
+            $('#caja-pos-custom-shipping-cost').val('');
+            $('#caja-pos-shipping-rates-list').empty();
+            $('#caja-pos-shipping-rates-wrap').hide();
+            $('#caja-pos-shipping-total-row').hide();
+            $('#caja-pos-shipping-applied-badge').hide();
+            $('#caja-pos-clear-shipping-link').hide();
+
             this.updatePosTotals();
             this.updatePosCustomerRequirements();
             this.updatePosUnpaidWarning();
@@ -6717,6 +6955,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 $badge.css({ 'background': 'rgba(239, 68, 68, 0.2)', 'color': '#ef4444' }).text('Obligatorio (Envío)');
                 $stars.show();
                 $('#caja-pos-ship-diff-wrap').show();
+                $('#caja-pos-shipping-calc-group').slideDown(180);
                 if (isShipDiff) {
                     $('#caja-pos-cust-address').closest('.caja-pos-cust-field').find('.caja-pos-req-star').hide();
                 }
@@ -6730,6 +6969,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-ship-diff-wrap').hide();
                 $('#caja-pos-ship-diff-checkbox').prop('checked', false);
                 $('#caja-pos-ship-diff-fields').hide();
+                $('#caja-pos-shipping-calc-group').slideUp(180);
                 if (!$body.is(':visible')) {
                     $body.slideDown(180);
                     $toggleIcon.text('▲');
@@ -6740,6 +6980,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-ship-diff-wrap').hide();
                 $('#caja-pos-ship-diff-checkbox').prop('checked', false);
                 $('#caja-pos-ship-diff-fields').hide();
+                $('#caja-pos-shipping-calc-group').slideUp(180);
             }
         },
 
@@ -7038,6 +7279,10 @@ $('#caja-modal-new-product').fadeIn(200);
                     shipping_dni: shipDni,
                     shipping_phone: shipPhone,
                     shipping_address: shipAddress,
+                    shipping_cost: (mode === 'pedido_despachar' && deliveryType === 'con_envio') ? (parseFloat(self.currentPosShippingCost) || 0) : 0,
+                    shipping_method_title: (mode === 'pedido_despachar' && deliveryType === 'con_envio') ? (self.currentPosShippingMethodTitle || '') : '',
+                    shipping_method_id: (mode === 'pedido_despachar' && deliveryType === 'con_envio') ? (self.currentPosShippingMethodId || '') : '',
+                    shipping_postcode: $.trim($('#caja-pos-calc-postcode').val()),
                     used_packaging: JSON.stringify(self.getUsedPackaging())
                 },
                 success: function(res) {
