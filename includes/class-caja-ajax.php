@@ -703,19 +703,34 @@ class Batllie_Caja_Ajax {
             // Agregar productos y registrar stocks previos para auditoría
             $stock_movements = array();
             foreach ($raw_items as $item) {
-                $product_id = isset($item['id']) ? intval($item['id']) : 0;
-                $qty        = isset($item['quantity']) ? max(1, intval($item['quantity'])) : 1;
-                $product    = wc_get_product($product_id);
+                $product_id   = isset($item['product_id']) ? intval($item['product_id']) : (isset($item['id']) ? intval($item['id']) : 0);
+                $variation_id = isset($item['variation_id']) ? intval($item['variation_id']) : 0;
+                $qty          = isset($item['quantity']) ? max(1, intval($item['quantity'])) : 1;
 
-                if (!$product) {
+                $product_to_add = null;
+                $args = array();
+
+                if ($variation_id > 0) {
+                    $product_to_add = wc_get_product($variation_id);
+                    if (isset($item['attributes']) && is_array($item['attributes'])) {
+                        $args['variation'] = $item['attributes'];
+                    }
+                }
+
+                if (!$product_to_add) {
+                    $product_to_add = wc_get_product($product_id);
+                }
+
+                if (!$product_to_add) {
                     continue;
                 }
 
-                $stock_before = $product->managing_stock() ? $product->get_stock_quantity() : null;
-                $order->add_product($product, $qty);
+                $stock_before = $product_to_add->managing_stock() ? $product_to_add->get_stock_quantity() : null;
+                $order->add_product($product_to_add, $qty, $args);
 
                 $stock_movements[] = array(
-                    'prod_id'      => $product_id,
+                    'prod_id'      => $variation_id > 0 ? $variation_id : $product_id,
+                    'parent_id'    => $product_id,
                     'qty'          => $qty,
                     'stock_before' => $stock_before
                 );

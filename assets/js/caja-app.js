@@ -6023,8 +6023,16 @@ $('#caja-modal-new-product').fadeIn(200);
 
         buildPosProductRowHtml: function(p) {
             const self = this;
-            const inCart = this.posCart.find(i => i.id == p.id);
-            const qty = inCart ? inCart.quantity : 0;
+            const isVariable = (p.product_type === 'variable' && p.variations && p.variations.length > 0);
+
+            // Cantidad total seleccionada para este producto (sumando variaciones si existen)
+            let totalQtyInCart = 0;
+            self.posCart.forEach(i => {
+                if (i.product_id == p.id || i.id == p.id) {
+                    totalQtyInCart += i.quantity;
+                }
+            });
+
             const isOutOfStock = p.manage_stock && (p.stock_quantity === null || p.stock_quantity <= 0);
 
             const rawPrice = (p.price_raw !== undefined && p.price_raw !== null) ? parseFloat(p.price_raw) : parseFloat(p.regular_price || 0);
@@ -6032,7 +6040,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const imgSrc = p.image_url || p.image || '';
 
             let stockBadge = '';
-            if (!p.manage_stock) {
+            if (isVariable) {
+                stockBadge = `<span class="caja-pos-prod-stock is-variable">${p.variations.length} opciones</span>`;
+            } else if (!p.manage_stock) {
                 stockBadge = '<span class="caja-pos-prod-stock has-stock">Stock ilimitado</span>';
             } else if (p.stock_quantity !== null && p.stock_quantity > 0) {
                 stockBadge = `<span class="caja-pos-prod-stock has-stock">${p.stock_quantity} disp.</span>`;
@@ -6040,8 +6050,32 @@ $('#caja-modal-new-product').fadeIn(200);
                 stockBadge = '<span class="caja-pos-prod-stock no-stock">Agotado</span>';
             }
 
+            let stepperHtml = '';
+            if (isVariable) {
+                if (totalQtyInCart > 0) {
+                    stepperHtml = `
+                        <button type="button" class="caja-pos-btn-var-trigger has-items" data-id="${p.id}" title="Ver o modificar opciones seleccionadas">
+                            <span class="caja-pos-var-count">${totalQtyInCart}</span>
+                            <span class="caja-pos-var-label">Opciones ▾</span>
+                        </button>
+                    `;
+                } else {
+                    stepperHtml = `
+                        <button type="button" class="caja-pos-btn-var-trigger" data-id="${p.id}" title="Elegir variación">
+                            <span class="caja-pos-var-label">Elegir ▾</span>
+                        </button>
+                    `;
+                }
+            } else {
+                stepperHtml = `
+                    <button type="button" class="caja-pos-btn-qty btn-minus" data-id="${p.id}" title="Restar" ${totalQtyInCart === 0 ? 'disabled' : ''}>−</button>
+                    <span class="caja-pos-qty-val" data-id="${p.id}">${totalQtyInCart}</span>
+                    <button type="button" class="caja-pos-btn-qty btn-plus" data-id="${p.id}" title="Sumar" ${isOutOfStock ? 'disabled' : ''}>+</button>
+                `;
+            }
+
             return `
-                <div class="caja-pos-prod-row ${qty > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''}" data-id="${p.id}">
+                <div class="caja-pos-prod-row ${totalQtyInCart > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''} ${isVariable ? 'is-variable-row' : ''}" data-id="${p.id}">
                     <div class="caja-pos-prod-thumb">
                         ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" onerror="this.parentElement.innerHTML='📦';" />` : '📦'}
                     </div>
@@ -6053,9 +6087,7 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
                     </div>
                     <div class="caja-pos-prod-stepper">
-                        <button type="button" class="caja-pos-btn-qty btn-minus" data-id="${p.id}" title="Restar" ${qty === 0 ? 'disabled' : ''}>−</button>
-                        <span class="caja-pos-qty-val" data-id="${p.id}">${qty}</span>
-                        <button type="button" class="caja-pos-btn-qty btn-plus" data-id="${p.id}" title="Sumar" ${isOutOfStock ? 'disabled' : ''}>+</button>
+                        ${stepperHtml}
                     </div>
                 </div>
             `;
@@ -6116,6 +6148,89 @@ $('#caja-modal-new-product').fadeIn(200);
                 const prodId = parseInt($(this).data('id'));
                 if (prodId) {
                     self.changePosCartQuantity(prodId, -1);
+                }
+            });
+
+            // Eventos de Productos Variables (Selector de Opciones y Modal)
+            $(document).on('click', '.caja-pos-btn-var-trigger', function(e) {
+                e.stopPropagation();
+                const prodId = parseInt($(this).data('id'));
+                if (prodId) {
+                    self.openPosVariableModal(prodId);
+                }
+            });
+
+            $(document).on('click', '.caja-pos-prod-row.is-variable-row', function(e) {
+                if ($(e.target).closest('.caja-pos-prod-stepper').length) {
+                    return;
+                }
+                const prodId = parseInt($(this).data('id'));
+                if (prodId) {
+                    self.openPosVariableModal(prodId);
+                }
+            });
+
+            $(document).on('click', '#caja-pos-var-close-btn, #caja-pos-var-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-pos-variable').fadeOut(150);
+                self.currentVarModal = null;
+            });
+
+            $(document).on('click', '.caja-pos-var-pill:not(:disabled)', function(e) {
+                e.preventDefault();
+                if (!self.currentVarModal) return;
+                const attrSlug = $(this).attr('data-attr');
+                const val = $(this).attr('data-val');
+                if (attrSlug && val) {
+                    self.currentVarModal.selectedAttrs[attrSlug] = val.toLowerCase();
+                    self.updatePosVarModalState();
+                }
+            });
+
+            $(document).on('click', '#caja-pos-var-btn-minus', function(e) {
+                e.preventDefault();
+                if (!self.currentVarModal) return;
+                self.currentVarModal.qty = Math.max(1, (self.currentVarModal.qty || 1) - 1);
+                self.updatePosVarModalState();
+            });
+
+            $(document).on('click', '#caja-pos-var-btn-plus', function(e) {
+                e.preventDefault();
+                if (!self.currentVarModal) return;
+                const matched = self.currentVarModal.matchedVar;
+                const newQty = (self.currentVarModal.qty || 1) + 1;
+                if (matched && matched.manage_stock && matched.stock_quantity !== null) {
+                    if (newQty > matched.stock_quantity) {
+                        self.showToast(`Stock máximo de esta variación: ${matched.stock_quantity}.`, 'warning');
+                        return;
+                    }
+                }
+                self.currentVarModal.qty = newQty;
+                self.updatePosVarModalState();
+            });
+
+            $(document).on('click', '#caja-pos-var-add-btn:not(:disabled)', function(e) {
+                e.preventDefault();
+                self.addCurrentVariableToCart();
+            });
+
+            $(document).on('click', '.caja-pos-var-chip-remove', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const key = $(this).attr('data-cart-key');
+                if (!key || !self.posCart) return;
+
+                const existingIndex = self.posCart.findIndex(i => (i.cartKey === key || `${i.product_id}_${i.variation_id}` === key));
+                if (existingIndex !== -1) {
+                    const item = self.posCart[existingIndex];
+                    if (item.quantity > 1) {
+                        item.quantity -= 1;
+                    } else {
+                        self.posCart.splice(existingIndex, 1);
+                    }
+                    const prodId = item.product_id || item.id;
+                    self.updatePosProductRowState(prodId);
+                    self.renderCurrentProductVariationsInModal(prodId);
                 }
             });
 
@@ -6790,7 +6905,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 return;
             }
 
-            const existing = this.posCart.find(i => i.id == prodId);
+            // Si es producto variable, abrir el selector de variaciones
+            if (prod.product_type === 'variable' && prod.variations && prod.variations.length > 0) {
+                self.openPosVariableModal(prodId);
+                return;
+            }
+
+            const existing = this.posCart.find(i => i.id == prodId && (!i.variation_id || i.variation_id == 0));
             const currentQty = existing ? existing.quantity : 0;
             const newQty = Math.max(0, currentQty + delta);
 
@@ -6806,13 +6927,15 @@ $('#caja-modal-new-product').fadeIn(200);
             const prodImg = prod.image_url || prod.image || '';
 
             if (newQty === 0) {
-                this.posCart = this.posCart.filter(i => i.id != prodId);
+                this.posCart = this.posCart.filter(i => !(i.id == prodId && (!i.variation_id || i.variation_id == 0)));
             } else {
                 if (existing) {
                     existing.quantity = newQty;
                 } else {
                     this.posCart.push({
                         id: prod.id,
+                        product_id: prod.id,
+                        variation_id: 0,
                         name: prod.name,
                         price: rawPrice,
                         image: prodImg,
@@ -6823,24 +6946,339 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             }
 
-            // Actualizar los elementos visuales del producto en el DOM
-            $(`.caja-pos-qty-val[data-id="${prodId}"]`).text(newQty);
-            const $minusBtn = $(`.caja-pos-btn-qty.btn-minus[data-id="${prodId}"]`);
-            const $row = $(`.caja-pos-prod-row[data-id="${prodId}"]`);
+            self.updatePosProductRowState(prodId);
+        },
 
-            if (newQty === 0) {
-                $minusBtn.prop('disabled', true);
-                $row.removeClass('has-selected');
+        updatePosProductRowState: function(prodId) {
+            const self = this;
+            const $row = $(`.caja-pos-prod-row[data-id="${prodId}"]`);
+            if (!$row.length) return;
+
+            let totalQty = 0;
+            self.posCart.forEach(i => {
+                if (i.product_id == prodId || i.id == prodId) {
+                    totalQty += i.quantity;
+                }
+            });
+
+            const isVariable = $row.hasClass('is-variable-row');
+            if (isVariable) {
+                const $trigger = $row.find('.caja-pos-btn-var-trigger');
+                if (totalQty > 0) {
+                    $row.addClass('has-selected');
+                    $trigger.addClass('has-items').html(`
+                        <span class="caja-pos-var-count">${totalQty}</span>
+                        <span class="caja-pos-var-label">Opciones ▾</span>
+                    `);
+                } else {
+                    $row.removeClass('has-selected');
+                    $trigger.removeClass('has-items').html(`
+                        <span class="caja-pos-var-label">Elegir ▾</span>
+                    `);
+                }
             } else {
-                $minusBtn.prop('disabled', false);
-                $row.addClass('has-selected');
+                $row.find(`.caja-pos-qty-val[data-id="${prodId}"]`).text(totalQty);
+                const $minusBtn = $row.find(`.caja-pos-btn-qty.btn-minus[data-id="${prodId}"]`);
+                if (totalQty === 0) {
+                    $minusBtn.prop('disabled', true);
+                    $row.removeClass('has-selected');
+                } else {
+                    $minusBtn.prop('disabled', false);
+                    $row.addClass('has-selected');
+                }
             }
 
-            // Actualizar badge de la categoría contenedora
-            this.updateCategoryBadges();
+            self.updateCategoryBadges();
+            self.updatePosTotals();
+        },
 
-            // Actualizar Subtotal y Total en tiempo real
-            this.updatePosTotals();
+        openPosVariableModal: function(productId) {
+            const self = this;
+            if (!this.cachedProducts) return;
+
+            const prod = this.cachedProducts.find(p => p.id == productId);
+            if (!prod || !prod.variations || prod.variations.length === 0) {
+                this.showToast('Este producto no tiene variaciones disponibles.', 'warning');
+                return;
+            }
+
+            const varAttrs = (prod.attributes || []).filter(a => a.variation);
+            if (varAttrs.length === 0) {
+                this.showToast('No se encontraron atributos para este producto.', 'warning');
+                return;
+            }
+
+            // Seleccionar por defecto la primera variación que tenga stock (o la primera)
+            let defaultVar = prod.variations.find(v => v.is_in_stock && (v.stock_quantity === null || v.stock_quantity > 0));
+            if (!defaultVar) {
+                defaultVar = prod.variations[0];
+            }
+
+            const initialAttrs = {};
+            varAttrs.forEach(a => {
+                const aSlug = (a.slug || '').toLowerCase();
+                let chosenVal = '';
+                if (defaultVar && defaultVar.attributes) {
+                    chosenVal = defaultVar.attributes[aSlug] || defaultVar.attributes['attribute_' + aSlug] || '';
+                }
+                if (!chosenVal && a.options_list && a.options_list.length > 0) {
+                    chosenVal = a.options_list[0].slug;
+                }
+                initialAttrs[aSlug] = (chosenVal || '').toLowerCase();
+            });
+
+            this.currentVarModal = {
+                product: prod,
+                varAttrs: varAttrs,
+                selectedAttrs: initialAttrs,
+                qty: 1,
+                matchedVar: defaultVar
+            };
+
+            $('#caja-pos-var-title').text(prod.name);
+
+            let bodyHtml = '';
+            varAttrs.forEach(a => {
+                const aSlug = (a.slug || '').toLowerCase();
+                const currVal = initialAttrs[aSlug] || '';
+
+                bodyHtml += `
+                    <div class="caja-pos-var-attr-group" data-attr-slug="${self.escapeHtml(aSlug)}">
+                        <div class="caja-pos-var-attr-title">
+                            <span>${self.escapeHtml(a.name)}:</span>
+                            <span class="caja-pos-var-attr-selected-val" id="caja-pos-var-val-lbl-${self.escapeHtml(aSlug)}"></span>
+                        </div>
+                        <div class="caja-pos-var-pills-row">
+                `;
+
+                const opts = a.options_list || [];
+                opts.forEach(opt => {
+                    const optSlug = (opt.slug || opt.name).toLowerCase();
+                    const optName = opt.name || opt.slug;
+                    const isActive = (optSlug === currVal);
+
+                    bodyHtml += `
+                        <button type="button" class="caja-pos-var-pill ${isActive ? 'active' : ''}" 
+                            data-attr="${self.escapeHtml(aSlug)}" 
+                            data-val="${self.escapeHtml(optSlug)}" 
+                            data-name="${self.escapeHtml(optName)}">
+                            ${self.escapeHtml(optName)}
+                        </button>
+                    `;
+                });
+
+                bodyHtml += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            $('#caja-pos-var-body').html(bodyHtml);
+            $('#caja-pos-var-qty').text('1');
+
+            self.renderCurrentProductVariationsInModal(prod.id);
+            self.updatePosVarModalState();
+
+            $('#caja-modal-pos-variable').fadeIn(150);
+        },
+
+        updatePosVarModalState: function() {
+            const self = this;
+            if (!this.currentVarModal) return;
+
+            const p = this.currentVarModal.product;
+            const sel = this.currentVarModal.selectedAttrs;
+            const varAttrs = this.currentVarModal.varAttrs;
+
+            // Encontrar la variación que coincide con todos los atributos seleccionados
+            let matched = null;
+            if (p.variations && p.variations.length > 0) {
+                matched = p.variations.find(v => {
+                    return Object.keys(sel).every(k => {
+                        const chosenVal = sel[k];
+                        if (!chosenVal) return true;
+                        const vVal = v.attributes ? (v.attributes[k] || v.attributes['attribute_' + k] || '') : '';
+                        return !vVal || vVal === '' || vVal.toLowerCase() === chosenVal.toLowerCase();
+                    });
+                });
+            }
+            this.currentVarModal.matchedVar = matched;
+
+            // Actualizar etiquetas de valores seleccionados y clases .active en pastillas
+            varAttrs.forEach(a => {
+                const aSlug = (a.slug || '').toLowerCase();
+                const chosen = sel[aSlug] || '';
+                const $group = $(`.caja-pos-var-attr-group[data-attr-slug="${aSlug}"]`);
+
+                $group.find('.caja-pos-var-pill').each(function() {
+                    const pVal = ($(this).attr('data-val') || '').toLowerCase();
+                    if (pVal === chosen) {
+                        $(this).addClass('active');
+                        $(`#caja-pos-var-val-lbl-${aSlug}`).text($(this).attr('data-name') || pVal);
+                    } else {
+                        $(this).removeClass('active');
+                    }
+                });
+            });
+
+            const rawPrice = (matched && matched.price > 0) ? matched.price : (p.price_raw || parseFloat(p.regular_price || 0));
+            const imgSrc = (matched && matched.image_url) ? matched.image_url : (p.image_url || p.image || '');
+
+            if (imgSrc) {
+                $('#caja-pos-var-thumb-img').attr('src', imgSrc).show();
+            } else {
+                $('#caja-pos-var-thumb-img').hide();
+            }
+
+            $('#caja-pos-var-price').text('$' + self.formatCurrencyNumber(rawPrice));
+
+            let isAvailable = true;
+            let stockText = 'Stock ilimitado';
+            let isOut = false;
+
+            if (!matched) {
+                isAvailable = false;
+                stockText = 'Combinación no disponible';
+                isOut = true;
+            } else if (!matched.is_in_stock) {
+                isAvailable = false;
+                stockText = 'Agotado';
+                isOut = true;
+            } else if (matched.manage_stock && matched.stock_quantity !== null) {
+                if (matched.stock_quantity <= 0) {
+                    isAvailable = false;
+                    stockText = 'Agotado';
+                    isOut = true;
+                } else {
+                    stockText = `${matched.stock_quantity} disponibles`;
+                }
+            } else if (p.manage_stock && p.stock_quantity !== null && p.stock_quantity <= 0) {
+                isAvailable = false;
+                stockText = 'Agotado';
+                isOut = true;
+            }
+
+            const $stockBadge = $('#caja-pos-var-stock');
+            $stockBadge.text(stockText);
+            if (isOut) {
+                $stockBadge.addClass('is-out');
+            } else {
+                $stockBadge.removeClass('is-out');
+            }
+
+            const qty = this.currentVarModal.qty || 1;
+            $('#caja-pos-var-qty').text(qty);
+
+            const $addBtn = $('#caja-pos-var-add-btn');
+            const $addText = $('#caja-pos-var-add-text');
+
+            if (!isAvailable) {
+                $addBtn.prop('disabled', true);
+                $addText.text(stockText);
+            } else {
+                $addBtn.prop('disabled', false);
+                const lineTotal = rawPrice * qty;
+                $addText.text(`Agregar a la venta • $${self.formatCurrencyNumber(lineTotal)}`);
+            }
+        },
+
+        renderCurrentProductVariationsInModal: function(productId) {
+            const self = this;
+            const $wrap = $('#caja-pos-var-current-items');
+            const $list = $('#caja-pos-var-current-list');
+
+            const items = self.posCart.filter(i => (i.product_id == productId || i.id == productId));
+            if (!items || items.length === 0) {
+                $wrap.hide();
+                $list.empty();
+                return;
+            }
+
+            let html = '';
+            items.forEach(item => {
+                const label = item.variation_label || item.name;
+                const cartKey = item.cartKey || `${item.product_id}_${item.variation_id}`;
+                html += `
+                    <div class="caja-pos-var-cart-chip" data-cart-key="${self.escapeHtml(cartKey)}">
+                        <span>${self.escapeHtml(label)}</span>
+                        <strong>(x${item.quantity})</strong>
+                        <button type="button" class="caja-pos-var-chip-remove" data-cart-key="${self.escapeHtml(cartKey)}" title="Quitar 1">✕</button>
+                    </div>
+                `;
+            });
+
+            $list.html(html);
+            $wrap.show();
+        },
+
+        addCurrentVariableToCart: function() {
+            const self = this;
+            if (!this.currentVarModal) return;
+
+            const p = this.currentVarModal.product;
+            const matched = this.currentVarModal.matchedVar;
+            const qty = this.currentVarModal.qty || 1;
+
+            if (!matched || !matched.is_in_stock) {
+                this.showToast('Esta combinación está agotada.', 'warning');
+                return;
+            }
+
+            if (matched.manage_stock && matched.stock_quantity !== null) {
+                const inCart = self.posCart.find(i => (i.cartKey === `${p.id}_${matched.id}` || (i.product_id == p.id && i.variation_id == matched.id)));
+                const currentQtyInCart = inCart ? inCart.quantity : 0;
+                if ((currentQtyInCart + qty) > matched.stock_quantity) {
+                    this.showToast(`Stock máximo de esta variación: ${matched.stock_quantity}.`, 'warning');
+                    return;
+                }
+            }
+
+            const labelParts = [];
+            if (this.currentVarModal.varAttrs && matched.attributes) {
+                this.currentVarModal.varAttrs.forEach(a => {
+                    const aSlug = (a.slug || '').toLowerCase();
+                    const val = matched.attributes[aSlug] || matched.attributes['attribute_' + aSlug];
+                    if (val) {
+                        let friendlyName = val;
+                        if (a.options_list) {
+                            const found = a.options_list.find(o => o.slug === val.toLowerCase());
+                            if (found) friendlyName = found.name;
+                        }
+                        labelParts.push(`${a.name}: ${friendlyName}`);
+                    }
+                });
+            }
+            const variationLabel = labelParts.length > 0 ? labelParts.join(' • ') : (matched.name || '');
+            const cartKey = `${p.id}_${matched.id}`;
+            const existing = self.posCart.find(i => i.cartKey === cartKey || (i.product_id == p.id && i.variation_id == matched.id));
+
+            const rawPrice = (matched.price > 0) ? matched.price : (p.price_raw || parseFloat(p.regular_price || 0));
+            const imgSrc = matched.image_url || p.image_url || p.image || '';
+
+            if (existing) {
+                existing.quantity += qty;
+            } else {
+                self.posCart.push({
+                    id: p.id,
+                    product_id: p.id,
+                    variation_id: matched.id,
+                    cartKey: cartKey,
+                    name: p.name,
+                    variation_label: variationLabel,
+                    attributes: matched.raw_attributes || matched.attributes,
+                    price: rawPrice,
+                    image: imgSrc,
+                    stock: matched.stock_quantity,
+                    manage_stock: matched.manage_stock,
+                    quantity: qty
+                });
+            }
+
+            self.updatePosProductRowState(p.id);
+            self.showToast(`✅ ${p.name} (${variationLabel}) agregado (${qty})`);
+
+            $('#caja-modal-pos-variable').fadeOut(150);
+            this.currentVarModal = null;
         },
 
         updateCategoryBadges: function() {
@@ -6851,8 +7289,11 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 $(this).find('.caja-pos-prod-row').each(function() {
                     const pId = $(this).data('id');
-                    const inCart = self.posCart.find(i => i.id == pId);
-                    if (inCart) catTotal += inCart.quantity;
+                    let pTotal = 0;
+                    self.posCart.forEach(i => {
+                        if (i.product_id == pId || i.id == pId) pTotal += i.quantity;
+                    });
+                    catTotal += pTotal;
                 });
 
                 if (catTotal > 0) {
@@ -6874,12 +7315,15 @@ $('#caja-modal-new-product').fadeIn(200);
                 totalItems += item.quantity;
                 totalPrice += lineTotal;
 
+                const varLabelHtml = item.variation_label ? `<div class="caja-pos-summary-item-var" style="font-size: 11px; color: #10b981; font-weight: 500; margin-top: 1px;">↳ ${self.escapeHtml(item.variation_label)}</div>` : '';
+
                 itemsHtml += `
                     <div class="caja-pos-summary-item-row">
                         <div class="caja-pos-summary-item-name">
                             <span class="caja-pos-summary-item-qty">${item.quantity}x</span>
                             <span class="caja-pos-summary-item-title" title="${self.escapeHtml(item.name)}">${self.escapeHtml(item.name)}</span>
                             ${item.quantity > 1 ? `<span class="caja-pos-summary-unit-price">($${self.formatCurrencyNumber(item.price)} c/u)</span>` : ''}
+                            ${varLabelHtml}
                         </div>
                         <div class="caja-pos-summary-item-price">$${self.formatCurrencyNumber(lineTotal)}</div>
                     </div>
@@ -6938,6 +7382,7 @@ $('#caja-modal-new-product').fadeIn(200);
             this.currentPosTotal = 0;
             $('.caja-pos-qty-val').text('0');
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
+            $('.caja-pos-btn-var-trigger').removeClass('has-items').html('<span class="caja-pos-var-label">Elegir ▾</span>');
             $('.caja-pos-prod-row').removeClass('has-selected');
             $('.caja-pos-cat-badge-qty').text('0').hide();
             // Reset de opciones de despacho

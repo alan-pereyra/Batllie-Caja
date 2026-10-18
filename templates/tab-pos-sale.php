@@ -418,4 +418,48 @@ if (!defined('ABSPATH')) {
             </div>
         </div>
     </div>
+
+    <!-- MODAL / BOTTOM SHEET: SELECTOR DE VARIACIONES POS -->
+    <div id="caja-modal-pos-variable" class="caja-modal caja-pos-bottom-sheet-modal" style="display:none; z-index: 100060;">
+        <div class="caja-modal-backdrop" id="caja-pos-var-backdrop"></div>
+        <div class="caja-modal-dialog caja-pos-var-dialog">
+            <div class="caja-pos-var-header">
+                <div class="caja-pos-var-header-left">
+                    <div class="caja-pos-var-thumb" id="caja-pos-var-thumb">
+                        <img src="" alt="" id="caja-pos-var-thumb-img" />
+                    </div>
+                    <div class="caja-pos-var-info">
+                        <h3 class="caja-pos-var-title" id="caja-pos-var-title"></h3>
+                        <div class="caja-pos-var-sub">
+                            <strong class="caja-pos-var-price" id="caja-pos-var-price"></strong>
+                            <span class="caja-pos-var-stock-badge" id="caja-pos-var-stock"></span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="caja-pos-var-close" id="caja-pos-var-close-btn" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+            </div>
+
+            <div class="caja-pos-var-body" id="caja-pos-var-body">
+                <!-- Se llena dinámicamente con los atributos y pastillas (Talles, Colores, etc.) -->
+            </div>
+
+            <!-- Sección de Stepper y Botón Agregar -->
+            <div class="caja-pos-var-footer">
+                <div class="caja-pos-var-stepper-wrap">
+                    <button type="button" class="caja-pos-var-btn-qty" id="caja-pos-var-btn-minus">−</button>
+                    <span class="caja-pos-var-qty-val" id="caja-pos-var-qty">1</span>
+                    <button type="button" class="caja-pos-var-btn-qty" id="caja-pos-var-btn-plus">+</button>
+                </div>
+                <button type="button" class="caja-btn caja-pos-var-confirm-btn" id="caja-pos-var-add-btn">
+                    <span id="caja-pos-var-add-text"><?php _e('Agregar a la venta', 'emp-caja'); ?></span>
+                </button>
+            </div>
+
+            <!-- Resumen de variaciones ya agregadas para este producto -->
+            <div class="caja-pos-var-current-items" id="caja-pos-var-current-items" style="display:none;">
+                <div class="caja-pos-var-current-title"><?php _e('En esta venta:', 'emp-caja'); ?></div>
+                <div class="caja-pos-var-current-list" id="caja-pos-var-current-list"></div>
+            </div>
+        </div>
+    </div>
 </div>

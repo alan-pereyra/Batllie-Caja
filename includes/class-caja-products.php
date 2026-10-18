@@ -187,20 +187,66 @@ class Batllie_Caja_Products {
             $raw_attributes = $product->get_attributes();
             foreach ($raw_attributes as $attr_slug => $attr) {
                 if (is_a($attr, 'WC_Product_Attribute')) {
-                    $options = $attr->is_taxonomy() ? wc_get_product_terms($product->get_id(), $attr->get_name(), array('fields' => 'names')) : $attr->get_options();
+                    if (!$attr->get_variation()) {
+                        continue;
+                    }
+                    $options_names = array();
+                    $options_formatted = array();
+                    if ($attr->is_taxonomy()) {
+                        $terms = wc_get_product_terms($product->get_id(), $attr->get_name(), array('fields' => 'all'));
+                        if (!is_wp_error($terms) && !empty($terms)) {
+                            foreach ($terms as $t) {
+                                $options_names[] = $t->name;
+                                $options_formatted[] = array(
+                                    'slug' => strtolower($t->slug),
+                                    'name' => $t->name,
+                                );
+                            }
+                        }
+                    } else {
+                        $raw_opts = $attr->get_options();
+                        if (is_array($raw_opts)) {
+                            foreach ($raw_opts as $ro) {
+                                $ro_trim = trim($ro);
+                                $options_names[] = $ro_trim;
+                                $options_formatted[] = array(
+                                    'slug' => strtolower(sanitize_title($ro_trim)),
+                                    'name' => $ro_trim,
+                                );
+                            }
+                        }
+                    }
+
                     $attributes_data[] = array(
-                        'name'      => wc_attribute_label($attr->get_name()),
-                        'slug'      => $attr_slug,
-                        'options'   => is_array($options) ? implode(' | ', $options) : (string) $options,
-                        'variation' => (bool) $attr->get_variation(),
+                        'name'         => wc_attribute_label($attr->get_name()),
+                        'slug'         => strtolower(str_replace('attribute_', '', $attr_slug)),
+                        'taxonomy'     => $attr->is_taxonomy() ? $attr->get_name() : '',
+                        'options'      => implode(' | ', $options_names),
+                        'options_list' => $options_formatted,
+                        'variation'    => true,
                     );
                 } elseif (is_array($attr)) {
-                    $options = isset($attr['options']) ? (is_array($attr['options']) ? implode(' | ', $attr['options']) : (string)$attr['options']) : (isset($attr['value']) ? $attr['value'] : '');
+                    if (empty($attr['is_variation'])) {
+                        continue;
+                    }
+                    $raw_opts = isset($attr['options']) ? (is_array($attr['options']) ? $attr['options'] : explode('|', (string)$attr['options'])) : array();
+                    $options_names = array();
+                    $options_formatted = array();
+                    foreach ($raw_opts as $ro) {
+                        $ro_trim = trim($ro);
+                        $options_names[] = $ro_trim;
+                        $options_formatted[] = array(
+                            'slug' => strtolower(sanitize_title($ro_trim)),
+                            'name' => $ro_trim,
+                        );
+                    }
                     $attributes_data[] = array(
-                        'name'      => isset($attr['name']) ? $attr['name'] : $attr_slug,
-                        'slug'      => $attr_slug,
-                        'options'   => $options,
-                        'variation' => !empty($attr['is_variation']),
+                        'name'         => isset($attr['name']) ? $attr['name'] : $attr_slug,
+                        'slug'         => strtolower(str_replace('attribute_', '', $attr_slug)),
+                        'taxonomy'     => '',
+                        'options'      => implode(' | ', $options_names),
+                        'options_list' => $options_formatted,
+                        'variation'    => true,
                     );
                 }
             }
@@ -210,17 +256,33 @@ class Batllie_Caja_Products {
                 $v = wc_get_product($vid);
                 if ($v && $v->is_type('variation')) {
                     $v_img_id = $v->get_image_id();
+                    $v_price = floatval($v->get_price());
+                    $v_stock_qty = $v->get_stock_quantity();
+                    $v_manage_stock = $v->get_manage_stock();
+
+                    $raw_var_attrs = $v->get_attributes();
+                    $clean_attrs = array();
+                    foreach ($raw_var_attrs as $attr_k => $attr_v) {
+                        $norm_k = strtolower(str_replace('attribute_', '', $attr_k));
+                        $clean_attrs[$norm_k] = strtolower($attr_v);
+                    }
+
                     $variations_data[] = array(
                         'id'             => $v->get_id(),
-                        'attributes'     => $v->get_attributes(),
+                        'attributes'     => $clean_attrs,
+                        'raw_attributes' => $raw_var_attrs,
+                        'price'          => $v_price,
+                        'price_formatted'=> wc_price($v_price),
                         'regular_price'  => $v->get_regular_price(),
                         'sale_price'     => $v->get_sale_price(),
                         'sku'            => $v->get_sku(),
-                        'manage_stock'   => $v->get_manage_stock(),
-                        'stock_quantity' => $v->get_stock_quantity() !== null ? intval($v->get_stock_quantity()) : '',
+                        'manage_stock'   => $v_manage_stock,
+                        'stock_quantity' => ($v_stock_qty !== null && $v_stock_qty !== '') ? intval($v_stock_qty) : null,
+                        'is_in_stock'    => $v->is_in_stock(),
                         'image_id'       => $v_img_id ? intval($v_img_id) : 0,
-                        'image_url'      => $v_img_id ? wp_get_attachment_image_url($v_img_id, 'thumbnail') : '',
+                        'image_url'      => $v_img_id ? wp_get_attachment_image_url($v_img_id, 'medium') : '',
                         'enabled'        => $v->get_status() === 'publish',
+                        'name'           => $v->get_name(),
                         'can_share_box'  => get_post_meta($vid, '_batllie_can_share_box', true) ?: 'none',
                         'share_box_max_alfajores' => (get_post_meta($vid, '_batllie_share_box_max_alfajores', true) !== '') ? intval(get_post_meta($vid, '_batllie_share_box_max_alfajores', true)) : 6,
                     );
