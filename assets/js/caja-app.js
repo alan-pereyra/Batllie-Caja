@@ -7017,9 +7017,15 @@ $('#caja-modal-new-product').fadeIn(200);
             const initialAttrs = {};
             varAttrs.forEach(a => {
                 const aSlug = (a.slug || '').toLowerCase();
+                const aNoPa = aSlug.replace(/^pa_/, '');
                 let chosenVal = '';
                 if (defaultVar && defaultVar.attributes) {
-                    chosenVal = defaultVar.attributes[aSlug] || defaultVar.attributes['attribute_' + aSlug] || '';
+                    chosenVal = defaultVar.attributes[aSlug] || 
+                                defaultVar.attributes['attribute_' + aSlug] || 
+                                defaultVar.attributes[aNoPa] || 
+                                defaultVar.attributes['attribute_' + aNoPa] || 
+                                defaultVar.attributes['pa_' + aNoPa] || 
+                                '';
                 }
                 if (!chosenVal && a.options_list && a.options_list.length > 0) {
                     chosenVal = a.options_list[0].slug;
@@ -7097,7 +7103,15 @@ $('#caja-modal-new-product').fadeIn(200);
                     return Object.keys(sel).every(k => {
                         const chosenVal = sel[k];
                         if (!chosenVal) return true;
-                        const vVal = v.attributes ? (v.attributes[k] || v.attributes['attribute_' + k] || '') : '';
+                        const kNoPa = k.replace(/^pa_/, '');
+                        const vVal = v.attributes ? (
+                            v.attributes[k] || 
+                            v.attributes['attribute_' + k] || 
+                            v.attributes[kNoPa] || 
+                            v.attributes['attribute_' + kNoPa] || 
+                            v.attributes['pa_' + kNoPa] || 
+                            ''
+                        ) : '';
                         return !vVal || vVal === '' || vVal.toLowerCase() === chosenVal.toLowerCase();
                     });
                 });
@@ -7140,22 +7154,31 @@ $('#caja-modal-new-product').fadeIn(200);
                 isAvailable = false;
                 stockText = 'Combinación no disponible';
                 isOut = true;
-            } else if (!matched.is_in_stock) {
-                isAvailable = false;
-                stockText = 'Agotado';
-                isOut = true;
             } else if (matched.manage_stock && matched.stock_quantity !== null) {
-                if (matched.stock_quantity <= 0) {
+                if (matched.stock_quantity <= 0 && !matched.backorders_allowed) {
                     isAvailable = false;
                     stockText = 'Agotado';
                     isOut = true;
                 } else {
                     stockText = `${matched.stock_quantity} disponibles`;
                 }
-            } else if (p.manage_stock && p.stock_quantity !== null && p.stock_quantity <= 0) {
+            } else if (p.manage_stock && p.stock_quantity !== null && typeof p.stock_quantity === 'number') {
+                if (p.stock_quantity <= 0 && !p.backorders_allowed) {
+                    isAvailable = false;
+                    stockText = 'Agotado';
+                    isOut = true;
+                } else {
+                    stockText = `${p.stock_quantity} disponibles`;
+                }
+            } else if (!matched.is_in_stock && (matched.manage_stock || p.manage_stock)) {
                 isAvailable = false;
                 stockText = 'Agotado';
                 isOut = true;
+            } else {
+                // Si el comercio no gestiona stock o el producto es ilimitado
+                isAvailable = true;
+                stockText = 'Stock ilimitado';
+                isOut = false;
             }
 
             const $stockBadge = $('#caja-pos-var-stock');
@@ -7219,12 +7242,17 @@ $('#caja-modal-new-product').fadeIn(200);
             const matched = this.currentVarModal.matchedVar;
             const qty = this.currentVarModal.qty || 1;
 
-            if (!matched || !matched.is_in_stock) {
+            if (!matched) {
+                this.showToast('Combinación no disponible.', 'warning');
+                return;
+            }
+
+            if ((matched.manage_stock || p.manage_stock) && !matched.is_in_stock && !matched.backorders_allowed) {
                 this.showToast('Esta combinación está agotada.', 'warning');
                 return;
             }
 
-            if (matched.manage_stock && matched.stock_quantity !== null) {
+            if (matched.manage_stock && matched.stock_quantity !== null && !matched.backorders_allowed) {
                 const inCart = self.posCart.find(i => (i.cartKey === `${p.id}_${matched.id}` || (i.product_id == p.id && i.variation_id == matched.id)));
                 const currentQtyInCart = inCart ? inCart.quantity : 0;
                 if ((currentQtyInCart + qty) > matched.stock_quantity) {
@@ -7237,7 +7265,13 @@ $('#caja-modal-new-product').fadeIn(200);
             if (this.currentVarModal.varAttrs && matched.attributes) {
                 this.currentVarModal.varAttrs.forEach(a => {
                     const aSlug = (a.slug || '').toLowerCase();
-                    const val = matched.attributes[aSlug] || matched.attributes['attribute_' + aSlug];
+                    const aNoPa = aSlug.replace(/^pa_/, '');
+                    const val = matched.attributes[aSlug] || 
+                                matched.attributes['attribute_' + aSlug] || 
+                                matched.attributes[aNoPa] || 
+                                matched.attributes['attribute_' + aNoPa] || 
+                                matched.attributes['pa_' + aNoPa] || 
+                                '';
                     if (val) {
                         let friendlyName = val;
                         if (a.options_list) {

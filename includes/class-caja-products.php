@@ -184,87 +184,54 @@ class Batllie_Caja_Products {
         $attributes_data = array();
         $variations_data = array();
         if ($product->is_type('variable')) {
-            $raw_attributes = $product->get_attributes();
-            foreach ($raw_attributes as $attr_slug => $attr) {
-                if (is_a($attr, 'WC_Product_Attribute')) {
-                    if (!$attr->get_variation()) {
-                        continue;
-                    }
-                    $options_names = array();
-                    $options_formatted = array();
-                    if ($attr->is_taxonomy()) {
-                        $terms = wc_get_product_terms($product->get_id(), $attr->get_name(), array('fields' => 'all'));
-                        if (!is_wp_error($terms) && !empty($terms)) {
-                            foreach ($terms as $t) {
-                                $options_names[] = $t->name;
-                                $options_formatted[] = array(
-                                    'slug' => strtolower($t->slug),
-                                    'name' => $t->name,
-                                );
-                            }
-                        }
-                    } else {
-                        $raw_opts = $attr->get_options();
-                        if (is_array($raw_opts)) {
-                            foreach ($raw_opts as $ro) {
-                                $ro_trim = trim($ro);
-                                $options_names[] = $ro_trim;
-                                $options_formatted[] = array(
-                                    'slug' => strtolower(sanitize_title($ro_trim)),
-                                    'name' => $ro_trim,
-                                );
-                            }
-                        }
-                    }
+            $raw_attributes   = $product->get_attributes();
+            $var_attr_options = method_exists($product, 'get_variation_attributes') ? (array)$product->get_variation_attributes() : array();
 
-                    $attributes_data[] = array(
-                        'name'         => wc_attribute_label($attr->get_name()),
-                        'slug'         => strtolower(str_replace('attribute_', '', $attr_slug)),
-                        'taxonomy'     => $attr->is_taxonomy() ? $attr->get_name() : '',
-                        'options'      => implode(' | ', $options_names),
-                        'options_list' => $options_formatted,
-                        'variation'    => true,
-                    );
-                } elseif (is_array($attr)) {
-                    if (empty($attr['is_variation'])) {
-                        continue;
-                    }
-                    $raw_opts = isset($attr['options']) ? (is_array($attr['options']) ? $attr['options'] : explode('|', (string)$attr['options'])) : array();
-                    $options_names = array();
-                    $options_formatted = array();
-                    foreach ($raw_opts as $ro) {
-                        $ro_trim = trim($ro);
-                        $options_names[] = $ro_trim;
-                        $options_formatted[] = array(
-                            'slug' => strtolower(sanitize_title($ro_trim)),
-                            'name' => $ro_trim,
-                        );
-                    }
-                    $attributes_data[] = array(
-                        'name'         => isset($attr['name']) ? $attr['name'] : $attr_slug,
-                        'slug'         => strtolower(str_replace('attribute_', '', $attr_slug)),
-                        'taxonomy'     => '',
-                        'options'      => implode(' | ', $options_names),
-                        'options_list' => $options_formatted,
-                        'variation'    => true,
-                    );
-                }
-            }
+            // 1. Procesar variaciones primero para extraer valores reales observados y stock
+            $parent_manages    = $product->managing_stock();
+            $parent_stock_qty  = $product->get_stock_quantity();
+            $parent_backorders = $product->backorders_allowed();
+            $variation_ids     = $product->get_children();
 
-            $variation_ids = $product->get_children();
+            $observed_attr_values = array();
+
             foreach ($variation_ids as $vid) {
                 $v = wc_get_product($vid);
                 if ($v && $v->is_type('variation')) {
-                    $v_img_id = $v->get_image_id();
-                    $v_price = floatval($v->get_price());
-                    $v_stock_qty = $v->get_stock_quantity();
-                    $v_manage_stock = $v->get_manage_stock();
+                    $v_img_id     = $v->get_image_id();
+                    $v_price      = floatval($v->get_price());
+                    $v_manages    = $v->managing_stock();
+                    $v_backorders = $v->backorders_allowed();
+
+                    // Gestión de stock para la variación:
+                    // Si ni la variación ni el producto padre gestionan stock, el stock es ILIMITADO.
+                    if ($v_manages) {
+                        $v_stock_qty  = $v->get_stock_quantity();
+                        $v_is_in_stock = $v_backorders || ($v_stock_qty === null) || ($v_stock_qty > 0) || $v->is_in_stock();
+                    } elseif ($parent_manages) {
+                        $v_stock_qty  = $parent_stock_qty;
+                        $v_is_in_stock = $parent_backorders || ($parent_stock_qty === null) || ($parent_stock_qty > 0) || $product->is_in_stock();
+                    } else {
+                        // Stock ilimitado configurado por el comercio
+                        $v_stock_qty  = null;
+                        $v_is_in_stock = true;
+                    }
 
                     $raw_var_attrs = $v->get_attributes();
-                    $clean_attrs = array();
+                    $clean_attrs   = array();
                     foreach ($raw_var_attrs as $attr_k => $attr_v) {
-                        $norm_k = strtolower(str_replace('attribute_', '', $attr_k));
-                        $clean_attrs[$norm_k] = strtolower($attr_v);
+                        $norm_k    = strtolower(str_replace('attribute_', '', $attr_k));
+                        $val_lower = strtolower(trim((string)$attr_v));
+                        $clean_attrs[$norm_k] = $val_lower;
+
+                        // También sin prefijo pa_
+                        $no_pa = preg_replace('/^pa_/', '', $norm_k);
+                        $clean_attrs[$no_pa] = $val_lower;
+
+                        if ($val_lower !== '') {
+                            $observed_attr_values[$norm_k][$val_lower] = (string)$attr_v;
+                            $observed_attr_values[$no_pa][$val_lower]  = (string)$attr_v;
+                        }
                     }
 
                     $variations_data[] = array(
@@ -276,9 +243,11 @@ class Batllie_Caja_Products {
                         'regular_price'  => $v->get_regular_price(),
                         'sale_price'     => $v->get_sale_price(),
                         'sku'            => $v->get_sku(),
-                        'manage_stock'   => $v_manage_stock,
+                        'manage_stock'   => ($v_manages || $parent_manages),
                         'stock_quantity' => ($v_stock_qty !== null && $v_stock_qty !== '') ? intval($v_stock_qty) : null,
-                        'is_in_stock'    => $v->is_in_stock(),
+                        'is_in_stock'    => $v_is_in_stock,
+                        'backorders_allowed' => ($v_backorders || $parent_backorders),
+                        'stock_status'   => $v->get_stock_status(),
                         'image_id'       => $v_img_id ? intval($v_img_id) : 0,
                         'image_url'      => $v_img_id ? wp_get_attachment_image_url($v_img_id, 'medium') : '',
                         'enabled'        => $v->get_status() === 'publish',
@@ -287,6 +256,133 @@ class Batllie_Caja_Products {
                         'share_box_max_alfajores' => (get_post_meta($vid, '_batllie_share_box_max_alfajores', true) !== '') ? intval(get_post_meta($vid, '_batllie_share_box_max_alfajores', true)) : 6,
                     );
                 }
+            }
+
+            // 2. Extraer atributos y opciones asegurando cobertura total de taxonomías y atributos personalizados
+            foreach ($raw_attributes as $attr_slug => $attr) {
+                $is_var_attr     = false;
+                $attr_name_label = '';
+                $tax_name        = '';
+                $raw_options     = array();
+
+                if (is_a($attr, 'WC_Product_Attribute')) {
+                    if (!$attr->get_variation()) {
+                        continue;
+                    }
+                    $is_var_attr     = true;
+                    $attr_name_label = wc_attribute_label($attr->get_name());
+                    $tax_name        = $attr->is_taxonomy() ? $attr->get_name() : '';
+
+                    if ($attr->is_taxonomy()) {
+                        $terms = $attr->get_terms();
+                        if (empty($terms)) {
+                            $terms = wc_get_product_terms($product->get_id(), $attr->get_name(), array('fields' => 'all'));
+                        }
+                        if (empty($terms)) {
+                            $opt_ids = (array) $attr->get_options();
+                            $terms   = array();
+                            foreach ($opt_ids as $tid) {
+                                if (is_numeric($tid)) {
+                                    $t = get_term(intval($tid), $attr->get_name());
+                                    if ($t && !is_wp_error($t)) {
+                                        $terms[] = $t;
+                                    }
+                                }
+                            }
+                        }
+                        if (!empty($terms) && !is_wp_error($terms)) {
+                            foreach ($terms as $t) {
+                                $raw_options[strtolower($t->slug)] = $t->name;
+                            }
+                        }
+                    } else {
+                        $opts = $attr->get_options();
+                        if (is_string($opts)) {
+                            $opts = explode('|', $opts);
+                        } elseif (!is_array($opts)) {
+                            $opts = (array) $opts;
+                        }
+                        foreach ($opts as $o) {
+                            $o_trim = trim((string)$o);
+                            if ($o_trim !== '') {
+                                $raw_options[strtolower(sanitize_title($o_trim))] = $o_trim;
+                            }
+                        }
+                    }
+                } elseif (is_array($attr)) {
+                    if (empty($attr['is_variation'])) {
+                        continue;
+                    }
+                    $is_var_attr     = true;
+                    $attr_name_label = isset($attr['name']) ? $attr['name'] : $attr_slug;
+                    $opts = isset($attr['options']) ? (is_array($attr['options']) ? $attr['options'] : explode('|', (string)$attr['options'])) : array();
+                    foreach ($opts as $o) {
+                        $o_trim = trim((string)$o);
+                        if ($o_trim !== '') {
+                            $raw_options[strtolower(sanitize_title($o_trim))] = $o_trim;
+                        }
+                    }
+                }
+
+                if (!$is_var_attr) {
+                    continue;
+                }
+
+                $clean_attr_slug = strtolower(str_replace('attribute_', '', $attr_slug));
+                $no_pa_slug      = preg_replace('/^pa_/', '', $clean_attr_slug);
+
+                // Fallback A: Buscar opciones en get_variation_attributes()
+                $possible_keys = array($clean_attr_slug, $no_pa_slug, 'pa_' . $no_pa_slug);
+                foreach ($possible_keys as $pk) {
+                    if (!empty($var_attr_options[$pk]) && is_array($var_attr_options[$pk])) {
+                        foreach ($var_attr_options[$pk] as $opt_val) {
+                            $opt_slug = strtolower((string)$opt_val);
+                            if (!isset($raw_options[$opt_slug])) {
+                                if ($tax_name) {
+                                    $t = get_term_by('slug', $opt_val, $tax_name);
+                                    $raw_options[$opt_slug] = $t ? $t->name : ucwords(str_replace(array('-', '_'), ' ', $opt_val));
+                                } else {
+                                    $raw_options[$opt_slug] = ucwords(str_replace(array('-', '_'), ' ', $opt_val));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Fallback B: Buscar opciones presentes en las variaciones reales creadas
+                foreach ($possible_keys as $pk) {
+                    if (!empty($observed_attr_values[$pk])) {
+                        foreach ($observed_attr_values[$pk] as $obs_slug => $obs_name) {
+                            if (!isset($raw_options[$obs_slug])) {
+                                if ($tax_name) {
+                                    $t = get_term_by('slug', $obs_slug, $tax_name);
+                                    $raw_options[$obs_slug] = $t ? $t->name : ($obs_name ?: ucwords(str_replace(array('-', '_'), ' ', $obs_slug)));
+                                } else {
+                                    $raw_options[$obs_slug] = $obs_name ?: ucwords(str_replace(array('-', '_'), ' ', $obs_slug));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                $options_formatted = array();
+                $options_names     = array();
+                foreach ($raw_options as $opt_slug => $opt_name) {
+                    $options_names[]     = $opt_name;
+                    $options_formatted[] = array(
+                        'slug' => strtolower($opt_slug),
+                        'name' => $opt_name
+                    );
+                }
+
+                $attributes_data[] = array(
+                    'name'         => $attr_name_label ?: $clean_attr_slug,
+                    'slug'         => $clean_attr_slug,
+                    'taxonomy'     => $tax_name,
+                    'options'      => implode(' | ', $options_names),
+                    'options_list' => $options_formatted,
+                    'variation'    => true,
+                );
             }
         }
 
