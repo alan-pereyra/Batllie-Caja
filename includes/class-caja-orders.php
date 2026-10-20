@@ -1568,7 +1568,19 @@ class Batllie_Caja_Orders {
         $is_pos_sale = ($order->get_meta('_caja_pos_sale') === 'yes' || $order->get_meta('_created_by_caja_pos'));
         $pos_mode = $order->get_meta('_caja_pos_mode');
         $is_venta_mostrador = $is_pos_sale || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
-        $is_venta_caja = ($pos_mode === 'compra_realizada') || ($order->get_meta('_caja_delivery_type') === 'in_situ') || ((stripos($last_name, 'Venta Mostrador') !== false || stripos($first_name, 'Venta Mostrador') !== false) && empty($pos_mode));
+        $has_shipping = (floatval($order->get_shipping_total()) > 0)
+            || !empty($order->get_shipping_address_1())
+            || in_array($order->get_meta('_caja_delivery_type'), array('con_envio', 'retiro_local'), true)
+            || ($pos_mode === 'pedido_despachar');
+
+        $status = $order->get_status();
+        $is_active_lifecycle = in_array($status, array('pending', 'processing', 'enviando', 'on-hold', 'recibido-problema'), true);
+
+        $is_venta_caja = !$has_shipping && !$is_active_lifecycle && (
+            ($pos_mode === 'compra_realizada')
+            || ($order->get_meta('_caja_delivery_type') === 'in_situ')
+            || ((stripos($last_name, 'Venta Mostrador') !== false || stripos($first_name, 'Venta Mostrador') !== false) && empty($pos_mode))
+        );
 
         if ($is_venta_mostrador) {
             $customer_name = trim(str_ireplace('Venta Mostrador', '', $first_name . ' ' . $last_name));
@@ -1862,7 +1874,19 @@ class Batllie_Caja_Orders {
         $first_name = method_exists($order, 'get_billing_first_name') ? $order->get_billing_first_name() : '';
         $last_name  = method_exists($order, 'get_billing_last_name') ? $order->get_billing_last_name() : '';
         $is_venta_mostrador = $is_pos_sale || (stripos($last_name, 'Venta Mostrador') !== false) || (stripos($first_name, 'Venta Mostrador') !== false);
-        $is_venta_caja = ($pos_mode === 'compra_realizada') || ($order->get_meta('_caja_delivery_type') === 'in_situ') || ((stripos($last_name, 'Venta Mostrador') !== false || stripos($first_name, 'Venta Mostrador') !== false) && empty($pos_mode));
+        $has_shipping = (floatval($order->get_shipping_total()) > 0)
+            || !empty($order->get_shipping_address_1())
+            || in_array($order->get_meta('_caja_delivery_type'), array('con_envio', 'retiro_local'), true)
+            || ($pos_mode === 'pedido_despachar');
+
+        $status = $order->get_status();
+        $is_active_lifecycle = in_array($status, array('pending', 'processing', 'enviando', 'on-hold', 'recibido-problema'), true);
+
+        $is_venta_caja = !$has_shipping && !$is_active_lifecycle && (
+            ($pos_mode === 'compra_realizada')
+            || ($order->get_meta('_caja_delivery_type') === 'in_situ')
+            || ((stripos($last_name, 'Venta Mostrador') !== false || stripos($first_name, 'Venta Mostrador') !== false) && empty($pos_mode))
+        );
 
         // En la terminal de caja: si no se chequeó el pago todavía, el resto de pasos no pueden iniciarse (excepto en Venta Caja o cancelación/reembolso)
         if (!in_array($clean_status, array('pending', 'cancelled', 'refunded'), true) && !$is_venta_caja) {

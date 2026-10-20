@@ -4,7 +4,7 @@
  * y evitar cualquier interferencia con transacciones, stock o llamadas AJAX de WooCommerce.
  */
 
-const CACHE_NAME = 'caja-pos-sw-v1';
+const CACHE_NAME = 'caja-pos-sw-v2';
 
 // 1. Instalación: forzar activación inmediata
 self.addEventListener('install', (event) => {

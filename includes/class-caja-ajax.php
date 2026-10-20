@@ -656,6 +656,11 @@ class Batllie_Caja_Ajax {
             $shipping_method_id    = isset($_POST['shipping_method_id']) ? sanitize_text_field(wp_unslash($_POST['shipping_method_id'])) : '';
             $shipping_postcode     = isset($_POST['shipping_postcode']) ? sanitize_text_field(wp_unslash($_POST['shipping_postcode'])) : '';
 
+            // Si tiene costo de envío, destinatario o dirección de entrega, forzar que sea pedido por despachar
+            if ($shipping_cost > 0 || !empty($shipping_address) || ($delivery_type === 'con_envio' && !empty($cust_address))) {
+                $mode = 'pedido_despachar';
+            }
+
             // Validación A: Si es pedido con envío, los datos requeridos son OBLIGATORIOS
             if ($mode === 'pedido_despachar' && $delivery_type === 'con_envio') {
                 $missing_fields = array();

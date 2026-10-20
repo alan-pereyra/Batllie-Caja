@@ -3,7 +3,7 @@
  * Plugin Name: Caja POS & Control de Pedidos
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.65
+ * Version: 1.9.66
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.65');
+define('EMP_CAJA_VERSION', '1.9.66');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -287,8 +287,8 @@ class Batllie_Caja_Plugin {
             }
         }
 
-        $css_ver = file_exists(EMP_CAJA_PATH . 'assets/css/caja-style.css') ? filemtime(EMP_CAJA_PATH . 'assets/css/caja-style.css') : EMP_CAJA_VERSION;
-        $js_ver  = file_exists(EMP_CAJA_PATH . 'assets/js/caja-app.js') ? filemtime(EMP_CAJA_PATH . 'assets/js/caja-app.js') : EMP_CAJA_VERSION;
+        $css_ver = EMP_CAJA_VERSION . '.' . (file_exists(EMP_CAJA_PATH . 'assets/css/caja-style.css') ? filemtime(EMP_CAJA_PATH . 'assets/css/caja-style.css') : time());
+        $js_ver  = EMP_CAJA_VERSION . '.' . (file_exists(EMP_CAJA_PATH . 'assets/js/caja-app.js') ? filemtime(EMP_CAJA_PATH . 'assets/js/caja-app.js') : time());
 
         wp_register_style(
             'batllie-caja-css',
