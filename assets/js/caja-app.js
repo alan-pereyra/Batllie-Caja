@@ -386,7 +386,7 @@
                 const currentStatus = cachedOrder ? cachedOrder.status : 'pending';
 
                 const isVentaMostrador = !!(cachedOrder && (cachedOrder.is_venta_mostrador || (cachedOrder.customer_name && cachedOrder.customer_name.toLowerCase().includes('venta mostrador'))));
-                const isVentaCaja = !!(cachedOrder && (cachedOrder.is_venta_caja || cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || isVentaMostrador));
+                const isVentaCaja = !!(cachedOrder && (cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || (cachedOrder.is_venta_caja && cachedOrder.pos_mode !== 'pedido_despachar')));
 
                 if (isVentaCaja) {
                     select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
@@ -2695,7 +2695,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const isVerified = (order.control_pedido_verified === true || order.control_pedido_verified === 'yes');
                 const isPickup = (order.is_local_pickup === true || order.is_local_pickup === 'yes');
                 const isVentaMostrador = !!(order.is_venta_mostrador || (order.customer_name && order.customer_name.toLowerCase().includes('venta mostrador')));
-                const isVentaCaja = Boolean(order.is_venta_caja || order.pos_mode === 'compra_realizada' || order.delivery_type === 'in_situ' || isVentaMostrador);
+                const isVentaCaja = Boolean(order.pos_mode === 'compra_realizada' || order.delivery_type === 'in_situ' || (order.is_venta_caja && order.pos_mode !== 'pedido_despachar'));
                 let showPaymentBox = false;
                 let showPackagingBox = false;
                 let showShippingBox = false;
@@ -3425,7 +3425,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
             const cachedOrder = self.cachedOrders.find(o => o.id == orderId);
             const isVentaMostrador = !!(cachedOrder && (cachedOrder.is_venta_mostrador || (cachedOrder.customer_name && cachedOrder.customer_name.toLowerCase().includes('venta mostrador'))));
-            const isVentaCaja = !!(cachedOrder && (cachedOrder.is_venta_caja || cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || isVentaMostrador));
+            const isVentaCaja = !!(cachedOrder && (cachedOrder.pos_mode === 'compra_realizada' || cachedOrder.delivery_type === 'in_situ' || (cachedOrder.is_venta_caja && cachedOrder.pos_mode !== 'pedido_despachar')));
 
             const setVisible = ($el, show) => {
                 if (show) {

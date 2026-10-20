@@ -686,8 +686,14 @@ class Batllie_Caja_Ajax {
 
             // Determinar estado final de la orden en WooCommerce
             // Si es 'compra_realizada': se completa la venta en el acto
-            // Si es 'pedido_despachar': pasa a preparación (processing) para figurar en Pedidos en Vivo
-            $order_status = ($mode === 'compra_realizada') ? 'completed' : 'processing';
+            // Si es 'pedido_despachar':
+            //    - Si el pago quedó pendiente: pasa a 'pending' (Pendiente de pago)
+            //    - Si el pago ya fue confirmado: pasa a 'processing' (En preparación)
+            if ($mode === 'compra_realizada') {
+                $order_status = 'completed';
+            } else {
+                $order_status = ($payment_status === 'pendiente') ? 'pending' : 'processing';
+            }
 
             // Crear la orden inicialmente con customer_id 0 para no asignarla a la cuenta del cajero
             $order = wc_create_order(array(
@@ -946,8 +952,11 @@ class Batllie_Caja_Ajax {
                         'text'           => __('llegó el pedido', 'emp-caja'),
                         'icon'           => '📥',
                         'type'           => 'created'
-                    ),
-                    array(
+                    )
+                );
+
+                if ($payment_status === 'pagado' || $payment_status === 'efectivo_entrega') {
+                    $initial_timeline[] = array(
                         'time'           => $time_str,
                         'date'           => $date_str,
                         'date_formatted' => $c_day_cap . ' ' . $c_d_str,
@@ -956,8 +965,8 @@ class Batllie_Caja_Ajax {
                         'text'           => __('se confirmó el pago', 'emp-caja'),
                         'icon'           => '💳',
                         'type'           => 'payment'
-                    ),
-                    array(
+                    );
+                    $initial_timeline[] = array(
                         'time'           => $time_str,
                         'date'           => $date_str,
                         'date_formatted' => $c_day_cap . ' ' . $c_d_str,
@@ -966,8 +975,9 @@ class Batllie_Caja_Ajax {
                         'text'           => __('en preparación', 'emp-caja'),
                         'icon'           => '📦',
                         'type'           => 'status_prep'
-                    )
-                );
+                    );
+                }
+
                 $order->update_meta_data('_caja_timeline', $initial_timeline);
             }
 
