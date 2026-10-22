@@ -100,15 +100,19 @@
             if (this.config.isUserLoggedIn) {
                 this.initDashboard();
 
-                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos, #configuracion)
+                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos, #configuracion, #empleados)
                 const urlParams = new URLSearchParams(window.location.search);
                 const hash = window.location.hash.toLowerCase();
-                if (hash === '#productos' || hash === '#tab-products' || urlParams.get('tab') === 'productos' || urlParams.get('tab') === 'products') {
-                    this.switchTab('tab-products');
-                } else if (hash === '#venta-caja' || hash === '#pos' || hash === '#tab-pos-sale' || urlParams.get('tab') === 'pos' || urlParams.get('tab') === 'venta-caja') {
-                    this.switchTab('tab-pos-sale');
-                } else if (hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') {
+                const perms = this.config.currentUserPermissions || {};
+
+                if ((hash === '#empleados' || hash === '#tab-employees' || urlParams.get('tab') === 'empleados' || urlParams.get('tab') === 'employees') && perms.is_admin) {
+                    this.switchTab('tab-employees');
+                } else if ((hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') && perms.is_admin) {
                     this.switchTab('tab-settings');
+                } else if ((hash === '#productos' || hash === '#tab-products' || urlParams.get('tab') === 'productos' || urlParams.get('tab') === 'products') && perms.can_view_products !== false) {
+                    this.switchTab('tab-products');
+                } else if (hash === '#venta-caja' || hash === '#pos' || hash === '#tab-pos-sale' || urlParams.get('tab') === 'pos' || urlParams.get('tab') === 'venta-caja' || perms.can_view_orders === false) {
+                    this.switchTab('tab-pos-sale');
                 }
             } else {
                 // Si el usuario intentó acceder con parámetros en la URL (?username=...&password=...)
@@ -1630,12 +1634,21 @@ $('#caja-modal-new-product').fadeIn(200);
             // Soporte para botón atrás/adelante en el historial del navegador
             $(window).on('hashchange', function() {
                 const h = window.location.hash.toLowerCase();
-                if (h === '#productos' || h === '#tab-products') {
+                const perms = self.config.currentUserPermissions || {};
+                if ((h === '#empleados' || h === '#tab-employees') && perms.is_admin) {
+                    if (self.activeTab !== 'tab-employees') self.switchTab('tab-employees');
+                } else if ((h === '#productos' || h === '#tab-products') && perms.can_view_products !== false) {
                     if (self.activeTab !== 'tab-products') self.switchTab('tab-products');
-                } else if (h === '#configuracion' || h === '#tab-settings') {
+                } else if ((h === '#configuracion' || h === '#tab-settings') && perms.is_admin) {
                     if (self.activeTab !== 'tab-settings') self.switchTab('tab-settings');
+                } else if (h === '#venta-caja' || h === '#tab-pos-sale' || h === '#pos') {
+                    if (self.activeTab !== 'tab-pos-sale') self.switchTab('tab-pos-sale');
                 } else if (h === '#pedidos' || h === '#tab-orders' || !h) {
-                    if (self.activeTab !== 'tab-orders') self.switchTab('tab-orders');
+                    if (perms.can_view_orders !== false) {
+                        if (self.activeTab !== 'tab-orders') self.switchTab('tab-orders');
+                    } else {
+                        if (self.activeTab !== 'tab-pos-sale') self.switchTab('tab-pos-sale');
+                    }
                 }
             });
 
@@ -1869,6 +1882,19 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         switchTab: function(tabId) {
+            const perms = this.config.currentUserPermissions || {};
+
+            // Validar permisos de acceso antes de cambiar de pestaña
+            if (tabId === 'tab-products' && perms.can_view_products === false) {
+                tabId = 'tab-pos-sale';
+            }
+            if (tabId === 'tab-orders' && perms.can_view_orders === false) {
+                tabId = 'tab-pos-sale';
+            }
+            if ((tabId === 'tab-settings' || tabId === 'tab-employees') && !perms.is_admin) {
+                tabId = 'tab-pos-sale';
+            }
+
             $('.caja-tab-btn').removeClass('active');
             $(`.caja-tab-btn[data-tab="${tabId}"]`).addClass('active');
 
@@ -1900,7 +1926,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else if (tabId === 'tab-pos-sale') {
                     $switcherWrap.addClass('is-pos');
                     $screenDot.addClass('dot-emerald');
-                } else if (tabId === 'tab-settings') {
+                } else if (tabId === 'tab-settings' || tabId === 'tab-employees') {
                     $switcherWrap.addClass('is-settings');
                     $screenDot.addClass('dot-purple');
                 } else {
@@ -1912,7 +1938,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar el botón 'En Vivo' / 'Ir a Caja' si existe
             const $livePill = $('#caja-live-status');
             if ($livePill.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-pos-sale') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale') {
                     $livePill.addClass('caja-live-pill-products');
                     $livePill.attr('title', 'Toca para ir a la Caja');
                     $livePill.html(`
@@ -1932,7 +1958,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
             const $toggleBtn = $('#caja-btn-screen-toggle');
             if ($toggleBtn.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-pos-sale') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale') {
                     const count = this.cachedOrders ? this.cachedOrders.length : 0;
                     $toggleBtn.addClass('active-in-products');
                     $toggleBtn.html(`
@@ -1957,6 +1983,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 if (tabId === 'tab-products') newHash = '#productos';
                 else if (tabId === 'tab-pos-sale') newHash = '#venta-caja';
                 else if (tabId === 'tab-settings') newHash = '#configuracion';
+                else if (tabId === 'tab-employees') newHash = '#empleados';
                 window.history.replaceState(null, null, newHash);
             }
 
@@ -1967,6 +1994,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.initPosTab();
             } else if (tabId === 'tab-settings') {
                 this.initSettingsTab();
+            } else if (tabId === 'tab-employees') {
+                this.initEmployeesTab();
             }
         },
 
@@ -5916,6 +5945,14 @@ $('#caja-modal-new-product').fadeIn(200);
             this.updatePosUnpaidWarning();
             this.renderPosPackagingSection();
 
+            const perms = this.config.currentUserPermissions || {};
+            if (!perms.is_admin && !perms.can_change_sector && perms.assigned_sectors && perms.assigned_sectors.length) {
+                this.gastroSector = perms.assigned_sectors[0];
+                this.gastroTable = '';
+            } else if (!this.gastroSector) {
+                this.gastroSector = $('#caja-pos-selected-sector').val() || 'Barra Principal';
+            }
+
             const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
 
@@ -6506,14 +6543,24 @@ $('#caja-modal-new-product').fadeIn(200);
             // Selector de Sector / Barra Gastro
             $(document).on('click', '.caja-gastro-chip', function(e) {
                 e.preventDefault();
+                if ($(this).hasClass('is-locked')) return;
+
+                const perms = self.config.currentUserPermissions || {};
+                const sector = $(this).data('sector') || 'Barra Principal';
+                const isMesa = sector.toLowerCase().indexOf('mesa') !== -1;
+
+                // Bloqueo de Mesas para usuarios que no son Administradores
+                if (isMesa && !perms.is_admin && !perms.can_change_sector) {
+                    self.showToast('Solo los administradores pueden alternar a mesas.', 'error');
+                    return;
+                }
+
                 $('.caja-gastro-chip').removeClass('active');
                 $(this).addClass('active');
 
-                const sector = $(this).data('sector') || 'Barra Principal';
                 const icon = $(this).data('icon') || '🍸';
                 self.gastroSector = sector;
 
-                const isMesa = sector.toLowerCase().indexOf('mesa') !== -1;
                 if (isMesa) {
                     $('#caja-gastro-tables-wrap').slideDown(150);
                     if (!self.gastroTable) {
@@ -6525,7 +6572,8 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else {
                     $('#caja-gastro-tables-wrap').slideUp(150);
                     self.gastroTable = '';
-                    $('#caja-gastro-selected-badge').text(`${icon} ${sector}`);
+                    const lockPrefix = (!perms.is_admin && !perms.can_change_sector) ? '🔒 ' : '';
+                    $('#caja-gastro-selected-badge').text(`${lockPrefix}${icon} ${sector}`);
                 }
             });
 
@@ -8654,6 +8702,470 @@ $('#caja-modal-new-product').fadeIn(200);
                     `);
                 }
             });
+        },
+
+        /* ==========================================================================
+           MÓDULO CONFIGURACIÓN DE EMPLEADOS Y ROLES (ADMINISTRADOR)
+           ========================================================================== */
+        cachedEmployees: [],
+        cachedSectors: [],
+        isEmployeesLoaded: false,
+        employeesEventsBound: false,
+
+        initEmployeesTab: function() {
+            if (!this.employeesEventsBound) {
+                this.bindEmployeesEvents();
+                this.employeesEventsBound = true;
+            }
+            this.loadEmployees();
+        },
+
+        bindEmployeesEvents: function() {
+            const self = this;
+
+            // Abrir modal nuevo empleado
+            $(document).on('click', '#caja-emp-btn-add', function(e) {
+                e.preventDefault();
+                self.openEmployeeModal(0);
+            });
+
+            // Refrescar lista de empleados
+            $(document).on('click', '#caja-emp-btn-refresh', function(e) {
+                e.preventDefault();
+                self.loadEmployees(true);
+            });
+
+            // Cerrar modal de empleados
+            $(document).on('click', '#caja-emp-modal-close, #caja-emp-modal-cancel, #caja-emp-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-employee').fadeOut(150);
+            });
+
+            // Generar contraseña aleatoria
+            $(document).on('click', '#caja-emp-btn-gen-pass', function(e) {
+                e.preventDefault();
+                const pass = self.generateRandomPassword(10);
+                $('#caja-emp-password').val(pass);
+                self.showToast('Contraseña generada: ' + pass, 'info');
+            });
+
+            // Guardar formulario empleado
+            $(document).on('submit', '#caja-emp-form', function(e) {
+                e.preventDefault();
+                self.saveEmployee();
+            });
+
+            // Editar empleado
+            $(document).on('click', '.caja-emp-btn-edit', function(e) {
+                e.preventDefault();
+                const userId = $(this).data('id');
+                self.openEmployeeModal(userId);
+            });
+
+            // Alternar estado activo / deshabilitado
+            $(document).on('click', '.caja-emp-status-badge[data-id]', function(e) {
+                e.preventDefault();
+                const userId = $(this).data('id');
+                self.toggleEmployeeStatus(userId);
+            });
+
+            // Eliminar empleado
+            $(document).on('click', '.caja-emp-btn-delete', function(e) {
+                e.preventDefault();
+                const userId = $(this).data('id');
+                const username = $(this).data('username');
+                if (confirm('¿Estás seguro de que deseas eliminar al empleado "' + username + '"? Esta acción no se puede deshacer.')) {
+                    self.deleteEmployee(userId);
+                }
+            });
+
+            // Cambio de rol en modal (auto ajustar defaults de permisos)
+            $(document).on('change', 'input[name="caja_emp_role_radio"]', function() {
+                const role = $(this).val();
+                if (role === 'administrator') {
+                    $('#caja-emp-can-view-products').prop('checked', true);
+                    $('#caja-emp-can-view-orders').prop('checked', true);
+                    $('#caja-emp-can-change-sector').prop('checked', true);
+                    $('#caja-emp-sectors-checklist input[type="checkbox"]').prop('checked', true);
+                } else if (role === 'caja_encargado') {
+                    $('#caja-emp-can-view-products').prop('checked', true);
+                    $('#caja-emp-can-view-orders').prop('checked', true);
+                    $('#caja-emp-can-change-sector').prop('checked', false);
+                } else if (role === 'caja_cajero') {
+                    // Por defecto cajero NO ve productos a menos que el admin lo habilite
+                    $('#caja-emp-can-view-products').prop('checked', false);
+                    $('#caja-emp-can-view-orders').prop('checked', true);
+                    $('#caja-emp-can-change-sector').prop('checked', false);
+                }
+            });
+        },
+
+        loadEmployees: function(forceRefresh) {
+            const self = this;
+            if (this.isEmployeesLoaded && !forceRefresh && this.cachedEmployees.length) {
+                this.renderEmployeesTable();
+                return;
+            }
+
+            $('#caja-emp-tbody').html(`
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:40px; color:var(--caja-text-muted, #94a3b8);">
+                        <span class="caja-spinner">⏳</span> Cargando personal...
+                    </td>
+                </tr>
+            `);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_get_employees',
+                    security: self.config.nonce
+                },
+                success: function(res) {
+                    if (res && res.success) {
+                        self.cachedEmployees = res.data.employees || [];
+                        self.cachedSectors = res.data.sectors || [];
+                        self.isEmployeesLoaded = true;
+                        self.renderEmployeesTable();
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al cargar empleados.';
+                        $('#caja-emp-tbody').html(`
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding:30px; color:#f87171;">
+                                    ⚠️ ${msg}
+                                </td>
+                            </tr>
+                        `);
+                    }
+                },
+                error: function() {
+                    $('#caja-emp-tbody').html(`
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding:30px; color:#f87171;">
+                                ⚠️ Error de conexión al cargar empleados.
+                            </td>
+                        </tr>
+                    `);
+                }
+            });
+        },
+
+        renderEmployeesTable: function() {
+            const self = this;
+            const employees = this.cachedEmployees || [];
+
+            let total = employees.length;
+            let cajeros = 0;
+            employees.forEach(function(e) {
+                if ((e.role === 'caja_cajero' || e.role_name === 'Cajero') && e.status === 'active') cajeros++;
+            });
+
+            $('#caja-emp-stat-total').text(total);
+            $('#caja-emp-stat-cajeros').text(cajeros);
+
+            if (!employees.length) {
+                $('#caja-emp-tbody').html(`
+                    <tr>
+                        <td colspan="6" style="text-align:center; padding:40px; color:var(--caja-text-muted, #94a3b8);">
+                            No hay empleados registrados. Haz click en "+ Nuevo Empleado" para crear el primero.
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+
+            let html = '';
+            employees.forEach(function(emp) {
+                let roleBadgeClass = 'caja-emp-badge-cajero';
+                let roleIcon = '🍸';
+                if (emp.role === 'administrator') {
+                    roleBadgeClass = 'caja-emp-badge-admin';
+                    roleIcon = '👑';
+                } else if (emp.role === 'caja_encargado') {
+                    roleBadgeClass = 'caja-emp-badge-encargado';
+                    roleIcon = '📋';
+                }
+
+                // Barras asignadas
+                let sectorsHtml = '';
+                if (emp.is_admin) {
+                    sectorsHtml = '<span class="caja-emp-sector-tag" style="background:rgba(168,85,247,0.15); border-color:rgba(168,85,247,0.3); color:#c084fc;">🌟 Todas las Barras y Mesas</span>';
+                } else if (emp.assigned_sectors && emp.assigned_sectors.length) {
+                    emp.assigned_sectors.forEach(function(sec) {
+                        let icon = '🍸';
+                        if (sec.toLowerCase().indexOf('vip') !== -1) icon = '⭐';
+                        else if (sec.toLowerCase().indexOf('terraza') !== -1) icon = '🌿';
+                        else if (sec.toLowerCase().indexOf('take') !== -1) icon = '🛍️';
+                        sectorsHtml += `<span class="caja-emp-sector-tag">${icon} ${self.escapeHtml(sec)}</span>`;
+                    });
+                } else {
+                    sectorsHtml = '<span class="caja-emp-sector-tag" style="color:var(--caja-text-muted);">Sin barra fija</span>';
+                }
+
+                // Permisos badges
+                let permsHtml = `
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <span class="caja-emp-perm-pill ${emp.can_view_products ? 'is-yes' : 'is-no'}">
+                            ${emp.can_view_products ? '✓' : '✗'} Productos (${emp.can_view_products ? 'Habilitado' : 'Solo Venta Caja'})
+                        </span>
+                        <span class="caja-emp-perm-pill ${emp.can_view_orders ? 'is-yes' : 'is-no'}">
+                            ${emp.can_view_orders ? '✓' : '✗'} Pedidos en Vivo
+                        </span>
+                        <span class="caja-emp-perm-pill ${emp.can_change_sector ? 'is-yes' : 'is-no'}">
+                            ${emp.can_change_sector ? '✓' : '✗'} Cambiar Mesas/Barras
+                        </span>
+                    </div>
+                `;
+
+                // Status badge
+                let statusBadge = '';
+                if (emp.is_current_user) {
+                    statusBadge = `<span class="caja-emp-status-badge active" style="cursor:default;" title="Usuario actual en sesión">● Activo (Tú)</span>`;
+                } else {
+                    statusBadge = emp.status === 'active' 
+                        ? `<span class="caja-emp-status-badge active" data-id="${emp.id}" title="Click para deshabilitar">● Activo</span>`
+                        : `<span class="caja-emp-status-badge disabled" data-id="${emp.id}" title="Click para habilitar">✕ Deshabilitado</span>`;
+                }
+
+                // Actions
+                let actionsHtml = `
+                    <div class="caja-emp-actions-wrap">
+                        <button type="button" class="caja-emp-action-btn caja-emp-btn-edit" data-id="${emp.id}" title="Editar empleado">
+                            ✏️
+                        </button>
+                `;
+                if (!emp.is_current_user) {
+                    actionsHtml += `
+                        <button type="button" class="caja-emp-action-btn btn-delete caja-emp-btn-delete" data-id="${emp.id}" data-username="${self.escapeHtml(emp.username)}" title="Eliminar empleado">
+                            🗑️
+                        </button>
+                    `;
+                }
+                actionsHtml += '</div>';
+
+                html += `
+                    <tr>
+                        <td>
+                            <div class="caja-emp-name-cell">
+                                <span class="caja-emp-name-title">${self.escapeHtml(emp.name)}</span>
+                                <span class="caja-emp-name-sub">@${self.escapeHtml(emp.username)} ${emp.email ? '· ' + self.escapeHtml(emp.email) : ''}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="caja-emp-badge ${roleBadgeClass}">
+                                ${roleIcon} ${self.escapeHtml(emp.role_name || emp.role)}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="max-width:240px; display:flex; flex-wrap:wrap;">
+                                ${sectorsHtml}
+                            </div>
+                        </td>
+                        <td>${permsHtml}</td>
+                        <td style="text-align:center;">${statusBadge}</td>
+                        <td style="text-align:right;">${actionsHtml}</td>
+                    </tr>
+                `;
+            });
+
+            $('#caja-emp-tbody').html(html);
+        },
+
+        openEmployeeModal: function(userId) {
+            const self = this;
+            userId = parseInt(userId, 10) || 0;
+
+            if (userId > 0) {
+                // Modo Edición
+                const emp = (this.cachedEmployees || []).find(function(e) { return e.id === userId; });
+                if (!emp) return;
+
+                $('#caja-emp-modal-title').text('Editar Empleado');
+                $('#caja-emp-modal-sub').text('Modifica los accesos y permisos de @' + emp.username);
+                $('#caja-emp-id').val(emp.id);
+                $('#caja-emp-name').val(emp.name || '');
+                $('#caja-emp-username').val(emp.username || '').prop('readonly', true).css('opacity', '0.7');
+                $('#caja-emp-email').val(emp.email || '');
+                $('#caja-emp-password').val('').removeAttr('required');
+                $('#caja-emp-pass-req').hide();
+                $('#caja-emp-pass-help').show();
+
+                $(`input[name="caja_emp_role_radio"][value="${emp.role}"]`).prop('checked', true);
+
+                // Checkboxes de sectores
+                $('#caja-emp-sectors-checklist input[type="checkbox"]').prop('checked', false);
+                if (emp.assigned_sectors && emp.assigned_sectors.length) {
+                    emp.assigned_sectors.forEach(function(sec) {
+                        $(`#caja-emp-sectors-checklist input[value="${sec}"]`).prop('checked', true);
+                    });
+                }
+
+                $('#caja-emp-can-view-products').prop('checked', !!emp.can_view_products);
+                $('#caja-emp-can-view-orders').prop('checked', !!emp.can_view_orders);
+                $('#caja-emp-can-change-sector').prop('checked', !!emp.can_change_sector);
+                $('#caja-emp-status').prop('checked', emp.status !== 'disabled');
+            } else {
+                // Modo Nuevo Empleado
+                $('#caja-emp-modal-title').text('Nuevo Empleado');
+                $('#caja-emp-modal-sub').text('Crea un nuevo usuario con rol y barras asignadas');
+                $('#caja-emp-id').val('0');
+                $('#caja-emp-name').val('');
+                $('#caja-emp-username').val('').prop('readonly', false).css('opacity', '1');
+                $('#caja-emp-email').val('');
+                $('#caja-emp-password').val(self.generateRandomPassword(10)).attr('required', 'required');
+                $('#caja-emp-pass-req').show();
+                $('#caja-emp-pass-help').hide();
+
+                $('input[name="caja_emp_role_radio"][value="caja_cajero"]').prop('checked', true);
+
+                // Marcar la primera barra por defecto
+                $('#caja-emp-sectors-checklist input[type="checkbox"]').prop('checked', false);
+                $('#caja-emp-sectors-checklist input[type="checkbox"]').first().prop('checked', true);
+
+                // Permisos defaults para cajero: productos OFF (solo venta caja), pedidos ON, mesas OFF
+                $('#caja-emp-can-view-products').prop('checked', false);
+                $('#caja-emp-can-view-orders').prop('checked', true);
+                $('#caja-emp-can-change-sector').prop('checked', false);
+                $('#caja-emp-status').prop('checked', true);
+            }
+
+            $('#caja-modal-employee').fadeIn(150);
+        },
+
+        saveEmployee: function() {
+            const self = this;
+            const $btn = $('#caja-emp-modal-save');
+            const $spinner = $btn.find('.caja-emp-save-spinner');
+            const $txt = $('#caja-emp-save-txt');
+
+            const id = parseInt($('#caja-emp-id').val(), 10) || 0;
+            const name = $.trim($('#caja-emp-name').val());
+            const username = $.trim($('#caja-emp-username').val());
+            const email = $.trim($('#caja-emp-email').val());
+            const password = $('#caja-emp-password').val();
+            const role = $('input[name="caja_emp_role_radio"]:checked').val() || 'caja_cajero';
+
+            const assignedSectors = [];
+            $('#caja-emp-sectors-checklist input[type="checkbox"]:checked').each(function() {
+                assignedSectors.push($(this).val());
+            });
+
+            if (!assignedSectors.length && role !== 'administrator') {
+                self.showToast('Debes asignarle al menos una barra al cajero.', 'error');
+                return;
+            }
+
+            const canViewProducts = $('#caja-emp-can-view-products').is(':checked') ? '1' : '0';
+            const canViewOrders = $('#caja-emp-can-view-orders').is(':checked') ? '1' : '0';
+            const canChangeSector = $('#caja-emp-can-change-sector').is(':checked') ? '1' : '0';
+            const status = $('#caja-emp-status').is(':checked') ? 'active' : 'disabled';
+
+            $btn.prop('disabled', true);
+            $spinner.show();
+            $txt.text('Guardando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_save_employee',
+                    security: self.config.nonce,
+                    employee: {
+                        id: id,
+                        name: name,
+                        username: username,
+                        email: email,
+                        password: password,
+                        role: role,
+                        assigned_sectors: assignedSectors,
+                        can_view_products: canViewProducts,
+                        can_view_orders: canViewOrders,
+                        can_change_sector: canChangeSector,
+                        status: status
+                    }
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false);
+                    $spinner.hide();
+                    $txt.text('Guardar Empleado');
+
+                    if (res && res.success) {
+                        $('#caja-modal-employee').fadeOut(150);
+                        self.showToast(res.data.message || 'Empleado guardado correctamente.', 'success');
+                        self.loadEmployees(true);
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al guardar empleado.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false);
+                    $spinner.hide();
+                    $txt.text('Guardar Empleado');
+                    self.showToast('Error de conexión al guardar.', 'error');
+                }
+            });
+        },
+
+        toggleEmployeeStatus: function(userId) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_toggle_employee_status',
+                    security: self.config.nonce,
+                    user_id: userId
+                },
+                success: function(res) {
+                    if (res && res.success) {
+                        self.showToast(res.data.message || 'Estado actualizado.', 'success');
+                        self.loadEmployees(true);
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al cambiar estado.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    self.showToast('Error de conexión.', 'error');
+                }
+            });
+        },
+
+        deleteEmployee: function(userId) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'emp_caja_delete_employee',
+                    security: self.config.nonce,
+                    user_id: userId
+                },
+                success: function(res) {
+                    if (res && res.success) {
+                        self.showToast(res.data.message || 'Empleado eliminado.', 'success');
+                        self.loadEmployees(true);
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al eliminar empleado.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    self.showToast('Error de conexión.', 'error');
+                }
+            });
+        },
+
+        generateRandomPassword: function(len) {
+            len = len || 10;
+            const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$';
+            let res = '';
+            for (let i = 0; i < len; i++) {
+                res += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return res;
         }
     };
 

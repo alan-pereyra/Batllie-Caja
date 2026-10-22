@@ -57,6 +57,15 @@ class Batllie_Caja_Auth {
             ));
         }
 
+        // Verificar si la cuenta de empleado fue deshabilitada por el administrador
+        $caja_status = get_user_meta($user->ID, '_caja_status', true);
+        if ($caja_status === 'disabled') {
+            wp_logout();
+            wp_send_json_error(array(
+                'message' => __('Esta cuenta de empleado se encuentra deshabilitada. Consulta con un administrador.', 'emp-caja')
+            ));
+        }
+
         // Verificar permisos mínimos (administrador, gestor de tienda o rol con capacidades)
         if (!user_can($user, 'manage_woocommerce') && !user_can($user, 'edit_posts') && !user_can($user, 'read')) {
             wp_logout();
@@ -67,12 +76,15 @@ class Batllie_Caja_Auth {
 
         wp_set_current_user($user->ID);
 
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions($user->ID) : array();
+
         wp_send_json_success(array(
-            'message'  => __('Inicio de sesión exitoso.', 'emp-caja'),
-            'nonce'    => wp_create_nonce('batllie_caja_nonce'),
-            'user'     => array(
-                'name'  => $user->display_name,
-                'email' => $user->user_email
+            'message'     => __('Inicio de sesión exitoso.', 'emp-caja'),
+            'nonce'       => wp_create_nonce('batllie_caja_nonce'),
+            'user'        => array(
+                'name'        => $user->display_name,
+                'email'       => $user->user_email,
+                'permissions' => $perms
             )
         ));
     }
@@ -94,6 +106,11 @@ class Batllie_Caja_Auth {
      */
     public static function current_user_can_access() {
         if (!is_user_logged_in()) {
+            return false;
+        }
+        $user_id = get_current_user_id();
+        $status = get_user_meta($user_id, '_caja_status', true);
+        if ($status === 'disabled') {
             return false;
         }
         // Permitir a administradores, editores, gestores de tienda y usuarios autenticados

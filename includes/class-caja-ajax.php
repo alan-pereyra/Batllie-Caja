@@ -53,6 +53,12 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_update_customer', array(__CLASS__, 'ajax_update_customer'));
         add_action('wp_ajax_emp_caja_calculate_shipping', array(__CLASS__, 'ajax_calculate_shipping'));
 
+        // Empleados y Permisos
+        add_action('wp_ajax_emp_caja_get_employees', array(__CLASS__, 'ajax_get_employees'));
+        add_action('wp_ajax_emp_caja_save_employee', array(__CLASS__, 'ajax_save_employee'));
+        add_action('wp_ajax_emp_caja_toggle_employee_status', array(__CLASS__, 'ajax_toggle_employee_status'));
+        add_action('wp_ajax_emp_caja_delete_employee', array(__CLASS__, 'ajax_delete_employee'));
+
         // Redirección directa a pedidos y auto-login tras definir contraseña
         add_action('woocommerce_customer_reset_password', array(__CLASS__, 'handle_auto_login_on_password_reset'), 10, 1);
         add_filter('woocommerce_customer_reset_password_redirect', array(__CLASS__, 'handle_redirect_to_orders_on_password_reset'), 10, 2);
@@ -75,6 +81,18 @@ class Batllie_Caja_Ajax {
             wp_send_json_error(array(
                 'message' => __('No tienes permisos suficientes para realizar esta acción.', 'emp-caja'),
                 'auth_required' => true
+            ), 403);
+        }
+    }
+
+    /**
+     * Verificación de permisos de Administrador
+     */
+    private static function check_admin() {
+        self::check_auth();
+        if (!current_user_can('manage_options') && !current_user_can('administrator')) {
+            wp_send_json_error(array(
+                'message' => __('Acceso restringido únicamente a administradores.', 'emp-caja'),
             ), 403);
         }
     }
@@ -233,6 +251,12 @@ class Batllie_Caja_Ajax {
     public static function ajax_create_product() {
         self::check_auth();
 
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_products' => true);
+        if (empty($perms['can_view_products'])) {
+            wp_send_json_error(array('message' => __('No tienes permisos para modificar el catálogo de productos.', 'emp-caja')), 403);
+            return;
+        }
+
         $product_data = isset($_POST['product']) ? (array) $_POST['product'] : array();
 
         if (empty($product_data)) {
@@ -266,6 +290,12 @@ class Batllie_Caja_Ajax {
      */
     public static function ajax_update_stock() {
         self::check_auth();
+
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_products' => true);
+        if (empty($perms['can_view_products'])) {
+            wp_send_json_error(array('message' => __('No tienes permisos para modificar el catálogo de productos.', 'emp-caja')), 403);
+            return;
+        }
 
         $product_id = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
         $stock_data = isset($_POST['stock_data']) ? (array) $_POST['stock_data'] : array();
@@ -311,6 +341,12 @@ class Batllie_Caja_Ajax {
      */
     public static function ajax_update_product() {
         self::check_auth();
+
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_products' => true);
+        if (empty($perms['can_view_products'])) {
+            wp_send_json_error(array('message' => __('No tienes permisos para modificar el catálogo de productos.', 'emp-caja')), 403);
+            return;
+        }
 
         $product_id   = isset($_POST['product_id']) ? intval($_POST['product_id']) : 0;
         $product_data = isset($_POST['product']) ? (array) $_POST['product'] : array();
@@ -639,6 +675,17 @@ class Batllie_Caja_Ajax {
             // Datos de Gastronomía (Boliches & Restaurantes)
             $gastro_sector = isset($_POST['gastro_sector']) ? sanitize_text_field(wp_unslash($_POST['gastro_sector'])) : '';
             $gastro_table  = isset($_POST['gastro_table']) ? sanitize_text_field(wp_unslash($_POST['gastro_table'])) : '';
+
+            // Validar restricciones de sector/barra y mesas para cajeros
+            $user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_change_sector' => true, 'is_admin' => true);
+            if (!$user_perms['can_change_sector'] && !$user_perms['is_admin']) {
+                $gastro_table = ''; // Cajeros sin permiso no pueden despachar a mesas
+                $allowed = !empty($user_perms['assigned_sectors']) ? $user_perms['assigned_sectors'] : array();
+                if (!empty($allowed) && !in_array($gastro_sector, $allowed)) {
+                    $gastro_sector = $allowed[0];
+                }
+            }
+
             $tip_amount    = isset($_POST['tip_amount']) ? max(0, floatval($_POST['tip_amount'])) : 0;
             $cash_tendered = isset($_POST['cash_tendered']) ? max(0, floatval($_POST['cash_tendered'])) : 0;
             $cash_change   = isset($_POST['cash_change']) ? max(0, floatval($_POST['cash_change'])) : 0;
@@ -1801,6 +1848,87 @@ class Batllie_Caja_Ajax {
             'rates'    => $formatted_rates,
             'postcode' => $postcode,
             'message'  => empty($formatted_rates) ? __('No se encontraron tarifas automáticas para este código postal. Puedes ingresar el costo manualmente.', 'emp-caja') : ''
+        ));
+    }
+
+    /**
+     * AJAX: Obtener listado de empleados para el panel de configuración
+     */
+    public static function ajax_get_employees() {
+        self::check_admin();
+
+        $employees = Batllie_Caja_Employees::get_employees();
+        $sectors   = Batllie_Caja_Employees::get_available_sectors();
+
+        wp_send_json_success(array(
+            'employees' => $employees,
+            'sectors'   => $sectors,
+        ));
+    }
+
+    /**
+     * AJAX: Crear o actualizar un empleado
+     */
+    public static function ajax_save_employee() {
+        self::check_admin();
+
+        $data = isset($_POST['employee']) ? (array) $_POST['employee'] : array();
+        if (empty($data)) {
+            $data = $_POST;
+        }
+
+        $result = Batllie_Caja_Employees::save_employee($data);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array(
+                'message' => $result->get_error_message()
+            ));
+        }
+
+        wp_send_json_success(array(
+            'message'  => __('Empleado guardado exitosamente.', 'emp-caja'),
+            'employee' => $result
+        ));
+    }
+
+    /**
+     * AJAX: Alternar estado de empleado (Activo / Deshabilitado)
+     */
+    public static function ajax_toggle_employee_status() {
+        self::check_admin();
+
+        $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+        $result = Batllie_Caja_Employees::toggle_status($user_id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array(
+                'message' => $result->get_error_message()
+            ));
+        }
+
+        wp_send_json_success(array(
+            'message' => ($result === 'active') ? __('Empleado habilitado correctamente.', 'emp-caja') : __('Empleado deshabilitado.', 'emp-caja'),
+            'status'  => $result
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar empleado
+     */
+    public static function ajax_delete_employee() {
+        self::check_admin();
+
+        $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : 0;
+        $result = Batllie_Caja_Employees::delete_employee($user_id);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array(
+                'message' => $result->get_error_message()
+            ));
+        }
+
+        wp_send_json_success(array(
+            'message' => __('Empleado eliminado del sistema.', 'emp-caja')
         ));
     }
 

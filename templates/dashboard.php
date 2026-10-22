@@ -6,6 +6,18 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+$user_id = get_current_user_id();
+$user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions($user_id) : array(
+    'is_admin' => current_user_can('manage_options'),
+    'can_view_products' => true,
+    'can_view_orders' => true,
+    'can_change_sector' => true
+);
+$is_admin = !empty($user_perms['is_admin']);
+$can_view_products = !empty($user_perms['can_view_products']);
+$can_view_orders = !empty($user_perms['can_view_orders']);
+$default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
 ?>
 
 <div class="caja-dashboard">
@@ -24,10 +36,17 @@ if (!defined('ABSPATH')) {
             <div class="caja-screen-switcher-wrap" id="caja-screen-switcher-wrap" title="<?php esc_attr_e('Seleccionar pantalla', 'emp-caja'); ?>">
                 <span class="caja-pulse-dot" id="caja-screen-dot"></span>
                 <select id="caja-screen-select" class="caja-screen-select" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
+                    <?php if ($can_view_orders): ?>
                     <option value="tab-orders">🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
+                    <?php endif; ?>
+                    <?php if ($can_view_products): ?>
                     <option value="tab-products">📦 <?php _e('Productos', 'emp-caja'); ?></option>
-                    <option value="tab-pos-sale">🛒 <?php _e('Venta Caja', 'emp-caja'); ?></option>
+                    <?php endif; ?>
+                    <option value="tab-pos-sale" <?php echo ($default_active_tab === 'tab-pos-sale') ? 'selected' : ''; ?>>🛒 <?php _e('Venta Caja', 'emp-caja'); ?></option>
+                    <?php if ($is_admin): ?>
                     <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
+                    <option value="tab-employees">👥 <?php _e('Configuración Empleados', 'emp-caja'); ?></option>
+                    <?php endif; ?>
                 </select>
                 <span class="caja-screen-select-arrow">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -39,7 +58,8 @@ if (!defined('ABSPATH')) {
 
         <!-- Pestañas Principales -->
         <nav class="caja-nav-tabs">
-            <button class="caja-tab-btn active" data-tab="tab-orders" id="caja-tab-nav-orders">
+            <?php if ($can_view_orders): ?>
+            <button class="caja-tab-btn <?php echo ($default_active_tab === 'tab-orders') ? 'active' : ''; ?>" data-tab="tab-orders" id="caja-tab-nav-orders">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                     <polyline points="14 2 14 8 20 8"></polyline>
@@ -51,6 +71,9 @@ if (!defined('ABSPATH')) {
                 <span class="caja-tab-label-short"><?php _e('Pedidos', 'emp-caja'); ?></span>
                 <span class="caja-badge-count" id="caja-orders-count">0</span>
             </button>
+            <?php endif; ?>
+
+            <?php if ($can_view_products): ?>
             <button class="caja-tab-btn" data-tab="tab-products" id="caja-tab-nav-products">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
@@ -58,8 +81,10 @@ if (!defined('ABSPATH')) {
                 <span class="caja-tab-label-full"><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
                 <span class="caja-tab-label-short"><?php _e('Productos', 'emp-caja'); ?></span>
             </button>
+            <?php endif; ?>
+
             <!-- Pestaña 3: Venta Caja -->
-            <button class="caja-tab-btn" data-tab="tab-pos-sale" id="caja-tab-nav-pos">
+            <button class="caja-tab-btn <?php echo ($default_active_tab === 'tab-pos-sale') ? 'active' : ''; ?>" data-tab="tab-pos-sale" id="caja-tab-nav-pos">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="9" cy="21" r="1"></circle>
                     <circle cx="20" cy="21" r="1"></circle>
@@ -68,6 +93,8 @@ if (!defined('ABSPATH')) {
                 <span class="caja-tab-label-full"><?php _e('Venta Caja', 'emp-caja'); ?></span>
                 <span class="caja-tab-label-short"><?php _e('Venta', 'emp-caja'); ?></span>
             </button>
+
+            <?php if ($is_admin): ?>
             <!-- Pestaña 4: Configuración General -->
             <button class="caja-tab-btn" data-tab="tab-settings" id="caja-tab-nav-settings">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -77,6 +104,19 @@ if (!defined('ABSPATH')) {
                 <span class="caja-tab-label-full"><?php _e('Configuración General', 'emp-caja'); ?></span>
                 <span class="caja-tab-label-short"><?php _e('Configuración', 'emp-caja'); ?></span>
             </button>
+
+            <!-- Pestaña 5: Configuración Empleados -->
+            <button class="caja-tab-btn" data-tab="tab-employees" id="caja-tab-nav-employees">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span class="caja-tab-label-full"><?php _e('Configuración Empleados', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Empleados', 'emp-caja'); ?></span>
+            </button>
+            <?php endif; ?>
         </nav>
 
         <!-- Controles de la Barra Superior -->
@@ -152,24 +192,36 @@ if (!defined('ABSPATH')) {
 
     <!-- Contenido de Pestañas -->
     <main class="caja-main-content">
+        <?php if ($can_view_orders): ?>
         <!-- Pestaña 1: Pedidos -->
-        <section id="tab-orders" class="caja-tab-panel active">
+        <section id="tab-orders" class="caja-tab-panel <?php echo ($default_active_tab === 'tab-orders') ? 'active' : ''; ?>" style="<?php echo ($default_active_tab === 'tab-orders') ? '' : 'display:none;'; ?>">
             <?php include EMP_CAJA_PATH . 'templates/tab-orders.php'; ?>
         </section>
+        <?php endif; ?>
 
+        <?php if ($can_view_products): ?>
         <!-- Pestaña 2: Productos -->
         <section id="tab-products" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-products.php'; ?>
         </section>
+        <?php endif; ?>
+
         <!-- Pestaña 3: Venta Caja -->
-        <section id="tab-pos-sale" class="caja-tab-panel" style="display:none;">
+        <section id="tab-pos-sale" class="caja-tab-panel <?php echo ($default_active_tab === 'tab-pos-sale') ? 'active' : ''; ?>" style="<?php echo ($default_active_tab === 'tab-pos-sale') ? '' : 'display:none;'; ?>">
             <?php include EMP_CAJA_PATH . 'templates/tab-pos-sale.php'; ?>
         </section>
 
-        <!-- Pestaña 4: Configuración -->
+        <?php if ($is_admin): ?>
+        <!-- Pestaña 4: Configuración General -->
         <section id="tab-settings" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-settings.php'; ?>
         </section>
+
+        <!-- Pestaña 5: Configuración Empleados (Solo Administradores) -->
+        <section id="tab-employees" class="caja-tab-panel" style="display:none;">
+            <?php include EMP_CAJA_PATH . 'templates/tab-employees.php'; ?>
+        </section>
+        <?php endif; ?>
     </main>
 
 

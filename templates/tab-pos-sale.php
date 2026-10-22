@@ -6,6 +6,29 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+$pos_user_id = get_current_user_id();
+$pos_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions($pos_user_id) : array(
+    'is_admin' => true,
+    'can_change_sector' => true,
+    'assigned_sectors' => array('Barra Principal', 'Barra VIP', 'Terraza', 'Take Away')
+);
+$can_change_sector = !empty($pos_perms['can_change_sector']) || !empty($pos_perms['is_admin']);
+$assigned_sectors = !empty($pos_perms['assigned_sectors']) ? $pos_perms['assigned_sectors'] : array('Barra Principal');
+$default_sector = !empty($assigned_sectors[0]) ? $assigned_sectors[0] : 'Barra Principal';
+
+if (!function_exists('emp_caja_get_sector_icon_helper')) {
+    function emp_caja_get_sector_icon_helper($s) {
+        if (stripos($s, 'vip') !== false) return '⭐';
+        if (stripos($s, 'terraza') !== false) return '🌿';
+        if (stripos($s, 'mesa') !== false) return '🍽️';
+        if (stripos($s, 'take') !== false) return '🛍️';
+        if (stripos($s, 'boleteria') !== false || stripos($s, 'entrada') !== false) return '🎟️';
+        if (stripos($s, 'pista') !== false) return '🎵';
+        return '🍸';
+    }
+}
+$default_icon = emp_caja_get_sector_icon_helper($default_sector);
 ?>
 
 <div class="caja-pos-container" id="caja-pos-main-container">
@@ -60,27 +83,50 @@ if (!defined('ABSPATH')) {
                             <span class="caja-gastro-icon">📍</span>
                             <strong class="caja-gastro-title"><?php _e('Sector / Ubicación', 'emp-caja'); ?></strong>
                         </div>
-                        <span id="caja-gastro-selected-badge" class="caja-gastro-badge">🍸 Barra Principal</span>
+                        <span id="caja-gastro-selected-badge" class="caja-gastro-badge">
+                            <?php echo (!$can_change_sector ? '🔒 ' : '') . esc_html($default_icon . ' ' . $default_sector); ?>
+                        </span>
                     </div>
+
                     <!-- Chips táctiles de sectores rápidos -->
                     <div class="caja-gastro-chips-row" id="caja-gastro-chips-row">
-                        <button type="button" class="caja-gastro-chip active" data-sector="Barra Principal" data-icon="🍸">
-                            <span>🍸</span> <span>Barra Principal</span>
-                        </button>
-                        <button type="button" class="caja-gastro-chip" data-sector="Barra VIP" data-icon="⭐">
-                            <span>⭐</span> <span>Barra VIP</span>
-                        </button>
-                        <button type="button" class="caja-gastro-chip" data-sector="Terraza" data-icon="🌿">
-                            <span>🌿</span> <span>Terraza</span>
-                        </button>
-                        <button type="button" class="caja-gastro-chip" data-sector="Mesa" data-icon="🍽️" id="caja-gastro-btn-mesa">
-                            <span>🍽️</span> <span>Mesa</span>
-                        </button>
-                        <button type="button" class="caja-gastro-chip" data-sector="Take Away" data-icon="🛍️">
-                            <span>🛍️</span> <span>Take Away</span>
-                        </button>
+                        <?php if ($can_change_sector): ?>
+                            <!-- Administradores: Acceso total a todas las barras, terraza, take away y mesas -->
+                            <button type="button" class="caja-gastro-chip active" data-sector="Barra Principal" data-icon="🍸">
+                                <span>🍸</span> <span>Barra Principal</span>
+                            </button>
+                            <button type="button" class="caja-gastro-chip" data-sector="Barra VIP" data-icon="⭐">
+                                <span>⭐</span> <span>Barra VIP</span>
+                            </button>
+                            <button type="button" class="caja-gastro-chip" data-sector="Terraza" data-icon="🌿">
+                                <span>🌿</span> <span>Terraza</span>
+                            </button>
+                            <button type="button" class="caja-gastro-chip" data-sector="Mesa" data-icon="🍽️" id="caja-gastro-btn-mesa">
+                                <span>🍽️</span> <span>Mesa</span>
+                            </button>
+                            <button type="button" class="caja-gastro-chip" data-sector="Take Away" data-icon="🛍️">
+                                <span>🛍️</span> <span>Take Away</span>
+                            </button>
+                        <?php else: ?>
+                            <!-- Cajeros sin permiso de cambio: fijados a su(s) barra(s) autorizada(s) -->
+                            <?php if (count($assigned_sectors) <= 1): ?>
+                                <button type="button" class="caja-gastro-chip active is-locked" data-sector="<?php echo esc_attr($default_sector); ?>" data-icon="<?php echo esc_attr($default_icon); ?>" title="<?php esc_attr_e('Barra asignada fija por administración', 'emp-caja'); ?>" style="cursor:default;">
+                                    <span>🔒</span> <span><?php echo esc_html($default_sector); ?></span>
+                                </button>
+                            <?php else: ?>
+                                <?php foreach ($assigned_sectors as $idx => $s): 
+                                    $s_icon = emp_caja_get_sector_icon_helper($s);
+                                ?>
+                                    <button type="button" class="caja-gastro-chip <?php echo ($idx === 0) ? 'active' : ''; ?>" data-sector="<?php echo esc_attr($s); ?>" data-icon="<?php echo esc_attr($s_icon); ?>">
+                                        <span><?php echo esc_html($s_icon); ?></span> <span><?php echo esc_html($s); ?></span>
+                                    </button>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </div>
-                    <!-- Sub-panel de Mesas (Visible cuando se selecciona 'Mesa') -->
+
+                    <?php if ($can_change_sector): ?>
+                    <!-- Sub-panel de Mesas (Solo accesible para Administradores) -->
                     <div class="caja-gastro-tables-wrap" id="caja-gastro-tables-wrap" style="display:none;">
                         <label class="caja-gastro-sublabel"><?php _e('Mesa asignada:', 'emp-caja'); ?></label>
                         <div class="caja-gastro-table-chips-row" id="caja-gastro-table-chips-row">
@@ -94,7 +140,9 @@ if (!defined('ABSPATH')) {
                             <input type="text" id="caja-gastro-custom-table" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('O escribe número/nombre de mesa...', 'emp-caja'); ?>" />
                         </div>
                     </div>
-                    <input type="hidden" id="caja-pos-selected-sector" value="Barra Principal" />
+                    <?php endif; ?>
+
+                    <input type="hidden" id="caja-pos-selected-sector" value="<?php echo esc_attr($default_sector); ?>" />
                     <input type="hidden" id="caja-pos-selected-table" value="" />
                 </div>
                 <!-- Selector de Modo de Entrega tipo Switch iOS -->

@@ -188,12 +188,18 @@ class Batllie_Caja_Plugin {
         require_once EMP_CAJA_PATH . 'includes/class-caja-grouped.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-min-order.php';
         require_once EMP_CAJA_PATH . 'includes/class-caja-packing.php';
+        require_once EMP_CAJA_PATH . 'includes/class-caja-employees.php';
     }
 
     /**
      * Inicializar dependencias
      */
     public function init() {
+        // Inicializar gestión de roles y empleados
+        if (class_exists('Batllie_Caja_Employees')) {
+            Batllie_Caja_Employees::init();
+        }
+
         // Verificar si WooCommerce está activo
         if (!class_exists('WooCommerce')) {
             add_action('admin_notices', array($this, 'woocommerce_missing_notice'));
@@ -595,6 +601,8 @@ class Batllie_Caja_Plugin {
             'gastroEnableTips'       => (($options['gastro_enable_tips'] ?? 'yes') === 'yes'),
             'gastroVenueName'        => !empty($options['gastro_venue_name']) ? $options['gastro_venue_name'] : (function_exists('get_bloginfo') ? get_bloginfo('name') : 'Local'),
             'gastroTicketFooter'     => $options['gastro_ticket_footer'] ?? '¡Gracias por tu visita! Conserve su ticket.',
+            'currentUserPermissions' => class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions(get_current_user_id()) : array('is_admin' => true, 'can_view_products' => true, 'can_view_orders' => true, 'can_change_sector' => true),
+            'availableSectors'       => class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array(),
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
