@@ -21,7 +21,7 @@ Plugin profesional de punto de venta táctil, comandas y mostrador diseñado par
 2. **Speed Cash (Calculadora de Vuelto Rápido con Billetes Táctiles)**:
    - Diseñado para el ritmo acelerado de la barra nocturna:
      - Botón **✓ Exacto** (asigna el total exacto con un toque).
-     - Botones táctiles de billetes: **+$1.000**, **+$2.000**, **+$5.000**, **+$10.000**, **+$20.000**.
+     - Botones táctiles de billetes: **+$100**, **+$200**, **+$500**, **+$1.000**, **+$2.000**, **+$5.000**, **+$10.000**, **+$20.000**.
      - Cálculo en vivo del vuelto a entregar con alerta visual si el dinero entregado es insuficiente.
      - Botón **Limpiar** para reiniciar el conteo.
 

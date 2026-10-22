@@ -160,6 +160,9 @@ if (!defined('ABSPATH')) {
                     <!-- Fila de billetes táctiles rápidos -->
                     <div class="caja-cash-bills-row" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
                         <button type="button" class="caja-cash-bill-btn caja-cash-exact-btn" id="btn-cash-exact">✓ <?php _e('Exacto', 'emp-caja'); ?></button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="100">+$100</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="200">+$200</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="500">+$500</button>
                         <button type="button" class="caja-cash-bill-btn" data-bill="1000">+$1.000</button>
                         <button type="button" class="caja-cash-bill-btn" data-bill="2000">+$2.000</button>
                         <button type="button" class="caja-cash-bill-btn" data-bill="5000">+$5.000</button>
