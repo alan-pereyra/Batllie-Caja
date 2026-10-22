@@ -636,6 +636,13 @@ class Batllie_Caja_Ajax {
             $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
             $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
 
+            // Datos de Gastronomía (Boliches & Restaurantes)
+            $gastro_sector = isset($_POST['gastro_sector']) ? sanitize_text_field(wp_unslash($_POST['gastro_sector'])) : '';
+            $gastro_table  = isset($_POST['gastro_table']) ? sanitize_text_field(wp_unslash($_POST['gastro_table'])) : '';
+            $tip_amount    = isset($_POST['tip_amount']) ? max(0, floatval($_POST['tip_amount'])) : 0;
+            $cash_tendered = isset($_POST['cash_tendered']) ? max(0, floatval($_POST['cash_tendered'])) : 0;
+            $cash_change   = isset($_POST['cash_change']) ? max(0, floatval($_POST['cash_change'])) : 0;
+
             // Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección)
             $cust_name    = isset($_POST['customer_name']) ? sanitize_text_field(wp_unslash($_POST['customer_name'])) : '';
             $cust_dni     = isset($_POST['customer_dni']) ? sanitize_text_field(wp_unslash($_POST['customer_dni'])) : '';
@@ -853,6 +860,29 @@ class Batllie_Caja_Ajax {
             $order->update_meta_data('_caja_pos_cashier', $cashier_name);
             $order->update_meta_data('_caja_pos_cashier_id', $cashier_id);
             $order->update_meta_data('_created_by_caja_pos', true);
+
+            // Metadatos gastronómicos (Boliches & Restaurantes)
+            if (!empty($gastro_sector)) {
+                $order->update_meta_data('_caja_gastro_sector', $gastro_sector);
+            }
+            if (!empty($gastro_table)) {
+                $order->update_meta_data('_caja_gastro_mesa', $gastro_table);
+            }
+            if ($tip_amount > 0) {
+                if (class_exists('WC_Order_Item_Fee')) {
+                    $tip_fee = new WC_Order_Item_Fee();
+                    $tip_fee->set_name(__('Propina / Servicio', 'emp-caja'));
+                    $tip_fee->set_amount($tip_amount);
+                    $tip_fee->set_total($tip_amount);
+                    $tip_fee->set_tax_status('none');
+                    $order->add_item($tip_fee);
+                }
+                $order->update_meta_data('_caja_tip_amount', $tip_amount);
+            }
+            if ($cash_tendered > 0) {
+                $order->update_meta_data('_caja_cash_tendered', $cash_tendered);
+                $order->update_meta_data('_caja_cash_change', $cash_change);
+            }
 
             if ($mode === 'compra_realizada') {
                 $order->update_meta_data('_caja_shipping_status', 'entregado');
@@ -1167,6 +1197,11 @@ class Batllie_Caja_Ajax {
                 'mode'           => $mode,
                 'payment_status' => $payment_status,
                 'order'          => $formatted_order,
+                'gastro_sector'  => $gastro_sector,
+                'gastro_table'   => $gastro_table,
+                'cash_tendered'  => $cash_tendered,
+                'cash_change'    => $cash_change,
+                'tip_amount'     => $tip_amount,
                 'message'        => ($mode === 'compra_realizada')
                     ? sprintf(__('¡Venta #%s completada y stock descontado con éxito!', 'emp-caja'), $order->get_order_number())
                     : sprintf(__('¡Pedido #%s enviado a cola de despacho!', 'emp-caja'), $order->get_order_number())

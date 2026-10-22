@@ -68,6 +68,12 @@ sort($configured_slots);
             </div>
 
             <div class="caja-filter-select-col">
+                <select id="caja-filter-gastro-sector" class="caja-select-filter" style="margin-bottom:8px;">
+                    <option value="all"><?php _e('📍 Sectores / Mesas', 'emp-caja'); ?></option>
+                    <option value="barra"><?php _e('🍸 Barras', 'emp-caja'); ?></option>
+                    <option value="mesa"><?php _e('🍽️ Mesas', 'emp-caja'); ?></option>
+                    <option value="takeaway"><?php _e('🛍️ Take Away', 'emp-caja'); ?></option>
+                </select>
                 <select id="caja-filter-time" class="caja-select-filter">
                     <option value="nuevos" selected><?php _e('Nuevos', 'emp-caja'); ?></option>
                     <option value="30_min"><?php _e('30 minutos', 'emp-caja'); ?></option>

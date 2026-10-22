@@ -84,6 +84,13 @@
         },
         init: function() {
             this.currentSlotFilter = 'all';
+            this.currentGastroSectorFilter = 'all';
+            this.gastroSector = (this.config && this.config.gastroSectors && this.config.gastroSectors[0]) || 'Barra Principal';
+            this.gastroTable = '';
+            this.cashTendered = 0;
+            this.cashChange = 0;
+            this.tipPercent = 0;
+            this.tipAmount = 0;
             this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
             this.packagingProducts = (this.config && this.config.packagingProducts) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingProducts) || [];
             this.packagingCandidates = (this.config && this.config.packagingCandidates) || (window.batllieCajaConfig && window.batllieCajaConfig.packagingCandidates) || [];
@@ -191,6 +198,34 @@
             // Filtro Desplegable de Horarios de Envío (Tandas)
             $(document).on('change', '#caja-filter-slot', function() {
                 self.currentSlotFilter = $(this).val();
+                self.applyFilters();
+            });
+
+            // Filtro Desplegable de Sector / Mesa Gastronómico
+            $(document).on('change', '#caja-filter-gastro-sector', function() {
+                self.currentGastroSectorFilter = $(this).val();
+                self.applyFilters();
+            });
+
+            // Botones de impresión de comanda y ticket en tarjetas de pedidos en vivo
+            $(document).on('click', '.caja-btn-print-comanda', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const orderId = $(this).data('order-id');
+                const order = (self.cachedOrders || []).find(o => o.id == orderId);
+                if (order) {
+                    self.printGastroTicket(order, 'comanda');
+                }
+            });
+
+            $(document).on('click', '.caja-btn-print-ticket', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const orderId = $(this).data('order-id');
+                const order = (self.cachedOrders || []).find(o => o.id == orderId);
+                if (order) {
+                    self.printGastroTicket(order, 'ticket');
+                }
                 self.applyFilters();
             });
 
@@ -2861,6 +2896,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                         <span class="caja-dispatch-text">Retiro local</span>
                                     </span>
                                 ` : '')}
+                                ${order.gastro_sector ? `
+                                    <span class="caja-gastro-pill" title="Sector: ${self.escapeHtml(order.gastro_sector)}${order.gastro_table ? ' · Mesa ' + self.escapeHtml(order.gastro_table) : ''}">
+                                        <span class="caja-gastro-pill-icon">${order.gastro_icon || '🍸'}</span>
+                                        <span class="caja-gastro-pill-text">${self.escapeHtml(order.gastro_sector)}${order.gastro_table ? ' · M' + self.escapeHtml(order.gastro_table) : ''}</span>
+                                    </span>
+                                ` : ''}
                                 <span class="caja-status-pill ${order.status_badge}">${order.status_name}</span>
                             </div>
                         </div>
@@ -2904,6 +2945,7 @@ $('#caja-modal-new-product').fadeIn(200);
                             <div class="caja-order-total-block">
                                 <span class="caja-total-label">Total a cobrar:</span>
                                 <span class="caja-total-val">${order.total}</span>
+                                ${order.gastro_tip_amount ? `<span class="caja-gastro-card-tip" style="font-size:0.75rem; color:#10b981; font-weight:700; margin-left:8px;" title="Propina / Servicio incluido">(incluye $${self.formatCurrencyNumber(order.gastro_tip_amount)} propina)</span>` : ''}
                             </div>
 
                             <!-- Menú de Pago, Control de Empaque y Envío (ubicado ARRIBA del selector de estado) -->
@@ -3158,6 +3200,16 @@ $('#caja-modal-new-product').fadeIn(200);
                             </div>
 
                             <!-- Botón 2: Notas adicionales colapsable con el mismo estilo (quien gestiona la caja) -->
+                            <!-- Botones Gastro: Comanda & Ticket -->
+                            <div class="caja-gastro-card-actions" style="display:flex; gap:6px; margin:8px 0;">
+                                <button type="button" class="caja-btn-print-comanda" data-order-id="${order.id}" title="Imprimir Comanda de Preparación">
+                                    <span>🖨️ Comanda</span>
+                                </button>
+                                <button type="button" class="caja-btn-print-ticket" data-order-id="${order.id}" title="Imprimir Ticket Térmico para Cliente">
+                                    <span>🧾 Ticket</span>
+                                </button>
+                            </div>
+
                             <div class="caja-notes-accordion">
                                 <button type="button" class="caja-btn-details-toggle caja-btn-notes-toggle" data-order-id="${order.id}">
                                     <span class="caja-toggle-left">
@@ -3323,6 +3375,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
 
                 // 4. Filtro de Horarios de Envío (Tandas)
+                // Filtro Gastro (Sector / Mesa / Barra)
+                if (self.currentGastroSectorFilter && self.currentGastroSectorFilter !== 'all') {
+                    if (!ord.gastro_sector || ord.gastro_sector !== self.currentGastroSectorFilter) {
+                        return false;
+                    }
+                }
+
                 if (self.currentSlotFilter && self.currentSlotFilter !== 'all') {
                     if (self.currentSlotFilter === 'none') {
                         if (ord.shipping_slot) return false;
@@ -6435,6 +6494,134 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else {
                     $('#caja-pos-card-op-wrap').slideUp(150);
                 }
+
+                if (pay === 'efectivo') {
+                    $('#caja-pos-cash-calc-wrap').slideDown(150);
+                    self.recalcCashChange();
+                } else {
+                    $('#caja-pos-cash-calc-wrap').slideUp(150);
+                }
+            });
+
+            // Selector de Sector / Barra Gastro
+            $(document).on('click', '.caja-gastro-chip', function(e) {
+                e.preventDefault();
+                $('.caja-gastro-chip').removeClass('active');
+                $(this).addClass('active');
+
+                const sector = $(this).data('sector') || 'Barra Principal';
+                const icon = $(this).data('icon') || '🍸';
+                self.gastroSector = sector;
+
+                const isMesa = sector.toLowerCase().indexOf('mesa') !== -1;
+                if (isMesa) {
+                    $('#caja-gastro-tables-wrap').slideDown(150);
+                    if (!self.gastroTable) {
+                        self.gastroTable = '1';
+                        $('.caja-gastro-table-chip').removeClass('active');
+                        $('.caja-gastro-table-chip[data-table="1"]').addClass('active');
+                    }
+                    $('#caja-gastro-selected-badge').text(`${icon} ${sector} #${self.gastroTable}`);
+                } else {
+                    $('#caja-gastro-tables-wrap').slideUp(150);
+                    self.gastroTable = '';
+                    $('#caja-gastro-selected-badge').text(`${icon} ${sector}`);
+                }
+            });
+
+            // Selector de Mesa Rápida
+            $(document).on('click', '.caja-gastro-table-chip', function(e) {
+                e.preventDefault();
+                $('.caja-gastro-table-chip').removeClass('active');
+                $(this).addClass('active');
+                $('#caja-gastro-custom-table').val('');
+
+                const tbl = $(this).data('table');
+                self.gastroTable = String(tbl);
+                $('#caja-gastro-selected-badge').text(`🍽️ Mesa #${self.gastroTable}`);
+            });
+
+            // Mesa personalizada manual
+            $(document).on('input', '#caja-gastro-custom-table', function() {
+                const val = $.trim($(this).val());
+                if (val) {
+                    $('.caja-gastro-table-chip').removeClass('active');
+                    self.gastroTable = val;
+                    $('#caja-gastro-selected-badge').text(`🍽️ Mesa: ${val}`);
+                } else {
+                    self.gastroTable = '1';
+                    $('.caja-gastro-table-chip[data-table="1"]').addClass('active');
+                    $('#caja-gastro-selected-badge').text('🍽️ Mesa #1');
+                }
+            });
+
+            // Speed Cash: Botones de Billetes
+            $(document).on('click', '.caja-cash-bill-btn[data-bill]', function(e) {
+                e.preventDefault();
+                const billVal = parseFloat($(this).data('bill')) || 0;
+                const currentVal = parseFloat($('#caja-pos-cash-tendered').val()) || 0;
+                const newVal = currentVal + billVal;
+                $('#caja-pos-cash-tendered').val(newVal);
+                self.recalcCashChange();
+            });
+
+            // Speed Cash: Monto Exacto
+            $(document).on('click', '#btn-cash-exact', function(e) {
+                e.preventDefault();
+                const total = self.currentGrandTotal || self.currentPosTotal || 0;
+                $('#caja-pos-cash-tendered').val(total);
+                self.recalcCashChange();
+            });
+
+            // Speed Cash: Limpiar
+            $(document).on('click', '#btn-cash-clear', function(e) {
+                e.preventDefault();
+                $('#caja-pos-cash-tendered').val('');
+                self.recalcCashChange();
+            });
+
+            // Speed Cash: Input manual de monto entregado
+            $(document).on('input', '#caja-pos-cash-tendered', function() {
+                self.recalcCashChange();
+            });
+
+            // Propinas: Botones de porcentaje
+            $(document).on('click', '.caja-pos-tip-chip', function(e) {
+                e.preventDefault();
+                $('.caja-pos-tip-chip').removeClass('active');
+                $(this).addClass('active');
+
+                const tipVal = $(this).data('tip');
+                if (tipVal === 'custom') {
+                    $('#caja-pos-tip-custom-wrap').slideDown(150);
+                    $('#caja-pos-custom-tip-input').focus();
+                    self.tipPercent = null;
+                } else {
+                    $('#caja-pos-tip-custom-wrap').slideUp(150);
+                    self.tipPercent = parseFloat(tipVal) || 0;
+                    self.tipAmount = 0;
+                    self.updatePosTotals();
+                }
+            });
+
+            // Propina manual libre
+            $(document).on('input', '#caja-pos-custom-tip-input', function() {
+                const manualVal = parseFloat($(this).val()) || 0;
+                self.tipPercent = null;
+                self.tipAmount = Math.max(0, manualVal);
+                self.updatePosTotals();
+            });
+
+            // Quitar propina
+            $(document).on('click', '#caja-pos-remove-tip-btn', function(e) {
+                e.preventDefault();
+                $('#caja-pos-custom-tip-input').val('');
+                $('#caja-pos-tip-custom-wrap').slideUp(150);
+                $('.caja-pos-tip-chip').removeClass('active');
+                $('.caja-pos-tip-chip[data-tip="0"]').addClass('active');
+                self.tipPercent = 0;
+                self.tipAmount = 0;
+                self.updatePosTotals();
             });
 
             // Buscador predictivo de clientes existentes
@@ -7402,7 +7589,32 @@ $('#caja-modal-new-product').fadeIn(200);
             const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
             const shippingCost = isConEnvio ? (parseFloat(self.currentPosShippingCost) || 0) : 0;
-            const grandTotal = totalPrice + shippingCost;
+            // Cálculo de Propina / Servicio Gastro
+            let tip = 0;
+            if (self.tipPercent !== null && self.tipPercent !== undefined && self.tipPercent > 0) {
+                tip = Math.round((totalPrice * (self.tipPercent / 100)) * 100) / 100;
+                self.tipAmount = tip;
+            } else if (self.tipAmount > 0) {
+                tip = self.tipAmount;
+            } else {
+                tip = 0;
+                self.tipAmount = 0;
+            }
+
+            $('#caja-pos-tip-amount').val(tip);
+            if (tip > 0) {
+                const tipLabel = (self.tipPercent && self.tipPercent > 0) ? `Propina / Servicio (${self.tipPercent}%):` : 'Propina / Servicio:';
+                $('#caja-pos-tip-total-label').text(tipLabel);
+                $('#caja-pos-tip-total-val').text('$' + self.formatCurrencyNumber(tip));
+                $('#caja-pos-tip-val-badge').text('$' + self.formatCurrencyNumber(tip));
+                $('#caja-pos-tip-total-row').show();
+            } else {
+                $('#caja-pos-tip-val-badge').text('$0,00');
+                $('#caja-pos-tip-total-row').hide();
+            }
+
+            const grandTotal = totalPrice + shippingCost + tip;
+            self.currentGrandTotal = grandTotal;
 
             $('#caja-pos-subtotal-val').text('$' + self.formatCurrencyNumber(totalPrice));
 
@@ -7422,6 +7634,7 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-pos-total-val').text('$' + self.formatCurrencyNumber(grandTotal));
 
             self.currentPosTotal = grandTotal;
+            self.recalcCashChange();
             self.updatePosCustomerRequirements();
 
             if (totalItems > 0) {
@@ -7436,6 +7649,18 @@ $('#caja-modal-new-product').fadeIn(200);
         clearPosCart: function(silent) {
             this.posCart = [];
             this.currentPosTotal = 0;
+            this.currentGrandTotal = 0;
+            this.tipPercent = 0;
+            this.tipAmount = 0;
+            this.cashTendered = 0;
+            this.cashChange = 0;
+            $('.caja-pos-tip-chip').removeClass('active');
+            $('.caja-pos-tip-chip[data-tip="0"]').addClass('active');
+            $('#caja-pos-tip-custom-wrap').hide();
+            $('#caja-pos-custom-tip-input').val('');
+            $('#caja-pos-tip-amount').val('0');
+            $('#caja-pos-cash-tendered').val('');
+            $('#caja-cash-change-val').text('$0,00').css('color', '#34d399');
             $('.caja-pos-qty-val').text('0');
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
             $('.caja-pos-btn-var-trigger').removeClass('has-items').html('<span class="caja-pos-var-label">Elegir ▾</span>');
@@ -7845,7 +8070,12 @@ $('#caja-modal-new-product').fadeIn(200);
                     shipping_method_title: (mode === 'pedido_despachar' && deliveryType === 'con_envio') ? (self.currentPosShippingMethodTitle || '') : '',
                     shipping_method_id: (mode === 'pedido_despachar' && deliveryType === 'con_envio') ? (self.currentPosShippingMethodId || '') : '',
                     shipping_postcode: $.trim($('#caja-pos-calc-postcode').val()),
-                    used_packaging: JSON.stringify(self.getUsedPackaging())
+                    used_packaging: JSON.stringify(self.getUsedPackaging()),
+                    gastro_sector: self.gastroSector || 'Barra Principal',
+                    gastro_table: self.gastroTable || '',
+                    tip_amount: self.tipAmount || 0,
+                    cash_tendered: self.cashTendered || 0,
+                    cash_change: self.cashChange || 0
                 },
                 success: function(res) {
                     if (res && res.success) {
@@ -7966,6 +8196,24 @@ $('#caja-modal-new-product').fadeIn(200);
                         <p style="color:var(--caja-text, #ffffff); opacity:0.95; font-size:0.95rem; margin:0 0 16px;">${self.escapeHtml(data.message || '')}</p>
                         
                         <div style="background:rgba(0,0,0,0.3); border:1px solid var(--caja-card-border, rgba(255,255,255,0.15)); border-radius:8px; padding:14px; margin-bottom:20px; font-size:0.92rem; text-align:left;">
+                            ${data.gastro_sector ? `
+                                <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                    <span style="color:var(--caja-text, #ffffff); font-weight:700;">Sector / Ubicación:</span>
+                                    <span style="color:#38bdf8; font-weight:700;">📍 ${self.escapeHtml(data.gastro_sector)}${data.gastro_table ? ' · M' + self.escapeHtml(data.gastro_table) : ''}</span>
+                                </div>
+                            ` : ''}
+                            ${data.tip_amount ? `
+                                <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                    <span style="color:var(--caja-text, #ffffff); font-weight:700;">Propina / Servicio:</span>
+                                    <span style="color:#34d399; font-weight:700;">+$${self.formatCurrencyNumber(data.tip_amount)}</span>
+                                </div>
+                            ` : ''}
+                            ${data.cash_change ? `
+                                <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center; background:rgba(16,185,129,0.15); padding:6px 8px; border-radius:6px; border:1px solid rgba(16,185,129,0.3);">
+                                    <span style="color:#34d399; font-weight:800;">💵 Vuelto a Entregar:</span>
+                                    <strong style="color:#34d399; font-size:1.15rem; font-weight:900;">$${self.formatCurrencyNumber(data.cash_change)}</strong>
+                                </div>
+                            ` : ''}
                             <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
                                 <span style="color:var(--caja-text, #ffffff); font-weight:700;">Total:</span>
                                 <strong style="color:var(--caja-primary, #10b981); font-size:1.15rem; font-weight:800;">${data.total || ''}</strong>
@@ -7980,6 +8228,16 @@ $('#caja-modal-new-product').fadeIn(200);
                             </div>
                         </div>
 
+                        <!-- Botones de Impresión Gastro Rápida -->
+                        <div style="display:flex; gap:8px; margin-bottom:12px;">
+                            <button type="button" class="caja-btn" id="btn-pos-success-print-comanda" style="flex:1; padding:10px; font-weight:700; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; cursor:pointer;">
+                                <span>🖨️ Comanda</span>
+                            </button>
+                            <button type="button" class="caja-btn" id="btn-pos-success-print-ticket" style="flex:1; padding:10px; font-weight:700; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#fff; border-radius:6px; cursor:pointer;">
+                                <span>🧾 Ticket</span>
+                            </button>
+                        </div>
+
                         <div style="display:flex; gap:10px;">
                             <button type="button" class="caja-btn caja-btn-primary" id="btn-close-pos-success" style="width:100%; padding:12px; font-size:1rem; font-weight:700;">
                                 <span>Nueva Venta</span>
@@ -7992,6 +8250,14 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-pos-success-modal').remove();
             $('body').append(modalHtml);
 
+            $('#btn-pos-success-print-comanda').on('click', function() {
+                self.printGastroTicket(data.order || data, 'comanda');
+            });
+
+            $('#btn-pos-success-print-ticket').on('click', function() {
+                self.printGastroTicket(data.order || data, 'ticket');
+            });
+
             $('#btn-close-pos-success, #caja-pos-success-modal .caja-modal-backdrop').on('click', function() {
                 $('#caja-pos-success-modal').fadeOut(150, function() { $(this).remove(); });
                 self.clearPosCart(true);
@@ -7999,6 +8265,282 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-pos-card-op').val('');
                 $('#caja-pos-checkout-btn').prop('disabled', true);
             });
+        },
+
+        recalcCashChange: function() {
+            const total = this.currentGrandTotal || this.currentPosTotal || 0;
+            const $tenderedInput = $('#caja-pos-cash-tendered');
+            const tendered = parseFloat($tenderedInput.val()) || 0;
+            this.cashTendered = tendered;
+
+            const $changeVal = $('#caja-cash-change-val');
+            if (tendered >= total && total > 0) {
+                const change = Math.round((tendered - total) * 100) / 100;
+                this.cashChange = change;
+                $changeVal.text('$' + this.formatCurrencyNumber(change)).css('color', '#34d399');
+            } else if (tendered > 0 && tendered < total) {
+                const diff = Math.round((total - tendered) * 100) / 100;
+                this.cashChange = 0;
+                $changeVal.text('Faltan $' + this.formatCurrencyNumber(diff)).css('color', '#f87171');
+            } else {
+                this.cashChange = 0;
+                $changeVal.text('$0,00').css('color', '#34d399');
+            }
+        },
+
+        printGastroTicket: function(order, type) {
+            if (!order) return;
+            const self = this;
+            const isComanda = (type === 'comanda');
+            const venueName = (self.config && self.config.gastroVenueName) ? self.config.gastroVenueName : (document.title || 'POS Gastro');
+            const ticketFooter = (self.config && self.config.gastroTicketFooter) ? self.config.gastroTicketFooter : '¡Muchas gracias por su visita!';
+
+            const orderNum = order.number || order.order_number || order.id || '---';
+            const sectorName = order.gastro_sector || (order.meta && order.meta._caja_gastro_sector) || 'Barra Principal';
+            const tableName = order.gastro_table || (order.meta && order.meta._caja_gastro_mesa) || '';
+            const locationStr = tableName ? `${sectorName} · MESA #${tableName}` : sectorName;
+            
+            // Fecha y hora
+            const now = new Date();
+            const dateStr = order.time_formatted || order.date_created || now.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            // Cliente
+            const customerName = order.customer_name || 'Cliente Mostrador';
+            const customerNote = order.customer_note || order.note || '';
+
+            // Items
+            let items = [];
+            if (Array.isArray(order.items) && order.items.length > 0) {
+                items = order.items;
+            } else if (order.line_items && Array.isArray(order.line_items)) {
+                items = order.line_items;
+            } else if (self.posCart && self.posCart.length > 0 && !order.items) {
+                items = self.posCart;
+            }
+
+            let itemsTableHtml = '';
+            items.forEach(it => {
+                const qty = it.quantity || 1;
+                const name = it.name || it.product_name || 'Producto';
+                const price = it.price ? parseFloat(it.price) : (it.total_num ? parseFloat(it.total_num) : 0);
+                const lineTotal = it.total ? (typeof it.total === 'string' ? it.total : '$' + self.formatCurrencyNumber(it.total)) : ('$' + self.formatCurrencyNumber(price * qty));
+                const variation = it.variation_label || '';
+
+                if (isComanda) {
+                    itemsTableHtml += `
+                        <tr style="border-bottom: 1px dashed #444;">
+                            <td style="padding: 6px 2px; font-size: 16px; font-weight: 900; width: 35px; vertical-align: top;">${qty}x</td>
+                            <td style="padding: 6px 2px; font-size: 14px; font-weight: 700;">
+                                ${self.escapeHtml(name)}
+                                ${variation ? `<div style="font-size: 12px; font-weight: 600; color: #222;">↳ ${self.escapeHtml(variation)}</div>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    itemsTableHtml += `
+                        <tr style="border-bottom: 1px dotted #ccc;">
+                            <td style="padding: 4px 2px; font-size: 13px; font-weight: 800; width: 28px; vertical-align: top;">${qty}</td>
+                            <td style="padding: 4px 2px; font-size: 12px; vertical-align: top;">
+                                ${self.escapeHtml(name)}
+                                ${variation ? `<div style="font-size: 11px; color: #555;">↳ ${self.escapeHtml(variation)}</div>` : ''}
+                            </td>
+                            <td style="padding: 4px 2px; font-size: 12px; font-weight: 700; text-align: right; vertical-align: top; white-space: nowrap;">${lineTotal}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // Totales para Ticket
+            const subtotalStr = order.subtotal ? order.subtotal : (order.total || '$0');
+            const totalStr = order.total || '$0';
+            const tipVal = parseFloat(order.gastro_tip_amount || (order.meta && order.meta._caja_tip_amount) || order.tip_amount) || 0;
+            const tenderedVal = parseFloat(order.gastro_cash_tendered || (order.meta && order.meta._caja_cash_tendered) || order.cash_tendered) || 0;
+            const changeVal = parseFloat(order.gastro_cash_change || (order.meta && order.meta._caja_cash_change) || order.cash_change) || 0;
+            const paymentMethod = order.payment_method || order.payment_method_title || 'Efectivo';
+
+            let totalsHtml = '';
+            if (!isComanda) {
+                totalsHtml = `
+                    <div style="border-top: 1px dashed #000; margin-top: 6px; padding-top: 6px;">
+                        ${tipVal > 0 ? `
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
+                                <span>Propina / Servicio:</span>
+                                <strong>+$${self.formatCurrencyNumber(tipVal)}</strong>
+                            </div>
+                        ` : ''}
+                        <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 900; margin-top: 4px; border-top: 1px solid #000; padding-top: 4px;">
+                            <span>TOTAL:</span>
+                            <span>${totalStr}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px; color: #444;">
+                            <span>Medio de Pago:</span>
+                            <span>${self.escapeHtml(paymentMethod)}</span>
+                        </div>
+                        ${tenderedVal > 0 ? `
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 2px; color: #444;">
+                                <span>Abona con:</span>
+                                <span>$${self.formatCurrencyNumber(tenderedVal)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; margin-top: 2px;">
+                                <span>Vuelto:</span>
+                                <span>$${self.formatCurrencyNumber(changeVal)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            const printHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>${isComanda ? 'Comanda #' + orderNum : 'Ticket #' + orderNum}</title>
+                    <style>
+                        @page {
+                            size: 80mm auto;
+                            margin: 0mm;
+                        }
+                        @media print {
+                            body {
+                                margin: 0;
+                                padding: 3mm 2mm;
+                            }
+                        }
+                        body {
+                            font-family: 'Courier New', Courier, monospace, sans-serif;
+                            font-size: 12px;
+                            line-height: 1.25;
+                            color: #000;
+                            background: #fff;
+                            width: 76mm;
+                            max-width: 76mm;
+                            margin: 0 auto;
+                            padding: 4mm 2mm;
+                            box-sizing: border-box;
+                        }
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .bold { font-weight: bold; }
+                        .banner {
+                            border: 2px solid #000;
+                            padding: 6px;
+                            margin: 8px 0;
+                            text-align: center;
+                        }
+                        .banner-title {
+                            font-size: 17px;
+                            font-weight: 900;
+                            letter-spacing: 0.5px;
+                            text-transform: uppercase;
+                        }
+                        .banner-sub {
+                            font-size: 13px;
+                            font-weight: 800;
+                            margin-top: 3px;
+                        }
+                        .divider {
+                            border-top: 1px dashed #000;
+                            margin: 6px 0;
+                        }
+                        .double-divider {
+                            border-top: 2px solid #000;
+                            margin: 6px 0;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${isComanda ? `
+                        <div class="banner">
+                            <div class="banner-title">*** COMANDA ***</div>
+                            <div class="banner-sub">📍 ${self.escapeHtml(locationStr)}</div>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:800; margin-bottom:4px;">
+                            <span>PEDIDO #${orderNum}</span>
+                            <span>${dateStr}</span>
+                        </div>
+                        ${customerNote ? `
+                            <div style="background:#f0f0f0; border:1px solid #000; padding:5px; margin:6px 0; font-size:12px; font-weight:bold;">
+                                ⚠️ NOTA: ${self.escapeHtml(customerNote)}
+                            </div>
+                        ` : ''}
+                        <div class="divider"></div>
+                        <table>
+                            <tbody>
+                                ${itemsTableHtml}
+                            </tbody>
+                        </table>
+                        <div class="divider"></div>
+                        <div class="text-center" style="font-size:10px; margin-top:8px; font-weight:bold;">
+                            --- ENVIADO A PREPARACIÓN ---
+                        </div>
+                    ` : `
+                        <div class="text-center">
+                            <div style="font-size: 16px; font-weight: 900; text-transform: uppercase;">${self.escapeHtml(venueName)}</div>
+                            <div style="font-size: 11px; margin-top: 2px;">COMPROBANTE DE VENTA</div>
+                            <div class="divider"></div>
+                            <div style="font-size: 13px; font-weight: 800; margin: 4px 0;">📍 ${self.escapeHtml(locationStr)}</div>
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px;">
+                                <span>Ticket: #${orderNum}</span>
+                                <span>${dateStr}</span>
+                            </div>
+                            ${customerName && customerName !== 'Cliente Mostrador' ? `
+                                <div style="font-size: 11px; text-align: left; margin-top: 3px;">
+                                    Cliente: <strong>${self.escapeHtml(customerName)}</strong>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="divider"></div>
+                        <table>
+                            <thead>
+                                <tr style="border-bottom: 1px dashed #000; font-size: 11px;">
+                                    <th style="text-align: left; padding: 2px 0;">Cant</th>
+                                    <th style="text-align: left; padding: 2px 0;">Detalle</th>
+                                    <th style="text-align: right; padding: 2px 0;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsTableHtml}
+                            </tbody>
+                        </table>
+                        ${totalsHtml}
+                        ${customerNote ? `
+                            <div style="font-size: 11px; margin-top: 6px; padding: 4px; background: #fafafa; border: 1px solid #ddd;">
+                                <em>Nota: ${self.escapeHtml(customerNote)}</em>
+                            </div>
+                        ` : ''}
+                        <div class="divider"></div>
+                        <div class="text-center" style="font-size: 11px; margin-top: 6px;">
+                            ${self.escapeHtml(ticketFooter)}
+                        </div>
+                    `}
+                </body>
+                </html>
+            `;
+
+            // Imprimir vía iframe oculto sin popup bloqueable
+            let $iframe = $('#caja-thermal-print-frame');
+            if (!$iframe.length) {
+                $iframe = $('<iframe id="caja-thermal-print-frame" style="position:fixed; right:0; bottom:0; width:1px; height:1px; border:none; opacity:0; z-index:-1;"></iframe>').appendTo('body');
+            }
+            const iframeDoc = $iframe[0].contentWindow || $iframe[0].contentDocument;
+            const doc = iframeDoc.document || iframeDoc;
+            doc.open();
+            doc.write(printHtml);
+            doc.close();
+
+            setTimeout(function() {
+                try {
+                    $iframe[0].contentWindow.focus();
+                    $iframe[0].contentWindow.print();
+                } catch(e) {
+                    console.error('Error al imprimir ticket térmico:', e);
+                }
+            }, 300);
         },
 
         loadPosHistory: function() {

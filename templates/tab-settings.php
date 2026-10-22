@@ -433,6 +433,88 @@ $options = Batllie_Caja_Plugin::get_color_settings();
             </div>
         </div>
 
+        <!-- 10. Configuración para Boliches y Restaurantes (Gastronomía) -->
+        <div class="caja-settings-card">
+            <div class="caja-settings-card-header">
+                <h2>
+                    <span class="caja-card-icon">🍸</span>
+                    <span><?php _e('Configuración para Boliches y Restaurantes', 'emp-caja'); ?></span>
+                </h2>
+                <p class="caja-settings-card-desc"><?php _e('Adapta el funcionamiento de la caja y pedidos para locales nocturnos, barras, mesas y comandas.', 'emp-caja'); ?></p>
+            </div>
+            <div class="caja-settings-card-body">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_gastro_mode"><?php _e('Perfil / Modalidad Principal', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <select id="caja_setting_gastro_mode" name="batllie_caja_options[gastro_mode]" class="caja-select" style="max-width: 380px;">
+                                <option value="boliche" <?php selected($options['gastro_mode'] ?? 'boliche', 'boliche'); ?>>🍸 <?php _e('Boliche / Bar Nocturno (Venta rápida en barra)', 'emp-caja'); ?></option>
+                                <option value="restaurante" <?php selected($options['gastro_mode'] ?? 'boliche', 'restaurante'); ?>>🍽️ <?php _e('Restaurante / Restobar (Mesas, comandas y salón)', 'emp-caja'); ?></option>
+                            </select>
+                            <p class="description">
+                                <?php _e('Configura las opciones predeterminadas de la interfaz y orden de sectores en la venta rápida.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_gastro_venue_name"><?php _e('Nombre del Local / Marca en Tickets', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <input type="text" id="caja_setting_gastro_venue_name" name="batllie_caja_options[gastro_venue_name]" value="<?php echo esc_attr($options['gastro_venue_name'] ?? ''); ?>" class="regular-text caja-input" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>" />
+                            <p class="description">
+                                <?php _e('Aparece en la cabecera de las comandas para barra/cocina y tickets térmicos de clientes.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_gastro_sectors"><?php _e('Barras, Mesas y Sectores Activos', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <textarea id="caja_setting_gastro_sectors" name="batllie_caja_options[gastro_sectors]" rows="3" class="large-text caja-input" style="max-width: 600px;"><?php echo esc_textarea($options['gastro_sectors'] ?? 'Barra Principal, Barra VIP, Terraza, Boletería / Entrada, Pista, Mesa 1, Mesa 2, Mesa 3, Mesa 4, Mesa 5, Mesa 6, Mesa 7, Mesa 8, Mesa 9, Mesa 10, Take Away / Para Llevar'); ?></textarea>
+                            <p class="description">
+                                <?php _e('Lista separada por comas de las barras, mesas y puntos de despacho que estarán disponibles como botones rápidos en la pantalla de cobro POS.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Calculadora de Vuelto Rápido (Efectivo)', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="hidden" name="batllie_caja_options[gastro_enable_quick_cash]" value="no" />
+                            <label class="caja-checkbox-label">
+                                <input type="checkbox" name="batllie_caja_options[gastro_enable_quick_cash]" value="yes" <?php checked($options['gastro_enable_quick_cash'] ?? 'yes', 'yes'); ?> />
+                                <span><?php _e('Mostrar botones táctiles de billetes ($1.000, $2.000, $5.000, $10.000, $20.000) y cálculo instantáneo del vuelto.', 'emp-caja'); ?></span>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php _e('Propina y Servicio Opcional', 'emp-caja'); ?></th>
+                        <td>
+                            <input type="hidden" name="batllie_caja_options[gastro_enable_tips]" value="no" />
+                            <label class="caja-checkbox-label">
+                                <input type="checkbox" name="batllie_caja_options[gastro_enable_tips]" value="yes" <?php checked($options['gastro_enable_tips'] ?? 'yes', 'yes'); ?> />
+                                <span><?php _e('Habilitar selector de propina sugerida (5%, 10%, 15% o libre) en el cobro de la terminal POS.', 'emp-caja'); ?></span>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="caja_setting_gastro_ticket_footer"><?php _e('Pie de Ticket / Comprobante', 'emp-caja'); ?></label>
+                        </th>
+                        <td>
+                            <input type="text" id="caja_setting_gastro_ticket_footer" name="batllie_caja_options[gastro_ticket_footer]" value="<?php echo esc_attr($options['gastro_ticket_footer'] ?? '¡Gracias por tu visita! Conserve su ticket.'); ?>" class="regular-text caja-input" />
+                            <p class="description">
+                                <?php _e('Mensaje final impreso en el ticket térmico.', 'emp-caja'); ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
         <!-- Barra Inferior de Guardar -->
         <div class="caja-settings-submit-bar">
             <button type="submit" class="caja-btn caja-btn-primary caja-btn-lg caja-btn-save-settings" id="caja-btn-save-settings">

@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Caja POS & Control de Pedidos
+ * Plugin Name: Caja & Comandas POS (Boliches & Restaurantes)
  * Plugin URI: https://empralidad.com.ar/caja
  * Description: Sistema de Caja y Control de Pedidos en tiempo real para WooCommerce con sonido de alerta, vista aislada para mostrador/cocina, gestión de estados, alta de productos y colores 100% personalizables. Shortcode: [caja_pos].
- * Version: 1.9.66
+ * Version: 2.0.0-gastro
  * Author: Empralidad
  * Author URI: https://empralidad.com.ar
  * Text Domain: emp-caja
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Constantes del Plugin
-define('EMP_CAJA_VERSION', '1.9.66');
+define('EMP_CAJA_VERSION', '2.0.0-gastro');
 define('EMP_CAJA_FILE', __FILE__);
 define('EMP_CAJA_PATH', plugin_dir_path(__FILE__));
 define('EMP_CAJA_URL', plugin_dir_url(__FILE__));
@@ -265,7 +265,14 @@ class Batllie_Caja_Plugin {
             'shipping_slots_apply_to'   => 'shipping_only', // 'shipping_only' (domicilio) o 'all' (todos los pedidos)
             'pos_customer_threshold'    => 0,         // Monto mínimo para exigir datos del cliente en mostrador/caja (0 = opcional)
             'pos_auto_account'          => '1',       // Crear automáticamente cuenta de usuario y enviar correo con botón de contraseña
-            'hold_stock_minutes'        => intval(get_option('woocommerce_hold_stock_minutes', 60)), // Límite para cancelar pedidos sin pagar
+            'hold_stock_minutes'        => intval(get_option('woocommerce_hold_stock_minutes', 60)),
+            // Configuración para Gastronomía, Boliches y Restaurantes
+            'gastro_mode'               => 'boliche', // 'boliche' | 'restaurante'
+            'gastro_sectors'            => 'Barra Principal, Barra VIP, Terraza, Boletería / Entrada, Pista, Mesa 1, Mesa 2, Mesa 3, Mesa 4, Mesa 5, Mesa 6, Mesa 7, Mesa 8, Mesa 9, Mesa 10, Take Away / Para Llevar',
+            'gastro_enable_quick_cash'  => 'yes',     // Calculadora de billetes rápidos en efectivo
+            'gastro_enable_tips'        => 'yes',     // Selector de propina sugerida
+            'gastro_venue_name'         => '',        // Nombre del local para tickets
+            'gastro_ticket_footer'      => '¡Gracias por tu visita! Conserve su ticket.', // Límite para cancelar pedidos sin pagar
         );
 
         $saved = get_option('batllie_caja_options', array());
@@ -582,6 +589,12 @@ class Batllie_Caja_Plugin {
             'holdStockMinutes'     => intval(get_option('woocommerce_hold_stock_minutes', $options['hold_stock_minutes'] ?? 60)),
             'swUrl'                => add_query_arg('batllie_caja_sw', '1', home_url('/')),
             'manifestUrl'          => add_query_arg('batllie_caja_manifest', '1', home_url('/')),
+            'gastroMode'             => $options['gastro_mode'] ?? 'boliche',
+            'gastroSectors'          => !empty($options['gastro_sectors']) ? array_values(array_filter(array_map('trim', explode(',', $options['gastro_sectors'])))) : array('Barra Principal', 'Barra VIP', 'Terraza', 'Boletería / Entrada', 'Pista', 'Mesa 1', 'Mesa 2', 'Mesa 3', 'Take Away / Para Llevar'),
+            'gastroEnableQuickCash'  => (($options['gastro_enable_quick_cash'] ?? 'yes') === 'yes'),
+            'gastroEnableTips'       => (($options['gastro_enable_tips'] ?? 'yes') === 'yes'),
+            'gastroVenueName'        => !empty($options['gastro_venue_name']) ? $options['gastro_venue_name'] : (function_exists('get_bloginfo') ? get_bloginfo('name') : 'Local'),
+            'gastroTicketFooter'     => $options['gastro_ticket_footer'] ?? '¡Gracias por tu visita! Conserve su ticket.',
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
@@ -1039,6 +1052,26 @@ JS;
             $mins = max(1, intval($input['hold_stock_minutes']));
             $output['hold_stock_minutes'] = $mins;
             update_option('woocommerce_hold_stock_minutes', $mins);
+        }
+
+        // Ajustes para Boliches y Restaurantes (Gastronomía)
+        if (isset($input['gastro_mode'])) {
+            $output['gastro_mode'] = in_array($input['gastro_mode'], array('boliche', 'restaurante'), true) ? $input['gastro_mode'] : 'boliche';
+        }
+        if (isset($input['gastro_sectors'])) {
+            $output['gastro_sectors'] = sanitize_textarea_field(wp_unslash($input['gastro_sectors']));
+        }
+        if (isset($input['gastro_enable_quick_cash'])) {
+            $output['gastro_enable_quick_cash'] = ($input['gastro_enable_quick_cash'] === 'yes') ? 'yes' : 'no';
+        }
+        if (isset($input['gastro_enable_tips'])) {
+            $output['gastro_enable_tips'] = ($input['gastro_enable_tips'] === 'yes') ? 'yes' : 'no';
+        }
+        if (isset($input['gastro_venue_name'])) {
+            $output['gastro_venue_name'] = sanitize_text_field(wp_unslash($input['gastro_venue_name']));
+        }
+        if (isset($input['gastro_ticket_footer'])) {
+            $output['gastro_ticket_footer'] = sanitize_text_field(wp_unslash($input['gastro_ticket_footer']));
         }
 
         return $output;

@@ -53,6 +53,50 @@ if (!defined('ABSPATH')) {
         <div class="caja-pos-card caja-pos-checkout-card" id="caja-pos-checkout-card">
             <!-- Cuerpo scrolleable del cobro -->
             <div class="caja-pos-checkout-scrollable">
+                <!-- SELECTOR DE UBICACIÓN / SECTOR / MESA / BARRA -->
+                <div class="caja-gastro-sector-group" id="caja-gastro-sector-group">
+                    <div class="caja-gastro-sector-header">
+                        <div class="caja-gastro-header-left">
+                            <span class="caja-gastro-icon">📍</span>
+                            <strong class="caja-gastro-title"><?php _e('Sector / Ubicación', 'emp-caja'); ?></strong>
+                        </div>
+                        <span id="caja-gastro-selected-badge" class="caja-gastro-badge">🍸 Barra Principal</span>
+                    </div>
+                    <!-- Chips táctiles de sectores rápidos -->
+                    <div class="caja-gastro-chips-row" id="caja-gastro-chips-row">
+                        <button type="button" class="caja-gastro-chip active" data-sector="Barra Principal" data-icon="🍸">
+                            <span>🍸</span> <span>Barra Principal</span>
+                        </button>
+                        <button type="button" class="caja-gastro-chip" data-sector="Barra VIP" data-icon="⭐">
+                            <span>⭐</span> <span>Barra VIP</span>
+                        </button>
+                        <button type="button" class="caja-gastro-chip" data-sector="Terraza" data-icon="🌿">
+                            <span>🌿</span> <span>Terraza</span>
+                        </button>
+                        <button type="button" class="caja-gastro-chip" data-sector="Mesa" data-icon="🍽️" id="caja-gastro-btn-mesa">
+                            <span>🍽️</span> <span>Mesa</span>
+                        </button>
+                        <button type="button" class="caja-gastro-chip" data-sector="Take Away" data-icon="🛍️">
+                            <span>🛍️</span> <span>Take Away</span>
+                        </button>
+                    </div>
+                    <!-- Sub-panel de Mesas (Visible cuando se selecciona 'Mesa') -->
+                    <div class="caja-gastro-tables-wrap" id="caja-gastro-tables-wrap" style="display:none;">
+                        <label class="caja-gastro-sublabel"><?php _e('Mesa asignada:', 'emp-caja'); ?></label>
+                        <div class="caja-gastro-table-chips-row" id="caja-gastro-table-chips-row">
+                            <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <button type="button" class="caja-gastro-table-chip <?php echo ($m === 1) ? 'active' : ''; ?>" data-table="<?php echo esc_attr($m); ?>">
+                                    <?php echo esc_html($m); ?>
+                                </button>
+                            <?php endfor; ?>
+                        </div>
+                        <div class="caja-gastro-table-custom-row">
+                            <input type="text" id="caja-gastro-custom-table" class="caja-input caja-pos-text-input" placeholder="<?php esc_attr_e('O escribe número/nombre de mesa...', 'emp-caja'); ?>" />
+                        </div>
+                    </div>
+                    <input type="hidden" id="caja-pos-selected-sector" value="Barra Principal" />
+                    <input type="hidden" id="caja-pos-selected-table" value="" />
+                </div>
                 <!-- Selector de Modo de Entrega tipo Switch iOS -->
             <div class="caja-pos-switches-group">
                 <div class="caja-pos-switch-row is-active" data-mode="compra_realizada" id="pos-row-compra-realizada">
@@ -104,6 +148,35 @@ if (!defined('ABSPATH')) {
                     </button>
                 </div>
                 <input type="hidden" id="caja-pos-selected-pay" value="efectivo" />
+
+                <!-- Calculadora de Efectivo y Vuelto Rápido (Speed Cash) -->
+                <div id="caja-pos-cash-calc-wrap" class="caja-pos-cash-calc-wrap" style="margin-top: 10px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; color:var(--caja-primary, #10b981); display:flex; align-items:center; gap:5px;">
+                            <span>💵</span> <?php _e('Cobro Rápido en Efectivo', 'emp-caja'); ?>
+                        </span>
+                        <button type="button" class="caja-cash-bill-clear" id="btn-cash-clear" title="<?php esc_attr_e('Limpiar monto', 'emp-caja'); ?>" style="background:none; border:none; color:#ef4444; font-size:0.72rem; font-weight:700; cursor:pointer;">✕ <?php _e('Limpiar', 'emp-caja'); ?></button>
+                    </div>
+                    <!-- Fila de billetes táctiles rápidos -->
+                    <div class="caja-cash-bills-row" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+                        <button type="button" class="caja-cash-bill-btn caja-cash-exact-btn" id="btn-cash-exact">✓ <?php _e('Exacto', 'emp-caja'); ?></button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="1000">+$1.000</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="2000">+$2.000</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="5000">+$5.000</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="10000">+$10.000</button>
+                        <button type="button" class="caja-cash-bill-btn" data-bill="20000">+$20.000</button>
+                    </div>
+                    <div class="caja-cash-inputs-row" style="display:flex; gap:10px; align-items:center;">
+                        <div style="flex:1; position:relative;">
+                            <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-weight:700; color:var(--caja-text-muted, #94a3b8);">$</span>
+                            <input type="number" step="any" min="0" id="caja-pos-cash-tendered" class="caja-input caja-pos-cash-input" placeholder="0" style="padding-left:24px; font-weight:700; width:100%; box-sizing:border-box;" title="<?php esc_attr_e('Monto entregado por el cliente', 'emp-caja'); ?>" />
+                        </div>
+                        <div class="caja-cash-change-display" id="caja-cash-change-display" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(16, 185, 129, 0.4); border-radius:6px; padding:7px 10px; text-align:center;">
+                            <span class="caja-cash-change-lbl" style="font-size:0.68rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--caja-text-muted, #94a3b8); display:block;"><?php _e('Vuelto:', 'emp-caja'); ?></span>
+                            <strong class="caja-cash-change-val" id="caja-cash-change-val" style="font-size:1.15rem; color:#34d399; font-weight:800;">$0,00</strong>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Campo Desplegable de Tarjeta -->
                 <div id="caja-pos-card-op-wrap" class="caja-pos-card-op-wrap" style="display:none;">
@@ -350,7 +423,32 @@ if (!defined('ABSPATH')) {
             <!-- Campo de Nota de la Venta -->
             <div class="caja-pos-note-group">
                 <label for="caja-pos-note" class="caja-pos-field-label"><?php _e('Nota de la venta', 'emp-caja'); ?></label>
-                <textarea id="caja-pos-note" class="caja-input caja-pos-note-textarea" rows="2" placeholder="<?php esc_attr_e('Nota o aclaraciones de la venta...', 'emp-caja'); ?>"></textarea>
+                <textarea id="caja-pos-note" class="caja-input caja-pos-note-textarea" rows="2" placeholder="<?php esc_attr_e('Nota o aclaraciones de la venta (ej: sin hielo, punto de cocción)...', 'emp-caja'); ?>"></textarea>
+            </div>
+
+            <!-- Selector de Propina / Servicio (Gastronomía) -->
+            <div class="caja-pos-tip-group" id="caja-pos-tip-group" style="margin-bottom: 12px; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 5px;">
+                        <span>🪙</span> <span><?php _e('Propina / Servicio', 'emp-caja'); ?></span>
+                    </div>
+                    <strong id="caja-pos-tip-val-badge" style="color: #34d399; font-size: 0.82rem; font-weight: 700;">$0,00</strong>
+                </div>
+                <div class="caja-pos-tip-chips-row" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="caja-pos-tip-chip active" data-tip="0" style="flex: 1; min-width: 48px; padding: 6px 4px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--caja-text, #ffffff); cursor: pointer;">0%</button>
+                    <button type="button" class="caja-pos-tip-chip" data-tip="5" style="flex: 1; min-width: 48px; padding: 6px 4px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--caja-text, #ffffff); cursor: pointer;">5%</button>
+                    <button type="button" class="caja-pos-tip-chip" data-tip="10" style="flex: 1; min-width: 48px; padding: 6px 4px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--caja-text, #ffffff); cursor: pointer;">10%</button>
+                    <button type="button" class="caja-pos-tip-chip" data-tip="15" style="flex: 1; min-width: 48px; padding: 6px 4px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--caja-text, #ffffff); cursor: pointer;">15%</button>
+                    <button type="button" class="caja-pos-tip-chip" data-tip="custom" id="caja-pos-tip-custom-btn" style="flex: 1; min-width: 48px; padding: 6px 4px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: var(--caja-text, #ffffff); cursor: pointer;"><?php _e('Libre', 'emp-caja'); ?></button>
+                </div>
+                <div id="caja-pos-tip-custom-wrap" style="display: none; margin-top: 8px;">
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-weight: 700; color: #34d399;">$</span>
+                        <input type="number" step="any" min="0" id="caja-pos-custom-tip-input" class="caja-input" placeholder="0.00" style="width: 100%; box-sizing: border-box; padding-left: 24px; font-weight: 700; font-size: 0.85rem;" />
+                    </div>
+                </div>
+                <input type="hidden" id="caja-pos-selected-tip" value="0" />
+                <input type="hidden" id="caja-pos-tip-amount" value="0" />
             </div>
 
                 <!-- Lista de productos y precios en el Subtotal -->
@@ -371,6 +469,13 @@ if (!defined('ABSPATH')) {
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <strong id="caja-pos-shipping-total-val">$0,00</strong>
                             <button type="button" id="caja-pos-remove-shipping-btn" title="<?php esc_attr_e('Quitar costo de envío', 'emp-caja'); ?>" style="background: none; border: none; color: #ef4444; font-size: 0.9rem; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
+                        </div>
+                    </div>
+                    <div class="caja-pos-total-line caja-pos-tip-total-row" id="caja-pos-tip-total-row" style="display:none; color: #34d399;">
+                        <span id="caja-pos-tip-total-label"><?php _e('Propina / Servicio:', 'emp-caja'); ?></span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <strong id="caja-pos-tip-total-val">$0,00</strong>
+                            <button type="button" id="caja-pos-remove-tip-btn" title="<?php esc_attr_e('Quitar propina', 'emp-caja'); ?>" style="background: none; border: none; color: #ef4444; font-size: 0.9rem; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
                         </div>
                     </div>
                     <div class="caja-pos-total-line caja-pos-total-line-grand">
