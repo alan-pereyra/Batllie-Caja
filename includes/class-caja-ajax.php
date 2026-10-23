@@ -53,6 +53,13 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_update_customer', array(__CLASS__, 'ajax_update_customer'));
         add_action('wp_ajax_emp_caja_calculate_shipping', array(__CLASS__, 'ajax_calculate_shipping'));
 
+        // Sesiones de Caja, Arqueo y Control de Cajas
+        add_action('wp_ajax_emp_caja_get_register_status', array(__CLASS__, 'ajax_get_register_status'));
+        add_action('wp_ajax_emp_caja_open_register', array(__CLASS__, 'ajax_open_register'));
+        add_action('wp_ajax_emp_caja_close_register', array(__CLASS__, 'ajax_close_register'));
+        add_action('wp_ajax_emp_caja_get_registers_history', array(__CLASS__, 'ajax_get_registers_history'));
+        add_action('wp_ajax_emp_caja_get_session_movements', array(__CLASS__, 'ajax_get_session_movements'));
+
         // Empleados y Permisos
         add_action('wp_ajax_emp_caja_get_employees', array(__CLASS__, 'ajax_get_employees'));
         add_action('wp_ajax_emp_caja_save_employee', array(__CLASS__, 'ajax_save_employee'));
@@ -684,6 +691,16 @@ class Batllie_Caja_Ajax {
             $card_op        = isset($_POST['card_op_number']) ? sanitize_text_field($_POST['card_op_number']) : '';
             $note           = isset($_POST['note']) ? sanitize_textarea_field(wp_unslash($_POST['note'])) : '';
 
+            // Validar que el usuario tenga una caja abierta para operar ventas
+            $active_session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session(get_current_user_id()) : null;
+            if (!$active_session) {
+                wp_send_json_error(array(
+                    'message'          => __('La caja se encuentra cerrada. Debes abrir la caja con tu fondo inicial antes de registrar ventas.', 'emp-caja'),
+                    'require_register' => true
+                ));
+                return;
+            }
+
             // Datos de Gastronomía (Boliches & Restaurantes)
             $gastro_sector = isset($_POST['gastro_sector']) ? sanitize_text_field(wp_unslash($_POST['gastro_sector'])) : '';
             $gastro_table  = isset($_POST['gastro_table']) ? sanitize_text_field(wp_unslash($_POST['gastro_table'])) : '';
@@ -946,6 +963,10 @@ class Batllie_Caja_Ajax {
             $order->update_meta_data('_caja_pos_cashier', $cashier_name);
             $order->update_meta_data('_caja_pos_cashier_id', $cashier_id);
             $order->update_meta_data('_created_by_caja_pos', true);
+            if ($active_session) {
+                $order->update_meta_data('_caja_session_id', $active_session['id']);
+                $order->update_meta_data('_caja_session_code', $active_session['session_code']);
+            }
 
             // Metadatos gastronómicos (Boliches & Restaurantes)
             if (!empty($gastro_sector)) {
@@ -1131,6 +1152,19 @@ class Batllie_Caja_Ajax {
             $order->set_status($order_status);
             $order->save();
 
+            // Asentar la venta en la sesión de caja activa
+            $updated_session = null;
+            if ($active_session && class_exists('Batllie_Caja_Register')) {
+                Batllie_Caja_Register::record_sale(
+                    $active_session['id'],
+                    $order->get_id(),
+                    $payment_method,
+                    $order->get_total(),
+                    $tip_amount
+                );
+                $updated_session = Batllie_Caja_Register::get_session_by_id($active_session['id']);
+            }
+
             // Descontar inventario de forma segura
             try {
                 wc_reduce_stock_levels($order->get_id());
@@ -1288,6 +1322,7 @@ class Batllie_Caja_Ajax {
                 'cash_tendered'  => $cash_tendered,
                 'cash_change'    => $cash_change,
                 'tip_amount'     => $tip_amount,
+                'active_session' => $updated_session ?: $active_session,
                 'message'        => ($mode === 'compra_realizada')
                     ? sprintf(__('¡Venta #%s completada y stock descontado con éxito!', 'emp-caja'), $order->get_order_number())
                     : sprintf(__('¡Pedido #%s enviado a cola de despacho!', 'emp-caja'), $order->get_order_number())
@@ -1356,6 +1391,185 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success(array('history' => $history));
+    }
+
+    /**
+     * AJAX: Obtener estado de la caja del usuario actual
+     */
+    public static function ajax_get_register_status() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        $target_user = isset($_POST['user_id']) ? intval($_POST['user_id']) : $user_id;
+
+        // Solo administradores pueden consultar la sesión de otro usuario
+        if ($target_user !== $user_id && !current_user_can('manage_options')) {
+            $target_user = $user_id;
+        }
+
+        $session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session($target_user) : null;
+
+        wp_send_json_success(array(
+            'session' => $session,
+            'is_open' => !empty($session),
+        ));
+    }
+
+    /**
+     * AJAX: Abrir turno de caja con fondo inicial
+     */
+    public static function ajax_open_register() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        $sector = isset($_POST['sector']) ? sanitize_text_field(wp_unslash($_POST['sector'])) : 'Barra Principal';
+        $opening_cash = isset($_POST['opening_cash']) ? floatval($_POST['opening_cash']) : 0.00;
+        $notes = isset($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : '';
+
+        // Validar permisos de sector
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions($user_id) : array();
+        if (empty($perms['is_admin']) && !empty($perms['assigned_sectors'])) {
+            if (!in_array($sector, $perms['assigned_sectors'])) {
+                $sector = $perms['assigned_sectors'][0];
+            }
+        }
+
+        $session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::open_session($user_id, $sector, $opening_cash, $notes) : null;
+
+        if (!$session) {
+            wp_send_json_error(array('message' => __('No se pudo abrir la caja. Intenta nuevamente.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success(array(
+            'session' => $session,
+            'message' => sprintf(__('¡Caja abierta exitosamente en %s! Fondo inicial: $%s', 'emp-caja'), $session['sector'], number_format($session['opening_cash'], 2, ',', '.'))
+        ));
+    }
+
+    /**
+     * AJAX: Cerrar turno de caja y asentar arqueo de dinero
+     */
+    public static function ajax_close_register() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        $counted_cash = isset($_POST['counted_cash']) ? floatval($_POST['counted_cash']) : 0.00;
+        $closing_notes = isset($_POST['closing_notes']) ? sanitize_textarea_field(wp_unslash($_POST['closing_notes'])) : '';
+
+        $raw_breakdown = isset($_POST['cash_breakdown']) ? $_POST['cash_breakdown'] : array();
+        if (is_string($raw_breakdown)) {
+            $raw_breakdown = json_decode(stripslashes($raw_breakdown), true);
+        }
+        $cash_breakdown = is_array($raw_breakdown) ? $raw_breakdown : array();
+
+        if (!$session_id) {
+            $active = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session($user_id) : null;
+            if ($active) {
+                $session_id = $active['id'];
+            }
+        }
+
+        if (!$session_id) {
+            wp_send_json_error(array('message' => __('No se encontró una sesión de caja activa para cerrar.', 'emp-caja')));
+            return;
+        }
+
+        // Si no es admin, verificar que la sesión le pertenezca
+        $session_data = Batllie_Caja_Register::get_session_by_id($session_id);
+        if (!$session_data) {
+            wp_send_json_error(array('message' => __('Sesión no encontrada.', 'emp-caja')));
+            return;
+        }
+
+        if ($session_data['user_id'] !== $user_id && !current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('No tienes permisos para cerrar la caja de otro usuario.', 'emp-caja')), 403);
+            return;
+        }
+
+        $closed_session = Batllie_Caja_Register::close_session($session_id, $counted_cash, $cash_breakdown, $closing_notes, $user_id);
+
+        if (!$closed_session) {
+            wp_send_json_error(array('message' => __('Error al cerrar la caja.', 'emp-caja')));
+            return;
+        }
+
+        $diff = $closed_session['difference'];
+        $diff_msg = '';
+        if ($diff == 0) {
+            $diff_msg = __('Caja cuadrada exacta sin diferencias.', 'emp-caja');
+        } elseif ($diff < 0) {
+            $diff_msg = sprintf(__('Atención: Faltante de $%s registrado.', 'emp-caja'), number_format(abs($diff), 2, ',', '.'));
+        } else {
+            $diff_msg = sprintf(__('Atención: Sobrante de $%s registrado.', 'emp-caja'), number_format($diff, 2, ',', '.'));
+        }
+
+        wp_send_json_success(array(
+            'session'  => $closed_session,
+            'message'  => sprintf(__('¡Caja %s cerrada correctamente! %s', 'emp-caja'), $closed_session['session_code'], $diff_msg),
+            'diff_msg' => $diff_msg
+        ));
+    }
+
+    /**
+     * AJAX: Obtener historial de sesiones de cajas para Control de Cajas (Admin)
+     */
+    public static function ajax_get_registers_history() {
+        self::check_auth();
+
+        if (!current_user_can('manage_options') && !current_user_can('administrator')) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores.', 'emp-caja')), 403);
+            return;
+        }
+
+        $args = array(
+            'sector'      => isset($_POST['sector']) ? sanitize_text_field(wp_unslash($_POST['sector'])) : '',
+            'user_id'     => isset($_POST['user_id']) ? sanitize_text_field(wp_unslash($_POST['user_id'])) : '',
+            'status'      => isset($_POST['status']) ? sanitize_text_field(wp_unslash($_POST['status'])) : '',
+            'date_preset' => isset($_POST['date_preset']) ? sanitize_text_field(wp_unslash($_POST['date_preset'])) : 'today',
+            'date_from'   => isset($_POST['date_from']) ? sanitize_text_field(wp_unslash($_POST['date_from'])) : '',
+            'date_to'     => isset($_POST['date_to']) ? sanitize_text_field(wp_unslash($_POST['date_to'])) : '',
+            'limit'       => isset($_POST['limit']) ? intval($_POST['limit']) : 50,
+            'offset'      => isset($_POST['offset']) ? intval($_POST['offset']) : 0,
+        );
+
+        $result = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_sessions($args) : array('sessions' => array(), 'metrics' => array());
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: Obtener auditoría y desglose de movimientos con horarios exactos (HH:MM:SS) de una caja
+     */
+    public static function ajax_get_session_movements() {
+        self::check_auth();
+
+        $session_id = isset($_POST['session_id']) ? intval($_POST['session_id']) : 0;
+        if (!$session_id) {
+            wp_send_json_error(array('message' => __('ID de sesión inválido.', 'emp-caja')));
+            return;
+        }
+
+        $session_data = Batllie_Caja_Register::get_session_by_id($session_id);
+        if (!$session_data) {
+            wp_send_json_error(array('message' => __('Sesión no encontrada.', 'emp-caja')));
+            return;
+        }
+
+        $user_id = get_current_user_id();
+        if ($session_data['user_id'] !== $user_id && !current_user_can('manage_options') && !current_user_can('administrator')) {
+            wp_send_json_error(array('message' => __('No tienes permisos para auditar esta caja.', 'emp-caja')), 403);
+            return;
+        }
+
+        $result = Batllie_Caja_Register::get_session_movements($session_id);
+        if (!$result) {
+            wp_send_json_error(array('message' => __('No se pudieron obtener los movimientos de la sesión.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success($result);
     }
 
     /**

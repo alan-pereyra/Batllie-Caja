@@ -99,13 +99,16 @@
 
             if (this.config.isUserLoggedIn) {
                 this.initDashboard();
+                this.initRegisterSessionUI();
 
-                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos, #configuracion, #empleados)
+                // Soportar navegación directa por URL / Hash (#productos o ?tab=productos, #configuracion, #empleados, #cajas)
                 const urlParams = new URLSearchParams(window.location.search);
                 const hash = window.location.hash.toLowerCase();
                 const perms = this.config.currentUserPermissions || {};
 
-                if ((hash === '#empleados' || hash === '#tab-employees' || urlParams.get('tab') === 'empleados' || urlParams.get('tab') === 'employees') && perms.is_admin) {
+                if ((hash === '#cajas' || hash === '#control-cajas' || hash === '#tab-registers' || urlParams.get('tab') === 'cajas' || urlParams.get('tab') === 'registers') && perms.is_admin) {
+                    this.switchTab('tab-registers');
+                } else if ((hash === '#empleados' || hash === '#tab-employees' || urlParams.get('tab') === 'empleados' || urlParams.get('tab') === 'employees') && perms.is_admin) {
                     this.switchTab('tab-employees');
                 } else if ((hash === '#configuracion' || hash === '#tab-settings' || urlParams.get('tab') === 'configuracion' || urlParams.get('tab') === 'settings') && perms.is_admin) {
                     this.switchTab('tab-settings');
@@ -1631,11 +1634,128 @@ $('#caja-modal-new-product').fadeIn(200);
                 $(this).data('prev-val', newRole);
             });
 
+            // ==========================================
+            // EVENTOS: APERTURA Y CIERRE DE CAJA (ARQUEO)
+            // ==========================================
+            $(document).on('click', '#caja-pos-btn-open-register-top', function(e) {
+                e.preventDefault();
+                self.openRegisterModal();
+            });
+
+            $(document).on('click', '#caja-open-reg-close-btn, #caja-modal-open-register .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                self.closeRegisterModal();
+            });
+
+            $(document).on('click', '.caja-open-cash-chip', function(e) {
+                e.preventDefault();
+                const amt = parseFloat($(this).data('amount')) || 0;
+                $('#caja-open-reg-cash').val(amt);
+            });
+
+            $(document).on('submit', '#caja-open-reg-form', function(e) {
+                e.preventDefault();
+                self.submitOpenRegister();
+            });
+
+            $(document).on('click', '#caja-pos-btn-close-register', function(e) {
+                e.preventDefault();
+                self.openCloseRegisterModal();
+            });
+
+            $(document).on('click', '#caja-close-reg-close-btn, #caja-close-reg-cancel-btn, #caja-modal-close-register .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-close-register').fadeOut(150);
+            });
+
+            $(document).on('click', '.caja-btn-qty-bill', function(e) {
+                e.preventDefault();
+                const denom = $(this).data('denom');
+                const action = $(this).data('action');
+                const $input = $(`.caja-bill-input[data-denom="${denom}"]`);
+                let val = parseInt($input.val(), 10) || 0;
+                if (action === 'plus') {
+                    val++;
+                } else if (action === 'minus') {
+                    val = Math.max(0, val - 1);
+                }
+                $input.val(val);
+                self.recalcCloseRegisterArqueo();
+            });
+
+            $(document).on('input change', '.caja-bill-input', function() {
+                self.recalcCloseRegisterArqueo();
+            });
+
+            $(document).on('input change', '#caja-close-reg-manual-cash', function() {
+                self.recalcCloseRegisterArqueo();
+            });
+
+            $(document).on('click', '#caja-close-reg-clear-bills', function(e) {
+                e.preventDefault();
+                $('.caja-bill-input').val(0);
+                $('#caja-close-reg-manual-cash').val('');
+                self.recalcCloseRegisterArqueo();
+            });
+
+            $(document).on('click', '#caja-close-reg-confirm-btn', function(e) {
+                e.preventDefault();
+                self.submitCloseRegister();
+            });
+
+            // ==========================================
+            // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR)
+            // ==========================================
+            $(document).on('click', '#caja-reg-btn-refresh, #caja-reg-btn-apply-filters', function(e) {
+                e.preventDefault();
+                self.loadRegistersHistory();
+            });
+
+            $(document).on('change', '#caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status', function() {
+                self.loadRegistersHistory();
+            });
+
+            $(document).on('change', '#caja-reg-filter-preset', function() {
+                if ($(this).val() === 'custom') {
+                    $('#caja-reg-custom-dates').css('display', 'flex');
+                } else {
+                    $('#caja-reg-custom-dates').hide();
+                    self.loadRegistersHistory();
+                }
+            });
+
+            $(document).on('click', '.caja-reg-btn-view-movements', function(e) {
+                e.preventDefault();
+                const sessionId = $(this).data('session-id');
+                self.viewSessionMovements(sessionId);
+            });
+
+            $(document).on('click', '#caja-mov-close-btn, #caja-modal-session-movements .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-session-movements').fadeOut(150);
+            });
+
+            $(document).on('click', '#caja-mov-print-btn, .caja-reg-btn-ticket', function(e) {
+                e.preventDefault();
+                const sessionId = $(this).data('session-id') || (self.currentAuditedSession ? self.currentAuditedSession.id : null);
+                if (sessionId) {
+                    self.printSessionZTicket(sessionId);
+                }
+            });
+
+            $(document).on('click', '.caja-reg-btn-force-close', function(e) {
+                e.preventDefault();
+                const sessionId = $(this).data('session-id');
+                self.forceCloseRegisterByAdmin(sessionId);
+            });
+
             // Soporte para botón atrás/adelante en el historial del navegador
             $(window).on('hashchange', function() {
                 const h = window.location.hash.toLowerCase();
                 const perms = self.config.currentUserPermissions || {};
-                if ((h === '#empleados' || h === '#tab-employees') && perms.is_admin) {
+                if ((h === '#cajas' || h === '#control-cajas' || h === '#tab-registers') && perms.is_admin) {
+                    if (self.activeTab !== 'tab-registers') self.switchTab('tab-registers');
+                } else if ((h === '#empleados' || h === '#tab-employees') && perms.is_admin) {
                     if (self.activeTab !== 'tab-employees') self.switchTab('tab-employees');
                 } else if ((h === '#productos' || h === '#tab-products') && perms.can_view_products !== false) {
                     if (self.activeTab !== 'tab-products') self.switchTab('tab-products');
@@ -1894,7 +2014,7 @@ $('#caja-modal-new-product').fadeIn(200);
             if (tabId === 'tab-orders' && perms.can_view_orders === false) {
                 tabId = 'tab-pos-sale';
             }
-            if ((tabId === 'tab-settings' || tabId === 'tab-employees') && !perms.is_admin) {
+            if ((tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-registers') && !perms.is_admin) {
                 tabId = 'tab-pos-sale';
             }
 
@@ -1904,6 +2024,12 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-tab-panel').hide();
             $(`#${tabId}`).fadeIn(150);
             this.activeTab = tabId;
+
+            if (tabId === 'tab-registers') {
+                this.loadRegistersHistory();
+            } else if (tabId === 'tab-pos-sale') {
+                this.updateRegisterBarUI(this.activeRegisterSession);
+            }
 
             if (tabId === 'tab-pos-sale') {
                 $('.caja-main-content').addClass('is-pos-tab');
@@ -1929,7 +2055,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 } else if (tabId === 'tab-pos-sale') {
                     $switcherWrap.addClass('is-pos');
                     $screenDot.addClass('dot-emerald');
-                } else if (tabId === 'tab-settings' || tabId === 'tab-employees') {
+                } else if (tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-registers') {
                     $switcherWrap.addClass('is-settings');
                     $screenDot.addClass('dot-purple');
                 } else {
@@ -8187,6 +8313,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 return;
             }
 
+            // Validar que la caja esté abierta antes de cobrar
+            if (!this.activeRegisterSession) {
+                this.showToast('La caja se encuentra cerrada. Debes abrir la caja e ingresar el fondo inicial.', 'warning');
+                this.openRegisterModal();
+                return;
+            }
+
             const perms = self.config.currentUserPermissions || {};
             const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             let mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
@@ -8392,6 +8525,12 @@ $('#caja-modal-new-product').fadeIn(200);
                             } catch(e) {}
                         }
 
+                        // Actualizar sesión de caja activa y barra superior
+                        if (res.data.active_session) {
+                            self.activeRegisterSession = res.data.active_session;
+                            self.updateRegisterBarUI(res.data.active_session);
+                        }
+
                         self.showToast(res.data.message || 'Venta registrada con éxito.', 'success');
 
                         // 9. Mostrar modal de confirmación
@@ -8404,6 +8543,11 @@ $('#caja-modal-new-product').fadeIn(200);
                 error: function(xhr) {
                     $btn.prop('disabled', false).html(originalHtml);
                     let errMsg = 'Error de conexión al registrar la venta.';
+                    if (xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.require_register) {
+                        self.activeRegisterSession = null;
+                        self.updateRegisterBarUI(null);
+                        self.openRegisterModal();
+                    }
                     if (xhr && xhr.responseJSON && xhr.responseJSON.data && xhr.responseJSON.data.message) {
                         errMsg = xhr.responseJSON.data.message;
                     } else if (xhr && xhr.responseText) {
@@ -9392,6 +9536,698 @@ $('#caja-modal-new-product').fadeIn(200);
                 res += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return res;
+        },
+
+        // ==========================================
+        // GESTIÓN DE SESIONES DE CAJA Y ARQUEO DE DINERO
+        // ==========================================
+        activeRegisterSession: null,
+        currentAuditedSession: null,
+
+        getSectorIcon: function(sector) {
+            const s = (sector || '').toLowerCase();
+            if (s.indexOf('vip') !== -1) return '⭐';
+            if (s.indexOf('terraza') !== -1) return '🌿';
+            if (s.indexOf('mesa') !== -1) return '🍽️';
+            if (s.indexOf('take') !== -1) return '🛍️';
+            if (s.indexOf('boleteria') !== -1 || s.indexOf('entrada') !== -1) return '🎟️';
+            if (s.indexOf('pista') !== -1) return '🎵';
+            return '🍸';
+        },
+
+        initRegisterSessionUI: function() {
+            const self = this;
+            this.activeRegisterSession = this.config.activeSession || null;
+            this.updateRegisterBarUI(this.activeRegisterSession);
+
+            // Si entra a Venta Caja y no tiene caja abierta, abrir modal de apertura automáticamente
+            if (!this.activeRegisterSession && (this.activeTab === 'tab-pos-sale' || window.location.hash === '#venta-caja' || window.location.hash === '#pos')) {
+                setTimeout(function() {
+                    self.openRegisterModal();
+                }, 350);
+            }
+        },
+
+        updateRegisterBarUI: function(session) {
+            const $activeBox = $('#caja-pos-reg-active-wrap');
+            const $closedBox = $('#caja-pos-reg-closed-wrap');
+
+            if (session && session.status === 'open') {
+                $closedBox.hide();
+                $activeBox.css('display', 'flex');
+
+                $('#caja-pos-reg-sector-label').text(session.sector || 'Barra Principal');
+                $('#caja-pos-reg-code-label').text(session.session_code || `#${session.id}`);
+                $('#caja-pos-reg-opening-label').text('$' + this.formatCurrencyNumber(session.opening_cash));
+                $('#caja-pos-reg-sales-label').text('$' + this.formatCurrencyNumber(session.total_sales));
+                $('#caja-pos-reg-orders-count').text(session.orders_count || 0);
+
+                // Sincronizar sector en el POS si está asignado
+                if (session.sector && this.gastroSector !== session.sector) {
+                    this.gastroSector = session.sector;
+                    $(`.caja-gastro-chip[data-sector="${session.sector}"]`).addClass('active').siblings().removeClass('active');
+                }
+            } else {
+                $activeBox.hide();
+                $closedBox.css('display', 'flex');
+            }
+        },
+
+        openRegisterModal: function() {
+            $('#caja-modal-open-register').fadeIn(150);
+            $('#caja-open-reg-cash').focus().select();
+        },
+
+        closeRegisterModal: function() {
+            $('#caja-modal-open-register').fadeOut(150);
+        },
+
+        submitOpenRegister: function() {
+            const self = this;
+            const sector = $('#caja-open-reg-sector').val() || 'Barra Principal';
+            const cash = parseFloat($('#caja-open-reg-cash').val()) || 0;
+            const notes = $.trim($('#caja-open-reg-notes').val() || '');
+
+            const $btn = $('#caja-open-reg-submit-btn');
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Abriendo turno...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_open_register',
+                    security: self.config.nonce,
+                    sector: sector,
+                    opening_cash: cash,
+                    notes: notes
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success && res.data && res.data.session) {
+                        self.activeRegisterSession = res.data.session;
+                        self.updateRegisterBarUI(res.data.session);
+                        self.closeRegisterModal();
+                        self.showToast(res.data.message || 'Caja abierta con éxito.', 'success');
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al abrir caja.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al abrir la caja.', 'error');
+                }
+            });
+        },
+
+        openCloseRegisterModal: function() {
+            const self = this;
+            const session = this.activeRegisterSession;
+            if (!session) {
+                this.showToast('No hay una caja abierta para cerrar.', 'warning');
+                return;
+            }
+
+            $('#caja-close-reg-sub').text(`Turno: ${session.session_code} • Sector: ${session.sector} • Apertura: ${session.opened_time_str || ''}`);
+            $('#caja-close-calc-opening').text('$' + this.formatCurrencyNumber(session.opening_cash));
+            $('#caja-close-calc-cash-sales').text('$' + this.formatCurrencyNumber(session.cash_sales));
+            $('#caja-close-calc-tips-cash').text('$' + this.formatCurrencyNumber(session.tips_cash));
+            $('#caja-close-calc-expected').text('$' + this.formatCurrencyNumber(session.expected_cash));
+            $('#caja-close-calc-digital').text('$' + this.formatCurrencyNumber(session.digital_sales));
+
+            // Resetear inputs de billetes
+            $('.caja-bill-input').val(0);
+            $('.caja-bill-subtotal').text('$0,00');
+            $('#caja-close-reg-manual-cash').val('');
+            $('#caja-close-reg-notes').val('');
+
+            this.recalcCloseRegisterArqueo();
+            $('#caja-modal-close-register').fadeIn(150);
+        },
+
+        recalcCloseRegisterArqueo: function() {
+            const session = this.activeRegisterSession;
+            const expected = session ? (parseFloat(session.expected_cash) || 0) : 0;
+
+            let billsTotal = 0;
+            const denominations = [20000, 10000, 2000, 1000, 500, 200, 100];
+            const self = this;
+            denominations.forEach(denom => {
+                const qty = parseInt($(`.caja-bill-input[data-denom="${denom}"]`).val(), 10) || 0;
+                const sub = qty * denom;
+                billsTotal += sub;
+                $(`#caja-bill-sub-${denom}`).text('$' + self.formatCurrencyNumber(sub));
+            });
+
+            $('#caja-close-reg-bills-total').text('$' + this.formatCurrencyNumber(billsTotal));
+
+            const manualVal = parseFloat($('#caja-close-reg-manual-cash').val());
+            const counted = (!isNaN(manualVal) && manualVal >= 0 && $('#caja-close-reg-manual-cash').val() !== '') ? manualVal : billsTotal;
+
+            $('#caja-close-calc-counted').text('$' + this.formatCurrencyNumber(counted));
+
+            const diff = counted - expected;
+            const $badge = $('#caja-close-diff-badge');
+
+            if (diff === 0) {
+                $badge.css({
+                    'background': 'rgba(16, 185, 129, 0.15)',
+                    'color': '#10b981',
+                    'border': '1px solid rgba(16, 185, 129, 0.3)'
+                }).html('✅ Caja Cuadrada Exacta ($0,00)');
+            } else if (diff < 0) {
+                $badge.css({
+                    'background': 'rgba(239, 68, 68, 0.15)',
+                    'color': '#f87171',
+                    'border': '1px solid rgba(239, 68, 68, 0.3)'
+                }).html(`❌ Faltante de Dinero: -$${this.formatCurrencyNumber(Math.abs(diff))}`);
+            } else {
+                $badge.css({
+                    'background': 'rgba(245, 158, 11, 0.15)',
+                    'color': '#fbbf24',
+                    'border': '1px solid rgba(245, 158, 11, 0.3)'
+                }).html(`⚠️ Sobrante de Dinero: +$${this.formatCurrencyNumber(diff)}`);
+            }
+        },
+
+        submitCloseRegister: function() {
+            const self = this;
+            const session = this.activeRegisterSession;
+            if (!session) {
+                this.showToast('No hay una caja abierta para cerrar.', 'warning');
+                return;
+            }
+
+            const denominations = [20000, 10000, 2000, 1000, 500, 200, 100];
+            const breakdown = {};
+            let billsTotal = 0;
+            denominations.forEach(denom => {
+                const qty = parseInt($(`.caja-bill-input[data-denom="${denom}"]`).val(), 10) || 0;
+                breakdown[denom] = qty;
+                billsTotal += (qty * denom);
+            });
+
+            const manualVal = parseFloat($('#caja-close-reg-manual-cash').val());
+            const counted = (!isNaN(manualVal) && manualVal >= 0 && $('#caja-close-reg-manual-cash').val() !== '') ? manualVal : billsTotal;
+            const notes = $.trim($('#caja-close-reg-notes').val() || '');
+            const expected = parseFloat(session.expected_cash) || 0;
+            const diff = counted - expected;
+
+            if (diff !== 0 && !notes) {
+                const confirmed = window.confirm(`Existe una diferencia de arqueo (${diff < 0 ? 'Faltante: -$' : 'Sobrante: +$'}${self.formatCurrencyNumber(Math.abs(diff))}).\n\n¿Deseas cerrar la caja sin agregar una nota explicativa?`);
+                if (!confirmed) {
+                    $('#caja-close-reg-notes').focus();
+                    return;
+                }
+            }
+
+            const $btn = $('#caja-close-reg-confirm-btn');
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Cerrando caja...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_close_register',
+                    security: self.config.nonce,
+                    session_id: session.id,
+                    counted_cash: counted,
+                    cash_breakdown: JSON.stringify(breakdown),
+                    closing_notes: notes
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success && res.data && res.data.session) {
+                        const closedSession = res.data.session;
+                        self.activeRegisterSession = null;
+                        self.updateRegisterBarUI(null);
+                        $('#caja-modal-close-register').fadeOut(150);
+                        self.showToast(res.data.message || 'Caja cerrada correctamente.', 'success');
+
+                        // Preguntar si desea imprimir el ticket Z
+                        setTimeout(function() {
+                            if (window.confirm('¿Deseas imprimir el Ticket de Cierre Z y Arqueo de Dinero?')) {
+                                self.printSessionZTicket(closedSession.id);
+                            }
+                        }, 300);
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al cerrar caja.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al cerrar la caja.', 'error');
+                }
+            });
+        },
+
+        // ==========================================
+        // CONTROL DE CAJAS (ADMINISTRADOR)
+        // ==========================================
+        loadRegistersHistory: function() {
+            const self = this;
+            const sector = $('#caja-reg-filter-sector').val() || 'all';
+            const userId = $('#caja-reg-filter-user').val() || 'all';
+            const status = $('#caja-reg-filter-status').val() || 'all';
+            const preset = $('#caja-reg-filter-preset').val() || 'today';
+            const dateFrom = $('#caja-reg-filter-from').val() || '';
+            const dateTo = $('#caja-reg-filter-to').val() || '';
+
+            $('#caja-reg-table-body').html(`
+                <tr>
+                    <td colspan="12" style="padding: 30px; text-align: center; color: var(--caja-text-muted, #94a3b8);">
+                        <span class="caja-spinner">⏳</span> Cargando registros de cajas...
+                    </td>
+                </tr>
+            `);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_registers_history',
+                    security: self.config.nonce,
+                    sector: sector,
+                    user_id: userId,
+                    status: status,
+                    date_preset: preset,
+                    date_from: dateFrom,
+                    date_to: dateTo
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        self.renderRegistersMetrics(res.data.metrics);
+                        self.renderLiveRegisters(res.data.active_sessions);
+                        self.renderRegistersTable(res.data.sessions);
+                    } else {
+                        $('#caja-reg-table-body').html(`
+                            <tr>
+                                <td colspan="12" style="padding: 30px; text-align: center; color: #f87171;">
+                                    ${res && res.data && res.data.message ? res.data.message : 'Error al cargar registros.'}
+                                </td>
+                            </tr>
+                        `);
+                    }
+                },
+                error: function() {
+                    $('#caja-reg-table-body').html(`
+                        <tr>
+                            <td colspan="12" style="padding: 30px; text-align: center; color: #f87171;">
+                                Error de conexión al cargar registros de cajas.
+                            </td>
+                        </tr>
+                    `);
+                }
+            });
+        },
+
+        renderRegistersMetrics: function(m) {
+            if (!m) return;
+            $('#caja-reg-stat-open').text(m.active_open_count || 0);
+            $('#caja-reg-stat-cash').text('$' + this.formatCurrencyNumber(m.sum_cash_in_registers || 0));
+            $('#caja-reg-stat-digital').text('$' + this.formatCurrencyNumber(m.sum_digital_sales || 0));
+            $('#caja-reg-stat-total').text('$' + this.formatCurrencyNumber(m.sum_total_sales || 0));
+        },
+
+        renderLiveRegisters: function(activeSessions) {
+            const self = this;
+            const $grid = $('#caja-reg-live-grid');
+            if (!activeSessions || !activeSessions.length) {
+                $grid.html(`
+                    <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 24px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                        <span>🔒 No hay cajas abiertas actualmente en ningún sector.</span>
+                    </div>
+                `);
+                return;
+            }
+
+            let html = '';
+            activeSessions.forEach(s => {
+                const icon = self.getSectorIcon(s.sector);
+                html += `
+                    <div class="caja-reg-live-card" style="background: var(--caja-card-bg, #1e293b); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 14px 16px; position:relative;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                            <div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span class="caja-pulse-dot" style="background:#10b981; width:8px; height:8px; border-radius:50%; box-shadow:0 0 6px #10b981;"></span>
+                                    <strong style="color:var(--caja-text, #f8fafc); font-size:1rem;">${icon} ${s.sector}</strong>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--caja-text-muted, #94a3b8); margin-top:2px;">
+                                    👤 ${s.user_name} • <span style="color:#10b981;">${s.session_code}</span>
+                                </div>
+                            </div>
+                            <span style="font-size:0.75rem; background:rgba(16, 185, 129, 0.15); color:#10b981; padding:2px 8px; border-radius:12px; font-weight:700;">
+                                Abierta ${s.opened_time_str}
+                            </span>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:rgba(0,0,0,0.2); border-radius:6px; padding:8px 10px; margin-bottom:12px; font-size:0.82rem;">
+                            <div>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">FONDO INICIAL</span>
+                                <strong style="color:var(--caja-text);">$${self.formatCurrencyNumber(s.opening_cash)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">EFECTIVO EN CAJA</span>
+                                <strong style="color:#10b981;">$${self.formatCurrencyNumber(s.expected_cash)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">DIGITAL (TARJETAS)</span>
+                                <strong style="color:#60a5fa;">$${self.formatCurrencyNumber(s.digital_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">TOTAL VENTAS (${s.orders_count})</span>
+                                <strong style="color:#fbbf24;">$${self.formatCurrencyNumber(s.total_sales)}</strong>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-reg-btn-view-movements" data-session-id="${s.id}" style="flex:1; justify-content:center; font-size:0.78rem; padding:6px 8px;">
+                                <span>👁️</span> <span>Auditar Horarios</span>
+                            </button>
+                            <button type="button" class="caja-btn caja-btn-danger caja-btn-sm caja-reg-btn-force-close" data-session-id="${s.id}" style="font-size:0.78rem; padding:6px 10px;" title="Cerrar caja forzosamente">
+                                <span>🔒</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            $grid.html(html);
+        },
+
+        renderRegistersTable: function(sessions) {
+            const self = this;
+            const $tbody = $('#caja-reg-table-body');
+            if (!sessions || !sessions.length) {
+                $tbody.html(`
+                    <tr>
+                        <td colspan="12" style="padding: 30px; text-align: center; color: var(--caja-text-muted, #94a3b8);">
+                            No se encontraron turnos de caja para los filtros seleccionados.
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+
+            let html = '';
+            sessions.forEach(s => {
+                const icon = self.getSectorIcon(s.sector);
+                const isOpen = (s.status === 'open');
+                
+                let diffBadge = '-';
+                if (!isOpen) {
+                    if (s.difference === 0) {
+                        diffBadge = `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981;">Cuadrada</span>`;
+                    } else if (s.difference < 0) {
+                        diffBadge = `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; background:rgba(239,68,68,0.15); color:#f87171;" title="Faltante">-$${self.formatCurrencyNumber(Math.abs(s.difference))}</span>`;
+                    } else {
+                        diffBadge = `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; background:rgba(245,158,11,0.15); color:#fbbf24;" title="Sobrante">+$${self.formatCurrencyNumber(s.difference)}</span>`;
+                    }
+                } else {
+                    diffBadge = `<span style="display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; background:rgba(59,130,246,0.15); color:#60a5fa;">En curso</span>`;
+                }
+
+                html += `
+                    <tr style="border-bottom: 1px solid var(--caja-card-border, #334155);">
+                        <td style="padding: 10px 14px; font-weight: 600; color: #10b981;">${s.session_code}</td>
+                        <td style="padding: 10px 14px;">${icon} ${s.sector}</td>
+                        <td style="padding: 10px 14px;">${s.user_name}</td>
+                        <td style="padding: 10px 14px; font-size:0.8rem; color:var(--caja-text-muted);">${s.opened_full_str || s.opened_at}</td>
+                        <td style="padding: 10px 14px; font-size:0.8rem;">
+                            ${isOpen ? '<span style="color:#10b981; font-weight:700;">🟢 Abierta</span>' : (s.closed_full_str || s.closed_at)}
+                        </td>
+                        <td style="padding: 10px 14px; text-align:right;">$${self.formatCurrencyNumber(s.opening_cash)}</td>
+                        <td style="padding: 10px 14px; text-align:right; color:#10b981;">$${self.formatCurrencyNumber(s.cash_sales)}</td>
+                        <td style="padding: 10px 14px; text-align:right; color:#60a5fa;">$${self.formatCurrencyNumber(s.digital_sales)}</td>
+                        <td style="padding: 10px 14px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(s.total_sales)}</td>
+                        <td style="padding: 10px 14px; text-align:right; font-weight:700; color:var(--caja-text);">
+                            ${isOpen ? `<span style="color:#38bdf8;">Esperado: $${self.formatCurrencyNumber(s.expected_cash)}</span>` : `$${self.formatCurrencyNumber(s.counted_cash)}`}
+                        </td>
+                        <td style="padding: 10px 14px; text-align:center;">${diffBadge}</td>
+                        <td style="padding: 10px 14px; text-align:center;">
+                            <div style="display:flex; justify-content:center; gap:6px;">
+                                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-reg-btn-view-movements" data-session-id="${s.id}" title="Ver movimientos y horarios">
+                                    <span>👁️</span> <span>Movimientos</span>
+                                </button>
+                                ${!isOpen ? `
+                                    <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-reg-btn-ticket" data-session-id="${s.id}" title="Imprimir Ticket Z">
+                                        <span>🖨️</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            $tbody.html(html);
+        },
+
+        viewSessionMovements: function(sessionId) {
+            const self = this;
+            $('#caja-modal-session-movements').fadeIn(150);
+            $('#caja-mov-summary-card').html('<div style="grid-column:1/-1; text-align:center; padding:15px; color:var(--caja-text-muted);"><span class="caja-spinner">⏳</span> Cargando auditoría...</div>');
+            $('#caja-mov-table-body').html('<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--caja-text-muted);"><span class="caja-spinner">⏳</span> Cargando movimientos segundo a segundo...</td></tr>');
+            $('#caja-mov-breakdown-card').hide();
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_session_movements',
+                    security: self.config.nonce,
+                    session_id: sessionId
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        const s = res.data.session;
+                        const movs = res.data.movements || [];
+                        self.currentAuditedSession = s;
+
+                        $('#caja-mov-title').text(`Movimientos de Caja: ${s.session_code}`);
+                        $('#caja-mov-subtitle').text(`Sector: ${s.sector} • Cajero: ${s.user_name} • Apertura: ${s.opened_full_str}`);
+
+                        // Summary card
+                        $('#caja-mov-summary-card').html(`
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">ESTADO</span>
+                                <strong style="color:${s.status === 'open' ? '#10b981' : '#cbd5e1'}; font-size:0.95rem;">${s.status === 'open' ? '🟢 Abierta' : '🔒 Cerrada'}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">FONDO INICIAL</span>
+                                <strong style="color:var(--caja-text); font-size:0.95rem;">$${self.formatCurrencyNumber(s.opening_cash)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">VENTAS EFECTIVO</span>
+                                <strong style="color:#10b981; font-size:0.95rem;">$${self.formatCurrencyNumber(s.cash_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">VENTAS DIGITALES</span>
+                                <strong style="color:#60a5fa; font-size:0.95rem;">$${self.formatCurrencyNumber(s.digital_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">PROPINAS</span>
+                                <strong style="color:#34d399; font-size:0.95rem;">$${self.formatCurrencyNumber(s.total_tips)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">TOTAL FACTURADO</span>
+                                <strong style="color:#fbbf24; font-size:0.95rem;">$${self.formatCurrencyNumber(s.total_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">ARQUEO CONTADO</span>
+                                <strong style="color:var(--caja-text); font-size:0.95rem;">$${self.formatCurrencyNumber(s.status === 'open' ? s.expected_cash : s.counted_cash)}</strong>
+                            </div>
+                        `);
+
+                        // Breakdown
+                        if (s.cash_breakdown && typeof s.cash_breakdown === 'object') {
+                            const chips = [];
+                            for (const [denom, qty] of Object.entries(s.cash_breakdown)) {
+                                if (qty > 0) {
+                                    chips.push(`<span style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:600;">$${self.formatCurrencyNumber(denom)} x ${qty} = $${self.formatCurrencyNumber(denom * qty)}</span>`);
+                                }
+                            }
+                            if (chips.length > 0) {
+                                $('#caja-mov-breakdown-chips').html(chips.join(''));
+                                $('#caja-mov-breakdown-card').show();
+                            }
+                        }
+
+                        // Movements table
+                        $('#caja-mov-count-badge').text(movs.length);
+                        if (!movs.length) {
+                            $('#caja-mov-table-body').html('<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--caja-text-muted);">No se registraron ventas durante este turno.</td></tr>');
+                            return;
+                        }
+
+                        let movHtml = '';
+                        movs.forEach(m => {
+                            const itemsList = m.items.map(it => `<div style="font-size:0.8rem;">• ${it.quantity}x ${it.name}</div>`).join('');
+                            const pmBadge = m.is_cash 
+                                ? '<span style="background:rgba(16,185,129,0.15); color:#10b981; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">💵 Efectivo</span>'
+                                : '<span style="background:rgba(59,130,246,0.15); color:#60a5fa; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">💳 Digital</span>';
+
+                            movHtml += `
+                                <tr style="border-bottom: 1px solid var(--caja-card-border, #334155);">
+                                    <td style="padding:8px 10px; font-weight:700; color:#38bdf8; white-space:nowrap;">⏰ ${m.time_exact}</td>
+                                    <td style="padding:8px 10px; font-weight:600; white-space:nowrap;">#${m.order_number}</td>
+                                    <td style="padding:8px 10px; font-size:0.78rem; color:var(--caja-text-muted);">${m.sector} ${m.table ? '('+m.table+')' : ''}</td>
+                                    <td style="padding:8px 10px;">${itemsList}</td>
+                                    <td style="padding:8px 10px; white-space:nowrap;">${pmBadge}</td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(m.total)}</td>
+                                    <td style="padding:8px 10px; text-align:right; color:#34d399;">${m.tip > 0 ? '$'+self.formatCurrencyNumber(m.tip) : '-'}</td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#10b981;">$${self.formatCurrencyNumber(m.running_cash)}</td>
+                                </tr>
+                            `;
+                        });
+                        $('#caja-mov-table-body').html(movHtml);
+                    } else {
+                        $('#caja-mov-summary-card').html('<div style="grid-column:1/-1; color:#f87171; padding:10px;">Error al cargar datos.</div>');
+                    }
+                },
+                error: function() {
+                    $('#caja-mov-summary-card').html('<div style="grid-column:1/-1; color:#f87171; padding:10px;">Error de conexión.</div>');
+                }
+            });
+        },
+
+        forceCloseRegisterByAdmin: function(sessionId) {
+            const self = this;
+            const input = window.prompt('¿Estás seguro de forzar el cierre de esta caja?\n\nIngresa el dinero físico contado en la caja:');
+            if (input === null) return;
+
+            const counted = parseFloat(input) || 0;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_close_register',
+                    security: self.config.nonce,
+                    session_id: sessionId,
+                    counted_cash: counted,
+                    closing_notes: 'Cierre forzado desde panel de administrador.'
+                },
+                success: function(res) {
+                    if (res && res.success) {
+                        self.showToast('Caja cerrada con éxito.', 'success');
+                        self.loadRegistersHistory();
+                        if (self.activeRegisterSession && self.activeRegisterSession.id == sessionId) {
+                            self.activeRegisterSession = null;
+                            self.updateRegisterBarUI(null);
+                        }
+                    } else {
+                        self.showToast((res && res.data && res.data.message) ? res.data.message : 'Error al forzar cierre.', 'error');
+                    }
+                },
+                error: function() {
+                    self.showToast('Error de conexión.', 'error');
+                }
+            });
+        },
+
+        printSessionZTicket: function(sessionId) {
+            const self = this;
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_session_movements',
+                    security: self.config.nonce,
+                    session_id: sessionId
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        const s = res.data.session;
+                        const movs = res.data.movements || [];
+
+                        const venueName = self.config.gastroVenueName || 'Empralidad POS';
+                        const w = window.open('', '_blank', 'width=380,height=600');
+                        if (!w) {
+                            alert('Habilita las ventanas emergentes para imprimir el comprobante.');
+                            return;
+                        }
+
+                        let movLines = '';
+                        movs.forEach(m => {
+                            movLines += `
+                                <tr>
+                                    <td>${m.time_exact}</td>
+                                    <td>#${m.order_number}</td>
+                                    <td>${m.is_cash ? 'EFECT' : 'DIGIT'}</td>
+                                    <td style="text-align:right;">$${self.formatCurrencyNumber(m.total)}</td>
+                                </tr>
+                            `;
+                        });
+
+                        w.document.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <meta charset="utf-8">
+                                <title>Ticket Z - ${s.session_code}</title>
+                                <style>
+                                    body { font-family: monospace; font-size: 12px; margin: 0; padding: 10px; color: #000; }
+                                    .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
+                                    .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+                                    .divider { border-top: 1px dashed #000; margin: 8px 0; }
+                                    table { width: 100%; font-size: 11px; border-collapse: collapse; }
+                                    th { text-align: left; border-bottom: 1px solid #000; padding: 2px 0; }
+                                    td { padding: 2px 0; }
+                                    @media print { body { width: 58mm; padding: 0; } }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="header">
+                                    <h3 style="margin:0 0 4px 0;">${venueName}</h3>
+                                    <div style="font-weight:bold;">CIERRE DE CAJA / TICKET Z</div>
+                                    <div>${s.session_code}</div>
+                                </div>
+                                <div class="row"><span>Barra / Sector:</span><strong>${s.sector}</strong></div>
+                                <div class="row"><span>Cajero:</span><strong>${s.user_name}</strong></div>
+                                <div class="row"><span>Apertura:</span><span>${s.opened_full_str}</span></div>
+                                <div class="row"><span>Cierre:</span><span>${s.closed_full_str || 'En curso'}</span></div>
+                                <div class="divider"></div>
+                                <div class="row"><span>Fondo Inicial:</span><strong>$${self.formatCurrencyNumber(s.opening_cash)}</strong></div>
+                                <div class="row"><span>Ventas Efectivo:</span><strong>$${self.formatCurrencyNumber(s.cash_sales)}</strong></div>
+                                <div class="row"><span>Ventas Digitales:</span><strong>$${self.formatCurrencyNumber(s.digital_sales)}</strong></div>
+                                <div class="row"><span>Propinas:</span><strong>$${self.formatCurrencyNumber(s.total_tips)}</strong></div>
+                                <div class="divider"></div>
+                                <div class="row" style="font-size:14px;"><span>TOTAL FACTURADO:</span><strong>$${self.formatCurrencyNumber(s.total_sales)}</strong></div>
+                                <div class="row"><span>Total Pedidos:</span><span>${s.orders_count}</span></div>
+                                <div class="divider"></div>
+                                <div class="row"><span>Efectivo Esperado:</span><strong>$${self.formatCurrencyNumber(s.expected_cash)}</strong></div>
+                                <div class="row"><span>Efectivo Contado:</span><strong>$${self.formatCurrencyNumber(s.counted_cash)}</strong></div>
+                                <div class="row" style="font-size:13px; font-weight:bold;">
+                                    <span>DIFERENCIA:</span>
+                                    <span>${s.difference === 0 ? '$0,00 (EXACTA)' : (s.difference < 0 ? '-$'+self.formatCurrencyNumber(Math.abs(s.difference))+' (FALTANTE)' : '+$'+self.formatCurrencyNumber(s.difference)+' (SOBRANTE)')}</span>
+                                </div>
+                                ${s.closing_notes ? `<div class="divider"></div><div><strong>Notas:</strong> ${s.closing_notes}</div>` : ''}
+                                <div class="divider"></div>
+                                <div style="font-size:11px; text-align:center; margin-bottom:4px; font-weight:bold;">DETALLE DE VENTAS (${movs.length})</div>
+                                <table>
+                                    <thead><tr><th>HORA</th><th>PEDIDO</th><th>PAGO</th><th style="text-align:right;">TOTAL</th></tr></thead>
+                                    <tbody>${movLines}</tbody>
+                                </table>
+                                <div class="divider"></div>
+                                <div style="text-align:center; font-size:10px; margin-top:8px;">
+                                    Comprobante interno no válido como factura.<br>
+                                    ${new Date().toLocaleString('es-AR')}
+                                </div>
+                                <script>window.onload = function() { window.print(); };<\/script>
+                            </body>
+                            </html>
+                        `);
+                        w.document.close();
+                    }
+                }
+            });
         }
     };
 

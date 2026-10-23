@@ -7830,3 +7830,119 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     text-decoration: underline;
 }
 
+/* ==========================================================================
+   SESIONES DE CAJA, ARQUEO DE DINERO Y CONTROL DE CAJAS
+   ========================================================================== */
+
+/* Barra de Estado de Sesión en Venta Caja */
+.caja-pos-register-bar {
+    width: 100%;
+}
+
+.caja-pos-reg-active-box {
+    background: var(--caja-card-bg, #1e293b);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: border-color 0.2s ease;
+}
+
+.caja-pos-reg-active-box:hover {
+    border-color: rgba(16, 185, 129, 0.6);
+}
+
+.caja-pos-reg-closed-box {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+}
+
+/* Chips de Monto Inicial en Apertura */
+.caja-open-cash-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--caja-text, #f8fafc);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.caja-open-cash-chip:hover {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: #10b981;
+    color: #10b981;
+}
+
+/* Contador de Billetes en Cierre de Caja */
+.caja-bill-row {
+    transition: background 0.15s ease;
+}
+
+.caja-bill-row:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.caja-btn-qty-bill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    transition: all 0.1s ease;
+}
+
+.caja-btn-qty-bill:active {
+    transform: scale(0.92);
+    background: rgba(16, 185, 129, 0.3) !important;
+}
+
+.caja-bill-input:focus {
+    outline: none;
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+/* Grilla de Cajas Activas en Vivo (Control de Cajas Admin) */
+.caja-reg-live-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 14px;
+}
+
+.caja-reg-live-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.caja-reg-live-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 640px) {
+    .caja-pos-reg-active-box {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .caja-pos-reg-actions-right {
+        width: 100%;
+        margin-top: 6px;
+    }
+    .caja-pos-reg-actions-right button {
+        width: 100%;
+        justify-content: center;
+    }
+    .caja-pos-reg-closed-box {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .caja-pos-reg-closed-box button {
+        width: 100%;
+        justify-content: center;
+    }
+    .caja-reg-live-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+

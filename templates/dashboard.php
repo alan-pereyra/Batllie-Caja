@@ -44,8 +44,9 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                     <?php endif; ?>
                     <option value="tab-pos-sale" <?php echo ($default_active_tab === 'tab-pos-sale') ? 'selected' : ''; ?>>🛒 <?php _e('Venta Caja', 'emp-caja'); ?></option>
                     <?php if ($is_admin): ?>
-                    <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
+                    <option value="tab-registers">🗄️ <?php _e('Control de Cajas', 'emp-caja'); ?></option>
                     <option value="tab-employees">👥 <?php _e('Configuración Empleados', 'emp-caja'); ?></option>
+                    <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
                     <?php endif; ?>
                 </select>
                 <span class="caja-screen-select-arrow">
@@ -115,6 +116,18 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                 </svg>
                 <span class="caja-tab-label-full"><?php _e('Configuración Empleados', 'emp-caja'); ?></span>
                 <span class="caja-tab-label-short"><?php _e('Empleados', 'emp-caja'); ?></span>
+            </button>
+
+            <!-- Pestaña 6: Control de Cajas (Solo Administrador) -->
+            <button class="caja-tab-btn" data-tab="tab-registers" id="caja-tab-nav-registers">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <line x1="6" y1="12" x2="18" y2="12"></line>
+                    <circle cx="12" cy="12" r="2"></circle>
+                    <path d="M6 8h.01M6 16h.01M18 8h.01M18 16h.01"></path>
+                </svg>
+                <span class="caja-tab-label-full"><?php _e('Control de Cajas', 'emp-caja'); ?></span>
+                <span class="caja-tab-label-short"><?php _e('Cajas', 'emp-caja'); ?></span>
             </button>
             <?php endif; ?>
         </nav>
@@ -220,6 +233,11 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
         <!-- Pestaña 5: Configuración Empleados (Solo Administradores) -->
         <section id="tab-employees" class="caja-tab-panel" style="display:none;">
             <?php include EMP_CAJA_PATH . 'templates/tab-employees.php'; ?>
+        </section>
+
+        <!-- Pestaña 6: Control de Cajas (Solo Administradores) -->
+        <section id="tab-registers" class="caja-tab-panel" style="display:none;">
+            <?php include EMP_CAJA_PATH . 'templates/tab-registers.php'; ?>
         </section>
         <?php endif; ?>
     </main>
