@@ -12,12 +12,23 @@ if (!defined('ABSPATH')) {
     <!-- Barra Superior de Productos -->
     <div class="caja-products-toolbar">
         <div class="caja-products-search">
-            <div class="caja-search-box">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input type="text" id="caja-search-products" placeholder="<?php esc_attr_e('Buscar producto por nombre o SKU...', 'emp-caja'); ?>" />
+            <div class="caja-mgmt-search-row" style="display:flex; gap:8px; align-items:center; width:100%;">
+                <div class="caja-search-box" style="flex:1;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" id="caja-search-products" placeholder="<?php esc_attr_e('Buscar producto por nombre o SKU...', 'emp-caja'); ?>" />
+                </div>
+
+                <div class="caja-pos-layout-switcher caja-mgmt-layout-switcher" id="caja-mgmt-layout-switcher">
+                    <button type="button" class="caja-pos-layout-btn caja-mgmt-layout-btn active" data-cols="2" title="<?php esc_attr_e('Grilla 2 Columnas', 'emp-caja'); ?>">
+                        <span>⊞</span> <span style="font-size:0.75rem; font-weight:700;">2</span>
+                    </button>
+                    <button type="button" class="caja-pos-layout-btn caja-mgmt-layout-btn caja-mgmt-btn-cols-3" data-cols="3" title="<?php esc_attr_e('Grilla 3 Columnas', 'emp-caja'); ?>">
+                        <span>▦</span> <span style="font-size:0.75rem; font-weight:700;">3</span>
+                    </button>
+                </div>
             </div>
 
             <select id="caja-filter-product-cat" class="caja-select caja-select-filter">
@@ -56,23 +67,9 @@ if (!defined('ABSPATH')) {
         <p><?php _e('Cargando catálogo de productos...', 'emp-caja'); ?></p>
     </div>
 
-    <!-- Grilla/Tabla de Productos -->
-    <div id="caja-products-grid" class="caja-products-table-wrapper">
-        <table class="caja-table">
-            <thead>
-                <tr>
-                    <th class="caja-th-foto caja-th-thumb caja-th-imagen" style="width: 60px;"><?php _e('Foto', 'emp-caja'); ?></th>
-                    <th class="caja-th-producto caja-th-name caja-th-title"><?php _e('Producto', 'emp-caja'); ?></th>
-                    <th class="caja-th-stock"><?php _e('Stock', 'emp-caja'); ?></th>
-                    <th class="caja-th-precio caja-th-price"><?php _e('Precio', 'emp-caja'); ?></th>
-                    <th class="caja-th-categoria caja-th-category caja-th-cat"><?php _e('Categoría', 'emp-caja'); ?></th>
-                    <th class="caja-th-acciones caja-th-actions" style="width: 150px; text-align: center;"><?php _e('Acciones / Stock', 'emp-caja'); ?></th>
-                </tr>
-            </thead>
-            <tbody id="caja-products-tbody">
-                <!-- Se rellena dinámicamente -->
-            </tbody>
-        </table>
+    <!-- Grilla de Control de Productos (Aspecto con fotos cuadradas y click para modificar) -->
+    <div id="caja-products-grid" class="caja-mgmt-products-grid is-cols-2">
+        <!-- Se rellena dinámicamente con tarjetas de producto -->
     </div>
 
     <!-- Estado vacío de productos -->

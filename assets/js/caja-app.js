@@ -90,6 +90,7 @@
             this.cashTendered = 0;
             this.cashChange = 0;
             this.cashBillsCount = { 100:0, 200:0, 500:0, 1000:0, 2000:0, 5000:0, 10000:0, 20000:0 };
+            this.mgmtGridCols = localStorage.getItem('caja_mgmt_grid_cols') || '2';
             this.tipPercent = 0;
             this.tipAmount = 0;
             this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
@@ -1398,6 +1399,35 @@ $('#caja-modal-new-product').fadeIn(200);
                 e.preventDefault();
                 const productId = parseInt($(this).data('product-id'));
                 self.openEditProductModal(productId);
+            });
+
+            // Switcher de Grilla de Control de Productos (2 o 3 columnas)
+            $(document).on('click', '.caja-mgmt-layout-btn', function(e) {
+                e.preventDefault();
+                $('.caja-mgmt-layout-btn').removeClass('active');
+                $(this).addClass('active');
+
+                const cols = String($(this).data('cols') || '2');
+                self.mgmtGridCols = cols;
+                localStorage.setItem('caja_mgmt_grid_cols', cols);
+
+                const $grid = $('#caja-products-grid');
+                $grid.removeClass('is-cols-2 is-cols-3').addClass('is-cols-' + cols);
+            });
+
+            $(window).on('resize.cajaMgmt', function() {
+                const isMobile = window.innerWidth <= 768;
+                const $grid = $('#caja-products-grid');
+                if (isMobile) {
+                    $grid.removeClass('is-cols-3').addClass('is-cols-2');
+                    $('.caja-mgmt-layout-btn').removeClass('active');
+                    $('.caja-mgmt-layout-btn[data-cols="2"]').addClass('active');
+                } else {
+                    const c = self.mgmtGridCols || '2';
+                    $grid.removeClass('is-cols-2 is-cols-3').addClass('is-cols-' + c);
+                    $('.caja-mgmt-layout-btn').removeClass('active');
+                    $(`.caja-mgmt-layout-btn[data-cols="${c}"]`).addClass('active');
+                }
             });
 
             $('#caja-edit-prod-close-btn, #caja-edit-prod-cancel-btn').on('click', function() {
@@ -4262,13 +4292,18 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         renderProducts: function(products) {
-            const $tbody = $('#caja-products-tbody');
+            const $grid = $('#caja-products-grid');
             const $empty = $('#caja-products-empty');
-            const $tableWrap = $('#caja-products-grid');
+
+            // Determinar columnas activas (móvil forzado a 2; PC según configuración 2 o 3)
+            const isMobile = window.innerWidth <= 768;
+            const currentCols = isMobile ? '2' : (this.mgmtGridCols || '2');
+            $grid.removeClass('is-cols-2 is-cols-3').addClass('is-cols-' + currentCols);
+            $('.caja-mgmt-layout-btn').removeClass('active');
+            $(`.caja-mgmt-layout-btn[data-cols="${currentCols}"]`).addClass('active');
 
             if (!products || products.length === 0) {
-                $tbody.empty();
-                $tableWrap.hide();
+                $grid.empty().hide();
                 const hasFilters = ($('#caja-search-products').val() || '').trim() !== '' ||
                                    ($('#caja-filter-product-cat').val() || '').trim() !== '' ||
                                    ($('#caja-filter-product-stock').val() || '').trim() !== '';
@@ -4297,68 +4332,56 @@ $('#caja-modal-new-product').fadeIn(200);
             }
 
             $empty.hide();
-            $tableWrap.show();
+            $grid.show();
 
             let html = '';
             products.forEach(p => {
-                const isGrouped = p.product_type === 'grouped';
-                const isHidden = p.catalog_visibility === 'hidden';
-                const isFeatured = !!p.is_featured;
+                const imgSrc = p.image_url || '';
 
-                let badgesHtml = '';
-                if (isGrouped) {
-                    if (p.is_predefined) {
-                        badgesHtml += ` <span class="caja-badge-grouped" style="background:#059669;" title="Combo Predeterminado Fijo (Cantidades fijadas por la tienda)">🎁 Combo Fijo</span>`;
-                    } else {
-                        badgesHtml += ` <span class="caja-badge-grouped" title="Producto Agrupado (Caja Personalizable)">📦 Agrupado</span>`;
-                    }
-                }
-                if (isFeatured) {
-                    badgesHtml += ` <span class="caja-badge-featured" title="Producto Destacado">⭐ Destacado</span>`;
-                }
-                if (isHidden) {
-                    badgesHtml += ` <span class="caja-badge-hidden" title="Oculto para los clientes">🚫 Oculto</span>`;
-                }
-                if (p.is_official_box) {
-                    const boxRoleLabel = p.official_box_role === 'box_6' ? '6u' : (p.official_box_role === 'box_12' ? '12u' : '');
-                    badgesHtml += ` <span class="caja-badge-official-box" title="Caja oficial de empaque utilizada para descontar stock en los pedidos">📦 Caja Oficial ${boxRoleLabel}</span>`;
+                // Formato de Stock: solamente cantidad de stock
+                let stockClass = 'is-in-stock';
+                let stockText = 'En stock';
+                const qtyRaw = p.stock_quantity_raw !== undefined ? p.stock_quantity_raw : (p.stock_quantity !== null ? parseInt(p.stock_quantity, 10) : null);
+
+                if (p.stock_status === 'outofstock' || (qtyRaw !== null && qtyRaw <= 0)) {
+                    stockClass = 'is-out-of-stock';
+                    stockText = 'Agotado (0)';
+                } else if (p.is_low_stock || (qtyRaw !== null && qtyRaw <= 5)) {
+                    stockClass = 'is-low-stock';
+                    stockText = `Stock: ${p.stock_quantity} (Bajo)`;
+                } else if (p.stock_quantity !== null && p.stock_quantity !== '') {
+                    stockClass = 'is-in-stock';
+                    stockText = `En stock (${p.stock_quantity})`;
+                } else if (p.stock_label) {
+                    stockText = p.stock_label;
                 }
 
                 html += `
-                    <tr id="caja-prod-row-${p.id}" class="caja-prod-row">
-                        <td class="caja-td-foto caja-td-thumb caja-td-imagen" style="padding: 14px 0;">
-                            <img src="${p.image_url}" alt="${p.name}" class="caja-prod-thumb" />
-                        </td>
-                        <td class="caja-td-producto caja-td-name caja-td-title">
-                            <strong class="caja-prod-title">${p.name}</strong>
-                            ${badgesHtml}
-                        </td>
-                        <td class="caja-td-stock">
-                            <span class="caja-badge ${p.stock_badge}">${p.stock_label}</span>
-                            <small class="caja-stock-num">(${p.stock_quantity})</small>
-                            ${p.is_dynamic_stock ? `<div style="font-size:0.75rem; color:#059669; font-weight:600; margin-top:2px;" title="${p.bottleneck_item ? 'Limitado por: ' + p.bottleneck_item : ''}">⚡ Dinámico</div>` : ''}
-                        </td>
-                        <td class="caja-td-precio caja-td-price">
-                            <strong class="caja-prod-price">${p.price}</strong>
-                            ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
-                        </td>
-                        <td class="caja-td-categoria caja-td-category caja-td-cat">
-                            <span class="caja-cat-badge">${p.categories || 'Sin categoría'}</span>
-                        </td>
-                        <td class="caja-td-acciones caja-td-actions" style="text-align: center; white-space: nowrap;">
-                            <button type="button" class="caja-btn caja-btn-sm caja-btn-secondary caja-btn-open-edit-prod" data-product-id="${p.id}" title="Modificar todos los datos del producto (Nombre, Precios, Categoría, SKU, Descripción)" style="margin-right: 4px; padding: 6px 10px;">
-                                <span>✏️ Modificar</span>
-                            </button>
-                            <button type="button" class="caja-btn caja-btn-sm caja-btn-stock-action caja-btn-open-stock-modal" data-product-id="${p.id}" title="Cargar y renovar stock (Sumar ingresos)" style="padding: 6px 10px;">
-                                <span class="caja-btn-icon">📦</span>
-                                <span>Stock</span>
-                            </button>
-                        </td>
-                    </tr>
+                    <div class="caja-mgmt-prod-card caja-btn-open-edit-prod" data-product-id="${p.id}" id="caja-prod-row-${p.id}" title="Click para modificar ${this.escapeHtml(p.name)}">
+                        <div class="caja-mgmt-prod-thumb">
+                            ${imgSrc ? `
+                                <img src="${imgSrc}" alt="${this.escapeHtml(p.name)}" class="caja-mgmt-prod-img" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';" />
+                                <div class="caja-mgmt-fallback-icon" style="display:none;">📦</div>
+                            ` : `
+                                <div class="caja-mgmt-fallback-icon">📦</div>
+                            `}
+                        </div>
+                        <div class="caja-mgmt-prod-body">
+                            <div class="caja-mgmt-prod-title" title="${this.escapeHtml(p.name)}">${this.escapeHtml(p.name)}</div>
+                            <div class="caja-mgmt-prod-stock">
+                                <span class="caja-mgmt-stock-badge ${stockClass}">${stockText}</span>
+                                ${p.is_dynamic_stock ? `<span class="caja-mgmt-dyn-stock" title="${p.bottleneck_item ? 'Limitado por: ' + p.bottleneck_item : ''}">⚡ Dinámico</span>` : ''}
+                            </div>
+                            <div class="caja-mgmt-prod-price-row">
+                                <strong class="caja-mgmt-prod-price">${p.price}</strong>
+                                ${p.is_on_sale ? `<span class="caja-badge-sale">Oferta</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
                 `;
             });
 
-            $tbody.html(html);
+            $grid.html(html);
         },
 
         filterProductsInDom: function() {

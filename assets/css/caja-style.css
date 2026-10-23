@@ -2178,6 +2178,209 @@ body.batllie-caja-active .container {
     box-sizing: border-box;
 }
 
+/* ==========================================================================
+   Grilla Moderna de Control de Productos (Aspecto 1:1 Cuadrado con Click para Modificar)
+   ========================================================================== */
+.caja-mgmt-layout-switcher {
+    display: inline-flex;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--caja-card-border, #1f2937);
+    border-radius: 8px;
+    padding: 2px;
+    flex-shrink: 0;
+    gap: 2px;
+}
+
+.caja-mgmt-layout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--caja-text-muted, #94a3b8);
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.caja-mgmt-layout-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--caja-text, #f8fafc);
+}
+
+.caja-mgmt-layout-btn.active {
+    background: var(--caja-primary, #10b981) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.caja-mgmt-products-grid {
+    display: grid;
+    gap: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 14px;
+}
+
+.caja-mgmt-products-grid.is-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.caja-mgmt-products-grid.is-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+    /* En teléfono solamente se puede en dos la grilla */
+    .caja-mgmt-btn-cols-3 {
+        display: none !important;
+    }
+    .caja-mgmt-products-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+}
+
+.caja-mgmt-prod-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--caja-card-bg, #111827);
+    border: 1px solid var(--caja-card-border, #1f2937);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    user-select: none;
+    box-sizing: border-box;
+}
+
+.caja-mgmt-prod-card:hover {
+    border-color: var(--caja-primary, #10b981);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.caja-mgmt-prod-card:active {
+    transform: scale(0.98);
+}
+
+.caja-mgmt-prod-thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    background: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.caja-mgmt-prod-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Formato cuadrado completo, sin recortar */
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.caja-mgmt-prod-card:hover .caja-mgmt-prod-img {
+    transform: scale(1.03);
+}
+
+.caja-mgmt-fallback-icon {
+    font-size: 2.2rem;
+    color: var(--caja-text-muted, #64748b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.caja-mgmt-prod-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+    .caja-mgmt-prod-body {
+        padding: 8px 10px;
+        gap: 3px;
+    }
+}
+
+.caja-mgmt-prod-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--caja-text, #f8fafc);
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.2em;
+}
+
+.caja-mgmt-prod-stock {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    margin-top: 2px;
+}
+
+.caja-mgmt-stock-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.caja-mgmt-stock-badge.is-in-stock {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.caja-mgmt-stock-badge.is-low-stock {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.caja-mgmt-stock-badge.is-out-of-stock {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.caja-mgmt-dyn-stock {
+    font-size: 0.7rem;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.caja-mgmt-prod-price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
+.caja-mgmt-prod-price {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #10b981;
+    letter-spacing: -0.3px;
+}
+
 .caja-products-table-wrapper {
     background: var(--caja-card-bg);
     border: 1px solid var(--caja-card-border);
