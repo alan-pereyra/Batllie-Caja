@@ -3069,11 +3069,41 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
 
                         <div class="caja-customer-block">
-                            ${isVentaMostrador ? `
-                                <div class="caja-badge-venta-mostrador-row">
-                                    <span class="caja-badge-venta-mostrador">🏪 Venta Mostrador</span>
-                                </div>
-                            ` : ''}
+                            ${isVentaMostrador ? (function() {
+                                const cajaSector = order.gastro_sector || (order.caja_session_code ? `Caja ${order.caja_session_code}` : 'Barra Principal');
+                                const cajaIcon = order.gastro_icon || (typeof self.getSectorIcon === 'function' ? self.getSectorIcon(cajaSector) : '🍸');
+                                const tablePart = order.gastro_table ? ` · M${self.escapeHtml(order.gastro_table)}` : '';
+                                const cashierName = order.caja_cashier || 'Admin';
+
+                                const rawPm = (order.payment_method || '').toLowerCase();
+                                let pmIcon = '💵';
+                                let pmText = order.payment_method || 'Efectivo';
+                                if (rawPm.includes('tarjeta') || rawPm.includes('card') || rawPm.includes('pos')) {
+                                    pmIcon = '💳';
+                                    pmText = 'Tarjeta';
+                                } else if (rawPm.includes('transferencia') || rawPm.includes('bacs')) {
+                                    pmIcon = '📱';
+                                    pmText = 'Transferencia';
+                                } else if (rawPm.includes('mercado') || rawPm.includes('mp')) {
+                                    pmIcon = '💠';
+                                    pmText = 'Mercado Pago';
+                                } else if (rawPm.includes('efectivo') || rawPm.includes('cod')) {
+                                    pmIcon = '💵';
+                                    pmText = 'Efectivo';
+                                }
+
+                                return `
+                                    <div class="caja-badge-venta-mostrador-row">
+                                        <div class="caja-badge-venta-mostrador">
+                                            <span class="caja-vm-item"><span class="caja-vm-icon">${cajaIcon}</span> <span>Caja: <strong>${self.escapeHtml(cajaSector)}${tablePart}</strong></span></span>
+                                            <span class="caja-vm-sep">•</span>
+                                            <span class="caja-vm-item"><span class="caja-vm-icon">👤</span> <span>Cajero: <strong>${self.escapeHtml(cashierName)}</strong></span></span>
+                                            <span class="caja-vm-sep">•</span>
+                                            <span class="caja-vm-item"><span class="caja-vm-icon">${pmIcon}</span> <span>Pago: <strong>${self.escapeHtml(pmText)}</strong></span></span>
+                                        </div>
+                                    </div>
+                                `;
+                            })() : ''}
                             <div class="caja-customer-header-row">
                                 <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(cleanCustomerName)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
                                     <span>👤 ${cleanCustomerName}</span>
