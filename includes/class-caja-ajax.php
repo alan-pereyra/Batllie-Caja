@@ -698,12 +698,31 @@ class Batllie_Caja_Ajax {
                 }
             }
 
-            // Validar restricción: cambio de venta realizada a pedido por despachar
-            if (empty($user_perms['can_dispatch_orders']) && empty($user_perms['is_admin'])) {
-                $mode          = 'compra_realizada';
-                $delivery_type = 'retiro_local';
-                $shipping_cost = 0;
-                $payment_status = 'pagado';
+            // Validar restricción: vinculación estricta Take Away <-> Pedido por Despachar
+            $user_has_takeaway = false;
+            $allowed_sectors = !empty($user_perms['assigned_sectors']) ? $user_perms['assigned_sectors'] : array();
+            foreach ($allowed_sectors as $sec) {
+                if (stripos($sec, 'take') !== false) {
+                    $user_has_takeaway = true;
+                    break;
+                }
+            }
+            $can_dispatch_user = !empty($user_perms['is_admin']) || (!empty($user_perms['can_dispatch_orders']) && $user_has_takeaway);
+
+            if ($mode === 'pedido_despachar') {
+                if (!$can_dispatch_user) {
+                    $mode           = 'compra_realizada';
+                    $delivery_type  = 'retiro_local';
+                    $shipping_cost  = 0;
+                    $payment_status = 'pagado';
+                } else {
+                    // Despacho está estrictamente vinculado a Take Away
+                    $gastro_sector = 'Take Away';
+                }
+            } else {
+                if (stripos($gastro_sector, 'take') !== false && !$can_dispatch_user) {
+                    $gastro_sector = !empty($allowed_sectors[0]) ? $allowed_sectors[0] : 'Barra Principal';
+                }
             }
 
             $tip_amount    = isset($_POST['tip_amount']) ? max(0, floatval($_POST['tip_amount'])) : 0;

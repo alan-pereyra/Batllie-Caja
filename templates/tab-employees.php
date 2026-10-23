@@ -319,7 +319,43 @@ $all_sectors = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::
                             </label>
                         </div>
 
-                        <!-- Permiso G: Estado de la Cuenta -->
+                        <!-- Permiso G: Visualización de Productos (Lista vs Grilla de Cards) -->
+                        <div class="caja-emp-perm-row" style="border-top: 1px dashed var(--caja-card-border, #334155); margin-top:8px; padding-top:14px;">
+                            <div class="caja-emp-perm-info" style="flex:1;">
+                                <strong><?php _e('Diseño de Productos en Venta Caja', 'emp-caja'); ?></strong>
+                                <p><?php _e('Configura si la caja ve productos en Lista compacta o en Grilla de Cards con imagen grande.', 'emp-caja'); ?></p>
+                                <div style="display:flex; gap:10px; margin-top:8px; flex-wrap:wrap;">
+                                    <div style="flex:1; min-width:140px;">
+                                        <label style="font-size:0.75rem; color:var(--caja-text-muted); display:block; margin-bottom:3px;"><?php _e('Formato', 'emp-caja'); ?></label>
+                                        <select id="caja-emp-product-layout" class="caja-input" style="padding:6px 10px; font-size:0.83rem;">
+                                            <option value="grid"><?php _e('Grilla de Cards (Foto grande)', 'emp-caja'); ?></option>
+                                            <option value="list"><?php _e('Lista Compacta', 'emp-caja'); ?></option>
+                                        </select>
+                                    </div>
+                                    <div style="flex:1; min-width:140px;">
+                                        <label style="font-size:0.75rem; color:var(--caja-text-muted); display:block; margin-bottom:3px;"><?php _e('Columnas (Grilla)', 'emp-caja'); ?></label>
+                                        <select id="caja-emp-product-grid-cols" class="caja-input" style="padding:6px 10px; font-size:0.83rem;">
+                                            <option value="2"><?php _e('2 Columnas (Grandes)', 'emp-caja'); ?></option>
+                                            <option value="3"><?php _e('3 Columnas (Medianas)', 'emp-caja'); ?></option>
+                                            <option value="4"><?php _e('4 Columnas (Compactas)', 'emp-caja'); ?></option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="caja-emp-perm-row">
+                            <div class="caja-emp-perm-info">
+                                <strong><?php _e('¿Permitir al cajero alternar diseño en su pantalla?', 'emp-caja'); ?></strong>
+                                <p><?php _e('Muestra un selector rápido [Lista / Grilla 2 / Grilla 3] en la cabecera de productos.', 'emp-caja'); ?></p>
+                            </div>
+                            <label class="caja-switch-ios">
+                                <input type="checkbox" id="caja-emp-allow-layout-toggle" checked />
+                                <span class="caja-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Permiso H: Estado de la Cuenta -->
                         <div class="caja-emp-perm-row" style="border-top: 1px dashed var(--caja-card-border, #334155); margin-top:8px; padding-top:14px;">
                             <div class="caja-emp-perm-info">
                                 <strong><?php _e('Estado de la cuenta (Habilitado)', 'emp-caja'); ?></strong>

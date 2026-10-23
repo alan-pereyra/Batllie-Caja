@@ -107,6 +107,9 @@ class Batllie_Caja_Employees {
                 'can_view_customer_data'  => true,
                 'can_view_packaging'      => true,
                 'can_dispatch_orders'     => true,
+                'product_layout'          => 'grid',
+                'product_grid_cols'       => '2',
+                'allow_layout_toggle'     => true,
                 'status'                  => 'active',
             );
         }
@@ -159,6 +162,18 @@ class Batllie_Caja_Employees {
         $can_dispatch_orders_meta = get_user_meta($user_id, '_caja_can_dispatch_orders', true);
         $can_dispatch_orders = ($can_dispatch_orders_meta === '1' || $can_dispatch_orders_meta === true || $can_dispatch_orders_meta === 'yes');
 
+        // Diseño visual de productos en Venta Caja (Lista compacta vs Grilla de tarjetas)
+        $product_layout_meta = get_user_meta($user_id, '_caja_product_layout', true);
+        $product_layout = in_array($product_layout_meta, array('list', 'grid')) ? $product_layout_meta : 'grid';
+
+        // Columnas en grilla (2, 3 o 4)
+        $product_grid_cols_meta = get_user_meta($user_id, '_caja_product_grid_cols', true);
+        $product_grid_cols = in_array($product_grid_cols_meta, array('2', '3', '4')) ? $product_grid_cols_meta : '2';
+
+        // Permitir alternar vista al cajero
+        $allow_layout_toggle_meta = get_user_meta($user_id, '_caja_allow_layout_toggle', true);
+        $allow_layout_toggle = ($allow_layout_toggle_meta !== '0' && $allow_layout_toggle_meta !== false);
+
         $status = get_user_meta($user_id, '_caja_status', true);
         if (empty($status)) {
             $status = 'active';
@@ -175,6 +190,9 @@ class Batllie_Caja_Employees {
             'can_view_customer_data'  => $can_view_customer_data,
             'can_view_packaging'      => $can_view_packaging,
             'can_dispatch_orders'     => $can_dispatch_orders,
+            'product_layout'          => $product_layout,
+            'product_grid_cols'       => $product_grid_cols,
+            'allow_layout_toggle'     => $allow_layout_toggle,
             'status'                  => ($status === 'disabled') ? 'disabled' : 'active',
         );
     }
@@ -221,6 +239,9 @@ class Batllie_Caja_Employees {
                 'can_view_customer_data'  => $perms['can_view_customer_data'],
                 'can_view_packaging'      => $perms['can_view_packaging'],
                 'can_dispatch_orders'     => $perms['can_dispatch_orders'],
+                'product_layout'          => $perms['product_layout'],
+                'product_grid_cols'       => $perms['product_grid_cols'],
+                'allow_layout_toggle'     => $perms['allow_layout_toggle'],
                 'status'                  => $perms['status'],
                 'is_current_user'         => ($user_id === $current_user_id),
                 'registered'              => date_i18n('d/m/Y', strtotime($user->user_registered)),
@@ -265,6 +286,9 @@ class Batllie_Caja_Employees {
         $can_view_customer_data = (!empty($data['can_view_customer_data']) && ($data['can_view_customer_data'] === '1' || $data['can_view_customer_data'] === true || $data['can_view_customer_data'] === 'true')) ? '1' : '0';
         $can_view_packaging = (!empty($data['can_view_packaging']) && ($data['can_view_packaging'] === '1' || $data['can_view_packaging'] === true || $data['can_view_packaging'] === 'true')) ? '1' : '0';
         $can_dispatch_orders = (!empty($data['can_dispatch_orders']) && ($data['can_dispatch_orders'] === '1' || $data['can_dispatch_orders'] === true || $data['can_dispatch_orders'] === 'true')) ? '1' : '0';
+        $product_layout = (!empty($data['product_layout']) && in_array($data['product_layout'], array('list', 'grid'))) ? sanitize_key($data['product_layout']) : 'grid';
+        $product_grid_cols = (!empty($data['product_grid_cols']) && in_array($data['product_grid_cols'], array('2', '3', '4'))) ? sanitize_key($data['product_grid_cols']) : '2';
+        $allow_layout_toggle = (!empty($data['allow_layout_toggle']) && ($data['allow_layout_toggle'] === '1' || $data['allow_layout_toggle'] === true || $data['allow_layout_toggle'] === 'true')) ? '1' : '0';
 
         if ($user_id > 0) {
             // Actualización de empleado existente
@@ -340,6 +364,9 @@ class Batllie_Caja_Employees {
         update_user_meta($user_id, '_caja_can_view_customer_data', $can_view_customer_data);
         update_user_meta($user_id, '_caja_can_view_packaging', $can_view_packaging);
         update_user_meta($user_id, '_caja_can_dispatch_orders', $can_dispatch_orders);
+        update_user_meta($user_id, '_caja_product_layout', $product_layout);
+        update_user_meta($user_id, '_caja_product_grid_cols', $product_grid_cols);
+        update_user_meta($user_id, '_caja_allow_layout_toggle', $allow_layout_toggle);
         update_user_meta($user_id, '_caja_status', $status);
 
         return self::get_user_permissions($user_id);

@@ -15,11 +15,41 @@ $pos_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::ge
 );
 $can_change_sector = !empty($pos_perms['can_change_sector']) || !empty($pos_perms['is_admin']);
 $can_view_orders   = !empty($pos_perms['can_view_orders']) || !empty($pos_perms['is_admin']);
-$can_view_customer = !empty($pos_perms['can_view_customer_data']) || !empty($pos_perms['is_admin']);
 $can_view_pkg      = !empty($pos_perms['can_view_packaging']) || !empty($pos_perms['is_admin']);
-$can_dispatch      = !empty($pos_perms['can_dispatch_orders']) || !empty($pos_perms['is_admin']);
-$assigned_sectors = !empty($pos_perms['assigned_sectors']) ? $pos_perms['assigned_sectors'] : array('Barra Principal');
-$default_sector = !empty($assigned_sectors[0]) ? $assigned_sectors[0] : 'Barra Principal';
+$assigned_sectors  = !empty($pos_perms['assigned_sectors']) ? $pos_perms['assigned_sectors'] : array('Barra Principal');
+
+// Vinculación estricta Take Away <-> Pedido por Despachar:
+// "solo si tiene el permiso de ambos una caja y take away, por despachar está vinculado solamente a take away, si no tiene esta opción no se habilita take away o vise versa"
+$user_has_takeaway = false;
+foreach ($assigned_sectors as $sec) {
+    if (stripos($sec, 'take') !== false) {
+        $user_has_takeaway = true;
+        break;
+    }
+}
+
+if (!empty($pos_perms['is_admin'])) {
+    $can_dispatch = true;
+    $can_takeaway = true;
+} else {
+    $can_dispatch_raw = !empty($pos_perms['can_dispatch_orders']);
+    $can_dispatch = ($can_dispatch_raw && $user_has_takeaway);
+    $can_takeaway = $can_dispatch;
+
+    // Si no tiene ambos permisos, filtrar Take Away de los sectores asignados
+    if (!$can_takeaway) {
+        $assigned_sectors = array_values(array_filter($assigned_sectors, function($s) {
+            return (stripos($s, 'take') === false);
+        }));
+        if (empty($assigned_sectors)) {
+            $assigned_sectors = array('Barra Principal');
+        }
+    }
+}
+
+// "se tienen que tomar los datos": Para despachar / Take Away los datos de cliente siempre deben estar disponibles
+$can_view_customer = !empty($pos_perms['can_view_customer_data']) || !empty($pos_perms['is_admin']) || $can_dispatch;
+$default_sector    = !empty($assigned_sectors[0]) ? $assigned_sectors[0] : 'Barra Principal';
 
 if (!function_exists('emp_caja_get_sector_icon_helper')) {
     function emp_caja_get_sector_icon_helper($s) {
@@ -60,13 +90,34 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                 </div>
             </div>
 
-            <!-- Buscador Rápido de Productos -->
-            <div class="caja-pos-search-header">
-                <div class="caja-pos-search-box">
+            <!-- Buscador Rápido de Productos y Selector de Vista -->
+            <div class="caja-pos-search-header" style="display:flex; gap:8px; align-items:center;">
+                <div class="caja-pos-search-box" style="flex:1;">
                     <span class="caja-pos-search-icon">🔍</span>
                     <input type="text" id="caja-pos-search-input" class="caja-pos-search-input" placeholder="<?php esc_attr_e('Buscar producto por nombre o SKU...', 'emp-caja'); ?>" autocomplete="off" />
                     <button type="button" class="caja-pos-search-clear" id="caja-pos-search-clear" style="display:none;">&times;</button>
                 </div>
+                <?php 
+                $allow_toggle = !empty($pos_perms['allow_layout_toggle']) || !empty($pos_perms['is_admin']);
+                $curr_layout  = !empty($pos_perms['product_layout']) ? $pos_perms['product_layout'] : 'grid';
+                $curr_cols    = !empty($pos_perms['product_grid_cols']) ? $pos_perms['product_grid_cols'] : '2';
+                ?>
+                <input type="hidden" id="caja-pos-current-layout" value="<?php echo esc_attr($curr_layout); ?>" />
+                <input type="hidden" id="caja-pos-current-grid-cols" value="<?php echo esc_attr($curr_cols); ?>" />
+
+                <?php if ($allow_toggle): ?>
+                <div class="caja-pos-layout-switcher" id="caja-pos-layout-switcher" style="display:flex; background:rgba(255,255,255,0.06); border:1px solid var(--caja-card-border, #1f2937); border-radius:8px; padding:2px; flex-shrink:0;">
+                    <button type="button" class="caja-pos-layout-btn <?php echo ($curr_layout === 'list') ? 'active' : ''; ?>" data-layout="list" data-cols="1" title="<?php esc_attr_e('Vista Lista Compacta', 'emp-caja'); ?>">
+                        <span>☰</span>
+                    </button>
+                    <button type="button" class="caja-pos-layout-btn <?php echo ($curr_layout === 'grid' && $curr_cols === '2') ? 'active' : ''; ?>" data-layout="grid" data-cols="2" title="<?php esc_attr_e('Grilla 2 Columnas (Grande)', 'emp-caja'); ?>">
+                        <span>⊞</span> <span style="font-size:0.75rem; font-weight:700;">2</span>
+                    </button>
+                    <button type="button" class="caja-pos-layout-btn <?php echo ($curr_layout === 'grid' && $curr_cols === '3') ? 'active' : ''; ?>" data-layout="grid" data-cols="3" title="<?php esc_attr_e('Grilla 3 Columnas (Mediana)', 'emp-caja'); ?>">
+                        <span>▦</span> <span style="font-size:0.75rem; font-weight:700;">3</span>
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Lista Acordeón de Categorías y Productos -->
@@ -110,9 +161,11 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                             <button type="button" class="caja-gastro-chip" data-sector="Mesa" data-icon="🍽️" id="caja-gastro-btn-mesa">
                                 <span>🍽️</span> <span>Mesa</span>
                             </button>
+                            <?php if ($can_takeaway): ?>
                             <button type="button" class="caja-gastro-chip" data-sector="Take Away" data-icon="🛍️">
                                 <span>🛍️</span> <span>Take Away</span>
                             </button>
+                            <?php endif; ?>
                         <?php else: ?>
                             <!-- Cajeros sin permiso de cambio: fijados a su(s) barra(s) autorizada(s) -->
                             <?php if (count($assigned_sectors) <= 1): ?>

@@ -5960,6 +5960,18 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.gastroSector = $('#caja-pos-selected-sector').val() || 'Barra Principal';
             }
 
+            if (this.gastroSector && this.gastroSector.toLowerCase().indexOf('take') !== -1) {
+                $('#caja-pos-selected-mode').val('pedido_despachar');
+                $('.caja-pos-switch-row').removeClass('is-active');
+                $('#pos-row-pedido-despachar').addClass('is-active');
+                $('#caja-pos-dispatch-subgroup').show();
+                $('#caja-pos-status-dropdown-wrap').show();
+                $('#caja-pos-checkout-btn').addClass('is-dispatch');
+                $('#caja-pos-checkout-text').text('Enviar a Cola de Despacho');
+                $('#caja-pos-customer-body').show();
+                $('#caja-pos-cust-toggle-icon').text('▲');
+            }
+
             const needsProducts = !this.cachedProducts || !this.cachedProducts.length;
             const needsCategories = !this.cachedCategories || !this.cachedCategories.length;
 
@@ -6106,6 +6118,16 @@ $('#caja-modal-new-product').fadeIn(200);
                 return;
             }
 
+            const perms = this.config.currentUserPermissions || {};
+            const layout = self.productLayout || $('#caja-pos-current-layout').val() || perms.product_layout || 'grid';
+            const gridCols = self.productGridCols || $('#caja-pos-current-grid-cols').val() || perms.product_grid_cols || '2';
+            self.productLayout = layout;
+            self.productGridCols = gridCols;
+
+            const bodyClass = (layout === 'grid') 
+                ? `is-grid-layout is-grid-cols-${gridCols}` 
+                : 'is-list-layout';
+
             let html = '';
             catList.forEach((c, idx) => {
                 // Ordenar productos de la categoría por nombre
@@ -6136,7 +6158,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-pos-cat-chevron">▼</span>
                             </div>
                         </div>
-                        <div class="caja-pos-cat-body" style="display:none;">
+                        <div class="caja-pos-cat-body ${bodyClass}" style="display:none;">
                             ${prodsHtml}
                         </div>
                     </div>
@@ -6199,6 +6221,24 @@ $('#caja-modal-new-product').fadeIn(200);
                 `;
             }
 
+            if (self.productLayout === 'grid') {
+                return `
+                    <div class="caja-pos-prod-card ${totalQtyInCart > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''} ${isVariable ? 'is-variable-row' : ''}" data-id="${p.id}">
+                        <div class="caja-pos-prod-card-thumb">
+                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" onerror="this.parentElement.innerHTML='<span class=\"caja-pos-fallback-icon\">🍸</span>';" />` : '<span class="caja-pos-fallback-icon">🍸</span>'}
+                            ${stockBadge ? `<div class="caja-pos-card-stock-pill">${stockBadge}</div>` : ''}
+                        </div>
+                        <div class="caja-pos-prod-card-body">
+                            <div class="caja-pos-prod-card-title" title="${self.escapeHtml(p.name)}">${self.escapeHtml(p.name)}</div>
+                            <div class="caja-pos-prod-card-price">${price}</div>
+                            <div class="caja-pos-prod-card-stepper">
+                                ${stepperHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
             return `
                 <div class="caja-pos-prod-row ${totalQtyInCart > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''} ${isVariable ? 'is-variable-row' : ''}" data-id="${p.id}">
                     <div class="caja-pos-prod-thumb">
@@ -6241,6 +6281,41 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.posSearchQuery = '';
                 $(this).hide();
                 self.renderPosCategoriesAccordion();
+            });
+
+            // Conmutador de vista de productos (Lista vs Grilla 2 o 3 columnas)
+            $(document).on('click', '.caja-pos-layout-btn', function(e) {
+                e.preventDefault();
+                $('.caja-pos-layout-btn').removeClass('active');
+                $(this).addClass('active');
+
+                const layout = $(this).data('layout');
+                const cols = String($(this).data('cols') || '2');
+
+                self.productLayout = layout;
+                self.productGridCols = cols;
+                $('#caja-pos-current-layout').val(layout);
+                $('#caja-pos-current-grid-cols').val(cols);
+
+                self.renderPosCategoriesAccordion();
+            });
+
+            // Click táctil en tarjeta de producto simple para sumar +1 rápido
+            $(document).on('click', '.caja-pos-prod-card:not(.is-variable-row)', function(e) {
+                if ($(e.target).closest('.caja-pos-prod-card-stepper').length) return;
+                const prodId = parseInt($(this).data('id'));
+                if (prodId && !$(this).hasClass('is-out-of-stock')) {
+                    self.changePosCartQuantity(prodId, 1);
+                }
+            });
+
+            // Click táctil en tarjeta de producto variable
+            $(document).on('click', '.caja-pos-prod-card.is-variable-row', function(e) {
+                if ($(e.target).closest('.caja-pos-btn-var-trigger').length) return;
+                const prodId = parseInt($(this).data('id'));
+                if (prodId) {
+                    self.openPosVariableModal(prodId);
+                }
             });
 
             // Toggle de acordeón de categorías
@@ -6369,9 +6444,53 @@ $('#caja-modal-new-product').fadeIn(200);
             $(document).on('click', '.caja-pos-switch-row', function() {
                 const mode = $(this).data('mode');
                 const perms = self.config.currentUserPermissions || {};
-                if (mode === 'pedido_despachar' && !perms.is_admin && !perms.can_dispatch_orders) {
-                    self.showToast('No tienes permisos para registrar pedidos por despachar.', 'warning');
-                    return false;
+
+                if (mode === 'pedido_despachar') {
+                    // "solo si tiene el permiso de ambos una caja y take away, por despachar está vinculado solamente a take away, si no tiene esta opción no se habilita take away o vise versa"
+                    const hasTakeawayPerm = perms.is_admin || (perms.can_dispatch_orders && perms.assigned_sectors && perms.assigned_sectors.some(s => s.toLowerCase().indexOf('take') !== -1));
+                    if (!hasTakeawayPerm) {
+                        self.showToast('No tienes permisos habilitados para Take Away ni pedidos por despachar.', 'warning');
+                        return false;
+                    }
+
+                    // "sino si es una caja distinta y si toca en pedidos por despachar cambie a take away"
+                    const $takeawayChip = $('.caja-gastro-chip').filter(function() {
+                        return ($(this).data('sector') || '').toLowerCase().indexOf('take') !== -1;
+                    });
+
+                    if ($takeawayChip.length) {
+                        $('.caja-gastro-chip').removeClass('active');
+                        $takeawayChip.addClass('active');
+                        const icon = $takeawayChip.data('icon') || '🛍️';
+                        const sec = $takeawayChip.data('sector') || 'Take Away';
+                        self.gastroSector = sec;
+                        $('#caja-pos-selected-sector').val(sec);
+                        $('#caja-gastro-tables-wrap').slideUp(150);
+                        self.gastroTable = '';
+                        const lockPrefix = (!perms.is_admin && !perms.can_change_sector) ? '🔒 ' : '';
+                        $('#caja-gastro-selected-badge').text(`${lockPrefix}${icon} ${sec}`);
+                    }
+
+                    // Abrir datos del cliente automáticamente
+                    $('#caja-pos-customer-body').slideDown(180);
+                    $('#caja-pos-cust-toggle-icon').text('▲');
+                } else if (mode === 'compra_realizada') {
+                    // Si estaba en Take Away y toca Compra Realizada, cambia a la primera barra disponible
+                    if ((self.gastroSector || '').toLowerCase().indexOf('take') !== -1) {
+                        const $barChip = $('.caja-gastro-chip').filter(function() {
+                            return ($(this).data('sector') || '').toLowerCase().indexOf('take') === -1;
+                        }).first();
+                        if ($barChip.length) {
+                            $('.caja-gastro-chip').removeClass('active');
+                            $barChip.addClass('active');
+                            const icon = $barChip.data('icon') || '🍸';
+                            const sec = $barChip.data('sector') || 'Barra Principal';
+                            self.gastroSector = sec;
+                            $('#caja-pos-selected-sector').val(sec);
+                            const lockPrefix = (!perms.is_admin && !perms.can_change_sector) ? '🔒 ' : '';
+                            $('#caja-gastro-selected-badge').text(`${lockPrefix}${icon} ${sec}`);
+                        }
+                    }
                 }
 
                 $('.caja-pos-switch-row').removeClass('is-active');
@@ -6561,6 +6680,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const perms = self.config.currentUserPermissions || {};
                 const sector = $(this).data('sector') || 'Barra Principal';
                 const isMesa = sector.toLowerCase().indexOf('mesa') !== -1;
+                const isTakeAway = sector.toLowerCase().indexOf('take') !== -1;
 
                 // Bloqueo de Mesas para usuarios que no son Administradores
                 if (isMesa && !perms.is_admin && !perms.can_change_sector) {
@@ -6568,11 +6688,21 @@ $('#caja-modal-new-product').fadeIn(200);
                     return;
                 }
 
+                // Bloqueo de Take Away si no tiene permisos de despacho / Take Away
+                if (isTakeAway) {
+                    const hasTakeawayPerm = perms.is_admin || (perms.can_dispatch_orders && perms.assigned_sectors && perms.assigned_sectors.some(s => s.toLowerCase().indexOf('take') !== -1));
+                    if (!hasTakeawayPerm) {
+                        self.showToast('No tienes permisos habilitados para Take Away ni pedidos por despachar.', 'warning');
+                        return;
+                    }
+                }
+
                 $('.caja-gastro-chip').removeClass('active');
                 $(this).addClass('active');
 
                 const icon = $(this).data('icon') || '🍸';
                 self.gastroSector = sector;
+                $('#caja-pos-selected-sector').val(sector);
 
                 if (isMesa) {
                     $('#caja-gastro-tables-wrap').slideDown(150);
@@ -6588,7 +6718,42 @@ $('#caja-modal-new-product').fadeIn(200);
                     const lockPrefix = (!perms.is_admin && !perms.can_change_sector) ? '🔒 ' : '';
                     $('#caja-gastro-selected-badge').text(`${lockPrefix}${icon} ${sector}`);
                 }
-            });
+
+                // Vinculación bidireccional Take Away <-> Pedido por Despachar
+                if (isTakeAway) {
+                    // "Si tiene habilitada la opción take away y toca esa operación el pedido cambia a pedido por despachar y se tienen que tomar los datos"
+                    $('.caja-pos-switch-row').removeClass('is-active');
+                    $('#pos-row-pedido-despachar').addClass('is-active');
+                    $('#caja-pos-selected-mode').val('pedido_despachar');
+
+                    const $btn = $('#caja-pos-checkout-btn');
+                    const $text = $('#caja-pos-checkout-text');
+                    $btn.addClass('is-dispatch');
+                    $text.text('Enviar a Cola de Despacho');
+                    $('#caja-pos-dispatch-subgroup').slideDown(180);
+                    $('#caja-pos-status-dropdown-wrap').slideDown(180);
+
+                    // Abrir datos del cliente automáticamente
+                    $('#caja-pos-customer-body').slideDown(180);
+                    $('#caja-pos-cust-toggle-icon').text('▲');
+                    self.updatePosCustomerRequirements();
+                } else {
+                    // Si cambia a una barra o mesa (distinta de Take Away), vuelve a Compra Realizada
+                    if ($('#caja-pos-selected-mode').val() === 'pedido_despachar') {
+                        $('.caja-pos-switch-row').removeClass('is-active');
+                        $('#pos-row-compra-realizada').addClass('is-active');
+                        $('#caja-pos-selected-mode').val('compra_realizada');
+
+                        const $btn = $('#caja-pos-checkout-btn');
+                        const $text = $('#caja-pos-checkout-text');
+                        $btn.removeClass('is-dispatch');
+                        $text.text('Confirmar y Cobrar');
+                        $('#caja-pos-dispatch-subgroup').slideUp(180);
+                        $('#caja-pos-status-dropdown-wrap').slideUp(180);
+                        $('#caja-pos-selected-status').val('pagado');
+                        self.updatePosCustomerRequirements();
+                    }
+                }
 
             // Selector de Mesa Rápida
             $(document).on('click', '.caja-gastro-table-chip', function(e) {
@@ -9044,6 +9209,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-emp-can-view-customer-data').prop('checked', !!emp.can_view_customer_data);
                 $('#caja-emp-can-view-packaging').prop('checked', !!emp.can_view_packaging);
                 $('#caja-emp-can-dispatch-orders').prop('checked', !!emp.can_dispatch_orders);
+                $('#caja-emp-product-layout').val(emp.product_layout || 'grid');
+                $('#caja-emp-product-grid-cols').val(emp.product_grid_cols || '2');
+                $('#caja-emp-allow-layout-toggle').prop('checked', emp.allow_layout_toggle !== false && emp.allow_layout_toggle !== '0');
                 $('#caja-emp-status').prop('checked', emp.status !== 'disabled');
             } else {
                 // Modo Nuevo Empleado
@@ -9070,6 +9238,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-emp-can-view-customer-data').prop('checked', false);
                 $('#caja-emp-can-view-packaging').prop('checked', false);
                 $('#caja-emp-can-dispatch-orders').prop('checked', false);
+                $('#caja-emp-product-layout').val('grid');
+                $('#caja-emp-product-grid-cols').val('2');
+                $('#caja-emp-allow-layout-toggle').prop('checked', true);
                 $('#caja-emp-status').prop('checked', true);
             }
 
@@ -9105,6 +9276,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const canViewCustomerData = $('#caja-emp-can-view-customer-data').is(':checked') ? '1' : '0';
             const canViewPackaging = $('#caja-emp-can-view-packaging').is(':checked') ? '1' : '0';
             const canDispatchOrders = $('#caja-emp-can-dispatch-orders').is(':checked') ? '1' : '0';
+            const productLayout = $('#caja-emp-product-layout').val() || 'grid';
+            const productGridCols = $('#caja-emp-product-grid-cols').val() || '2';
+            const allowLayoutToggle = $('#caja-emp-allow-layout-toggle').is(':checked') ? '1' : '0';
             const status = $('#caja-emp-status').is(':checked') ? 'active' : 'disabled';
 
             $btn.prop('disabled', true);
@@ -9131,6 +9305,9 @@ $('#caja-modal-new-product').fadeIn(200);
                         can_view_customer_data: canViewCustomerData,
                         can_view_packaging: canViewPackaging,
                         can_dispatch_orders: canDispatchOrders,
+                        product_layout: productLayout,
+                        product_grid_cols: productGridCols,
+                        allow_layout_toggle: allowLayoutToggle,
                         status: status
                     }
                 },
