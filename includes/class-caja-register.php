@@ -37,7 +37,7 @@ class Batllie_Caja_Register {
         global $wpdb;
         $table = self::get_table_name();
 
-        $cache_key = 'caja_sessions_table_checked_v1';
+        $cache_key = 'caja_sessions_table_checked_v2';
         if (get_transient($cache_key)) {
             return;
         }
@@ -50,6 +50,8 @@ class Batllie_Caja_Register {
             user_id bigint(20) NOT NULL DEFAULT 0,
             user_name varchar(100) NOT NULL DEFAULT '',
             sector varchar(100) NOT NULL DEFAULT '',
+            cash_box_id varchar(50) NOT NULL DEFAULT '',
+            cash_box_name varchar(100) NOT NULL DEFAULT '',
             status varchar(20) NOT NULL DEFAULT 'open',
             opened_at datetime NOT NULL,
             closed_at datetime NULL DEFAULT NULL,
@@ -71,6 +73,7 @@ class Batllie_Caja_Register {
             PRIMARY KEY  (id),
             KEY user_status (user_id, status),
             KEY sector_status (sector, status),
+            KEY cash_box_id (cash_box_id),
             KEY opened_at (opened_at)
         ) $charset_collate;";
 
@@ -79,6 +82,13 @@ class Batllie_Caja_Register {
         }
 
         dbDelta($sql);
+
+        // Verificación de columnas directas para tablas preexistentes
+        $col_box = $wpdb->get_results("SHOW COLUMNS FROM `$table` LIKE 'cash_box_id'");
+        if (empty($col_box)) {
+            $wpdb->query("ALTER TABLE `$table` ADD COLUMN `cash_box_id` varchar(50) NOT NULL DEFAULT '' AFTER `sector`, ADD COLUMN `cash_box_name` varchar(100) NOT NULL DEFAULT '' AFTER `cash_box_id`");
+        }
+
         set_transient($cache_key, 1, HOUR_IN_SECONDS * 12);
     }
 
@@ -171,6 +181,8 @@ class Batllie_Caja_Register {
             'user_id'         => intval($row['user_id']),
             'user_name'       => $row['user_name'],
             'sector'          => $row['sector'],
+            'cash_box_id'     => $row['cash_box_id'] ?? '',
+            'cash_box_name'   => $row['cash_box_name'] ?? '',
             'status'          => $row['status'],
             'opened_at'       => $row['opened_at'],
             'closed_at'       => $row['closed_at'],
@@ -227,11 +239,17 @@ class Batllie_Caja_Register {
         $seq = str_pad($count_today + 1, 3, '0', STR_PAD_LEFT);
         $session_code = 'CJ-' . $today_code . '-' . $seq;
 
+        $money_box = self::get_money_box_by_puesto($sector);
+        $cash_box_id = $money_box ? $money_box['id'] : '';
+        $cash_box_name = $money_box ? $money_box['name'] : '';
+
         $insert_data = array(
             'session_code'  => $session_code,
             'user_id'       => $user_id,
             'user_name'     => $user_name,
             'sector'        => sanitize_text_field($sector),
+            'cash_box_id'   => $cash_box_id,
+            'cash_box_name' => $cash_box_name,
             'status'        => 'open',
             'opened_at'     => $now,
             'opening_cash'  => $opening_cash,
@@ -555,5 +573,237 @@ class Batllie_Caja_Register {
             'session'   => $session,
             'movements' => $movements,
         );
+    }
+
+    // =========================================================================
+    // GESTIÓN DE CAJAS DE DINERO (ADMINISTRADOR Y ENCARGADO)
+    // REGLA: Cada mostrador/puesto puede pertenecer como máximo a 1 caja de dinero
+    // =========================================================================
+
+    /**
+     * Obtener todas las Cajas de Dinero físicas configuradas
+     */
+    public static function get_money_boxes() {
+        $boxes = get_option('batllie_caja_money_boxes', null);
+        if ($boxes === null || !is_array($boxes)) {
+            $all_sectors = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array('Barra Principal', 'Take Away');
+            $default_puestos = array();
+            if (!empty($all_sectors[0])) {
+                $default_puestos[] = $all_sectors[0];
+            }
+            $boxes = array(
+                array(
+                    'id'               => 'box_1',
+                    'name'             => __('Caja Principal', 'emp-caja'),
+                    'code'             => 'CJ-01',
+                    'notes'            => __('Caja física de mostrador / barra', 'emp-caja'),
+                    'assigned_puestos' => $default_puestos,
+                    'status'           => 'active',
+                    'created_at'       => current_time('mysql'),
+                    'updated_at'       => current_time('mysql'),
+                )
+            );
+            update_option('batllie_caja_money_boxes', $boxes);
+        }
+        return $boxes;
+    }
+
+    /**
+     * Obtener una Caja de Dinero por su ID
+     */
+    public static function get_money_box_by_id($id) {
+        $boxes = self::get_money_boxes();
+        foreach ($boxes as $box) {
+            if ($box['id'] === $id) {
+                return $box;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Obtener la Caja de Dinero vinculada a un puesto/mostrador específico
+     */
+    public static function get_money_box_by_puesto($puesto) {
+        if (empty($puesto)) return null;
+        $boxes = self::get_money_boxes();
+        $puesto_clean = trim($puesto);
+        foreach ($boxes as $box) {
+            if (!empty($box['status']) && $box['status'] === 'inactive') {
+                continue;
+            }
+            if (!empty($box['assigned_puestos']) && is_array($box['assigned_puestos'])) {
+                foreach ($box['assigned_puestos'] as $p) {
+                    if (strcasecmp(trim($p), $puesto_clean) === 0) {
+                        return $box;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Obtener mapa de todos los puestos/mostradores ya asignados a alguna caja de dinero.
+     * Útil para validar que no haya más de una caja vinculada al mismo puesto.
+     *
+     * @param string|null $exclude_box_id ID de caja a excluir (ej. al editar)
+     * @return array [ puesto => [ 'box_id' => ..., 'box_name' => ... ] ]
+     */
+    public static function get_all_assigned_puestos_map($exclude_box_id = null) {
+        $boxes = self::get_money_boxes();
+        $map = array();
+        foreach ($boxes as $box) {
+            if ($exclude_box_id && $box['id'] === $exclude_box_id) {
+                continue;
+            }
+            if (!empty($box['assigned_puestos']) && is_array($box['assigned_puestos'])) {
+                foreach ($box['assigned_puestos'] as $p) {
+                    $p_clean = trim($p);
+                    if ($p_clean !== '') {
+                        $map[$p_clean] = array(
+                            'box_id'   => $box['id'],
+                            'box_name' => $box['name'],
+                            'status'   => $box['status'] ?? 'active',
+                        );
+                    }
+                }
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * Crear o actualizar una Caja de Dinero.
+     * REGLA ESTRICTA: No puede haber más de una caja de dinero vinculada a un puesto.
+     */
+    public static function save_money_box($data) {
+        $name = isset($data['name']) ? sanitize_text_field(wp_unslash($data['name'])) : '';
+        if (empty($name)) {
+            return new WP_Error('empty_name', __('El nombre de la caja de dinero es obligatorio.', 'emp-caja'));
+        }
+
+        $id = !empty($data['id']) ? sanitize_text_field(wp_unslash($data['id'])) : ('box_' . time() . '_' . wp_rand(100, 999));
+        $code = !empty($data['code']) ? sanitize_text_field(wp_unslash($data['code'])) : ('CJ-' . strtoupper(substr(md5($id), 0, 4)));
+        $notes = isset($data['notes']) ? sanitize_textarea_field(wp_unslash($data['notes'])) : '';
+        $status = (!empty($data['status']) && $data['status'] === 'inactive') ? 'inactive' : 'active';
+
+        // Puestos / mostradores solicitados
+        $raw_puestos = isset($data['assigned_puestos']) ? (array) $data['assigned_puestos'] : array();
+        $assigned_puestos = array();
+        foreach ($raw_puestos as $p) {
+            $cleaned = sanitize_text_field(trim(wp_unslash($p)));
+            if ($cleaned !== '' && !in_array($cleaned, $assigned_puestos, true)) {
+                $assigned_puestos[] = $cleaned;
+            }
+        }
+
+        // VALIDACIÓN ESTRICTA: Comprobar que ningún puesto esté asignado ya a otra caja de dinero
+        $assigned_map = self::get_all_assigned_puestos_map($id);
+        $conflicts = array();
+        foreach ($assigned_puestos as $puesto) {
+            if (isset($assigned_map[$puesto])) {
+                $conflicts[] = sprintf('"%s" (asignado a %s)', $puesto, $assigned_map[$puesto]['box_name']);
+            }
+        }
+
+        if (!empty($conflicts)) {
+            return new WP_Error(
+                'duplicate_puesto_assignment',
+                sprintf(__('No se puede guardar: No puede haber más de una caja de dinero vinculada a un puesto. Puestos ya en uso: %s.', 'emp-caja'), implode(', ', $conflicts))
+            );
+        }
+
+        $boxes = self::get_money_boxes();
+        $found = false;
+        $now = current_time('mysql');
+
+        $saved_box = array(
+            'id'               => $id,
+            'name'             => $name,
+            'code'             => $code,
+            'notes'            => $notes,
+            'assigned_puestos' => $assigned_puestos,
+            'status'           => $status,
+            'created_at'       => $now,
+            'updated_at'       => $now,
+        );
+
+        foreach ($boxes as $idx => $box) {
+            if ($box['id'] === $id) {
+                $saved_box['created_at'] = $box['created_at'] ?? $now;
+                $saved_box['updated_at'] = $now;
+                $boxes[$idx] = $saved_box;
+                $found = true;
+                break;
+            }
+        }
+
+        if (!$found) {
+            $boxes[] = $saved_box;
+        }
+
+        update_option('batllie_caja_money_boxes', $boxes);
+
+        // Asegurar que los puestos asignados existan en la lista de sectores disponibles
+        foreach ($assigned_puestos as $puesto) {
+            self::add_available_puesto($puesto);
+        }
+
+        return $saved_box;
+    }
+
+    /**
+     * Eliminar una Caja de Dinero
+     */
+    public static function delete_money_box($id) {
+        $id = sanitize_text_field(wp_unslash($id));
+        $boxes = self::get_money_boxes();
+        $filtered = array();
+        $found = false;
+
+        foreach ($boxes as $box) {
+            if ($box['id'] === $id) {
+                $found = true;
+                continue;
+            }
+            $filtered[] = $box;
+        }
+
+        if ($found) {
+            update_option('batllie_caja_money_boxes', array_values($filtered));
+            return true;
+        }
+
+        return new WP_Error('not_found', __('La caja de dinero no fue encontrada.', 'emp-caja'));
+    }
+
+    /**
+     * Registrar un nuevo puesto o mostrador en los sectores globales si no existe
+     */
+    public static function add_available_puesto($puesto_name) {
+        $puesto_name = sanitize_text_field(trim($puesto_name));
+        if (empty($puesto_name)) return false;
+
+        $options = Batllie_Caja_Plugin::get_color_settings();
+        $current_raw = !empty($options['gastro_sectors']) ? $options['gastro_sectors'] : 'Barra Principal, Barra VIP, Terraza, Boletería / Entrada, Pista, Take Away / Para Llevar';
+        $current_list = array_values(array_filter(array_map('trim', explode(',', $current_raw))));
+
+        $exists = false;
+        foreach ($current_list as $item) {
+            if (strcasecmp($item, $puesto_name) === 0) {
+                $exists = true;
+                break;
+            }
+        }
+
+        if (!$exists) {
+            $current_list[] = $puesto_name;
+            $options['gastro_sectors'] = implode(', ', $current_list);
+            update_option('batllie_caja_options', $options);
+            return true;
+        }
+
+        return false;
     }
 }

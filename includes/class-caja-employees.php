@@ -98,6 +98,8 @@ class Batllie_Caja_Employees {
         if ($is_admin) {
             return array(
                 'is_admin'                => true,
+                'can_manage_registers'    => true,
+                'is_encargado'            => true,
                 'role'                    => 'administrator',
                 'role_name'               => __('Administrador', 'emp-caja'),
                 'assigned_sectors'        => self::get_available_sectors(),
@@ -179,8 +181,14 @@ class Batllie_Caja_Employees {
             $status = 'active';
         }
 
+        $is_encargado = ($primary_role === 'caja_encargado');
+        $can_manage_registers_meta = get_user_meta($user_id, '_caja_can_manage_registers', true);
+        $can_manage_registers = $is_encargado || ($can_manage_registers_meta === '1' || $can_manage_registers_meta === true || $can_manage_registers_meta === 'yes');
+
         return array(
             'is_admin'                => false,
+            'is_encargado'            => $is_encargado,
+            'can_manage_registers'    => $can_manage_registers,
             'role'                    => $primary_role,
             'role_name'               => $role_name,
             'assigned_sectors'        => array_values($assigned_sectors),
@@ -195,6 +203,31 @@ class Batllie_Caja_Employees {
             'allow_layout_toggle'     => $allow_layout_toggle,
             'status'                  => ($status === 'disabled') ? 'disabled' : 'active',
         );
+    }
+
+    /**
+     * Verificar si el usuario es Encargado de Caja
+     */
+    public static function is_encargado($user_id = null) {
+        if (!$user_id) $user_id = get_current_user_id();
+        if (!$user_id) return false;
+        $user = get_userdata($user_id);
+        if (!$user) return false;
+        $roles = (array) $user->roles;
+        $meta_role = get_user_meta($user_id, '_caja_role', true);
+        return in_array('caja_encargado', $roles) || $meta_role === 'caja_encargado';
+    }
+
+    /**
+     * Verificar si el usuario puede gestionar cajas y arqueos (Admin o Encargado)
+     */
+    public static function can_manage_registers($user_id = null) {
+        if (!$user_id) $user_id = get_current_user_id();
+        if (!$user_id) return false;
+        if (user_can($user_id, 'manage_options') || user_can($user_id, 'administrator') || user_can($user_id, 'manage_woocommerce')) {
+            return true;
+        }
+        return self::is_encargado($user_id);
     }
 
     /**

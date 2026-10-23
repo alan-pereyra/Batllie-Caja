@@ -8,8 +8,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-if (!current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
-    echo '<div class="caja-alert caja-alert-danger" style="margin:20px; padding:16px; background:#ef444422; border:1px solid #ef4444; border-radius:8px; color:#f87171;">' . __('Acceso restringido únicamente a administradores.', 'emp-caja') . '</div>';
+$user_id = get_current_user_id();
+$can_manage_registers = class_exists('Batllie_Caja_Employees') 
+    ? Batllie_Caja_Employees::can_manage_registers($user_id) 
+    : (current_user_can('manage_options') || current_user_can('administrator') || current_user_can('manage_woocommerce'));
+
+if (!$can_manage_registers) {
+    echo '<div class="caja-alert caja-alert-danger" style="margin:20px; padding:16px; background:#ef444422; border:1px solid #ef4444; border-radius:8px; color:#f87171;">' . __('Acceso restringido a Administradores y Encargados.', 'emp-caja') . '</div>';
     return;
 }
 
@@ -81,6 +86,33 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
             <div class="caja-emp-stat-info">
                 <span class="caja-emp-stat-value" id="caja-reg-stat-total">$0,00</span>
                 <span class="caja-emp-stat-label"><?php _e('Facturación Total Seleccionada', 'emp-caja'); ?></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección: Cajas de Dinero y Asignación de Mostradores / Puestos -->
+    <div class="caja-reg-section" style="margin-bottom: 28px;">
+        <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 14px;">
+            <div>
+                <h2 style="font-size: 1.15rem; color: var(--caja-text, #f8fafc); margin: 0; display:flex; align-items:center; gap: 8px;">
+                    <span>💵</span>
+                    <span><?php _e('Cajas de Dinero y Asignación a Mostradores', 'emp-caja'); ?></span>
+                    <span id="caja-money-boxes-count" class="caja-pos-cart-badge-count" style="font-size:0.75rem; padding:1px 6px;">0</span>
+                </h2>
+                <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);">
+                    <?php _e('Cajas físicas de dinero vinculadas a uno o más puestos de venta. Recuerda que ningún mostrador puede estar asignado a más de una caja a la vez.', 'emp-caja'); ?>
+                </p>
+            </div>
+            <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-box-modal" style="padding: 8px 16px; font-size:0.86rem;">
+                <span>➕</span>
+                <span><?php _e('Nueva Caja de Dinero', 'emp-caja'); ?></span>
+            </button>
+        </div>
+
+        <!-- Grilla de Cajas de Dinero -->
+        <div id="caja-money-boxes-grid" class="caja-money-boxes-grid">
+            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 28px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                <span class="caja-spinner">⏳</span> <?php _e('Cargando cajas de dinero...', 'emp-caja'); ?>
             </div>
         </div>
     </div>
@@ -267,5 +299,106 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal: Crear / Editar Caja de Dinero -->
+<div id="caja-modal-money-box" class="caja-modal" style="display:none; z-index: 100070;">
+    <div class="caja-modal-backdrop"></div>
+    <div class="caja-modal-dialog" style="max-width: 620px; width: 95%;">
+        <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">💵</span>
+                <div>
+                    <h3 class="caja-modal-title" id="caja-mb-modal-title" style="margin: 0; font-size: 1.15rem;"><?php _e('Nueva Caja de Dinero', 'emp-caja'); ?></h3>
+                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--caja-text-muted, #94a3b8);"><?php _e('Asigna los mostradores o puestos donde operará esta caja física.', 'emp-caja'); ?></p>
+                </div>
+            </div>
+            <button type="button" class="caja-modal-close" id="caja-mb-modal-close" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+        </div>
+
+        <form id="caja-money-box-form">
+            <div class="caja-modal-body" style="padding: 18px 20px; max-height: 75vh; overflow-y: auto;">
+                <input type="hidden" id="caja-mb-id" name="id" value="" />
+
+                <!-- Mensaje de Alerta de Error -->
+                <div id="caja-mb-alert-error" class="caja-alert caja-alert-danger" style="display:none; margin-bottom: 14px; padding: 10px 14px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; color: #f87171; font-size: 0.86rem;"></div>
+
+                <!-- Nombre y Código -->
+                <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div>
+                        <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                            <?php _e('Nombre de la Caja de Dinero', 'emp-caja'); ?> <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" id="caja-mb-name" name="name" class="caja-input" placeholder="<?php esc_attr_e('Ej: Caja Principal, Caja Mostrador 1', 'emp-caja'); ?>" required style="width:100%; padding: 8px 12px; font-size:0.9rem;" />
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                            <?php _e('Código / ID', 'emp-caja'); ?>
+                        </label>
+                        <input type="text" id="caja-mb-code" name="code" class="caja-input" placeholder="<?php esc_attr_e('Ej: CJ-01', 'emp-caja'); ?>" style="width:100%; padding: 8px 12px; font-size:0.9rem;" />
+                    </div>
+                </div>
+
+                <!-- Descripción / Ubicación -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                        <?php _e('Ubicación / Notas de la Caja', 'emp-caja'); ?>
+                    </label>
+                    <input type="text" id="caja-mb-notes" name="notes" class="caja-input" placeholder="<?php esc_attr_e('Ej: Cajón portabilletes bajo mostrador central', 'emp-caja'); ?>" style="width:100%; padding: 8px 12px; font-size:0.88rem;" />
+                </div>
+
+                <!-- Estado -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                        <?php _e('Estado Operativo', 'emp-caja'); ?>
+                    </label>
+                    <select id="caja-mb-status" name="status" class="caja-input" style="width:100%; padding: 8px 12px; font-size:0.88rem;">
+                        <option value="active"><?php _e('🟢 Activa (Habilitada para cobros y aperturas)', 'emp-caja'); ?></option>
+                        <option value="inactive"><?php _e('⚪ Inactiva (En mantenimiento o fuera de servicio)', 'emp-caja'); ?></option>
+                    </select>
+                </div>
+
+                <!-- Regla Explicativa -->
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #93c5fd; display:flex; gap: 8px; align-items:flex-start;">
+                    <span style="font-size: 1.1rem; flex-shrink: 0;">ℹ️</span>
+                    <div>
+                        <strong><?php _e('Regla de Asignación Exclusiva:', 'emp-caja'); ?></strong>
+                        <?php _e('Una caja de dinero puede recibir dinero de uno o varios mostradores/puestos, pero <u>ningún mostrador puede estar vinculado a más de una caja de dinero</u>. Si un puesto ya pertenece a otra caja, aparecerá bloqueado.', 'emp-caja'); ?>
+                    </div>
+                </div>
+
+                <!-- Asignación de Mostradores / Puestos -->
+                <div>
+                    <label style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 8px;">
+                        <span><?php _e('Mostradores / Puestos Asignados:', 'emp-caja'); ?></span>
+                        <span style="font-size:0.75rem; color:var(--caja-text-muted, #94a3b8); font-weight:normal;"><?php _e('Marca los puestos que depositarán en esta caja', 'emp-caja'); ?></span>
+                    </label>
+
+                    <div id="caja-mb-puestos-container" class="caja-mb-puestos-container" style="display:flex; flex-direction:column; gap:8px; background: rgba(0,0,0,0.22); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto;">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+
+                    <!-- Agregar nuevo mostrador al vuelo -->
+                    <div style="display:flex; gap: 8px; margin-top: 10px; align-items:center;">
+                        <input type="text" id="caja-mb-new-puesto-name" class="caja-input" placeholder="<?php esc_attr_e('Agregar nuevo puesto o mostrador (ej: Mostrador 3)...', 'emp-caja'); ?>" style="flex:1; padding: 6px 10px; font-size: 0.82rem;" />
+                        <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm" id="caja-mb-btn-add-new-puesto" style="padding: 6px 12px; font-size: 0.8rem; white-space:nowrap;">
+                            <span>➕</span>
+                            <span><?php _e('Agregar Puesto', 'emp-caja'); ?></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="caja-modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-mb-btn-cancel">
+                    <?php _e('Cancelar', 'emp-caja'); ?>
+                </button>
+                <button type="submit" class="caja-btn caja-btn-primary" id="caja-mb-btn-save">
+                    <span>💾</span>
+                    <span><?php _e('Guardar Caja de Dinero', 'emp-caja'); ?></span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>

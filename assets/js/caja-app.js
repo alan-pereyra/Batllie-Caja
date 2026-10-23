@@ -106,7 +106,7 @@
                 const hash = window.location.hash.toLowerCase();
                 const perms = this.config.currentUserPermissions || {};
 
-                if ((hash === '#cajas' || hash === '#control-cajas' || hash === '#tab-registers' || urlParams.get('tab') === 'cajas' || urlParams.get('tab') === 'registers') && perms.is_admin) {
+                if ((hash === '#cajas' || hash === '#control-cajas' || hash === '#tab-registers' || urlParams.get('tab') === 'cajas' || urlParams.get('tab') === 'registers') && (perms.is_admin || perms.can_manage_registers)) {
                     this.switchTab('tab-registers');
                 } else if ((hash === '#empleados' || hash === '#tab-employees' || urlParams.get('tab') === 'empleados' || urlParams.get('tab') === 'employees') && perms.is_admin) {
                     this.switchTab('tab-employees');
@@ -1719,11 +1719,164 @@ $('#caja-modal-new-product').fadeIn(200);
             });
 
             // ==========================================
-            // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR)
+            // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
             // ==========================================
             $(document).on('click', '#caja-reg-btn-refresh, #caja-reg-btn-apply-filters', function(e) {
                 e.preventDefault();
+                self.loadMoneyBoxes();
                 self.loadRegistersHistory();
+            });
+
+            // Gestión de Cajas de Dinero y Puestos
+            $(document).on('click', '#caja-btn-open-new-box-modal, #caja-btn-empty-new-box', function(e) {
+                e.preventDefault();
+                self.openMoneyBoxModal();
+            });
+
+            $(document).on('click', '.caja-btn-edit-money-box', function(e) {
+                e.preventDefault();
+                const boxId = $(this).data('id');
+                self.openMoneyBoxModal(boxId);
+            });
+
+            $(document).on('click', '.caja-btn-delete-money-box', function(e) {
+                e.preventDefault();
+                const boxId = $(this).data('id');
+                const boxName = $(this).data('name') || 'esta caja';
+                if (!confirm(`¿Estás seguro de que deseas eliminar la caja de dinero "${boxName}"? Sus puestos asignados quedarán liberados.`)) {
+                    return;
+                }
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_delete_money_box',
+                        security: self.config.nonce,
+                        box_id: boxId
+                    },
+                    success: function(res) {
+                        if (res && res.success) {
+                            self.showToast(res.data.message || 'Caja eliminada correctamente.', 'success');
+                            self.cachedMoneyBoxes = res.data.boxes || [];
+                            self.assignedPuestosMap = res.data.assigned_puestos_map || {};
+                            self.renderMoneyBoxes();
+                        } else {
+                            self.showToast((res && res.data && res.data.message) ? res.data.message : 'Error al eliminar caja.', 'error');
+                        }
+                    },
+                    error: function() {
+                        self.showToast('Error de conexión al eliminar caja.', 'error');
+                    }
+                });
+            });
+
+            $(document).on('click', '#caja-mb-modal-close, #caja-mb-btn-cancel, #caja-modal-money-box .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-money-box').fadeOut(150);
+            });
+
+            // Agregar nuevo puesto desde el modal
+            $(document).on('click', '#caja-mb-btn-add-new-puesto', function(e) {
+                e.preventDefault();
+                const $input = $('#caja-mb-new-puesto-name');
+                const puestoName = ($input.val() || '').trim();
+                if (!puestoName) {
+                    alert('Por favor escribe el nombre del mostrador o puesto.');
+                    return;
+                }
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_add_puesto',
+                        security: self.config.nonce,
+                        puesto_name: puestoName
+                    },
+                    success: function(res) {
+                        if (res && res.success) {
+                            $input.val('');
+                            self.availablePuestos = res.data.available_puestos || [];
+                            const currentBoxId = $('#caja-mb-id').val();
+                            const currentBox = currentBoxId ? (self.cachedMoneyBoxes || []).find(b => b.id === currentBoxId) : null;
+                            self.renderModalPuestosChecklist(currentBox);
+                            // Marcar el recién agregado
+                            $(`#caja-mb-puestos-container input[value="${puestoName}"]`).prop('checked', true);
+                            self.showToast(`Puesto "${puestoName}" agregado.`, 'success');
+                        } else {
+                            alert((res && res.data && res.data.message) ? res.data.message : 'Error al agregar puesto.');
+                        }
+                    },
+                    error: function() {
+                        alert('Error de conexión al agregar puesto.');
+                    }
+                });
+            });
+
+            // Guardar Caja de Dinero
+            $(document).on('submit', '#caja-money-box-form', function(e) {
+                e.preventDefault();
+                const $form = $(this);
+                const $btn = $('#caja-mb-btn-save');
+                const origHtml = $btn.html();
+
+                const boxId = $('#caja-mb-id').val();
+                const name = ($('#caja-mb-name').val() || '').trim();
+                const code = ($('#caja-mb-code').val() || '').trim();
+                const notes = ($('#caja-mb-notes').val() || '').trim();
+                const status = $('#caja-mb-status').val() || 'active';
+
+                const assignedPuestos = [];
+                $('input[name="caja_mb_puestos[]"]:checked').each(function() {
+                    assignedPuestos.push($(this).val());
+                });
+
+                if (!name) {
+                    $('#caja-mb-alert-error').show().text('El nombre de la caja de dinero es obligatorio.');
+                    return;
+                }
+
+                $('#caja-mb-alert-error').hide().text('');
+                $btn.prop('disabled', true).html('Guardando...');
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_save_money_box',
+                        security: self.config.nonce,
+                        box: {
+                            id: boxId,
+                            name: name,
+                            code: code,
+                            notes: notes,
+                            status: status,
+                            assigned_puestos: assignedPuestos
+                        }
+                    },
+                    success: function(res) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        if (res && res.success) {
+                            $('#caja-modal-money-box').fadeOut(150);
+                            self.showToast(res.data.message || 'Caja guardada correctamente.', 'success');
+                            self.cachedMoneyBoxes = res.data.boxes || [];
+                            self.assignedPuestosMap = res.data.assigned_puestos_map || {};
+                            self.availablePuestos = res.data.available_puestos || [];
+                            self.renderMoneyBoxes();
+                        } else {
+                            const err = (res && res.data && res.data.message) ? res.data.message : 'Error al guardar la caja de dinero.';
+                            $('#caja-mb-alert-error').show().text(err);
+                        }
+                    },
+                    error: function() {
+                        $btn.prop('disabled', false).html(origHtml);
+                        $('#caja-mb-alert-error').show().text('Error de conexión con el servidor al guardar la caja.');
+                    }
+                });
             });
 
             $(document).on('change', '#caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status', function() {
@@ -1771,7 +1924,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const perms = self.config.currentUserPermissions || {};
                 const isAdmin = Boolean(perms.is_admin || perms.role === 'administrator' || perms.role === 'shop_manager');
 
-                if ((h === '#cajas' || h === '#control-cajas' || h === '#tab-registers') && isAdmin) {
+                if ((h === '#cajas' || h === '#control-cajas' || h === '#tab-registers') && (isAdmin || perms.can_manage_registers)) {
                     if (self.activeTab !== 'tab-registers') self.switchTab('tab-registers');
                 } else if ((h === '#empleados' || h === '#tab-employees') && isAdmin) {
                     if (self.activeTab !== 'tab-employees') self.switchTab('tab-employees');
@@ -2046,7 +2199,10 @@ $('#caja-modal-new-product').fadeIn(200);
             if (tabId === 'tab-orders' && perms.can_view_orders === false && !optionExists) {
                 tabId = 'tab-pos-sale';
             }
-            if ((tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-registers') && !isAdmin && !optionExists) {
+            if ((tabId === 'tab-settings' || tabId === 'tab-employees') && !isAdmin && !optionExists) {
+                tabId = 'tab-pos-sale';
+            }
+            if (tabId === 'tab-registers' && !isAdmin && !perms.can_manage_registers && !optionExists) {
                 tabId = 'tab-pos-sale';
             }
 
@@ -2143,8 +2299,9 @@ $('#caja-modal-new-product').fadeIn(200);
 
             // Inicializaciones de pestaña protegidas con try/catch para evitar bloqueos
             try {
-                if (tabId === 'tab-registers' && typeof app.loadRegistersHistory === 'function') {
-                    app.loadRegistersHistory();
+                if (tabId === 'tab-registers') {
+                    if (typeof app.loadRegistersHistory === 'function') app.loadRegistersHistory();
+                    if (typeof app.loadMoneyBoxes === 'function') app.loadMoneyBoxes();
                 } else if (tabId === 'tab-pos-sale') {
                     if (typeof app.updateRegisterBarUI === 'function') {
                         app.updateRegisterBarUI(app.activeRegisterSession);
@@ -9894,7 +10051,216 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         // ==========================================
-        // CONTROL DE CAJAS (ADMINISTRADOR)
+        // GESTIÓN DE CAJAS DE DINERO Y PUESTOS (ADMIN Y ENCARGADO)
+        // REGLA: Ningún puesto puede pertenecer a más de una caja de dinero
+        // ==========================================
+        loadMoneyBoxes: function() {
+            const self = this;
+            const $grid = $('#caja-money-boxes-grid');
+            if (!$grid.length) return;
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_money_boxes',
+                    security: self.config.nonce
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        self.cachedMoneyBoxes = res.data.boxes || [];
+                        self.availablePuestos = res.data.available_puestos || [];
+                        self.assignedPuestosMap = res.data.assigned_puestos_map || {};
+                        self.renderMoneyBoxes();
+                    } else {
+                        $grid.html(`
+                            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 24px; text-align: center; color: #f87171;">
+                                ${res && res.data && res.data.message ? res.data.message : 'Error al cargar cajas de dinero.'}
+                            </div>
+                        `);
+                    }
+                },
+                error: function() {
+                    $grid.html(`
+                        <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 24px; text-align: center; color: #f87171;">
+                            Error de conexión al cargar cajas de dinero.
+                        </div>
+                    `);
+                }
+            });
+        },
+
+        renderMoneyBoxes: function() {
+            const self = this;
+            const $grid = $('#caja-money-boxes-grid');
+            const boxes = self.cachedMoneyBoxes || [];
+
+            $('#caja-money-boxes-count').text(boxes.length);
+
+            if (boxes.length === 0) {
+                $grid.html(`
+                    <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 36px 20px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                        <span style="font-size: 2.2rem; display:block; margin-bottom: 8px;">💵</span>
+                        <strong style="font-size: 1rem; color:var(--caja-text); display:block; margin-bottom: 4px;">No hay cajas de dinero registradas</strong>
+                        <p style="font-size: 0.85rem; margin-bottom: 16px;">Crea tu primera caja de dinero para vincularla a tus mostradores o barras de atención.</p>
+                        <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-empty-new-box">
+                            <span>➕</span> <span>Crear Primera Caja de Dinero</span>
+                        </button>
+                    </div>
+                `);
+                return;
+            }
+
+            let html = '';
+            boxes.forEach(box => {
+                const isActive = (box.status !== 'inactive');
+                const puestos = Array.isArray(box.assigned_puestos) ? box.assigned_puestos : [];
+
+                let puestosChips = '';
+                if (puestos.length > 0) {
+                    puestos.forEach(p => {
+                        let icon = '🏪';
+                        const pLow = p.toLowerCase();
+                        if (pLow.indexOf('vip') !== -1) icon = '⭐';
+                        else if (pLow.indexOf('terraza') !== -1) icon = '🌿';
+                        else if (pLow.indexOf('take') !== -1) icon = '🛍️';
+                        else if (pLow.indexOf('barra') !== -1) icon = '🍸';
+                        else if (pLow.indexOf('boleteria') !== -1 || pLow.indexOf('entrada') !== -1) icon = '🎟️';
+
+                        puestosChips += `<span class="caja-puesto-chip"><span>${icon}</span> <span>${self.escapeHtml(p)}</span></span>`;
+                    });
+                } else {
+                    puestosChips = `<span class="caja-puesto-chip is-empty">⚠️ Sin mostradores asignados</span>`;
+                }
+
+                html += `
+                    <div class="caja-money-box-card ${!isActive ? 'is-inactive' : ''}" data-id="${self.escapeHtml(box.id)}">
+                        <div>
+                            <div class="caja-mb-card-header">
+                                <div>
+                                    <h3 class="caja-mb-card-title">
+                                        <span>💵</span>
+                                        <span>${self.escapeHtml(box.name)}</span>
+                                        ${box.code ? `<span class="caja-mb-card-code">${self.escapeHtml(box.code)}</span>` : ''}
+                                    </h3>
+                                </div>
+                                <span class="caja-mb-card-status ${isActive ? 'active' : 'inactive'}">
+                                    ${isActive ? '🟢 Activa' : '⚪ Inactiva'}
+                                </span>
+                            </div>
+
+                            ${box.notes ? `<div class="caja-mb-card-notes">${self.escapeHtml(box.notes)}</div>` : ''}
+
+                            <span class="caja-mb-card-puestos-label">Puestos / Mostradores Vinculados (${puestos.length}):</span>
+                            <div class="caja-mb-card-puestos-list">
+                                ${puestosChips}
+                            </div>
+                        </div>
+
+                        <div class="caja-mb-card-footer">
+                            <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-edit-money-box" data-id="${self.escapeHtml(box.id)}" title="Editar caja y reasignar puestos">
+                                <span>✏️</span> <span>Editar Puestos</span>
+                            </button>
+                            <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-delete-money-box" data-id="${self.escapeHtml(box.id)}" data-name="${self.escapeHtml(box.name)}" title="Eliminar caja" style="color: #f87171;">
+                                <span>🗑️</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            $grid.html(html);
+        },
+
+        openMoneyBoxModal: function(boxId = null) {
+            const self = this;
+            const $modal = $('#caja-modal-money-box');
+            if (!$modal.length) return;
+
+            $('#caja-mb-alert-error').hide().text('');
+            $('#caja-mb-new-puesto-name').val('');
+
+            let box = null;
+            if (boxId) {
+                box = (self.cachedMoneyBoxes || []).find(b => b.id === boxId);
+            }
+
+            if (box) {
+                $('#caja-mb-modal-title').text('Editar Caja de Dinero');
+                $('#caja-mb-id').val(box.id);
+                $('#caja-mb-name').val(box.name);
+                $('#caja-mb-code').val(box.code || '');
+                $('#caja-mb-notes').val(box.notes || '');
+                $('#caja-mb-status').val(box.status || 'active');
+            } else {
+                $('#caja-mb-modal-title').text('Nueva Caja de Dinero');
+                $('#caja-mb-id').val('');
+                $('#caja-mb-name').val('');
+                $('#caja-mb-code').val('');
+                $('#caja-mb-notes').val('');
+                $('#caja-mb-status').val('active');
+            }
+
+            self.renderModalPuestosChecklist(box);
+            $modal.fadeIn(200);
+        },
+
+        renderModalPuestosChecklist: function(currentBox = null) {
+            const self = this;
+            const $container = $('#caja-mb-puestos-container');
+            const available = self.availablePuestos || [];
+            const assignedMap = self.assignedPuestosMap || {};
+            const currentBoxPuestos = (currentBox && Array.isArray(currentBox.assigned_puestos)) ? currentBox.assigned_puestos : [];
+            const currentBoxId = currentBox ? currentBox.id : null;
+
+            if (available.length === 0) {
+                $container.html('<div style="color:var(--caja-text-muted); font-size:0.85rem; padding:8px;">No hay mostradores o puestos configurados. Agrega uno abajo.</div>');
+                return;
+            }
+
+            let html = '';
+            available.forEach(p => {
+                const isAssignedToThis = currentBoxPuestos.some(cp => cp.toLowerCase() === p.toLowerCase());
+                const assignedToOther = assignedMap[p] && (!currentBoxId || assignedMap[p].box_id !== currentBoxId);
+
+                let icon = '🏪';
+                const pLow = p.toLowerCase();
+                if (pLow.indexOf('vip') !== -1) icon = '⭐';
+                else if (pLow.indexOf('terraza') !== -1) icon = '🌿';
+                else if (pLow.indexOf('take') !== -1) icon = '🛍️';
+                else if (pLow.indexOf('barra') !== -1) icon = '🍸';
+                else if (pLow.indexOf('boleteria') !== -1 || pLow.indexOf('entrada') !== -1) icon = '🎟️';
+
+                if (assignedToOther) {
+                    const otherBoxName = assignedMap[p].box_name || 'otra caja';
+                    html += `
+                        <label class="caja-mb-puesto-item is-disabled" title="Este puesto ya pertenece a ${self.escapeHtml(otherBoxName)}. Desvinculalo de esa caja si deseas asignarlo aquí.">
+                            <div class="caja-mb-puesto-item-left">
+                                <input type="checkbox" disabled />
+                                <span style="font-size:0.86rem; color:var(--caja-text-muted); text-decoration:line-through;">${icon} ${self.escapeHtml(p)}</span>
+                            </div>
+                            <span class="caja-badge-puesto-locked">🔒 Asignado a: ${self.escapeHtml(otherBoxName)}</span>
+                        </label>
+                    `;
+                } else {
+                    html += `
+                        <label class="caja-mb-puesto-item">
+                            <div class="caja-mb-puesto-item-left">
+                                <input type="checkbox" name="caja_mb_puestos[]" value="${self.escapeHtml(p)}" ${isAssignedToThis ? 'checked' : ''} />
+                                <span style="font-size:0.88rem; font-weight:600; color:var(--caja-text, #f8fafc);">${icon} ${self.escapeHtml(p)}</span>
+                            </div>
+                            <span style="font-size:0.75rem; color:#10b981;">✓ Disponible</span>
+                        </label>
+                    `;
+                }
+            });
+
+            $container.html(html);
+        },
+
+        // ==========================================
+        // CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
         // ==========================================
         loadRegistersHistory: function() {
             const self = this;

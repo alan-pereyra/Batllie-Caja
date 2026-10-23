@@ -60,6 +60,12 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_get_registers_history', array(__CLASS__, 'ajax_get_registers_history'));
         add_action('wp_ajax_emp_caja_get_session_movements', array(__CLASS__, 'ajax_get_session_movements'));
 
+        // Cajas de Dinero y Asignación de Mostradores / Puestos
+        add_action('wp_ajax_emp_caja_get_money_boxes', array(__CLASS__, 'ajax_get_money_boxes'));
+        add_action('wp_ajax_emp_caja_save_money_box', array(__CLASS__, 'ajax_save_money_box'));
+        add_action('wp_ajax_emp_caja_delete_money_box', array(__CLASS__, 'ajax_delete_money_box'));
+        add_action('wp_ajax_emp_caja_add_puesto', array(__CLASS__, 'ajax_add_puesto'));
+
         // Empleados y Permisos
         add_action('wp_ajax_emp_caja_get_employees', array(__CLASS__, 'ajax_get_employees'));
         add_action('wp_ajax_emp_caja_save_employee', array(__CLASS__, 'ajax_save_employee'));
@@ -1513,13 +1519,13 @@ class Batllie_Caja_Ajax {
     }
 
     /**
-     * AJAX: Obtener historial de sesiones de cajas para Control de Cajas (Admin)
+     * AJAX: Obtener historial de sesiones de cajas para Control de Cajas (Admin y Encargado)
      */
     public static function ajax_get_registers_history() {
         self::check_auth();
 
-        if (!current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
-            wp_send_json_error(array('message' => __('Acceso restringido a Administradores.', 'emp-caja')), 403);
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers(get_current_user_id())) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
             return;
         }
 
@@ -1558,7 +1564,8 @@ class Batllie_Caja_Ajax {
         }
 
         $user_id = get_current_user_id();
-        if ($session_data['user_id'] !== $user_id && !current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
+        $can_audit = ($session_data['user_id'] === $user_id) || (class_exists('Batllie_Caja_Employees') && Batllie_Caja_Employees::can_manage_registers($user_id));
+        if (!$can_audit) {
             wp_send_json_error(array('message' => __('No tienes permisos para auditar esta caja.', 'emp-caja')), 403);
             return;
         }
@@ -1570,6 +1577,119 @@ class Batllie_Caja_Ajax {
         }
 
         wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: Obtener lista de Cajas de Dinero y Puestos/Mostradores asignados
+     */
+    public static function ajax_get_money_boxes() {
+        self::check_auth();
+
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers(get_current_user_id())) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $boxes = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_money_boxes() : array();
+        $available_puestos = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array();
+        $assigned_map = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_all_assigned_puestos_map() : array();
+
+        wp_send_json_success(array(
+            'boxes'                => $boxes,
+            'available_puestos'    => $available_puestos,
+            'assigned_puestos_map' => $assigned_map,
+        ));
+    }
+
+    /**
+     * AJAX: Guardar / Crear Caja de Dinero con asignación de mostradores
+     */
+    public static function ajax_save_money_box() {
+        self::check_auth();
+
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers(get_current_user_id())) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $box_data = isset($_POST['box']) ? (array) $_POST['box'] : $_POST;
+        $res = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::save_money_box($box_data) : false;
+
+        if (is_wp_error($res)) {
+            wp_send_json_error(array('message' => $res->get_error_message()));
+            return;
+        }
+
+        if (!$res) {
+            wp_send_json_error(array('message' => __('Error al guardar la caja de dinero.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success(array(
+            'message'              => __('Caja de dinero guardada exitosamente.', 'emp-caja'),
+            'saved_box'            => $res,
+            'boxes'                => Batllie_Caja_Register::get_money_boxes(),
+            'assigned_puestos_map' => Batllie_Caja_Register::get_all_assigned_puestos_map(),
+            'available_puestos'    => Batllie_Caja_Employees::get_available_sectors(),
+        ));
+    }
+
+    /**
+     * AJAX: Eliminar Caja de Dinero
+     */
+    public static function ajax_delete_money_box() {
+        self::check_auth();
+
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers(get_current_user_id())) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $box_id = isset($_POST['box_id']) ? sanitize_text_field(wp_unslash($_POST['box_id'])) : '';
+        if (empty($box_id)) {
+            wp_send_json_error(array('message' => __('ID de caja inválido.', 'emp-caja')));
+            return;
+        }
+
+        $res = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::delete_money_box($box_id) : false;
+        if (is_wp_error($res)) {
+            wp_send_json_error(array('message' => $res->get_error_message()));
+            return;
+        }
+
+        wp_send_json_success(array(
+            'message'              => __('Caja de dinero eliminada exitosamente.', 'emp-caja'),
+            'boxes'                => Batllie_Caja_Register::get_money_boxes(),
+            'assigned_puestos_map' => Batllie_Caja_Register::get_all_assigned_puestos_map(),
+            'available_puestos'    => Batllie_Caja_Employees::get_available_sectors(),
+        ));
+    }
+
+    /**
+     * AJAX: Agregar nuevo Mostrador / Puesto
+     */
+    public static function ajax_add_puesto() {
+        self::check_auth();
+
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers(get_current_user_id())) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $puesto_name = isset($_POST['puesto_name']) ? sanitize_text_field(wp_unslash($_POST['puesto_name'])) : '';
+        if (empty($puesto_name)) {
+            wp_send_json_error(array('message' => __('El nombre del puesto/mostrador no puede estar vacío.', 'emp-caja')));
+            return;
+        }
+
+        class_exists('Batllie_Caja_Register') && Batllie_Caja_Register::add_available_puesto($puesto_name);
+        $available_puestos = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array();
+
+        wp_send_json_success(array(
+            'message'           => __('Puesto agregado exitosamente.', 'emp-caja'),
+            'puesto_name'       => $puesto_name,
+            'available_puestos' => $available_puestos,
+        ));
     }
 
     /**

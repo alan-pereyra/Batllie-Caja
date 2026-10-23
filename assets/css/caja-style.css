@@ -7976,4 +7976,172 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     }
 }
 
+/* ==========================================================================
+   Gestión de Cajas de Dinero y Puestos Vinculados (Admin y Encargado)
+   ========================================================================== */
+.caja-money-boxes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.caja-money-box-card {
+    background: var(--caja-card-bg, #1e293b);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.caja-money-box-card:hover {
+    border-color: rgba(16, 185, 129, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.caja-money-box-card.is-inactive {
+    opacity: 0.7;
+    border-style: dashed;
+}
+
+.caja-mb-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.caja-mb-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--caja-text, #f8fafc);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.caja-mb-card-code {
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--caja-text-muted, #94a3b8);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.caja-mb-card-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 999px;
+}
+
+.caja-mb-card-status.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.caja-mb-card-status.inactive {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.caja-mb-card-notes {
+    font-size: 0.82rem;
+    color: var(--caja-text-muted, #94a3b8);
+    margin-bottom: 12px;
+    line-height: 1.35;
+}
+
+.caja-mb-card-puestos-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--caja-text-muted, #94a3b8);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.caja-mb-card-puestos-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.caja-puesto-chip {
+    font-size: 0.78rem;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.caja-puesto-chip.is-empty {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+}
+
+.caja-mb-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Items del Modal de Puestos */
+.caja-mb-puesto-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    user-select: none;
+}
+
+.caja-mb-puesto-item:hover:not(.is-disabled) {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.caja-mb-puesto-item.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.caja-mb-puesto-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.caja-badge-puesto-locked {
+    font-size: 0.7rem;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
 

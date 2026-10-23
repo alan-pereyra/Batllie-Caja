@@ -15,6 +15,7 @@ $user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::g
     'can_change_sector' => true
 );
 $is_admin = !empty($user_perms['is_admin']);
+$can_manage_registers = $is_admin || !empty($user_perms['can_manage_registers']);
 $can_view_products = !empty($user_perms['can_view_products']);
 $can_view_orders = !empty($user_perms['can_view_orders']);
 $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
@@ -58,8 +59,10 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                     <option value="tab-products">📦 <?php _e('Productos', 'emp-caja'); ?></option>
                     <?php endif; ?>
                     <option value="tab-pos-sale" <?php echo ($default_active_tab === 'tab-pos-sale') ? 'selected' : ''; ?>>🛒 <?php _e('Venta Caja', 'emp-caja'); ?></option>
-                    <?php if ($is_admin): ?>
+                    <?php if ($can_manage_registers): ?>
                     <option value="tab-registers">🗄️ <?php _e('Control de Cajas', 'emp-caja'); ?></option>
+                    <?php endif; ?>
+                    <?php if ($is_admin): ?>
                     <option value="tab-employees">👥 <?php _e('Configuración Empleados', 'emp-caja'); ?></option>
                     <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
                     <?php endif; ?>
