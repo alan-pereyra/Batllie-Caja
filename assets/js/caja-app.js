@@ -6337,6 +6337,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 ? `is-grid-layout is-grid-cols-${gridCols}` 
                 : 'is-list-layout';
 
+            // Recordar qué categorías estaban abiertas antes del re-render (si aplica)
+            const openCatIds = [];
+            $container.find('.caja-pos-cat-item.is-open').each(function() {
+                const cid = $(this).data('cat-id');
+                if (cid !== undefined && cid !== null) openCatIds.push(String(cid));
+            });
+
             let html = '';
             catList.forEach((c, idx) => {
                 // Ordenar productos de la categoría por nombre
@@ -6354,8 +6361,13 @@ $('#caja-modal-new-product').fadeIn(200);
                     prodsHtml += self.buildPosProductRowHtml(p);
                 });
 
+                const isOpen = openCatIds.includes(String(c.id));
+                const displayStyle = isOpen 
+                    ? (layout === 'grid' ? 'display:grid;' : 'display:flex;') 
+                    : 'display:none;';
+
                 html += `
-                    <div class="caja-pos-cat-item" data-cat-id="${c.id}">
+                    <div class="caja-pos-cat-item ${isOpen ? 'is-open' : ''}" data-cat-id="${c.id}">
                         <div class="caja-pos-cat-header">
                             <div class="caja-pos-cat-header-left">
                                 <span class="caja-pos-cat-icon">📁</span>
@@ -6367,7 +6379,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span class="caja-pos-cat-chevron">▼</span>
                             </div>
                         </div>
-                        <div class="caja-pos-cat-body ${bodyClass}" style="display:none;">
+                        <div class="caja-pos-cat-body ${bodyClass}" style="${displayStyle}">
                             ${prodsHtml}
                         </div>
                     </div>
@@ -6535,10 +6547,18 @@ $('#caja-modal-new-product').fadeIn(200);
 
                 if ($item.hasClass('is-open')) {
                     $item.removeClass('is-open');
-                    $body.slideUp(180);
+                    $body.stop(true, false).slideUp(180, function() {
+                        $(this).hide();
+                    });
                 } else {
                     $item.addClass('is-open');
-                    $body.slideDown(180);
+                    $body.stop(true, false).slideDown(180, function() {
+                        if ($(this).hasClass('is-grid-layout')) {
+                            $(this).css('display', 'grid');
+                        } else {
+                            $(this).css('display', 'flex');
+                        }
+                    });
                 }
             });
 

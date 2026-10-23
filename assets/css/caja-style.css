@@ -5431,8 +5431,13 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 
 /* Grilla de Cards de Productos */
 .caja-pos-cat-body.is-grid-layout {
-    display: grid !important;
+    display: grid;
     gap: 12px;
+}
+
+.caja-pos-cat-body[style*="display: none"],
+.caja-pos-cat-body[style*="display:none"] {
+    display: none !important;
 }
 
 .caja-pos-cat-body.is-grid-layout.is-grid-cols-2 {
