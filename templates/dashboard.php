@@ -44,6 +44,7 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                     }
                     ?>
                 </span>
+                <span class="caja-badge-count" id="caja-orders-count" style="font-size:0.75rem; padding: 2px 7px; border-radius: 999px; background: #10b981; color:#fff; font-weight:700; margin-left: 6px; display:inline-flex; align-items:center; pointer-events:none;">0</span>
                 <span class="caja-screen-select-arrow">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <polyline points="6 9 12 15 18 9"></polyline>
@@ -65,81 +66,6 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                 </select>
             </div>
         </div>
-
-        <!-- Pestañas Principales -->
-        <nav class="caja-nav-tabs batllie-caja-nav">
-            <?php if ($can_view_orders): ?>
-            <button class="caja-tab-btn <?php echo ($default_active_tab === 'tab-orders') ? 'active' : ''; ?>" data-tab="tab-orders" id="caja-tab-nav-orders">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Pedidos en Vivo', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Pedidos', 'emp-caja'); ?></span>
-                <span class="caja-badge-count" id="caja-orders-count">0</span>
-            </button>
-            <?php endif; ?>
-
-            <?php if ($can_view_products): ?>
-            <button class="caja-tab-btn" data-tab="tab-products" id="caja-tab-nav-products">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Carga y Modificación de Productos', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Productos', 'emp-caja'); ?></span>
-            </button>
-            <?php endif; ?>
-
-            <!-- Pestaña 3: Venta Caja -->
-            <button class="caja-tab-btn <?php echo ($default_active_tab === 'tab-pos-sale') ? 'active' : ''; ?>" data-tab="tab-pos-sale" id="caja-tab-nav-pos">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="9" cy="21" r="1"></circle>
-                    <circle cx="20" cy="21" r="1"></circle>
-                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Venta Caja', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Venta', 'emp-caja'); ?></span>
-            </button>
-
-            <?php if ($is_admin): ?>
-            <!-- Pestaña 4: Configuración General -->
-            <button class="caja-tab-btn" data-tab="tab-settings" id="caja-tab-nav-settings">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Configuración General', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Configuración', 'emp-caja'); ?></span>
-            </button>
-
-            <!-- Pestaña 5: Configuración Empleados -->
-            <button class="caja-tab-btn" data-tab="tab-employees" id="caja-tab-nav-employees">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Configuración Empleados', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Empleados', 'emp-caja'); ?></span>
-            </button>
-
-            <!-- Pestaña 6: Control de Cajas (Solo Administrador) -->
-            <button class="caja-tab-btn" data-tab="tab-registers" id="caja-tab-nav-registers">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                    <line x1="6" y1="12" x2="18" y2="12"></line>
-                    <circle cx="12" cy="12" r="2"></circle>
-                    <path d="M6 8h.01M6 16h.01M18 8h.01M18 16h.01"></path>
-                </svg>
-                <span class="caja-tab-label-full"><?php _e('Control de Cajas', 'emp-caja'); ?></span>
-                <span class="caja-tab-label-short"><?php _e('Cajas', 'emp-caja'); ?></span>
-            </button>
-            <?php endif; ?>
-        </nav>
 
         <!-- Controles de la Barra Superior -->
         <div class="caja-actions">

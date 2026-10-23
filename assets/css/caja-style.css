@@ -568,15 +568,9 @@ body.batllie-caja-active .container {
     display: none;
 }
 
-/* Pestañas */
+/* Pestañas de navegación superiores (reemplazadas por el selector desplegable) */
 .caja-nav-tabs {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(15, 23, 42, 0.6);
-    padding: 4px;
-    border-radius: 10px;
-    border: 1px solid var(--caja-card-border);
+    display: none !important;
 }
 
 .caja-tab-btn {
