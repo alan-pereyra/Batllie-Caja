@@ -146,6 +146,14 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
 
         <!-- Filtros de Auditoría -->
         <div class="caja-reg-filters-bar" style="background: var(--caja-card-bg, #1e293b); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+            <!-- Filtro Caja de Dinero -->
+            <div style="display:flex; flex-direction:column; gap:4px; min-width: 160px; flex: 1;">
+                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Caja de Dinero', 'emp-caja'); ?></label>
+                <select id="caja-reg-filter-money-box" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
+                    <option value="all"><?php _e('Todas las cajas de dinero', 'emp-caja'); ?></option>
+                </select>
+            </div>
+
             <!-- Filtro Sector -->
             <div style="display:flex; flex-direction:column; gap:4px; min-width: 160px; flex: 1;">
                 <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Barra / Sector', 'emp-caja'); ?></label>
@@ -400,5 +408,230 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal: Controlar Dinero en Caja (Ingreso / Retiro / Arqueo) -->
+<div id="caja-modal-cash-control" class="caja-modal" style="display:none; z-index: 100080;">
+    <div class="caja-modal-backdrop"></div>
+    <div class="caja-modal-dialog" style="max-width: 540px; width: 95%;">
+        <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;" id="caja-ctrl-icon">💵</span>
+                <div>
+                    <h3 class="caja-modal-title" id="caja-ctrl-modal-title" style="margin: 0; font-size: 1.2rem;"><?php _e('Control de Dinero en Caja', 'emp-caja'); ?></h3>
+                    <p id="caja-ctrl-modal-subtitle" style="margin: 2px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);"></p>
+                </div>
+            </div>
+            <button type="button" class="caja-modal-close" id="caja-ctrl-modal-close" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+        </div>
+
+        <form id="caja-cash-control-form">
+            <input type="hidden" id="caja-ctrl-box-id" name="cash_box_id" value="" />
+            <input type="hidden" id="caja-ctrl-current-balance-raw" value="0" />
+
+            <div class="caja-modal-body" style="padding: 20px;">
+                <div id="caja-ctrl-alert-error" class="caja-alert caja-alert-danger" style="display:none; margin-bottom: 14px; padding: 10px 14px; font-size:0.86rem;"></div>
+
+                <!-- Resumen de Saldo Actual -->
+                <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <span style="font-size: 0.72rem; text-transform:uppercase; font-weight:700; color:var(--caja-text-muted, #94a3b8); display:block;"><?php _e('Efectivo Actual en Caja:', 'emp-caja'); ?></span>
+                        <strong id="caja-ctrl-current-balance-display" style="font-size: 1.35rem; color:#10b981;">$0,00</strong>
+                    </div>
+                    <div id="caja-ctrl-session-badge-wrapper" style="text-align:right;">
+                        <!-- Insignia si hay turno abierto -->
+                    </div>
+                </div>
+
+                <!-- Selector de Operación (Pills) -->
+                <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--caja-text, #f8fafc); margin-bottom: 8px; text-transform:uppercase; letter-spacing:0.4px;">
+                    <?php _e('Tipo de Operación:', 'emp-caja'); ?>
+                </label>
+                <div class="caja-ctrl-type-selector">
+                    <button type="button" class="caja-ctrl-type-btn active type-cash_in" data-type="cash_in">
+                        <span style="font-size: 1.25rem;">📥</span>
+                        <strong style="font-size:0.86rem;"><?php _e('Ingreso', 'emp-caja'); ?></strong>
+                        <span style="font-size:0.72rem; opacity:0.8;"><?php _e('Cambio / Aporte', 'emp-caja'); ?></span>
+                    </button>
+                    <button type="button" class="caja-ctrl-type-btn type-cash_out" data-type="cash_out">
+                        <span style="font-size: 1.25rem;">📤</span>
+                        <strong style="font-size:0.86rem;"><?php _e('Retiro', 'emp-caja'); ?></strong>
+                        <span style="font-size:0.72rem; opacity:0.8;"><?php _e('Tesorería / Pagos', 'emp-caja'); ?></span>
+                    </button>
+                    <button type="button" class="caja-ctrl-type-btn type-adjustment" data-type="adjustment">
+                        <span style="font-size: 1.25rem;">⚖️</span>
+                        <strong style="font-size:0.86rem;"><?php _e('Arqueo / Ajuste', 'emp-caja'); ?></strong>
+                        <span style="font-size:0.72rem; opacity:0.8;"><?php _e('Conteo físico auditado', 'emp-caja'); ?></span>
+                    </button>
+                </div>
+                <input type="hidden" id="caja-ctrl-selected-type" name="type" value="cash_in" />
+
+                <!-- Importe -->
+                <div style="margin-bottom: 14px;">
+                    <label id="caja-ctrl-amount-label" style="display:block; font-size:0.82rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                        <?php _e('Importe a Ingresar ($):', 'emp-caja'); ?>
+                    </label>
+                    <input type="number" step="0.01" min="0" id="caja-ctrl-amount" name="amount" class="caja-input" placeholder="0.00" style="width:100%; padding: 10px 14px; font-size:1.15rem; font-weight:700;" required />
+                    
+                    <!-- Presets rápidos -->
+                    <div class="caja-ctrl-presets" id="caja-ctrl-presets-row">
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="500">+ $500</button>
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="1000">+ $1.000</button>
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="2000">+ $2.000</button>
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="5000">+ $5.000</button>
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="10000">+ $10.000</button>
+                        <button type="button" class="caja-ctrl-preset-btn" data-val="20000">+ $20.000</button>
+                    </div>
+                </div>
+
+                <!-- Motivo / Concepto -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; font-size:0.82rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                        <?php _e('Motivo / Concepto (* Obligatorio):', 'emp-caja'); ?>
+                    </label>
+                    <input type="text" id="caja-ctrl-concept" name="concept" class="caja-input" placeholder="<?php esc_attr_e('Ej: Aporte de cambio en billetes de $500', 'emp-caja'); ?>" style="width:100%; padding: 8px 12px; font-size:0.88rem;" required />
+                </div>
+
+                <!-- Observaciones -->
+                <div style="margin-bottom: 14px;">
+                    <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--caja-text, #f8fafc); margin-bottom: 5px;">
+                        <?php _e('Observaciones / Notas adicionales:', 'emp-caja'); ?>
+                    </label>
+                    <textarea id="caja-ctrl-notes" name="notes" class="caja-input" rows="2" placeholder="<?php esc_attr_e('Detalles adicionales para auditoría...', 'emp-caja'); ?>" style="width:100%; padding: 8px 12px; font-size:0.85rem;"></textarea>
+                </div>
+
+                <!-- Previsualización Dinámica de Nuevo Saldo -->
+                <div class="caja-ctrl-preview" id="caja-ctrl-preview-box">
+                    <div>
+                        <span style="font-size:0.75rem; color:var(--caja-text-muted, #94a3b8); display:block;"><?php _e('Nuevo saldo estimado en caja:', 'emp-caja'); ?></span>
+                        <strong id="caja-ctrl-preview-balance" style="font-size:1.15rem; color:#34d399;">$0,00</strong>
+                    </div>
+                    <span id="caja-ctrl-preview-flow" style="font-size:0.85rem; font-weight:700; color:#10b981;">+ $0,00</span>
+                </div>
+            </div>
+
+            <div class="caja-modal-footer" style="padding: 14px 20px; border-top: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-ctrl-btn-cancel">
+                    <?php _e('Cancelar', 'emp-caja'); ?>
+                </button>
+                <button type="submit" class="caja-btn caja-btn-primary" id="caja-ctrl-btn-save">
+                    <span>💾</span>
+                    <span id="caja-ctrl-save-btn-text"><?php _e('Confirmar Movimiento', 'emp-caja'); ?></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Historial Detallado de Movimientos de la Caja -->
+<div id="caja-modal-box-movements" class="caja-modal" style="display:none; z-index: 100080;">
+    <div class="caja-modal-backdrop"></div>
+    <div class="caja-modal-dialog" style="max-width: 960px; width: 95%;">
+        <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">📜</span>
+                <div>
+                    <h3 class="caja-modal-title" id="caja-bmov-title" style="margin: 0; font-size: 1.2rem;"><?php _e('Historial de Movimientos de la Caja', 'emp-caja'); ?></h3>
+                    <p id="caja-bmov-subtitle" style="margin: 2px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);"></p>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm" id="caja-bmov-btn-print" title="<?php esc_attr_e('Imprimir Reporte de Movimientos', 'emp-caja'); ?>">
+                    <span>🖨️</span>
+                    <span><?php _e('Imprimir', 'emp-caja'); ?></span>
+                </button>
+                <button type="button" class="caja-modal-close" id="caja-bmov-modal-close" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+            </div>
+        </div>
+
+        <div class="caja-modal-body" style="padding: 18px; max-height: 75vh; overflow-y: auto;">
+            <!-- Tarjetas de Totales del Período -->
+            <div class="caja-emp-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 16px;">
+                <div class="caja-emp-stat-card" style="padding: 10px 14px;">
+                    <div class="caja-emp-stat-info">
+                        <span class="caja-emp-stat-value" id="caja-bmov-stat-current" style="font-size: 1.2rem; color:#10b981;">$0,00</span>
+                        <span class="caja-emp-stat-label"><?php _e('Saldo Efectivo Actual', 'emp-caja'); ?></span>
+                    </div>
+                </div>
+                <div class="caja-emp-stat-card" style="padding: 10px 14px;">
+                    <div class="caja-emp-stat-info">
+                        <span class="caja-emp-stat-value" id="caja-bmov-stat-inflow" style="font-size: 1.2rem; color:#34d399;">$0,00</span>
+                        <span class="caja-emp-stat-label"><?php _e('Ingresos de Efectivo', 'emp-caja'); ?></span>
+                    </div>
+                </div>
+                <div class="caja-emp-stat-card" style="padding: 10px 14px;">
+                    <div class="caja-emp-stat-info">
+                        <span class="caja-emp-stat-value" id="caja-bmov-stat-outflow" style="font-size: 1.2rem; color:#f87171;">$0,00</span>
+                        <span class="caja-emp-stat-label"><?php _e('Retiros de Efectivo', 'emp-caja'); ?></span>
+                    </div>
+                </div>
+                <div class="caja-emp-stat-card" style="padding: 10px 14px;">
+                    <div class="caja-emp-stat-info">
+                        <span class="caja-emp-stat-value" id="caja-bmov-stat-sales" style="font-size: 1.2rem; color:#60a5fa;">$0,00</span>
+                        <span class="caja-emp-stat-label"><?php _e('Ventas Cobradas', 'emp-caja'); ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Filtros del Modal -->
+            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <!-- Filtro Tipo -->
+                <div style="display:flex; flex-direction:column; gap:2px; min-width: 140px; flex: 1;">
+                    <label style="font-size:0.72rem; color:var(--caja-text-muted); font-weight:600; text-transform:uppercase;"><?php _e('Tipo de Movimiento', 'emp-caja'); ?></label>
+                    <select id="caja-bmov-filter-type" class="caja-input" style="padding: 5px 8px; font-size: 0.82rem;">
+                        <option value="all"><?php _e('Todos los tipos', 'emp-caja'); ?></option>
+                        <option value="cash_in">📥 <?php _e('Solo Ingresos de Dinero', 'emp-caja'); ?></option>
+                        <option value="cash_out">📤 <?php _e('Solo Retiros / Sangrías', 'emp-caja'); ?></option>
+                        <option value="sale">🛒 <?php _e('Solo Ventas', 'emp-caja'); ?></option>
+                        <option value="opening">🟢 <?php _e('Aperturas de Turno', 'emp-caja'); ?></option>
+                        <option value="closing">🔒 <?php _e('Cierres y Arqueos', 'emp-caja'); ?></option>
+                        <option value="adjustment">⚖️ <?php _e('Ajustes de Auditoría', 'emp-caja'); ?></option>
+                    </select>
+                </div>
+
+                <!-- Filtro Período -->
+                <div style="display:flex; flex-direction:column; gap:2px; min-width: 130px;">
+                    <label style="font-size:0.72rem; color:var(--caja-text-muted); font-weight:600; text-transform:uppercase;"><?php _e('Período', 'emp-caja'); ?></label>
+                    <select id="caja-bmov-filter-preset" class="caja-input" style="padding: 5px 8px; font-size: 0.82rem;">
+                        <option value="today" selected><?php _e('Hoy', 'emp-caja'); ?></option>
+                        <option value="yesterday"><?php _e('Ayer', 'emp-caja'); ?></option>
+                        <option value="week"><?php _e('Últimos 7 días', 'emp-caja'); ?></option>
+                        <option value="all"><?php _e('Histórico completo', 'emp-caja'); ?></option>
+                    </select>
+                </div>
+
+                <div style="align-self: flex-end;">
+                    <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm" id="caja-bmov-btn-reload" style="padding: 6px 12px; font-size: 0.82rem;">
+                        <span>🔄</span> <span><?php _e('Actualizar', 'emp-caja'); ?></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabla de Movimientos de la Caja -->
+            <div class="caja-emp-table-wrapper" style="border: 1px solid var(--caja-card-border, #334155); border-radius: 6px; overflow-x: auto;">
+                <table class="caja-emp-table" id="caja-bmov-table" style="width:100%; border-collapse:collapse; font-size:0.84rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--caja-card-border, #334155); background: rgba(0,0,0,0.25);">
+                            <th style="padding: 10px;"><?php _e('Horario', 'emp-caja'); ?></th>
+                            <th style="padding: 10px;"><?php _e('Tipo', 'emp-caja'); ?></th>
+                            <th style="padding: 10px;"><?php _e('Concepto / Motivo', 'emp-caja'); ?></th>
+                            <th style="padding: 10px;"><?php _e('Usuario', 'emp-caja'); ?></th>
+                            <th style="padding: 10px;"><?php _e('Medio de Pago', 'emp-caja'); ?></th>
+                            <th style="padding: 10px; text-align:right;"><?php _e('Monto', 'emp-caja'); ?></th>
+                            <th style="padding: 10px; text-align:right;"><?php _e('Impacto Efectivo', 'emp-caja'); ?></th>
+                            <th style="padding: 10px; text-align:right;"><?php _e('Saldo en Caja', 'emp-caja'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="caja-bmov-table-body">
+                        <tr>
+                            <td colspan="8" style="padding: 24px; text-align: center; color: var(--caja-text-muted, #94a3b8);">
+                                <span class="caja-spinner">⏳</span> <?php _e('Cargando movimientos...', 'emp-caja'); ?>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

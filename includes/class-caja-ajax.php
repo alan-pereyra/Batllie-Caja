@@ -65,6 +65,8 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_save_money_box', array(__CLASS__, 'ajax_save_money_box'));
         add_action('wp_ajax_emp_caja_delete_money_box', array(__CLASS__, 'ajax_delete_money_box'));
         add_action('wp_ajax_emp_caja_add_puesto', array(__CLASS__, 'ajax_add_puesto'));
+        add_action('wp_ajax_emp_caja_record_cash_movement', array(__CLASS__, 'ajax_record_cash_movement'));
+        add_action('wp_ajax_emp_caja_get_box_movements', array(__CLASS__, 'ajax_get_box_movements'));
 
         // Empleados y Permisos
         add_action('wp_ajax_emp_caja_get_employees', array(__CLASS__, 'ajax_get_employees'));
@@ -1530,6 +1532,7 @@ class Batllie_Caja_Ajax {
         }
 
         $args = array(
+            'cash_box_id' => isset($_POST['cash_box_id']) ? sanitize_text_field(wp_unslash($_POST['cash_box_id'])) : '',
             'sector'      => isset($_POST['sector']) ? sanitize_text_field(wp_unslash($_POST['sector'])) : '',
             'user_id'     => isset($_POST['user_id']) ? sanitize_text_field(wp_unslash($_POST['user_id'])) : '',
             'status'      => isset($_POST['status']) ? sanitize_text_field(wp_unslash($_POST['status'])) : '',
@@ -1580,7 +1583,7 @@ class Batllie_Caja_Ajax {
     }
 
     /**
-     * AJAX: Obtener lista de Cajas de Dinero y Puestos/Mostradores asignados
+     * AJAX: Obtener lista de Cajas de Dinero con balances en vivo y Puestos/Mostradores asignados
      */
     public static function ajax_get_money_boxes() {
         self::check_auth();
@@ -1590,7 +1593,7 @@ class Batllie_Caja_Ajax {
             return;
         }
 
-        $boxes = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_money_boxes() : array();
+        $boxes = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_money_boxes_with_balances() : array();
         $available_puestos = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array();
         $assigned_map = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_all_assigned_puestos_map() : array();
 
@@ -1598,6 +1601,80 @@ class Batllie_Caja_Ajax {
             'boxes'                => $boxes,
             'available_puestos'    => $available_puestos,
             'assigned_puestos_map' => $assigned_map,
+        ));
+    }
+
+    /**
+     * AJAX: Registrar movimiento de dinero (Ingreso, Retiro, Ajuste) en una caja
+     */
+    public static function ajax_record_cash_movement() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers($user_id)) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $cash_box_id = isset($_POST['cash_box_id']) ? sanitize_text_field(wp_unslash($_POST['cash_box_id'])) : '';
+        $type        = isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : '';
+        $amount      = isset($_POST['amount']) ? floatval($_POST['amount']) : 0.00;
+        $concept     = isset($_POST['concept']) ? sanitize_text_field(wp_unslash($_POST['concept'])) : '';
+        $notes       = isset($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : '';
+
+        if (empty($cash_box_id)) {
+            wp_send_json_error(array('message' => __('Debes seleccionar una caja de dinero.', 'emp-caja')));
+            return;
+        }
+
+        $result = Batllie_Caja_Register::add_cash_movement($cash_box_id, $type, $amount, $concept, $notes, $user_id);
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+            return;
+        }
+
+        $boxes = Batllie_Caja_Register::get_money_boxes_with_balances();
+        wp_send_json_success(array(
+            'message'  => __('Movimiento de caja registrado correctamente.', 'emp-caja'),
+            'movement' => $result,
+            'boxes'    => $boxes,
+        ));
+    }
+
+    /**
+     * AJAX: Obtener todos los movimientos e historial de una caja de dinero específica
+     */
+    public static function ajax_get_box_movements() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers($user_id)) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $cash_box_id = isset($_POST['cash_box_id']) ? sanitize_text_field(wp_unslash($_POST['cash_box_id'])) : '';
+        if (empty($cash_box_id)) {
+            wp_send_json_error(array('message' => __('ID de caja requerido.', 'emp-caja')));
+            return;
+        }
+
+        $args = array(
+            'type'        => isset($_POST['type']) ? sanitize_text_field(wp_unslash($_POST['type'])) : 'all',
+            'date_preset' => isset($_POST['date_preset']) ? sanitize_text_field(wp_unslash($_POST['date_preset'])) : 'today',
+            'date_from'   => isset($_POST['date_from']) ? sanitize_text_field(wp_unslash($_POST['date_from'])) : '',
+            'date_to'     => isset($_POST['date_to']) ? sanitize_text_field(wp_unslash($_POST['date_to'])) : '',
+            'limit'       => isset($_POST['limit']) ? intval($_POST['limit']) : 100,
+            'offset'      => isset($_POST['offset']) ? intval($_POST['offset']) : 0,
+        );
+
+        $box = Batllie_Caja_Register::get_money_box_by_id($cash_box_id);
+        $data = Batllie_Caja_Register::get_box_movements($cash_box_id, $args);
+
+        wp_send_json_success(array(
+            'box'       => $box,
+            'movements' => $data['movements'],
+            'totals'    => $data['totals'],
         ));
     }
 

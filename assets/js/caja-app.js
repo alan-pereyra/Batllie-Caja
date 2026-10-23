@@ -1879,7 +1879,128 @@ $('#caja-modal-new-product').fadeIn(200);
                 });
             });
 
-            $(document).on('change', '#caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status', function() {
+            // Gestión de Control de Dinero y Movimientos
+            $(document).on('click', '.caja-btn-control-cash', function(e) {
+                e.preventDefault();
+                const boxId = $(this).data('id');
+                self.openCashControlModal(boxId);
+            });
+
+            $(document).on('click', '.caja-ctrl-type-btn', function(e) {
+                e.preventDefault();
+                $('.caja-ctrl-type-btn').removeClass('active');
+                $(this).addClass('active');
+                const t = $(this).data('type');
+                $('#caja-ctrl-selected-type').val(t);
+                self.updateCashControlPreview();
+            });
+
+            $(document).on('click', '.caja-ctrl-preset-btn', function(e) {
+                e.preventDefault();
+                const addVal = parseFloat($(this).data('val')) || 0;
+                const currentVal = parseFloat($('#caja-ctrl-amount').val()) || 0;
+                $('#caja-ctrl-amount').val((currentVal + addVal).toFixed(2));
+                self.updateCashControlPreview();
+            });
+
+            $(document).on('input keyup change', '#caja-ctrl-amount', function() {
+                self.updateCashControlPreview();
+            });
+
+            $(document).on('click', '#caja-ctrl-modal-close, #caja-ctrl-btn-cancel, #caja-modal-cash-control .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-cash-control').fadeOut(150);
+            });
+
+            $(document).on('submit', '#caja-cash-control-form', function(e) {
+                e.preventDefault();
+                const boxId = $('#caja-ctrl-box-id').val();
+                const type = $('#caja-ctrl-selected-type').val();
+                const amount = parseFloat($('#caja-ctrl-amount').val()) || 0;
+                const concept = ($('#caja-ctrl-concept').val() || '').trim();
+                const notes = ($('#caja-ctrl-notes').val() || '').trim();
+
+                if (amount <= 0 && type !== 'adjustment') {
+                    $('#caja-ctrl-alert-error').show().text('Por favor ingresa un monto válido mayor a 0.');
+                    return;
+                }
+                if (!concept) {
+                    $('#caja-ctrl-alert-error').show().text('Debes ingresar un motivo o concepto para este movimiento.');
+                    return;
+                }
+
+                const $btn = $('#caja-ctrl-btn-save');
+                const origHtml = $btn.html();
+                $btn.prop('disabled', true).html('<span>⏳</span> Guardando...');
+
+                $.ajax({
+                    url: self.config.ajaxUrl,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
+                        action: 'emp_caja_record_cash_movement',
+                        security: self.config.nonce,
+                        cash_box_id: boxId,
+                        type: type,
+                        amount: amount,
+                        concept: concept,
+                        notes: notes
+                    },
+                    success: function(res) {
+                        $btn.prop('disabled', false).html(origHtml);
+                        if (res && res.success) {
+                            $('#caja-modal-cash-control').fadeOut(150);
+                            self.showToast(res.data.message || 'Movimiento registrado con éxito.', 'success');
+                            if (res.data.boxes) {
+                                self.cachedMoneyBoxes = res.data.boxes;
+                                self.renderMoneyBoxes();
+                            } else {
+                                self.loadMoneyBoxes();
+                            }
+                            self.loadRegistersHistory();
+                        } else {
+                            const err = (res && res.data && res.data.message) ? res.data.message : 'Error al registrar movimiento.';
+                            $('#caja-ctrl-alert-error').show().text(err);
+                        }
+                    },
+                    error: function() {
+                        $btn.prop('disabled', false).html(origHtml);
+                        $('#caja-ctrl-alert-error').show().text('Error de conexión con el servidor.');
+                    }
+                });
+            });
+
+            // Modal de Historial de Movimientos de la Caja
+            $(document).on('click', '.caja-btn-box-movements', function(e) {
+                e.preventDefault();
+                const boxId = $(this).data('id');
+                self.openBoxMovementsModal(boxId);
+            });
+
+            $(document).on('change', '#caja-bmov-filter-type, #caja-bmov-filter-preset', function() {
+                if (self.currentAuditedBoxId) {
+                    self.loadBoxMovements(self.currentAuditedBoxId);
+                }
+            });
+
+            $(document).on('click', '#caja-bmov-btn-reload', function(e) {
+                e.preventDefault();
+                if (self.currentAuditedBoxId) {
+                    self.loadBoxMovements(self.currentAuditedBoxId);
+                }
+            });
+
+            $(document).on('click', '#caja-bmov-modal-close, #caja-modal-box-movements .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-box-movements').fadeOut(150);
+            });
+
+            $(document).on('click', '#caja-bmov-btn-print', function(e) {
+                e.preventDefault();
+                self.printBoxMovementsReport();
+            });
+
+            $(document).on('change', '#caja-reg-filter-money-box, #caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status', function() {
                 self.loadRegistersHistory();
             });
 
@@ -10098,6 +10219,17 @@ $('#caja-modal-new-product').fadeIn(200);
 
             $('#caja-money-boxes-count').text(boxes.length);
 
+            // Actualizar selector de filtro de historial
+            const $filterBox = $('#caja-reg-filter-money-box');
+            if ($filterBox.length) {
+                const currentVal = $filterBox.val() || 'all';
+                let optHtml = '<option value="all">Todas las cajas de dinero</option>';
+                boxes.forEach(b => {
+                    optHtml += `<option value="${self.escapeHtml(b.id)}">💵 ${self.escapeHtml(b.name)} ${b.code ? `(${self.escapeHtml(b.code)})` : ''}</option>`;
+                });
+                $filterBox.html(optHtml).val(currentVal);
+            }
+
             if (boxes.length === 0) {
                 $grid.html(`
                     <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 36px 20px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
@@ -10116,6 +10248,10 @@ $('#caja-modal-new-product').fadeIn(200);
             boxes.forEach(box => {
                 const isActive = (box.status !== 'inactive');
                 const puestos = Array.isArray(box.assigned_puestos) ? box.assigned_puestos : [];
+                const isOpen = Boolean(box.is_open);
+                const currentCash = parseFloat(box.current_cash) || 0;
+                const activeSess = box.active_session;
+                const stats = box.today_stats || {};
 
                 let puestosChips = '';
                 if (puestos.length > 0) {
@@ -10132,6 +10268,26 @@ $('#caja-modal-new-product').fadeIn(200);
                     });
                 } else {
                     puestosChips = `<span class="caja-puesto-chip is-empty">⚠️ Sin mostradores asignados</span>`;
+                }
+
+                // Desglose de turno activo o métricas del día
+                let miniStatsHtml = '';
+                if (isOpen && activeSess) {
+                    miniStatsHtml = `
+                        <div class="caja-mb-mini-stats">
+                            <div class="caja-mb-mini-stat-item"><span>Fondo Inicial:</span> <strong>$${self.formatCurrencyNumber(activeSess.opening_cash)}</strong></div>
+                            <div class="caja-mb-mini-stat-item"><span>Ventas Ef.:</span> <strong style="color:#34d399;">+$${self.formatCurrencyNumber(activeSess.cash_sales)}</strong></div>
+                            <div class="caja-mb-mini-stat-item"><span>Ingresos:</span> <strong style="color:#10b981;">+$${self.formatCurrencyNumber(activeSess.cash_in || 0)}</strong></div>
+                            <div class="caja-mb-mini-stat-item"><span>Retiros:</span> <strong style="color:#f87171;">-$${self.formatCurrencyNumber(activeSess.cash_out || 0)}</strong></div>
+                        </div>
+                    `;
+                } else {
+                    miniStatsHtml = `
+                        <div class="caja-mb-mini-stats">
+                            <div class="caja-mb-mini-stat-item"><span>Ventas Hoy:</span> <strong>$${self.formatCurrencyNumber(stats.total_sales || 0)}</strong></div>
+                            <div class="caja-mb-mini-stat-item"><span>Movimientos:</span> <strong>${box.movements_count || 0}</strong></div>
+                        </div>
+                    `;
                 }
 
                 html += `
@@ -10152,19 +10308,43 @@ $('#caja-modal-new-product').fadeIn(200);
 
                             ${box.notes ? `<div class="caja-mb-card-notes">${self.escapeHtml(box.notes)}</div>` : ''}
 
+                            <!-- Bloque de Saldo de Dinero en Vivo -->
+                            <div class="caja-mb-balance-block">
+                                <div class="caja-mb-balance-header">
+                                    <span class="caja-mb-balance-label">Efectivo en Caja:</span>
+                                    <span class="caja-mb-session-badge ${isOpen ? 'open' : 'closed'}">
+                                        ${isOpen ? `🟢 ${self.escapeHtml(activeSess.user_name)} (${self.escapeHtml(activeSess.sector)})` : '🔒 Sin turno activo'}
+                                    </span>
+                                </div>
+                                <div class="caja-mb-balance-amount">
+                                    <span>$</span><span>${self.formatCurrencyNumber(currentCash)}</span>
+                                </div>
+                                ${miniStatsHtml}
+                            </div>
+
                             <span class="caja-mb-card-puestos-label">Puestos / Mostradores Vinculados (${puestos.length}):</span>
                             <div class="caja-mb-card-puestos-list">
                                 ${puestosChips}
                             </div>
                         </div>
 
-                        <div class="caja-mb-card-footer">
-                            <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-edit-money-box" data-id="${self.escapeHtml(box.id)}" title="Editar caja y reasignar puestos">
-                                <span>✏️</span> <span>Editar Puestos</span>
-                            </button>
-                            <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-delete-money-box" data-id="${self.escapeHtml(box.id)}" data-name="${self.escapeHtml(box.name)}" title="Eliminar caja" style="color: #f87171;">
-                                <span>🗑️</span>
-                            </button>
+                        <div class="caja-mb-card-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="caja-btn caja-btn-primary caja-btn-sm caja-btn-control-cash" data-id="${self.escapeHtml(box.id)}" data-name="${self.escapeHtml(box.name)}" title="Ingreso, Retiro o Conteo Físico de Dinero">
+                                    <span>💵</span> <span>Controlar Dinero</span>
+                                </button>
+                                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-box-movements" data-id="${self.escapeHtml(box.id)}" data-name="${self.escapeHtml(box.name)}" title="Ver todos los movimientos guardados de esta caja">
+                                    <span>📜</span> <span>Historial (${box.movements_count || 0})</span>
+                                </button>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-edit-money-box" data-id="${self.escapeHtml(box.id)}" title="Editar caja y reasignar puestos">
+                                    <span>✏️</span>
+                                </button>
+                                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm caja-btn-delete-money-box" data-id="${self.escapeHtml(box.id)}" data-name="${self.escapeHtml(box.name)}" title="Eliminar caja" style="color: #f87171;">
+                                    <span>🗑️</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -10260,10 +10440,331 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         // ==========================================
+        // CONTROL DE DINERO EN CAJA (INGRESO / RETIRO / ARQUEO)
+        // ==========================================
+        openCashControlModal: function(boxId) {
+            const self = this;
+            const $modal = $('#caja-modal-cash-control');
+            if (!$modal.length) return;
+
+            const box = (self.cachedMoneyBoxes || []).find(b => b.id === boxId);
+            if (!box) {
+                self.showToast('Caja no encontrada.', 'error');
+                return;
+            }
+
+            $('#caja-ctrl-alert-error').hide().text('');
+            $('#caja-ctrl-box-id').val(box.id);
+            $('#caja-ctrl-amount').val('');
+            $('#caja-ctrl-concept').val('');
+            $('#caja-ctrl-notes').val('');
+
+            const curCash = parseFloat(box.current_cash) || 0;
+            $('#caja-ctrl-current-balance-raw').val(curCash);
+            $('#caja-ctrl-current-balance-display').text('$' + self.formatCurrencyNumber(curCash));
+
+            $('#caja-ctrl-modal-title').text(`Control de Dinero: ${box.name}`);
+            $('#caja-ctrl-modal-subtitle').text(`${box.code ? `[${box.code}] ` : ''}Puestos: ${Array.isArray(box.assigned_puestos) ? box.assigned_puestos.join(', ') : 'Ninguno'}`);
+
+            // Insignia de turno
+            const $badge = $('#caja-ctrl-session-badge-wrapper');
+            if (box.is_open && box.active_session) {
+                $badge.html(`
+                    <span class="caja-mb-session-badge open" style="margin:0;">
+                        🟢 Turno Abierto: ${self.escapeHtml(box.active_session.user_name)}
+                    </span>
+                    <span style="font-size:0.72rem; color:var(--caja-text-muted); display:block; margin-top:2px;">
+                        ${self.escapeHtml(box.active_session.sector)}
+                    </span>
+                `);
+            } else {
+                $badge.html(`
+                    <span class="caja-mb-session-badge closed" style="margin:0;">
+                        🔒 Sin turno activo
+                    </span>
+                `);
+            }
+
+            // Seleccionar por defecto Ingreso
+            $('.caja-ctrl-type-btn').removeClass('active');
+            $('.caja-ctrl-type-btn[data-type="cash_in"]').addClass('active');
+            $('#caja-ctrl-selected-type').val('cash_in');
+
+            self.updateCashControlPreview();
+            $modal.fadeIn(200);
+        },
+
+        updateCashControlPreview: function() {
+            const self = this;
+            const curBalance = parseFloat($('#caja-ctrl-current-balance-raw').val()) || 0;
+            const type = $('#caja-ctrl-selected-type').val();
+            const amount = parseFloat($('#caja-ctrl-amount').val()) || 0;
+
+            let newBalance = curBalance;
+            let flowText = '';
+            let flowColor = '#10b981';
+
+            if (type === 'cash_in') {
+                newBalance = curBalance + amount;
+                flowText = `+ $${self.formatCurrencyNumber(amount)}`;
+                flowColor = '#10b981';
+                $('#caja-ctrl-amount-label').text('Importe a Ingresar ($):');
+                $('#caja-ctrl-concept').attr('placeholder', 'Ej: Aporte de cambio en billetes de $500 / sencillo inicial');
+                $('#caja-ctrl-save-btn-text').text('Confirmar Ingreso de Dinero');
+                $('#caja-ctrl-presets-row').show();
+            } else if (type === 'cash_out') {
+                newBalance = Math.max(0, curBalance - amount);
+                flowText = `- $${self.formatCurrencyNumber(amount)}`;
+                flowColor = '#f87171';
+                $('#caja-ctrl-amount-label').text('Importe a Retirar ($):');
+                $('#caja-ctrl-concept').attr('placeholder', 'Ej: Retiro para tesorería / Sangría / Pago a distribuidor de hielo');
+                $('#caja-ctrl-save-btn-text').text('Confirmar Retiro de Dinero');
+                $('#caja-ctrl-presets-row').show();
+            } else if (type === 'adjustment') {
+                newBalance = amount;
+                const diff = amount - curBalance;
+                flowText = `${diff >= 0 ? '+' : '-'} $${self.formatCurrencyNumber(Math.abs(diff))}`;
+                flowColor = diff >= 0 ? '#10b981' : '#f87171';
+                $('#caja-ctrl-amount-label').text('Efectivo Real Contado en Auditoría ($):');
+                $('#caja-ctrl-concept').attr('placeholder', 'Ej: Ajuste por recuento físico en gaveta');
+                $('#caja-ctrl-save-btn-text').text('Confirmar Ajuste de Saldo');
+                $('#caja-ctrl-presets-row').hide();
+            }
+
+            $('#caja-ctrl-preview-balance').text('$' + self.formatCurrencyNumber(newBalance));
+            $('#caja-ctrl-preview-flow').text(flowText).css('color', flowColor);
+        },
+
+        // ==========================================
+        // HISTORIAL DE MOVIMIENTOS DE LA CAJA (MODAL)
+        // ==========================================
+        openBoxMovementsModal: function(boxId) {
+            const self = this;
+            const $modal = $('#caja-modal-box-movements');
+            if (!$modal.length) return;
+
+            self.currentAuditedBoxId = boxId;
+            const box = (self.cachedMoneyBoxes || []).find(b => b.id === boxId);
+
+            if (box) {
+                $('#caja-bmov-title').text(`Movimientos: ${box.name}`);
+                $('#caja-bmov-subtitle').text(`${box.code ? `[${box.code}] ` : ''}Puestos: ${Array.isArray(box.assigned_puestos) ? box.assigned_puestos.join(', ') : 'Ninguno'}`);
+                $('#caja-bmov-stat-current').text('$' + self.formatCurrencyNumber(box.current_cash || 0));
+            }
+
+            // Reset filtros
+            $('#caja-bmov-filter-type').val('all');
+            $('#caja-bmov-filter-preset').val('today');
+
+            self.loadBoxMovements(boxId);
+            $modal.fadeIn(200);
+        },
+
+        loadBoxMovements: function(boxId) {
+            const self = this;
+            const $tbody = $('#caja-bmov-table-body');
+            const type = $('#caja-bmov-filter-type').val() || 'all';
+            const preset = $('#caja-bmov-filter-preset').val() || 'today';
+
+            $tbody.html(`
+                <tr>
+                    <td colspan="8" style="padding: 24px; text-align: center; color: var(--caja-text-muted, #94a3b8);">
+                        <span class="caja-spinner">⏳</span> Cargando movimientos...
+                    </td>
+                </tr>
+            `);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_box_movements',
+                    security: self.config.nonce,
+                    cash_box_id: boxId,
+                    type: type,
+                    date_preset: preset
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        const movs = res.data.movements || [];
+                        const totals = res.data.totals || {};
+                        const box = res.data.box;
+                        self.cachedBoxMovementsData = res.data;
+
+                        // Actualizar totales en tarjetas
+                        $('#caja-bmov-stat-inflow').text('$' + self.formatCurrencyNumber(totals.total_cash_in || 0));
+                        $('#caja-bmov-stat-outflow').text('$' + self.formatCurrencyNumber(totals.total_cash_out || 0));
+                        $('#caja-bmov-stat-sales').text('$' + self.formatCurrencyNumber(totals.total_sales || 0));
+
+                        if (!movs.length) {
+                            $tbody.html(`
+                                <tr>
+                                    <td colspan="8" style="padding: 30px; text-align: center; color: var(--caja-text-muted, #94a3b8);">
+                                        No hay movimientos registrados para los filtros seleccionados.
+                                    </td>
+                                </tr>
+                            `);
+                            return;
+                        }
+
+                        let html = '';
+                        movs.forEach(m => {
+                            let typeBadge = '';
+                            if (m.type === 'opening') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-opening">🟢 Apertura</span>';
+                            } else if (m.type === 'cash_in') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-cash_in">📥 Ingreso</span>';
+                            } else if (m.type === 'cash_out') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-cash_out">📤 Retiro</span>';
+                            } else if (m.type === 'closing') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-closing">🔒 Cierre</span>';
+                            } else if (m.type === 'adjustment') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-adjustment">⚖️ Ajuste</span>';
+                            } else {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-sale">🛒 Venta</span>';
+                            }
+
+                            let cashFlowHtml = '<span style="color:var(--caja-text-muted);">-</span>';
+                            if (m.cash_flow > 0) {
+                                cashFlowHtml = `<span style="color:#10b981; font-weight:700;">+$${self.formatCurrencyNumber(m.cash_flow)}</span>`;
+                            } else if (m.cash_flow < 0) {
+                                cashFlowHtml = `<span style="color:#f87171; font-weight:700;">-$${self.formatCurrencyNumber(Math.abs(m.cash_flow))}</span>`;
+                            }
+
+                            html += `
+                                <tr style="border-bottom: 1px solid var(--caja-card-border, #334155);">
+                                    <td style="padding: 10px; font-weight:600; color:#38bdf8; white-space:nowrap;">
+                                        ${m.date_str} <span style="color:var(--caja-text-muted); font-size:0.78rem;">${m.time_exact}</span>
+                                    </td>
+                                    <td style="padding: 10px;">${typeBadge}</td>
+                                    <td style="padding: 10px; font-weight:600;">
+                                        <div>${self.escapeHtml(m.concept)}</div>
+                                        ${m.metadata && m.metadata.notes ? `<div style="font-size:0.75rem; color:var(--caja-text-muted); font-style:italic;">Nota: ${self.escapeHtml(m.metadata.notes)}</div>` : ''}
+                                    </td>
+                                    <td style="padding: 10px; font-size:0.82rem; color:var(--caja-text-muted); white-space:nowrap;">
+                                        👤 ${self.escapeHtml(m.user_name || 'Admin')}
+                                    </td>
+                                    <td style="padding: 10px; font-size:0.82rem; white-space:nowrap;">
+                                        ${self.escapeHtml(m.payment_method || 'efectivo')}
+                                    </td>
+                                    <td style="padding: 10px; text-align:right; font-weight:700; color:#fbbf24; white-space:nowrap;">
+                                        $${self.formatCurrencyNumber(m.amount)}
+                                    </td>
+                                    <td style="padding: 10px; text-align:right; white-space:nowrap;">
+                                        ${cashFlowHtml}
+                                    </td>
+                                    <td style="padding: 10px; text-align:right; font-weight:800; color:#10b981; white-space:nowrap;">
+                                        $${self.formatCurrencyNumber(m.balance_after)}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        $tbody.html(html);
+                    } else {
+                        $tbody.html(`
+                            <tr>
+                                <td colspan="8" style="padding: 24px; text-align: center; color: #f87171;">
+                                    ${res && res.data && res.data.message ? res.data.message : 'Error al cargar movimientos.'}
+                                </td>
+                            </tr>
+                        `);
+                    }
+                },
+                error: function() {
+                    $tbody.html(`
+                        <tr>
+                            <td colspan="8" style="padding: 24px; text-align: center; color: #f87171;">
+                                Error de conexión al cargar movimientos de la caja.
+                            </td>
+                        </tr>
+                    `);
+                }
+            });
+        },
+
+        printBoxMovementsReport: function() {
+            const self = this;
+            const data = self.cachedBoxMovementsData;
+            if (!data || !data.movements) {
+                alert('No hay datos para imprimir.');
+                return;
+            }
+
+            const box = data.box || {};
+            const movs = data.movements;
+            const totals = data.totals || {};
+
+            const w = window.open('', '_blank', 'width=800,height=600');
+            if (!w) return;
+
+            let rowsHtml = '';
+            movs.forEach(m => {
+                rowsHtml += `
+                    <tr>
+                        <td>${m.date_str} ${m.time_exact}</td>
+                        <td>${m.type}</td>
+                        <td>${m.concept}</td>
+                        <td>${m.user_name}</td>
+                        <td style="text-align:right;">$${self.formatCurrencyNumber(m.amount)}</td>
+                        <td style="text-align:right;">${m.cash_flow >= 0 ? '+' : ''}$${self.formatCurrencyNumber(m.cash_flow)}</td>
+                        <td style="text-align:right;"><strong>$${self.formatCurrencyNumber(m.balance_after)}</strong></td>
+                    </tr>
+                `;
+            });
+
+            w.document.write(`
+                <html>
+                <head>
+                    <title>Reporte de Movimientos - ${box.name || 'Caja'}</title>
+                    <style>
+                        body { font-family: monospace; padding: 20px; font-size: 13px; color: #111; }
+                        h2, h4 { margin: 0 0 6px 0; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+                        th, td { border-bottom: 1px solid #ddd; padding: 6px 8px; font-size: 11px; text-align: left; }
+                        th { background: #f4f4f4; }
+                        .totals { margin: 14px 0; padding: 10px; background: #fafafa; border: 1px solid #eee; display: flex; gap: 20px; }
+                    </style>
+                </head>
+                <body>
+                    <h2>REPORTE DE MOVIMIENTOS DE CAJA</h2>
+                    <h4>Caja: ${box.name || ''} [${box.code || ''}]</h4>
+                    <p style="font-size:11px; margin:0 0 10px 0;">Fecha de emisión: ${new Date().toLocaleString()}</p>
+                    <div class="totals">
+                        <div><strong>Ingresos:</strong> $${self.formatCurrencyNumber(totals.total_cash_in || 0)}</div>
+                        <div><strong>Retiros:</strong> $${self.formatCurrencyNumber(totals.total_cash_out || 0)}</div>
+                        <div><strong>Ventas:</strong> $${self.formatCurrencyNumber(totals.total_sales || 0)}</div>
+                        <div><strong>Flujo Neto:</strong> $${self.formatCurrencyNumber(totals.net_cash_flow || 0)}</div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Horario</th>
+                                <th>Tipo</th>
+                                <th>Concepto</th>
+                                <th>Usuario</th>
+                                <th style="text-align:right;">Monto</th>
+                                <th style="text-align:right;">Flujo</th>
+                                <th style="text-align:right;">Saldo Caja</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                    </table>
+                    <script>window.onload = function() { window.print(); };<\/script>
+                </body>
+                </html>
+            `);
+            w.document.close();
+        },
+
+        // ==========================================
         // CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
         // ==========================================
         loadRegistersHistory: function() {
             const self = this;
+            const cashBoxId = $('#caja-reg-filter-money-box').val() || 'all';
             const sector = $('#caja-reg-filter-sector').val() || 'all';
             const userId = $('#caja-reg-filter-user').val() || 'all';
             const status = $('#caja-reg-filter-status').val() || 'all';
@@ -10286,6 +10787,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 data: {
                     action: 'emp_caja_get_registers_history',
                     security: self.config.nonce,
+                    cash_box_id: cashBoxId,
                     sector: sector,
                     user_id: userId,
                     status: status,
@@ -10428,7 +10930,10 @@ $('#caja-modal-new-product').fadeIn(200);
                 html += `
                     <tr style="border-bottom: 1px solid var(--caja-card-border, #334155);">
                         <td style="padding: 10px 14px; font-weight: 600; color: #10b981;">${s.session_code}</td>
-                        <td style="padding: 10px 14px;">${icon} ${s.sector}</td>
+                        <td style="padding: 10px 14px;">
+                            <div>${icon} ${s.sector}</div>
+                            ${s.cash_box_name ? `<div style="font-size:0.75rem; color:#38bdf8; font-weight:600; margin-top:2px;">💵 ${self.escapeHtml(s.cash_box_name)}</div>` : ''}
+                        </td>
                         <td style="padding: 10px 14px;">${s.user_name}</td>
                         <td style="padding: 10px 14px; font-size:0.8rem; color:var(--caja-text-muted);">${s.opened_full_str || s.opened_at}</td>
                         <td style="padding: 10px 14px; font-size:0.8rem;">
@@ -10540,21 +11045,47 @@ $('#caja-modal-new-product').fadeIn(200);
 
                         let movHtml = '';
                         movs.forEach(m => {
-                            const itemsList = m.items.map(it => `<div style="font-size:0.8rem;">• ${it.quantity}x ${it.name}</div>`).join('');
-                            const pmBadge = m.is_cash 
+                            let itemsList = '';
+                            if (m.items && m.items.length) {
+                                itemsList = m.items.map(it => `<div style="font-size:0.8rem;">• ${it.quantity}x ${it.name}</div>`).join('');
+                            } else if (m.concept) {
+                                itemsList = `<div style="font-size:0.8rem; font-weight:600;">${self.escapeHtml(m.concept)}</div>`;
+                            }
+
+                            let typeBadge = '';
+                            if (m.type === 'opening') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-opening">🟢 Apertura</span>';
+                            } else if (m.type === 'cash_in') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-cash_in">📥 Ingreso</span>';
+                            } else if (m.type === 'cash_out') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-cash_out">📤 Retiro</span>';
+                            } else if (m.type === 'closing') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-closing">🔒 Cierre</span>';
+                            } else if (m.type === 'adjustment') {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-adjustment">⚖️ Ajuste</span>';
+                            } else {
+                                typeBadge = '<span class="caja-mov-badge caja-mov-badge-sale">🛒 Venta</span>';
+                            }
+
+                            const isCash = m.is_cash;
+                            const pmBadge = isCash 
                                 ? '<span style="background:rgba(16,185,129,0.15); color:#10b981; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">💵 Efectivo</span>'
                                 : '<span style="background:rgba(59,130,246,0.15); color:#60a5fa; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:700;">💳 Digital</span>';
+
+                            const cashAmount = (m.balance_after !== undefined) ? m.balance_after : (m.running_cash || 0);
 
                             movHtml += `
                                 <tr style="border-bottom: 1px solid var(--caja-card-border, #334155);">
                                     <td style="padding:8px 10px; font-weight:700; color:#38bdf8; white-space:nowrap;">⏰ ${m.time_exact}</td>
-                                    <td style="padding:8px 10px; font-weight:600; white-space:nowrap;">#${m.order_number}</td>
-                                    <td style="padding:8px 10px; font-size:0.78rem; color:var(--caja-text-muted);">${m.sector} ${m.table ? '('+m.table+')' : ''}</td>
+                                    <td style="padding:8px 10px; font-weight:600; white-space:nowrap;">
+                                        ${m.order_number ? `#${m.order_number}` : typeBadge}
+                                    </td>
+                                    <td style="padding:8px 10px; font-size:0.78rem; color:var(--caja-text-muted);">${m.sector || ''} ${m.table ? '('+m.table+')' : ''}</td>
                                     <td style="padding:8px 10px;">${itemsList}</td>
                                     <td style="padding:8px 10px; white-space:nowrap;">${pmBadge}</td>
-                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(m.total)}</td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(m.total || m.amount || 0)}</td>
                                     <td style="padding:8px 10px; text-align:right; color:#34d399;">${m.tip > 0 ? '$'+self.formatCurrencyNumber(m.tip) : '-'}</td>
-                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#10b981;">$${self.formatCurrencyNumber(m.running_cash)}</td>
+                                    <td style="padding:8px 10px; text-align:right; font-weight:700; color:#10b981;">$${self.formatCurrencyNumber(cashAmount)}</td>
                                 </tr>
                             `;
                         });
