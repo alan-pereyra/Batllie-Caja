@@ -2000,7 +2000,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.printBoxMovementsReport();
             });
 
-            $(document).on('change', '#caja-reg-filter-money-box, #caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status', function() {
+            $(document).on('change', '#caja-reg-filter-money-box, #caja-reg-filter-sector, #caja-reg-filter-user, #caja-reg-filter-status, #caja-reg-filter-from, #caja-reg-filter-to', function() {
                 self.loadRegistersHistory();
             });
 
@@ -10223,7 +10223,7 @@ $('#caja-modal-new-product').fadeIn(200);
             const $filterBox = $('#caja-reg-filter-money-box');
             if ($filterBox.length) {
                 const currentVal = $filterBox.val() || 'all';
-                let optHtml = '<option value="all">Todas las cajas de dinero</option>';
+                let optHtml = '<option value="all">💵 Todas las cajas de dinero</option>';
                 boxes.forEach(b => {
                     optHtml += `<option value="${self.escapeHtml(b.id)}">💵 ${self.escapeHtml(b.name)} ${b.code ? `(${self.escapeHtml(b.code)})` : ''}</option>`;
                 });

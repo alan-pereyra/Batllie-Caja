@@ -8362,4 +8362,98 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     align-items: center;
 }
 
+/* =======================================================
+   Filtros de Historial y Arqueo de Cajas (Estilo 100% Ancho)
+   ======================================================= */
+.caja-reg-filters-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    margin-bottom: 20px !important;
+    box-sizing: border-box !important;
+}
+
+.caja-reg-filters-bar .caja-reg-filter-field {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+    box-sizing: border-box !important;
+}
+
+.caja-reg-filters-bar .caja-select-filter {
+    width: 100% !important;
+    height: 48px !important;
+    background-color: var(--caja-card-bg, #000000) !important;
+    color: var(--caja-text, #ffffff) !important;
+    border: 1px solid var(--caja-card-border, rgba(255, 255, 255, 0.25)) !important;
+    border-radius: 12px !important;
+    padding: 0 40px 0 16px !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 16px center !important;
+    background-size: 14px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.caja-reg-filters-bar .caja-select-filter:focus {
+    border-color: var(--caja-primary, #10b981) !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+    outline: none !important;
+}
+
+.caja-reg-filters-bar .caja-select-filter option {
+    background-color: #0b0f19 !important;
+    color: #ffffff !important;
+    padding: 12px 14px !important;
+    font-size: 0.95rem !important;
+}
+
+.caja-reg-filters-bar input[type="date"].caja-select-filter {
+    background-image: none !important;
+    padding: 0 16px !important;
+    color-scheme: dark;
+}
+
+.caja-reg-custom-dates {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+@media (min-width: 600px) {
+    .caja-reg-custom-dates {
+        flex-direction: row !important;
+    }
+}
+
+.caja-reg-btn-filter {
+    width: 100% !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.caja-reg-btn-filter:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+
 

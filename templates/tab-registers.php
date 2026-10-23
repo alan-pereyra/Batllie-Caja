@@ -144,72 +144,70 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
             </h2>
         </div>
 
-        <!-- Filtros de Auditoría -->
-        <div class="caja-reg-filters-bar" style="background: var(--caja-card-bg, #1e293b); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        <!-- Filtros de Auditoría y Arqueo (Estilo 100% Ancho idéntico a pedidos en vivo) -->
+        <div class="caja-reg-filters-bar">
             <!-- Filtro Caja de Dinero -->
-            <div style="display:flex; flex-direction:column; gap:4px; min-width: 160px; flex: 1;">
-                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Caja de Dinero', 'emp-caja'); ?></label>
-                <select id="caja-reg-filter-money-box" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
-                    <option value="all"><?php _e('Todas las cajas de dinero', 'emp-caja'); ?></option>
+            <div class="caja-reg-filter-field">
+                <select id="caja-reg-filter-money-box" class="caja-select-filter">
+                    <option value="all"><?php _e('💵 Todas las cajas de dinero', 'emp-caja'); ?></option>
                 </select>
             </div>
 
             <!-- Filtro Sector -->
-            <div style="display:flex; flex-direction:column; gap:4px; min-width: 160px; flex: 1;">
-                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Barra / Sector', 'emp-caja'); ?></label>
-                <select id="caja-reg-filter-sector" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
-                    <option value="all"><?php _e('Todos los sectores', 'emp-caja'); ?></option>
+            <div class="caja-reg-filter-field">
+                <select id="caja-reg-filter-sector" class="caja-select-filter">
+                    <option value="all"><?php _e('📍 Todos los sectores / barras', 'emp-caja'); ?></option>
                     <?php foreach ($all_sectors as $s) : ?>
-                        <option value="<?php echo esc_attr($s); ?>"><?php echo esc_html($s); ?></option>
+                        <option value="<?php echo esc_attr($s); ?>"><?php echo esc_html('📍 ' . $s); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
             <!-- Filtro Cajero -->
-            <div style="display:flex; flex-direction:column; gap:4px; min-width: 160px; flex: 1;">
-                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Cajero / Empleado', 'emp-caja'); ?></label>
-                <select id="caja-reg-filter-user" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
-                    <option value="all"><?php _e('Todos los empleados', 'emp-caja'); ?></option>
+            <div class="caja-reg-filter-field">
+                <select id="caja-reg-filter-user" class="caja-select-filter">
+                    <option value="all"><?php _e('👤 Todos los cajeros / empleados', 'emp-caja'); ?></option>
                     <?php foreach ($all_employees as $emp) : ?>
-                        <option value="<?php echo esc_attr($emp['id']); ?>"><?php echo esc_html($emp['name']); ?></option>
+                        <option value="<?php echo esc_attr($emp['id']); ?>"><?php echo esc_html('👤 ' . $emp['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
             <!-- Filtro Estado -->
-            <div style="display:flex; flex-direction:column; gap:4px; min-width: 130px;">
-                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Estado', 'emp-caja'); ?></label>
-                <select id="caja-reg-filter-status" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
-                    <option value="all"><?php _e('Todas', 'emp-caja'); ?></option>
-                    <option value="open">🟢 <?php _e('Abiertas', 'emp-caja'); ?></option>
-                    <option value="closed">🔒 <?php _e('Cerradas', 'emp-caja'); ?></option>
+            <div class="caja-reg-filter-field">
+                <select id="caja-reg-filter-status" class="caja-select-filter">
+                    <option value="all"><?php _e('🔘 Todos los estados (abiertas y cerradas)', 'emp-caja'); ?></option>
+                    <option value="open"><?php _e('🟢 Turnos abiertos', 'emp-caja'); ?></option>
+                    <option value="closed"><?php _e('🔒 Turnos cerrados', 'emp-caja'); ?></option>
                 </select>
             </div>
 
             <!-- Filtro Período -->
-            <div style="display:flex; flex-direction:column; gap:4px; min-width: 140px;">
-                <label style="font-size: 0.75rem; color: var(--caja-text-muted, #94a3b8); text-transform: uppercase; font-weight:600;"><?php _e('Período', 'emp-caja'); ?></label>
-                <select id="caja-reg-filter-preset" class="caja-input" style="padding: 6px 10px; font-size: 0.85rem;">
-                    <option value="today" selected><?php _e('Hoy', 'emp-caja'); ?></option>
-                    <option value="yesterday"><?php _e('Ayer', 'emp-caja'); ?></option>
-                    <option value="week"><?php _e('Últimos 7 días', 'emp-caja'); ?></option>
-                    <option value="all"><?php _e('Histórico completo', 'emp-caja'); ?></option>
-                    <option value="custom"><?php _e('Personalizado', 'emp-caja'); ?></option>
+            <div class="caja-reg-filter-field">
+                <select id="caja-reg-filter-preset" class="caja-select-filter">
+                    <option value="today" selected><?php _e('📅 Período: Hoy', 'emp-caja'); ?></option>
+                    <option value="yesterday"><?php _e('📅 Período: Ayer', 'emp-caja'); ?></option>
+                    <option value="week"><?php _e('📅 Período: Últimos 7 días', 'emp-caja'); ?></option>
+                    <option value="all"><?php _e('📅 Período: Histórico completo', 'emp-caja'); ?></option>
+                    <option value="custom"><?php _e('📅 Período: Personalizado (Rango de fechas)', 'emp-caja'); ?></option>
                 </select>
             </div>
 
             <!-- Rango Fechas Personalizado -->
-            <div id="caja-reg-custom-dates" style="display:none; align-items:center; gap:6px;">
-                <input type="date" id="caja-reg-filter-from" class="caja-input" style="padding: 6px 8px; font-size: 0.8rem;" />
-                <span style="color:var(--caja-text-muted);">-</span>
-                <input type="date" id="caja-reg-filter-to" class="caja-input" style="padding: 6px 8px; font-size: 0.8rem;" />
+            <div id="caja-reg-custom-dates" class="caja-reg-custom-dates" style="display:none;">
+                <div class="caja-reg-filter-field">
+                    <input type="date" id="caja-reg-filter-from" class="caja-select-filter caja-date-filter" title="<?php esc_attr_e('Fecha Desde', 'emp-caja'); ?>" />
+                </div>
+                <div class="caja-reg-filter-field">
+                    <input type="date" id="caja-reg-filter-to" class="caja-select-filter caja-date-filter" title="<?php esc_attr_e('Fecha Hasta', 'emp-caja'); ?>" />
+                </div>
             </div>
 
             <!-- Botón Buscar -->
-            <div style="align-self: flex-end;">
-                <button type="button" class="caja-btn caja-btn-primary" id="caja-reg-btn-apply-filters" style="padding: 7px 16px; font-size: 0.85rem;">
+            <div class="caja-reg-filter-field">
+                <button type="button" class="caja-btn caja-btn-primary caja-reg-btn-filter" id="caja-reg-btn-apply-filters">
                     <span>🔍</span>
-                    <span><?php _e('Filtrar', 'emp-caja'); ?></span>
+                    <span><?php _e('Filtrar Historial', 'emp-caja'); ?></span>
                 </button>
             </div>
         </div>
