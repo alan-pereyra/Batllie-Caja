@@ -103,6 +103,12 @@ class Batllie_Caja_Ajax {
     public static function ajax_get_orders() {
         self::check_auth();
 
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_orders' => true);
+        if (empty($perms['can_view_orders'])) {
+            wp_send_json_success(array('orders' => array(), 'count' => 0));
+            return;
+        }
+
         try {
             $status = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
             $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
@@ -128,6 +134,12 @@ class Batllie_Caja_Ajax {
      */
     public static function ajax_poll_orders() {
         self::check_auth();
+
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_orders' => true);
+        if (empty($perms['can_view_orders'])) {
+            wp_send_json_success(array('new_orders_count' => 0, 'highest_id' => 0, 'orders' => array()));
+            return;
+        }
 
         try {
             $last_seen_id = isset($_POST['last_seen_id']) ? intval($_POST['last_seen_id']) : 0;
@@ -677,13 +689,21 @@ class Batllie_Caja_Ajax {
             $gastro_table  = isset($_POST['gastro_table']) ? sanitize_text_field(wp_unslash($_POST['gastro_table'])) : '';
 
             // Validar restricciones de sector/barra y mesas para cajeros
-            $user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_change_sector' => true, 'is_admin' => true);
+            $user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_change_sector' => true, 'is_admin' => true, 'can_dispatch_orders' => true);
             if (!$user_perms['can_change_sector'] && !$user_perms['is_admin']) {
                 $gastro_table = ''; // Cajeros sin permiso no pueden despachar a mesas
                 $allowed = !empty($user_perms['assigned_sectors']) ? $user_perms['assigned_sectors'] : array();
                 if (!empty($allowed) && !in_array($gastro_sector, $allowed)) {
                     $gastro_sector = $allowed[0];
                 }
+            }
+
+            // Validar restricción: cambio de venta realizada a pedido por despachar
+            if (empty($user_perms['can_dispatch_orders']) && empty($user_perms['is_admin'])) {
+                $mode          = 'compra_realizada';
+                $delivery_type = 'retiro_local';
+                $shipping_cost = 0;
+                $payment_status = 'pagado';
             }
 
             $tip_amount    = isset($_POST['tip_amount']) ? max(0, floatval($_POST['tip_amount'])) : 0;
@@ -1266,6 +1286,12 @@ class Batllie_Caja_Ajax {
      */
     public static function ajax_get_pos_history() {
         self::check_auth();
+
+        $perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions() : array('can_view_orders' => true);
+        if (empty($perms['can_view_orders'])) {
+            wp_send_json_error(array('message' => __('No tienes permisos para ver el historial de ventas.', 'emp-caja')), 403);
+            return;
+        }
 
         $args = array(
             'limit'        => 30,

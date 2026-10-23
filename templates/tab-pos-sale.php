@@ -14,6 +14,10 @@ $pos_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::ge
     'assigned_sectors' => array('Barra Principal', 'Barra VIP', 'Terraza', 'Take Away')
 );
 $can_change_sector = !empty($pos_perms['can_change_sector']) || !empty($pos_perms['is_admin']);
+$can_view_orders   = !empty($pos_perms['can_view_orders']) || !empty($pos_perms['is_admin']);
+$can_view_customer = !empty($pos_perms['can_view_customer_data']) || !empty($pos_perms['is_admin']);
+$can_view_pkg      = !empty($pos_perms['can_view_packaging']) || !empty($pos_perms['is_admin']);
+$can_dispatch      = !empty($pos_perms['can_dispatch_orders']) || !empty($pos_perms['is_admin']);
 $assigned_sectors = !empty($pos_perms['assigned_sectors']) ? $pos_perms['assigned_sectors'] : array('Barra Principal');
 $default_sector = !empty($assigned_sectors[0]) ? $assigned_sectors[0] : 'Barra Principal';
 
@@ -42,11 +46,13 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                     <span id="caja-pos-cart-badge-count" class="caja-pos-cart-badge-count" style="font-size:0.72rem; padding:2px 6px;">0</span>
                 </div>
                 <div class="caja-pos-header-actions" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                    <?php if ($can_view_orders) : ?>
                     <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-open-history-btn" title="<?php esc_attr_e('Ver Historial de Ventas', 'emp-caja'); ?>">
                         <span>📜</span>
                         <span class="caja-btn-txt-responsive"><?php _e('Historial', 'emp-caja'); ?></span>
                         <span id="caja-pos-history-badge-top" class="caja-pos-cart-badge-count" style="display:none; font-size:0.68rem; padding:1px 5px; margin-left:2px;">0</span>
                     </button>
+                    <?php endif; ?>
                     <button type="button" class="caja-pos-btn-ghost-sm" id="caja-pos-clear-cart" title="<?php esc_attr_e('Vaciar selección', 'emp-caja'); ?>">
                         <span>🗑️</span>
                         <span class="caja-btn-txt-responsive"><?php _e('Vaciar', 'emp-caja'); ?></span>
@@ -146,6 +152,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                     <input type="hidden" id="caja-pos-selected-table" value="" />
                 </div>
                 <!-- Selector de Modo de Entrega tipo Switch iOS -->
+            <?php if ($can_dispatch) : ?>
             <div class="caja-pos-switches-group">
                 <div class="caja-pos-switch-row is-active" data-mode="compra_realizada" id="pos-row-compra-realizada">
                     <div class="caja-pos-switch-pill">
@@ -180,6 +187,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                     <input type="hidden" id="caja-pos-selected-delivery" value="con_envio" />
                 </div>
             </div>
+            <?php endif; ?>
             <input type="hidden" id="caja-pos-selected-mode" value="compra_realizada" />
 
             <!-- Métodos de Pago y Estado de Cobro -->
@@ -245,6 +253,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
             </div>
 
             <!-- Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección) -->
+            <?php if ($can_view_customer) : ?>
             <div class="caja-pos-customer-subgroup" id="caja-pos-customer-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
                 <!-- Cabecera colapsable: Título y Badge alineados a la izquierda en la misma línea con base de texto coincidente -->
                 <div class="caja-pos-customer-header" id="caja-pos-customer-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; width: 100%;">
@@ -419,8 +428,10 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Empaque y Bolsas Utilizadas (Sección colapsable opcional) -->
+            <?php if ($can_view_pkg) : ?>
             <div class="caja-pos-packaging-subgroup" id="caja-pos-packaging-subgroup" style="margin-bottom: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--caja-card-border, #334155); border-radius: 8px; padding: 12px; transition: border-color 0.2s ease;">
                 <!-- Cabecera colapsable: Título y Badge alineados a la izquierda -->
                 <div class="caja-pos-packaging-header" id="caja-pos-packaging-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; width: 100%;">
@@ -470,6 +481,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <!-- Campo de Nota de la Venta -->
             <div class="caja-pos-note-group">

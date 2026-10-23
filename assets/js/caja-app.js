@@ -1798,8 +1798,11 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.updateSoundUI(this.config.soundEnabled);
             }
 
-            this.loadOrders(true);
-            this.startPolling();
+            const perms = this.config.currentUserPermissions || {};
+            if (perms.is_admin || perms.can_view_orders !== false) {
+                this.loadOrders(true);
+                this.startPolling();
+            }
         },
 
         updateSoundUI: function(enabled) {
@@ -2036,6 +2039,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
         startPolling: function() {
             const self = this;
+            const perms = self.config.currentUserPermissions || {};
+            if (!perms.is_admin && perms.can_view_orders === false) {
+                return;
+            }
             const interval = self.config.pollInterval || 10000;
 
             if (self.pollTimer) clearInterval(self.pollTimer);
@@ -6360,9 +6367,15 @@ $('#caja-modal-new-product').fadeIn(200);
 
             // Conmutador Modo de Orden estilo Switch iOS (Compra Realizada vs Pedido por Despachar)
             $(document).on('click', '.caja-pos-switch-row', function() {
+                const mode = $(this).data('mode');
+                const perms = self.config.currentUserPermissions || {};
+                if (mode === 'pedido_despachar' && !perms.is_admin && !perms.can_dispatch_orders) {
+                    self.showToast('No tienes permisos para registrar pedidos por despachar.', 'warning');
+                    return false;
+                }
+
                 $('.caja-pos-switch-row').removeClass('is-active');
                 $(this).addClass('is-active');
-                const mode = $(this).data('mode');
                 $('#caja-pos-selected-mode').val(mode);
 
                 const $btn = $('#caja-pos-checkout-btn');
@@ -6931,6 +6944,11 @@ $('#caja-modal-new-product').fadeIn(200);
             // Abrir Modal de Historial de Ventas POS
             $(document).on('click', '#caja-pos-open-history-btn', function(e) {
                 e.preventDefault();
+                const perms = self.config.currentUserPermissions || {};
+                if (!perms.is_admin && perms.can_view_orders === false) {
+                    self.showToast('No tienes permisos para ver el historial de pedidos.', 'warning');
+                    return;
+                }
                 $('#caja-modal-pos-history').fadeIn(150);
                 $('body').addClass('caja-modal-locked');
                 self.loadPosHistory();
@@ -7768,6 +7786,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
         updatePosCustomerRequirements: function() {
             const self = this;
+            if (!$('#caja-pos-customer-subgroup').length) return;
             const mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
             const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             const threshold = parseFloat((self.config && self.config.posCustomerThreshold) || 0);
@@ -8003,6 +8022,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 return;
             }
 
+            const perms = self.config.currentUserPermissions || {};
             const deliveryType = $('#caja-pos-selected-delivery').val() || 'con_envio';
             let mode = $('#caja-pos-selected-mode').val() || 'compra_realizada';
             const isShipDiffCheck = $('#caja-pos-ship-diff-checkbox').is(':checked');
@@ -8010,6 +8030,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const hasShipAddr = Boolean($.trim($('#caja-pos-ship-address').val() || ''));
             if ((parseFloat(self.currentPosShippingCost) || 0) > 0 || (deliveryType === 'con_envio' && (isShipDiffCheck ? hasShipAddr : hasCustAddr))) {
                 mode = 'pedido_despachar';
+            }
+            if (!perms.is_admin && !perms.can_dispatch_orders) {
+                mode = 'compra_realizada';
             }
             const paymentMethod = $('#caja-pos-selected-pay').val() || 'efectivo';
             const paymentStatus = (mode === 'compra_realizada') ? 'pagado' : ($('#caja-pos-selected-status').val() || 'pagado');
@@ -8031,12 +8054,13 @@ $('#caja-modal-new-product').fadeIn(200);
             const shipAddress = $.trim($('#caja-pos-ship-address').val() || '');
 
             // Validación de obligatoriedad de datos del cliente
+            const canViewCustomer = (perms.is_admin || perms.can_view_customer_data !== false);
             const isConEnvio = (mode === 'pedido_despachar' && deliveryType === 'con_envio');
             const threshold = parseFloat((self.config && self.config.posCustomerThreshold) || 0);
             const total = self.currentPosTotal || 0;
-            const isThresholdMet = (threshold > 0 && total >= threshold);
+            const isThresholdMet = (canViewCustomer && threshold > 0 && total >= threshold);
 
-            if (isConEnvio) {
+            if (isConEnvio && canViewCustomer) {
                 let missing = [];
                 if (!custName) missing.push('Nombre y Apellido del Cliente');
                 if (!custDni) missing.push('DNI / CUIT del Cliente');
@@ -8593,6 +8617,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
         loadPosHistory: function() {
             const self = this;
+            const perms = self.config.currentUserPermissions || {};
+            if (!perms.is_admin && perms.can_view_orders === false) {
+                return;
+            }
             const $body = $('#caja-pos-history-body');
             const $count = $('#caja-pos-history-count');
             if (!$body.length) return;
@@ -8910,10 +8938,19 @@ $('#caja-modal-new-product').fadeIn(200);
                             ${emp.can_view_products ? '✓' : '✗'} Productos (${emp.can_view_products ? 'Habilitado' : 'Solo Venta Caja'})
                         </span>
                         <span class="caja-emp-perm-pill ${emp.can_view_orders ? 'is-yes' : 'is-no'}">
-                            ${emp.can_view_orders ? '✓' : '✗'} Pedidos en Vivo
+                            ${emp.can_view_orders ? '✓' : '✗'} Pedidos en Vivo / Historial
                         </span>
                         <span class="caja-emp-perm-pill ${emp.can_change_sector ? 'is-yes' : 'is-no'}">
                             ${emp.can_change_sector ? '✓' : '✗'} Cambiar Mesas/Barras
+                        </span>
+                        <span class="caja-emp-perm-pill ${emp.can_view_customer_data ? 'is-yes' : 'is-no'}">
+                            ${emp.can_view_customer_data ? '✓' : '✗'} Datos de Clientes
+                        </span>
+                        <span class="caja-emp-perm-pill ${emp.can_view_packaging ? 'is-yes' : 'is-no'}">
+                            ${emp.can_view_packaging ? '✓' : '✗'} Empaque y Bolsas
+                        </span>
+                        <span class="caja-emp-perm-pill ${emp.can_dispatch_orders ? 'is-yes' : 'is-no'}">
+                            ${emp.can_dispatch_orders ? '✓' : '✗'} Pedido por Despachar
                         </span>
                     </div>
                 `;
@@ -9004,6 +9041,9 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-emp-can-view-products').prop('checked', !!emp.can_view_products);
                 $('#caja-emp-can-view-orders').prop('checked', !!emp.can_view_orders);
                 $('#caja-emp-can-change-sector').prop('checked', !!emp.can_change_sector);
+                $('#caja-emp-can-view-customer-data').prop('checked', !!emp.can_view_customer_data);
+                $('#caja-emp-can-view-packaging').prop('checked', !!emp.can_view_packaging);
+                $('#caja-emp-can-dispatch-orders').prop('checked', !!emp.can_dispatch_orders);
                 $('#caja-emp-status').prop('checked', emp.status !== 'disabled');
             } else {
                 // Modo Nuevo Empleado
@@ -9023,10 +9063,13 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('#caja-emp-sectors-checklist input[type="checkbox"]').prop('checked', false);
                 $('#caja-emp-sectors-checklist input[type="checkbox"]').first().prop('checked', true);
 
-                // Permisos defaults para cajero: productos OFF (solo venta caja), pedidos ON, mesas OFF
+                // Permisos defaults para cajero: productos OFF (solo venta caja), pedidos ON, mesas OFF, cliente OFF, empaque OFF, despachar OFF
                 $('#caja-emp-can-view-products').prop('checked', false);
                 $('#caja-emp-can-view-orders').prop('checked', true);
                 $('#caja-emp-can-change-sector').prop('checked', false);
+                $('#caja-emp-can-view-customer-data').prop('checked', false);
+                $('#caja-emp-can-view-packaging').prop('checked', false);
+                $('#caja-emp-can-dispatch-orders').prop('checked', false);
                 $('#caja-emp-status').prop('checked', true);
             }
 
@@ -9059,6 +9102,9 @@ $('#caja-modal-new-product').fadeIn(200);
             const canViewProducts = $('#caja-emp-can-view-products').is(':checked') ? '1' : '0';
             const canViewOrders = $('#caja-emp-can-view-orders').is(':checked') ? '1' : '0';
             const canChangeSector = $('#caja-emp-can-change-sector').is(':checked') ? '1' : '0';
+            const canViewCustomerData = $('#caja-emp-can-view-customer-data').is(':checked') ? '1' : '0';
+            const canViewPackaging = $('#caja-emp-can-view-packaging').is(':checked') ? '1' : '0';
+            const canDispatchOrders = $('#caja-emp-can-dispatch-orders').is(':checked') ? '1' : '0';
             const status = $('#caja-emp-status').is(':checked') ? 'active' : 'disabled';
 
             $btn.prop('disabled', true);
@@ -9082,6 +9128,9 @@ $('#caja-modal-new-product').fadeIn(200);
                         can_view_products: canViewProducts,
                         can_view_orders: canViewOrders,
                         can_change_sector: canChangeSector,
+                        can_view_customer_data: canViewCustomerData,
+                        can_view_packaging: canViewPackaging,
+                        can_dispatch_orders: canDispatchOrders,
                         status: status
                     }
                 },

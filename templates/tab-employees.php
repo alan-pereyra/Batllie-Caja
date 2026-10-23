@@ -283,7 +283,43 @@ $all_sectors = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::
                             </label>
                         </div>
 
-                        <!-- Permiso D: Estado de la Cuenta -->
+                        <!-- Permiso D: Ver y Cargar Datos del Cliente en Venta Caja -->
+                        <div class="caja-emp-perm-row">
+                            <div class="caja-emp-perm-info">
+                                <strong><?php _e('¿Puede ver y cargar datos del cliente en Venta Caja?', 'emp-caja'); ?></strong>
+                                <p><?php _e('Si se desactiva, se oculta la sección de datos del cliente (nombre, teléfono, DNI, dirección) para agilizar el cobro en barra.', 'emp-caja'); ?></p>
+                            </div>
+                            <label class="caja-switch-ios">
+                                <input type="checkbox" id="caja-emp-can-view-customer-data" />
+                                <span class="caja-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Permiso E: Ver Sección de Empaque y Bolsas en Venta Caja -->
+                        <div class="caja-emp-perm-row">
+                            <div class="caja-emp-perm-info">
+                                <strong><?php _e('¿Puede ver sección de empaque y bolsas en Venta Caja?', 'emp-caja'); ?></strong>
+                                <p><?php _e('Si se desactiva, se oculta la sección de empaque y selección de bolsas.', 'emp-caja'); ?></p>
+                            </div>
+                            <label class="caja-switch-ios">
+                                <input type="checkbox" id="caja-emp-can-view-packaging" />
+                                <span class="caja-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Permiso F: Cambiar a Pedido por Despachar -->
+                        <div class="caja-emp-perm-row">
+                            <div class="caja-emp-perm-info">
+                                <strong><?php _e('¿Puede cambiar de venta realizada a pedido por despachar?', 'emp-caja'); ?></strong>
+                                <p><?php _e('Si se desactiva, el cajero solo podrá cobrar ventas en modo Compra Realizada (entregada en el acto), sin acceso a despachos ni envíos.', 'emp-caja'); ?></p>
+                            </div>
+                            <label class="caja-switch-ios">
+                                <input type="checkbox" id="caja-emp-can-dispatch-orders" />
+                                <span class="caja-switch-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Permiso G: Estado de la Cuenta -->
                         <div class="caja-emp-perm-row" style="border-top: 1px dashed var(--caja-card-border, #334155); margin-top:8px; padding-top:14px;">
                             <div class="caja-emp-perm-info">
                                 <strong><?php _e('Estado de la cuenta (Habilitado)', 'emp-caja'); ?></strong>

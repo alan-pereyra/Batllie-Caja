@@ -62,28 +62,34 @@ class Batllie_Caja_Employees {
 
         if (!$user_id) {
             return array(
-                'is_admin'          => false,
-                'role'              => 'guest',
-                'role_name'         => __('Invitado', 'emp-caja'),
-                'assigned_sectors'  => array(),
-                'can_view_products' => false,
-                'can_view_orders'   => false,
-                'can_change_sector' => false,
-                'status'            => 'disabled',
+                'is_admin'                => false,
+                'role'                    => 'guest',
+                'role_name'               => __('Invitado', 'emp-caja'),
+                'assigned_sectors'        => array(),
+                'can_view_products'       => false,
+                'can_view_orders'         => false,
+                'can_change_sector'       => false,
+                'can_view_customer_data'  => false,
+                'can_view_packaging'      => false,
+                'can_dispatch_orders'     => false,
+                'status'                  => 'disabled',
             );
         }
 
         $user = get_userdata($user_id);
         if (!$user) {
             return array(
-                'is_admin'          => false,
-                'role'              => 'guest',
-                'role_name'         => __('Desconocido', 'emp-caja'),
-                'assigned_sectors'  => array(),
-                'can_view_products' => false,
-                'can_view_orders'   => false,
-                'can_change_sector' => false,
-                'status'            => 'disabled',
+                'is_admin'                => false,
+                'role'                    => 'guest',
+                'role_name'               => __('Desconocido', 'emp-caja'),
+                'assigned_sectors'        => array(),
+                'can_view_products'       => false,
+                'can_view_orders'         => false,
+                'can_change_sector'       => false,
+                'can_view_customer_data'  => false,
+                'can_view_packaging'      => false,
+                'can_dispatch_orders'     => false,
+                'status'                  => 'disabled',
             );
         }
 
@@ -91,14 +97,17 @@ class Batllie_Caja_Employees {
 
         if ($is_admin) {
             return array(
-                'is_admin'          => true,
-                'role'              => 'administrator',
-                'role_name'         => __('Administrador', 'emp-caja'),
-                'assigned_sectors'  => self::get_available_sectors(),
-                'can_view_products' => true,
-                'can_view_orders'   => true,
-                'can_change_sector' => true,
-                'status'            => 'active',
+                'is_admin'                => true,
+                'role'                    => 'administrator',
+                'role_name'               => __('Administrador', 'emp-caja'),
+                'assigned_sectors'        => self::get_available_sectors(),
+                'can_view_products'       => true,
+                'can_view_orders'         => true,
+                'can_change_sector'       => true,
+                'can_view_customer_data'  => true,
+                'can_view_packaging'      => true,
+                'can_dispatch_orders'     => true,
+                'status'                  => 'active',
             );
         }
 
@@ -138,20 +147,35 @@ class Batllie_Caja_Employees {
         // Por defecto solo administradores pueden cambiar entre mesas y barras
         $can_change_sector = ($can_change_sector_meta === '1' || $can_change_sector_meta === true);
 
+        // Datos del cliente en Venta Caja (Por defecto desactivado para cajero si no está explícito)
+        $can_view_customer_data_meta = get_user_meta($user_id, '_caja_can_view_customer_data', true);
+        $can_view_customer_data = ($can_view_customer_data_meta === '1' || $can_view_customer_data_meta === true || $can_view_customer_data_meta === 'yes');
+
+        // Empaque y bolsas en Venta Caja (Por defecto desactivado para cajero si no está explícito)
+        $can_view_packaging_meta = get_user_meta($user_id, '_caja_can_view_packaging', true);
+        $can_view_packaging = ($can_view_packaging_meta === '1' || $can_view_packaging_meta === true || $can_view_packaging_meta === 'yes');
+
+        // Cambiar a Pedido por Despachar (Por defecto desactivado para cajero; solo compra realizada)
+        $can_dispatch_orders_meta = get_user_meta($user_id, '_caja_can_dispatch_orders', true);
+        $can_dispatch_orders = ($can_dispatch_orders_meta === '1' || $can_dispatch_orders_meta === true || $can_dispatch_orders_meta === 'yes');
+
         $status = get_user_meta($user_id, '_caja_status', true);
         if (empty($status)) {
             $status = 'active';
         }
 
         return array(
-            'is_admin'          => false,
-            'role'              => $primary_role,
-            'role_name'         => $role_name,
-            'assigned_sectors'  => array_values($assigned_sectors),
-            'can_view_products' => $can_view_products,
-            'can_view_orders'   => $can_view_orders,
-            'can_change_sector' => $can_change_sector,
-            'status'            => ($status === 'disabled') ? 'disabled' : 'active',
+            'is_admin'                => false,
+            'role'                    => $primary_role,
+            'role_name'               => $role_name,
+            'assigned_sectors'        => array_values($assigned_sectors),
+            'can_view_products'       => $can_view_products,
+            'can_view_orders'         => $can_view_orders,
+            'can_change_sector'       => $can_change_sector,
+            'can_view_customer_data'  => $can_view_customer_data,
+            'can_view_packaging'      => $can_view_packaging,
+            'can_dispatch_orders'     => $can_dispatch_orders,
+            'status'                  => ($status === 'disabled') ? 'disabled' : 'active',
         );
     }
 
@@ -183,20 +207,23 @@ class Batllie_Caja_Employees {
             $perms = self::get_user_permissions($user_id);
 
             $employees[] = array(
-                'id'                => $user_id,
-                'username'          => $user->user_login,
-                'name'              => !empty($user->display_name) ? $user->display_name : $user->user_login,
-                'email'             => $user->user_email,
-                'role'              => $perms['role'],
-                'role_name'         => $perms['role_name'],
-                'is_admin'          => $perms['is_admin'],
-                'assigned_sectors'  => $perms['assigned_sectors'],
-                'can_view_products' => $perms['can_view_products'],
-                'can_view_orders'   => $perms['can_view_orders'],
-                'can_change_sector' => $perms['can_change_sector'],
-                'status'            => $perms['status'],
-                'is_current_user'   => ($user_id === $current_user_id),
-                'registered'        => date_i18n('d/m/Y', strtotime($user->user_registered)),
+                'id'                      => $user_id,
+                'username'                => $user->user_login,
+                'name'                    => !empty($user->display_name) ? $user->display_name : $user->user_login,
+                'email'                   => $user->user_email,
+                'role'                    => $perms['role'],
+                'role_name'               => $perms['role_name'],
+                'is_admin'                => $perms['is_admin'],
+                'assigned_sectors'        => $perms['assigned_sectors'],
+                'can_view_products'       => $perms['can_view_products'],
+                'can_view_orders'         => $perms['can_view_orders'],
+                'can_change_sector'       => $perms['can_change_sector'],
+                'can_view_customer_data'  => $perms['can_view_customer_data'],
+                'can_view_packaging'      => $perms['can_view_packaging'],
+                'can_dispatch_orders'     => $perms['can_dispatch_orders'],
+                'status'                  => $perms['status'],
+                'is_current_user'         => ($user_id === $current_user_id),
+                'registered'              => date_i18n('d/m/Y', strtotime($user->user_registered)),
             );
         }
 
@@ -235,6 +262,9 @@ class Batllie_Caja_Employees {
         $can_view_products = (!empty($data['can_view_products']) && ($data['can_view_products'] === '1' || $data['can_view_products'] === true || $data['can_view_products'] === 'true')) ? '1' : '0';
         $can_view_orders = (!empty($data['can_view_orders']) && ($data['can_view_orders'] === '1' || $data['can_view_orders'] === true || $data['can_view_orders'] === 'true')) ? '1' : '0';
         $can_change_sector = (!empty($data['can_change_sector']) && ($data['can_change_sector'] === '1' || $data['can_change_sector'] === true || $data['can_change_sector'] === 'true')) ? '1' : '0';
+        $can_view_customer_data = (!empty($data['can_view_customer_data']) && ($data['can_view_customer_data'] === '1' || $data['can_view_customer_data'] === true || $data['can_view_customer_data'] === 'true')) ? '1' : '0';
+        $can_view_packaging = (!empty($data['can_view_packaging']) && ($data['can_view_packaging'] === '1' || $data['can_view_packaging'] === true || $data['can_view_packaging'] === 'true')) ? '1' : '0';
+        $can_dispatch_orders = (!empty($data['can_dispatch_orders']) && ($data['can_dispatch_orders'] === '1' || $data['can_dispatch_orders'] === true || $data['can_dispatch_orders'] === 'true')) ? '1' : '0';
 
         if ($user_id > 0) {
             // Actualización de empleado existente
@@ -307,6 +337,9 @@ class Batllie_Caja_Employees {
         update_user_meta($user_id, '_caja_can_view_products', $can_view_products);
         update_user_meta($user_id, '_caja_can_view_orders', $can_view_orders);
         update_user_meta($user_id, '_caja_can_change_sector', $can_change_sector);
+        update_user_meta($user_id, '_caja_can_view_customer_data', $can_view_customer_data);
+        update_user_meta($user_id, '_caja_can_view_packaging', $can_view_packaging);
+        update_user_meta($user_id, '_caja_can_dispatch_orders', $can_dispatch_orders);
         update_user_meta($user_id, '_caja_status', $status);
 
         return self::get_user_permissions($user_id);
