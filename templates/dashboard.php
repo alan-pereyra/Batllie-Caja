@@ -35,9 +35,9 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
             <!-- Desplegable Rápido de Pantallas: En Vivo / Productos / Configuración General -->
             <div class="caja-screen-switcher-wrap" id="caja-screen-switcher-wrap" title="<?php esc_attr_e('Seleccionar pantalla', 'emp-caja'); ?>">
                 <span class="caja-pulse-dot" id="caja-screen-dot"></span>
-                <select id="caja-screen-select" class="caja-screen-select" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
+                <select id="caja-screen-select" class="caja-screen-select" onchange="if(window.BatllieCajaApp&&window.BatllieCajaApp.switchTab){window.BatllieCajaApp.switchTab(this.value);}" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
                     <?php if ($can_view_orders): ?>
-                    <option value="tab-orders">🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
+                    <option value="tab-orders" <?php echo ($default_active_tab === 'tab-orders') ? 'selected' : ''; ?>>🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
                     <?php endif; ?>
                     <?php if ($can_view_products): ?>
                     <option value="tab-products">📦 <?php _e('Productos', 'emp-caja'); ?></option>
@@ -58,7 +58,7 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
         </div>
 
         <!-- Pestañas Principales -->
-        <nav class="caja-nav-tabs">
+        <nav class="caja-nav-tabs batllie-caja-nav">
             <?php if ($can_view_orders): ?>
             <button class="caja-tab-btn <?php echo ($default_active_tab === 'tab-orders') ? 'active' : ''; ?>" data-tab="tab-orders" id="caja-tab-nav-orders">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

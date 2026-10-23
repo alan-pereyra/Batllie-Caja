@@ -166,7 +166,13 @@
             });
 
             // Selector desplegable rápido de pantallas en cabecera
-            $(document).on('change', '#caja-screen-select', function() {
+            $('#caja-screen-select').on('change input', function() {
+                const target = $(this).val();
+                if (target) {
+                    self.switchTab(target);
+                }
+            });
+            $(document).on('change input', '#caja-screen-select', function() {
                 const target = $(this).val();
                 if (target) {
                     self.switchTab(target);
@@ -2021,8 +2027,8 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-tab-btn').removeClass('active');
             $(`.caja-tab-btn[data-tab="${tabId}"]`).addClass('active');
 
-            $('.caja-tab-panel').hide();
-            $(`#${tabId}`).fadeIn(150);
+            $('.caja-tab-panel').removeClass('active').css('display', 'none');
+            $(`#${tabId}`).addClass('active').css('display', 'block');
             this.activeTab = tabId;
 
             if (tabId === 'tab-registers') {
