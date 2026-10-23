@@ -6434,7 +6434,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 return `
                     <div class="caja-pos-prod-card ${totalQtyInCart > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''} ${isVariable ? 'is-variable-row' : ''}" data-id="${p.id}">
                         <div class="caja-pos-prod-card-thumb">
-                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" onerror="this.parentElement.innerHTML='<span class=\"caja-pos-fallback-icon\">🍸</span>';" />` : '<span class="caja-pos-fallback-icon">🍸</span>'}
+                            ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='';" /><span class="caja-pos-fallback-icon" style="display:none;">🍸</span>` : '<span class="caja-pos-fallback-icon">🍸</span>'}
                             ${stockBadge ? `<div class="caja-pos-card-stock-pill">${stockBadge}</div>` : ''}
                         </div>
                         <div class="caja-pos-prod-card-body">
@@ -6451,7 +6451,7 @@ $('#caja-modal-new-product').fadeIn(200);
             return `
                 <div class="caja-pos-prod-row ${totalQtyInCart > 0 ? 'has-selected' : ''} ${isOutOfStock ? 'is-out-of-stock' : ''} ${isVariable ? 'is-variable-row' : ''}" data-id="${p.id}">
                     <div class="caja-pos-prod-thumb">
-                        ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" onerror="this.parentElement.innerHTML='📦';" />` : '📦'}
+                        ${imgSrc ? `<img src="${imgSrc}" alt="${self.escapeHtml(p.name)}" style="width:100%; height:100%; object-fit:cover; border-radius:8px;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='';" /><span style="display:none;">📦</span>` : '📦'}
                     </div>
                     <div class="caja-pos-prod-details">
                         <div class="caja-pos-prod-title" title="${self.escapeHtml(p.name)}">${self.escapeHtml(p.name)}</div>
