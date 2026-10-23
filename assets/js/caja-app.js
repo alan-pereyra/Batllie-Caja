@@ -7957,8 +7957,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
         updatePosProductRowState: function(prodId) {
             const self = this;
-            const $row = $(`.caja-pos-prod-row[data-id="${prodId}"]`);
-            if (!$row.length) return;
+            const $row = $(`.caja-pos-prod-row[data-id="${prodId}"], .caja-pos-prod-card[data-id="${prodId}"]`);
 
             let totalQty = 0;
             self.posCart.forEach(i => {
@@ -7967,30 +7966,32 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
-            const isVariable = $row.hasClass('is-variable-row');
-            if (isVariable) {
-                const $trigger = $row.find('.caja-pos-btn-var-trigger');
-                if (totalQty > 0) {
-                    $row.addClass('has-selected');
-                    $trigger.addClass('has-items').html(`
-                        <span class="caja-pos-var-count">${totalQty}</span>
-                        <span class="caja-pos-var-label">Opciones ▾</span>
-                    `);
+            if ($row.length) {
+                const isVariable = $row.hasClass('is-variable-row');
+                if (isVariable) {
+                    const $trigger = $row.find('.caja-pos-btn-var-trigger');
+                    if (totalQty > 0) {
+                        $row.addClass('has-selected');
+                        $trigger.addClass('has-items').html(`
+                            <span class="caja-pos-var-count">${totalQty}</span>
+                            <span class="caja-pos-var-label">Opciones ▾</span>
+                        `);
+                    } else {
+                        $row.removeClass('has-selected');
+                        $trigger.removeClass('has-items').html(`
+                            <span class="caja-pos-var-label">Elegir ▾</span>
+                        `);
+                    }
                 } else {
-                    $row.removeClass('has-selected');
-                    $trigger.removeClass('has-items').html(`
-                        <span class="caja-pos-var-label">Elegir ▾</span>
-                    `);
-                }
-            } else {
-                $row.find(`.caja-pos-qty-val[data-id="${prodId}"]`).text(totalQty);
-                const $minusBtn = $row.find(`.caja-pos-btn-qty.btn-minus[data-id="${prodId}"]`);
-                if (totalQty === 0) {
-                    $minusBtn.prop('disabled', true);
-                    $row.removeClass('has-selected');
-                } else {
-                    $minusBtn.prop('disabled', false);
-                    $row.addClass('has-selected');
+                    $row.find(`.caja-pos-qty-val[data-id="${prodId}"]`).text(totalQty);
+                    const $minusBtn = $row.find(`.caja-pos-btn-qty.btn-minus[data-id="${prodId}"]`);
+                    if (totalQty === 0) {
+                        $minusBtn.prop('disabled', true);
+                        $row.removeClass('has-selected');
+                    } else {
+                        $minusBtn.prop('disabled', false);
+                        $row.addClass('has-selected');
+                    }
                 }
             }
 
@@ -8327,7 +8328,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 const $badge = $(this).find('.caja-pos-cat-badge-qty');
                 let catTotal = 0;
 
-                $(this).find('.caja-pos-prod-row').each(function() {
+                $(this).find('.caja-pos-prod-row, .caja-pos-prod-card').each(function() {
                     const pId = $(this).data('id');
                     let pTotal = 0;
                     self.posCart.forEach(i => {
@@ -8462,7 +8463,7 @@ $('#caja-modal-new-product').fadeIn(200);
             $('.caja-pos-qty-val').text('0');
             $('.caja-pos-btn-qty.btn-minus').prop('disabled', true);
             $('.caja-pos-btn-var-trigger').removeClass('has-items').html('<span class="caja-pos-var-label">Elegir ▾</span>');
-            $('.caja-pos-prod-row').removeClass('has-selected');
+            $('.caja-pos-prod-row, .caja-pos-prod-card').removeClass('has-selected');
             $('.caja-pos-cat-badge-qty').text('0').hide();
             // Reset de opciones de despacho
             $('.caja-pos-dispatch-chip').removeClass('active');
