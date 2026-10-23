@@ -3036,7 +3036,10 @@ $('#caja-modal-new-product').fadeIn(200);
                 let cleanCustomerName = order.customer_name || '';
                 if (isVentaMostrador) {
                     cleanCustomerName = cleanCustomerName.replace(/Venta\s+Mostrador/gi, '').trim();
-                    if (!cleanCustomerName) cleanCustomerName = 'Cliente mostrador';
+                }
+                const lowerCust = cleanCustomerName.toLowerCase().trim();
+                if (!cleanCustomerName || lowerCust === 'cliente mostrador' || lowerCust.includes('cliente mostrador') || lowerCust === 'cliente' || lowerCust === 'mostrador' || lowerCust.includes('anónimo') || lowerCust.includes('anonimo')) {
+                    cleanCustomerName = 'Consumidor Final';
                 }
 
                 html += `
@@ -8716,7 +8719,10 @@ $('#caja-modal-new-product').fadeIn(200);
             const dateStr = order.time_formatted || order.date_created || now.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
             // Cliente
-            const customerName = order.customer_name || 'Cliente Mostrador';
+            let customerName = order.customer_name || 'Consumidor Final';
+            if (customerName.toLowerCase().includes('mostrador') || customerName.toLowerCase().includes('anónimo') || customerName.toLowerCase().includes('anonimo')) {
+                customerName = 'Consumidor Final';
+            }
             const customerNote = order.customer_note || order.note || '';
 
             // Items
@@ -8899,7 +8905,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <span>Ticket: #${orderNum}</span>
                                 <span>${dateStr}</span>
                             </div>
-                            ${customerName && customerName !== 'Cliente Mostrador' ? `
+                            ${customerName ? `
                                 <div style="font-size: 11px; text-align: left; margin-top: 3px;">
                                     Cliente: <strong>${self.escapeHtml(customerName)}</strong>
                                 </div>

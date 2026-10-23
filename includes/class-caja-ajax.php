@@ -880,8 +880,8 @@ class Batllie_Caja_Ajax {
                 $order->set_billing_first_name($name_parts[0]);
                 $order->set_billing_last_name(isset($name_parts[1]) ? $name_parts[1] : '');
             } else {
-                $order->set_billing_first_name(__('Cliente', 'emp-caja'));
-                $order->set_billing_last_name(__('Mostrador', 'emp-caja'));
+                $order->set_billing_first_name(__('Consumidor', 'emp-caja'));
+                $order->set_billing_last_name(__('Final', 'emp-caja'));
             }
 
             if (!empty($cust_phone)) {
@@ -1608,7 +1608,7 @@ class Batllie_Caja_Ajax {
 
             $postcode   = (string) (get_user_meta($uid, 'shipping_postcode', true) ?: get_user_meta($uid, 'billing_postcode', true));
 
-            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false) {
+            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false || stripos($full_name, 'Cliente Mostrador') !== false || stripos($full_name, 'Consumidor Final') !== false) {
                 continue;
             }
 
@@ -1664,7 +1664,7 @@ class Batllie_Caja_Ajax {
             $last_name  = $order->get_billing_last_name();
             $full_name  = trim($first_name . ' ' . $last_name);
 
-            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false || stripos($full_name, 'Cliente Mostrador') !== false) {
+            if (empty($full_name) || $full_name === 'Administrador' || stripos($full_name, 'Venta Mostrador') !== false || stripos($full_name, 'Cliente Mostrador') !== false || stripos($full_name, 'Consumidor Final') !== false) {
                 continue;
             }
 

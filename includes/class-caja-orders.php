@@ -1583,14 +1583,14 @@ class Batllie_Caja_Orders {
         );
 
         if ($is_venta_mostrador) {
-            $customer_name = trim(str_ireplace('Venta Mostrador', '', $first_name . ' ' . $last_name));
-            if (empty($customer_name) || $customer_name === 'Administrador') {
-                $customer_name = __('Cliente mostrador', 'emp-caja');
+            $customer_name = trim(str_ireplace(array('Venta Mostrador', 'Cliente Mostrador'), '', $first_name . ' ' . $last_name));
+            if (empty($customer_name) || $customer_name === 'Administrador' || stripos($customer_name, 'mostrador') !== false) {
+                $customer_name = __('Consumidor Final', 'emp-caja');
             }
         } else {
             $customer_name = trim($first_name . ' ' . $last_name);
-            if (empty($customer_name)) {
-                $customer_name = __('Cliente mostrador / Anónimo', 'emp-caja');
+            if (empty($customer_name) || stripos($customer_name, 'Cliente Mostrador') !== false || stripos($customer_name, 'mostrador') !== false) {
+                $customer_name = __('Consumidor Final', 'emp-caja');
             }
         }
 
@@ -1610,7 +1610,7 @@ class Batllie_Caja_Orders {
             $raw_addr = $order->get_formatted_shipping_address() ? $order->get_formatted_shipping_address() : $order->get_formatted_billing_address();
             $clean_address = trim(strip_tags(str_replace('<br/>', ', ', $raw_addr)));
         }
-        if ($clean_address === $customer_name || $clean_address === trim($first_name . ' ' . $last_name) || stripos($clean_address, 'Venta Mostrador') !== false) {
+        if ($clean_address === $customer_name || $clean_address === trim($first_name . ' ' . $last_name) || stripos($clean_address, 'Venta Mostrador') !== false || stripos($clean_address, 'Consumidor Final') !== false || stripos($clean_address, 'Cliente Mostrador') !== false) {
             $clean_address = '';
         }
 
