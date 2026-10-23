@@ -55,8 +55,16 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
         <div class="caja-emp-stat-card">
             <div class="caja-emp-stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">💳</div>
             <div class="caja-emp-stat-info">
-                <span class="caja-emp-stat-value" id="caja-reg-stat-digital">$0,00</span>
-                <span class="caja-emp-stat-label"><?php _e('Cobros Tarjeta / Digitales', 'emp-caja'); ?></span>
+                <span class="caja-emp-stat-value" id="caja-reg-stat-card">$0,00</span>
+                <span class="caja-emp-stat-label"><?php _e('Cobros Tarjeta', 'emp-caja'); ?></span>
+            </div>
+        </div>
+
+        <div class="caja-emp-stat-card">
+            <div class="caja-emp-stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">📱</div>
+            <div class="caja-emp-stat-info">
+                <span class="caja-emp-stat-value" id="caja-reg-stat-transfer">$0,00</span>
+                <span class="caja-emp-stat-label"><?php _e('Cobros Transferencia', 'emp-caja'); ?></span>
             </div>
         </div>
 

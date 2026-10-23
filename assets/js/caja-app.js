@@ -10831,6 +10831,8 @@ $('#caja-modal-new-product').fadeIn(200);
             if (!m) return;
             $('#caja-reg-stat-open').text(m.active_open_count || 0);
             $('#caja-reg-stat-cash').text('$' + this.formatCurrencyNumber(m.sum_cash_in_registers || 0));
+            $('#caja-reg-stat-card').text('$' + this.formatCurrencyNumber(m.sum_card_sales || 0));
+            $('#caja-reg-stat-transfer').text('$' + this.formatCurrencyNumber(m.sum_transfer_sales || 0));
             $('#caja-reg-stat-digital').text('$' + this.formatCurrencyNumber(m.sum_digital_sales || 0));
             $('#caja-reg-stat-total').text('$' + this.formatCurrencyNumber(m.sum_total_sales || 0));
         },
@@ -10867,7 +10869,7 @@ $('#caja-modal-new-product').fadeIn(200);
                             </span>
                         </div>
 
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; background:rgba(0,0,0,0.2); border-radius:6px; padding:8px 10px; margin-bottom:12px; font-size:0.82rem;">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:8px; background:rgba(0,0,0,0.2); border-radius:6px; padding:8px 10px; margin-bottom:12px; font-size:0.82rem;">
                             <div>
                                 <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">FONDO INICIAL</span>
                                 <strong style="color:var(--caja-text);">$${self.formatCurrencyNumber(s.opening_cash)}</strong>
@@ -10877,8 +10879,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <strong style="color:#10b981;">$${self.formatCurrencyNumber(s.expected_cash)}</strong>
                             </div>
                             <div>
-                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">DIGITAL (TARJETAS)</span>
-                                <strong style="color:#60a5fa;">$${self.formatCurrencyNumber(s.digital_sales)}</strong>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">💳 TARJETA</span>
+                                <strong style="color:#60a5fa;">$${self.formatCurrencyNumber(s.card_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">📱 TRANSFERENCIA</span>
+                                <strong style="color:#c084fc;">$${self.formatCurrencyNumber(s.transfer_sales)}</strong>
                             </div>
                             <div>
                                 <span style="color:var(--caja-text-muted); display:block; font-size:0.72rem;">TOTAL VENTAS (${s.orders_count})</span>
@@ -10946,7 +10952,12 @@ $('#caja-modal-new-product').fadeIn(200);
                         </td>
                         <td style="padding: 10px 14px; text-align:right;">$${self.formatCurrencyNumber(s.opening_cash)}</td>
                         <td style="padding: 10px 14px; text-align:right; color:#10b981;">$${self.formatCurrencyNumber(s.cash_sales)}</td>
-                        <td style="padding: 10px 14px; text-align:right; color:#60a5fa;">$${self.formatCurrencyNumber(s.digital_sales)}</td>
+                        <td style="padding: 10px 14px; text-align:right;">
+                            <div style="color:#60a5fa; font-weight:600;">$${self.formatCurrencyNumber(s.digital_sales)}</div>
+                            <div style="font-size:0.72rem; color:var(--caja-text-muted); margin-top:2px;">
+                                💳 $${self.formatCurrencyNumber(s.card_sales)} <span style="opacity:0.4;">|</span> 📱 $${self.formatCurrencyNumber(s.transfer_sales)}
+                            </div>
+                        </td>
                         <td style="padding: 10px 14px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(s.total_sales)}</td>
                         <td style="padding: 10px 14px; text-align:right; font-weight:700; color:var(--caja-text);">
                             ${isOpen ? `<span style="color:#38bdf8;">Esperado: $${self.formatCurrencyNumber(s.expected_cash)}</span>` : `$${self.formatCurrencyNumber(s.counted_cash)}`}
@@ -11010,8 +11021,12 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <strong style="color:#10b981; font-size:0.95rem;">$${self.formatCurrencyNumber(s.cash_sales)}</strong>
                             </div>
                             <div>
-                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">VENTAS DIGITALES</span>
-                                <strong style="color:#60a5fa; font-size:0.95rem;">$${self.formatCurrencyNumber(s.digital_sales)}</strong>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">💳 TARJETA</span>
+                                <strong style="color:#60a5fa; font-size:0.95rem;">$${self.formatCurrencyNumber(s.card_sales)}</strong>
+                            </div>
+                            <div>
+                                <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">📱 TRANSFERENCIA</span>
+                                <strong style="color:#c084fc; font-size:0.95rem;">$${self.formatCurrencyNumber(s.transfer_sales)}</strong>
                             </div>
                             <div>
                                 <span style="color:var(--caja-text-muted); font-size:0.72rem; display:block;">PROPINAS</span>
@@ -11205,7 +11220,9 @@ $('#caja-modal-new-product').fadeIn(200);
                                 <div class="divider"></div>
                                 <div class="row"><span>Fondo Inicial:</span><strong>$${self.formatCurrencyNumber(s.opening_cash)}</strong></div>
                                 <div class="row"><span>Ventas Efectivo:</span><strong>$${self.formatCurrencyNumber(s.cash_sales)}</strong></div>
-                                <div class="row"><span>Ventas Digitales:</span><strong>$${self.formatCurrencyNumber(s.digital_sales)}</strong></div>
+                                <div class="row"><span>Ventas Tarjeta:</span><strong>$${self.formatCurrencyNumber(s.card_sales)}</strong></div>
+                                <div class="row"><span>Ventas Transferencia:</span><strong>$${self.formatCurrencyNumber(s.transfer_sales)}</strong></div>
+                                <div class="row"><span>Total Digitales:</span><span>$${self.formatCurrencyNumber(s.digital_sales)}</span></div>
                                 <div class="row"><span>Propinas:</span><strong>$${self.formatCurrencyNumber(s.total_tips)}</strong></div>
                                 <div class="divider"></div>
                                 <div class="row" style="font-size:14px;"><span>TOTAL FACTURADO:</span><strong>$${self.formatCurrencyNumber(s.total_sales)}</strong></div>

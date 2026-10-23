@@ -586,6 +586,8 @@ class Batllie_Caja_Register {
             SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as active_open_count,
             SUM(opening_cash) as sum_opening_cash,
             SUM(cash_sales) as sum_cash_sales,
+            SUM(card_sales) as sum_card_sales,
+            SUM(transfer_sales) as sum_transfer_sales,
             SUM(card_sales + transfer_sales) as sum_digital_sales,
             SUM(tips_cash + tips_digital) as sum_tips,
             SUM(total_sales) as sum_total_sales,
@@ -625,6 +627,8 @@ class Batllie_Caja_Register {
                 'active_open_count'    => intval($metrics_row['active_open_count'] ?? 0),
                 'sum_opening_cash'     => floatval($metrics_row['sum_opening_cash'] ?? 0),
                 'sum_cash_sales'       => floatval($metrics_row['sum_cash_sales'] ?? 0),
+                'sum_card_sales'       => floatval($metrics_row['sum_card_sales'] ?? 0),
+                'sum_transfer_sales'   => floatval($metrics_row['sum_transfer_sales'] ?? 0),
                 'sum_digital_sales'    => floatval($metrics_row['sum_digital_sales'] ?? 0),
                 'sum_tips'             => floatval($metrics_row['sum_tips'] ?? 0),
                 'sum_total_sales'      => floatval($metrics_row['sum_total_sales'] ?? 0),
@@ -1130,6 +1134,8 @@ class Batllie_Caja_Register {
             $today_stats_row = $wpdb->get_row($wpdb->prepare(
                 "SELECT 
                     COALESCE(SUM(cash_sales), 0) as cash_sales,
+                    COALESCE(SUM(card_sales), 0) as card_sales,
+                    COALESCE(SUM(transfer_sales), 0) as transfer_sales,
                     COALESCE(SUM(card_sales + transfer_sales), 0) as digital_sales,
                     COALESCE(SUM(total_sales), 0) as total_sales,
                     COALESCE(SUM(cash_in), 0) as cash_in,
@@ -1152,6 +1158,8 @@ class Batllie_Caja_Register {
             $box_data['active_session']  = $active_session;
             $box_data['today_stats']     = array(
                 'cash_sales'    => floatval($today_stats_row['cash_sales'] ?? 0),
+                'card_sales'    => floatval($today_stats_row['card_sales'] ?? 0),
+                'transfer_sales'=> floatval($today_stats_row['transfer_sales'] ?? 0),
                 'digital_sales' => floatval($today_stats_row['digital_sales'] ?? 0),
                 'total_sales'   => floatval($today_stats_row['total_sales'] ?? 0),
                 'cash_in'       => floatval($today_stats_row['cash_in'] ?? 0),
