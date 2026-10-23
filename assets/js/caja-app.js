@@ -6963,6 +6963,7 @@ $('#caja-modal-new-product').fadeIn(200);
                         self.updatePosCustomerRequirements();
                     }
                 }
+            });
 
             // Selector de Mesa Rápida
             $(document).on('click', '.caja-gastro-table-chip', function(e) {
