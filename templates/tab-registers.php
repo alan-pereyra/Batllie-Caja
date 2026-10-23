@@ -257,6 +257,17 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                 <!-- Dinámico -->
             </div>
 
+            <!-- Desglose de Billetes Recibidos en Cobros de Ventas durante el Turno -->
+            <div id="caja-mov-sales-bills-card" style="display:none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                    <strong style="font-size:0.85rem; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                        <span>💵</span> <?php _e('Billetes Recibidos en Ventas (Detallado del Turno):', 'emp-caja'); ?>
+                    </strong>
+                    <span id="caja-mov-sales-bills-summary-badge" style="font-size:0.8rem; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.15); padding:2px 8px; border-radius:4px;"></span>
+                </div>
+                <div id="caja-mov-sales-bills-chips" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+            </div>
+
             <!-- Desglose de Billetes Contados (si la caja fue cerrada) -->
             <div id="caja-mov-breakdown-card" style="display:none; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px;">
                 <strong style="display:block; font-size:0.85rem; color:#10b981; margin-bottom:6px;">💵 <?php _e('Arqueo de Efectivo Físico por Billetes:', 'emp-caja'); ?></strong>

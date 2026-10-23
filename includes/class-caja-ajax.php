@@ -754,6 +754,22 @@ class Batllie_Caja_Ajax {
             $cash_tendered = isset($_POST['cash_tendered']) ? max(0, floatval($_POST['cash_tendered'])) : 0;
             $cash_change   = isset($_POST['cash_change']) ? max(0, floatval($_POST['cash_change'])) : 0;
 
+            // Detalle de billetes físicos recibidos en efectivo
+            $cash_breakdown_raw = isset($_POST['cash_breakdown']) ? $_POST['cash_breakdown'] : '';
+            $clean_cash_breakdown = array();
+            if (!empty($cash_breakdown_raw)) {
+                $raw_decoded = is_string($cash_breakdown_raw) ? json_decode(stripslashes($cash_breakdown_raw), true) : $cash_breakdown_raw;
+                if (is_array($raw_decoded)) {
+                    foreach ($raw_decoded as $b_denom => $b_qty) {
+                        $bd = intval($b_denom);
+                        $bq = max(0, intval($b_qty));
+                        if ($bd > 0 && $bq > 0) {
+                            $clean_cash_breakdown[$bd] = $bq;
+                        }
+                    }
+                }
+            }
+
             // Datos del Cliente (Nombre, DNI, Teléfono, Email, Dirección)
             $cust_name    = isset($_POST['customer_name']) ? sanitize_text_field(wp_unslash($_POST['customer_name'])) : '';
             $cust_dni     = isset($_POST['customer_dni']) ? sanitize_text_field(wp_unslash($_POST['customer_dni'])) : '';
@@ -998,6 +1014,9 @@ class Batllie_Caja_Ajax {
                 $order->update_meta_data('_caja_cash_tendered', $cash_tendered);
                 $order->update_meta_data('_caja_cash_change', $cash_change);
             }
+            if (!empty($clean_cash_breakdown)) {
+                $order->update_meta_data('_caja_cash_bills_breakdown', $clean_cash_breakdown);
+            }
 
             if ($mode === 'compra_realizada') {
                 $order->update_meta_data('_caja_shipping_status', 'entregado');
@@ -1168,7 +1187,8 @@ class Batllie_Caja_Ajax {
                     $order->get_id(),
                     $payment_method,
                     $order->get_total(),
-                    $tip_amount
+                    $tip_amount,
+                    $clean_cash_breakdown
                 );
                 $updated_session = Batllie_Caja_Register::get_session_by_id($active_session['id']);
             }
@@ -1329,6 +1349,7 @@ class Batllie_Caja_Ajax {
                 'gastro_table'   => $gastro_table,
                 'cash_tendered'  => $cash_tendered,
                 'cash_change'    => $cash_change,
+                'cash_breakdown' => $clean_cash_breakdown,
                 'tip_amount'     => $tip_amount,
                 'active_session' => $updated_session ?: $active_session,
                 'message'        => ($mode === 'compra_realizada')

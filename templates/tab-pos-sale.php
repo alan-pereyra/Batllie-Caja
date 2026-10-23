@@ -295,7 +295,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                 </div>
                 <input type="hidden" id="caja-pos-selected-pay" value="efectivo" />
 
-                <!-- Calculadora de Efectivo y Vuelto Rápido (Speed Cash) -->
+                <!-- Calculadora de Efectivo y Vuelto Rápido (Speed Cash con Stepper +/-) -->
                 <div id="caja-pos-cash-calc-wrap" class="caja-pos-cash-calc-wrap" style="margin-top: 10px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                         <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:700; color:var(--caja-primary, #10b981); display:flex; align-items:center; gap:5px;">
@@ -303,17 +303,26 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                         </span>
                         <button type="button" class="caja-cash-bill-clear" id="btn-cash-clear" title="<?php esc_attr_e('Limpiar monto', 'emp-caja'); ?>" style="background:none; border:none; color:#ef4444; font-size:0.72rem; font-weight:700; cursor:pointer;">✕ <?php _e('Limpiar', 'emp-caja'); ?></button>
                     </div>
-                    <!-- Fila de billetes táctiles rápidos -->
-                    <div class="caja-cash-bills-row" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
-                        <button type="button" class="caja-cash-bill-btn caja-cash-exact-btn" id="btn-cash-exact">✓ <?php _e('Exacto', 'emp-caja'); ?></button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="100">+$100</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="200">+$200</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="500">+$500</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="1000">+$1.000</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="2000">+$2.000</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="5000">+$5.000</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="10000">+$10.000</button>
-                        <button type="button" class="caja-cash-bill-btn" data-bill="20000">+$20.000</button>
+                    <!-- Grilla de billetes con botones +/- por denominación -->
+                    <div class="caja-cash-bills-grid" id="caja-pos-cash-bills-grid">
+                        <button type="button" class="caja-cash-exact-card" id="btn-cash-exact" title="<?php esc_attr_e('Cobrar importe exacto del ticket', 'emp-caja'); ?>">
+                            <span class="caja-cash-exact-check">✓</span>
+                            <span class="caja-cash-exact-text"><?php _e('Exacto', 'emp-caja'); ?></span>
+                        </button>
+                        <?php 
+                        $pos_bills = array(100, 200, 500, 1000, 2000, 5000, 10000, 20000);
+                        foreach ($pos_bills as $b) : 
+                            $b_label = '$' . number_format($b, 0, ',', '.');
+                        ?>
+                        <div class="caja-cash-bill-item" data-bill="<?php echo $b; ?>">
+                            <button type="button" class="caja-cash-btn-step caja-cash-btn-minus" data-action="minus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Restar 1 billete', 'emp-caja'); ?>">−</button>
+                            <div class="caja-cash-bill-label" data-action="plus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Sumar 1 billete', 'emp-caja'); ?>">
+                                <span class="caja-cash-bill-name"><?php echo $b_label; ?></span>
+                                <span class="caja-cash-bill-badge" id="caja-bill-badge-<?php echo $b; ?>" style="display:none;">x0</span>
+                            </div>
+                            <button type="button" class="caja-cash-btn-step caja-cash-btn-plus" data-action="plus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Sumar 1 billete', 'emp-caja'); ?>">+</button>
+                        </div>
+                        <?php endforeach; ?>
                     </div>
                     <div class="caja-cash-inputs-row" style="display:flex; gap:10px; align-items:center;">
                         <div style="flex:1; position:relative;">
@@ -823,7 +832,7 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                         <!-- Grilla de denominaciones de billetes -->
                         <div class="caja-bill-counter-list" style="display:flex; flex-direction:column; gap:6px;">
                             <?php 
-                            $denominations = array(20000, 10000, 2000, 1000, 500, 200, 100);
+                            $denominations = array(20000, 10000, 5000, 2000, 1000, 500, 200, 100);
                             foreach ($denominations as $denom) :
                             ?>
                             <div class="caja-bill-row" style="display:flex; align-items:center; justify-content:space-between; background: var(--caja-card-bg, #1e293b); border: 1px solid var(--caja-card-border, #334155); border-radius: 6px; padding: 6px 10px;">

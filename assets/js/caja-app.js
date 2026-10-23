@@ -89,6 +89,7 @@
             this.gastroTable = '';
             this.cashTendered = 0;
             this.cashChange = 0;
+            this.cashBillsCount = { 100:0, 200:0, 500:0, 1000:0, 2000:0, 5000:0, 10000:0, 20000:0 };
             this.tipPercent = 0;
             this.tipAmount = 0;
             this.cachedPackingThemes = (this.config && this.config.packingThemes) || [];
@@ -7294,7 +7295,34 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             });
 
-            // Speed Cash: Botones de Billetes
+            // Speed Cash: Steppers de Billetes (+ y -)
+            $(document).on('click', '.caja-cash-btn-minus', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const bill = parseInt($(this).data('bill'), 10) || 0;
+                if (!self.cashBillsCount) {
+                    self.cashBillsCount = { 100:0, 200:0, 500:0, 1000:0, 2000:0, 5000:0, 10000:0, 20000:0 };
+                }
+                if (self.cashBillsCount[bill] && self.cashBillsCount[bill] > 0) {
+                    self.cashBillsCount[bill]--;
+                    self.updateCashBillsUI();
+                }
+            });
+
+            $(document).on('click', '.caja-cash-btn-plus, .caja-cash-bill-label', function(e) {
+                e.preventDefault();
+                const bill = parseInt($(this).data('bill'), 10) || 0;
+                if (!self.cashBillsCount) {
+                    self.cashBillsCount = { 100:0, 200:0, 500:0, 1000:0, 2000:0, 5000:0, 10000:0, 20000:0 };
+                }
+                if (!self.cashBillsCount[bill]) {
+                    self.cashBillsCount[bill] = 0;
+                }
+                self.cashBillsCount[bill]++;
+                self.updateCashBillsUI();
+            });
+
+            // Compatibilidad legacy de botones de billetes simples
             $(document).on('click', '.caja-cash-bill-btn[data-bill]', function(e) {
                 e.preventDefault();
                 const billVal = parseFloat($(this).data('bill')) || 0;
@@ -7307,6 +7335,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Speed Cash: Monto Exacto
             $(document).on('click', '#btn-cash-exact', function(e) {
                 e.preventDefault();
+                self.resetCashBills();
                 const total = self.currentGrandTotal || self.currentPosTotal || 0;
                 $('#caja-pos-cash-tendered').val(total);
                 self.recalcCashChange();
@@ -7315,6 +7344,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Speed Cash: Limpiar
             $(document).on('click', '#btn-cash-clear', function(e) {
                 e.preventDefault();
+                self.resetCashBills();
                 $('#caja-pos-cash-tendered').val('');
                 self.recalcCashChange();
             });
@@ -8398,6 +8428,7 @@ $('#caja-modal-new-product').fadeIn(200);
             this.tipAmount = 0;
             this.cashTendered = 0;
             this.cashChange = 0;
+            this.resetCashBills();
             $('.caja-pos-tip-chip').removeClass('active');
             $('.caja-pos-tip-chip[data-tip="0"]').addClass('active');
             $('#caja-pos-tip-custom-wrap').hide();
@@ -8832,7 +8863,8 @@ $('#caja-modal-new-product').fadeIn(200);
                     gastro_table: self.gastroTable || '',
                     tip_amount: self.tipAmount || 0,
                     cash_tendered: self.cashTendered || 0,
-                    cash_change: self.cashChange || 0
+                    cash_change: self.cashChange || 0,
+                    cash_breakdown: JSON.stringify(self.cashBillsCount || {})
                 },
                 success: function(res) {
                     if (res && res.success) {
@@ -9054,6 +9086,50 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.cashChange = 0;
                 $changeVal.text('$0,00').css('color', '#34d399');
             }
+        },
+
+        updateCashBillsUI: function() {
+            let totalFromBills = 0;
+            let anyCount = false;
+            if (!this.cashBillsCount) {
+                this.cashBillsCount = { 100:0, 200:0, 500:0, 1000:0, 2000:0, 5000:0, 10000:0, 20000:0 };
+            }
+
+            for (const b in this.cashBillsCount) {
+                const qty = parseInt(this.cashBillsCount[b], 10) || 0;
+                const denom = parseInt(b, 10) || 0;
+                const $item = $(`.caja-cash-bill-item[data-bill="${b}"]`);
+                const $badge = $(`#caja-bill-badge-${b}`);
+
+                if (qty > 0) {
+                    anyCount = true;
+                    totalFromBills += (denom * qty);
+                    $item.addClass('has-count');
+                    $badge.text('x' + qty).show();
+                } else {
+                    $item.removeClass('has-count');
+                    $badge.text('x0').hide();
+                }
+            }
+
+            if (anyCount) {
+                $('#caja-pos-cash-tendered').val(totalFromBills);
+            } else {
+                $('#caja-pos-cash-tendered').val('');
+            }
+            this.recalcCashChange();
+        },
+
+        resetCashBills: function() {
+            if (!this.cashBillsCount) {
+                this.cashBillsCount = {};
+            }
+            const denoms = [100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+            for (const b of denoms) {
+                this.cashBillsCount[b] = 0;
+            }
+            $('.caja-cash-bill-item').removeClass('has-count');
+            $('.caja-cash-bill-badge').text('x0').hide();
         },
 
         printGastroTicket: function(order, type) {
@@ -10987,6 +11063,7 @@ $('#caja-modal-new-product').fadeIn(200);
             $('#caja-mov-summary-card').html('<div style="grid-column:1/-1; text-align:center; padding:15px; color:var(--caja-text-muted);"><span class="caja-spinner">⏳</span> Cargando auditoría...</div>');
             $('#caja-mov-table-body').html('<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--caja-text-muted);"><span class="caja-spinner">⏳</span> Cargando movimientos segundo a segundo...</td></tr>');
             $('#caja-mov-breakdown-card').hide();
+            $('#caja-mov-sales-bills-card').hide();
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -11001,6 +11078,7 @@ $('#caja-modal-new-product').fadeIn(200);
                     if (res && res.success && res.data) {
                         const s = res.data.session;
                         const movs = res.data.movements || [];
+                        const salesBills = res.data.cash_bills_summary;
                         self.currentAuditedSession = s;
 
                         $('#caja-mov-title').text(`Movimientos de Caja: ${s.session_code}`);
@@ -11042,7 +11120,32 @@ $('#caja-modal-new-product').fadeIn(200);
                             </div>
                         `);
 
-                        // Breakdown
+                        // Desglose de billetes recibidos en cobros de ventas durante el turno
+                        if (salesBills && salesBills.total_count > 0) {
+                            const sChips = [];
+                            const bDenoms = Object.keys(salesBills.breakdown || {}).map(Number).sort((a,b) => b - a);
+                            for (const d of bDenoms) {
+                                const q = salesBills.breakdown[d];
+                                if (q > 0) {
+                                    sChips.push(`
+                                        <span style="background:rgba(56,189,248,0.12); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:6px; padding:4px 10px; font-size:0.82rem; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                                            <strong>$${self.formatCurrencyNumber(d)}</strong> × ${q} = <span style="color:#7dd3fc;">$${self.formatCurrencyNumber(d * q)}</span>
+                                        </span>
+                                    `);
+                                }
+                            }
+                            if (sChips.length > 0) {
+                                $('#caja-mov-sales-bills-chips').html(sChips.join(''));
+                                $('#caja-mov-sales-bills-summary-badge').text(`${salesBills.total_count} billetes · Total $${self.formatCurrencyNumber(salesBills.total_amount)}`);
+                                $('#caja-mov-sales-bills-card').show();
+                            } else {
+                                $('#caja-mov-sales-bills-card').hide();
+                            }
+                        } else {
+                            $('#caja-mov-sales-bills-card').hide();
+                        }
+
+                        // Breakdown de arqueo físico al cierre
                         if (s.cash_breakdown && typeof s.cash_breakdown === 'object') {
                             const chips = [];
                             for (const [denom, qty] of Object.entries(s.cash_breakdown)) {
@@ -11070,6 +11173,22 @@ $('#caja-modal-new-product').fadeIn(200);
                                 itemsList = m.items.map(it => `<div style="font-size:0.8rem;">• ${it.quantity}x ${it.name}</div>`).join('');
                             } else if (m.concept) {
                                 itemsList = `<div style="font-size:0.8rem; font-weight:600;">${self.escapeHtml(m.concept)}</div>`;
+                            }
+
+                            // Detalle de billetes usados en este cobro específico
+                            let billsDetailHtml = '';
+                            if (m.cash_breakdown && typeof m.cash_breakdown === 'object') {
+                                const bParts = [];
+                                const itemDenoms = Object.keys(m.cash_breakdown).map(Number).sort((a,b) => b - a);
+                                for (const idenom of itemDenoms) {
+                                    const iqty = m.cash_breakdown[idenom];
+                                    if (iqty > 0) {
+                                        bParts.push(`${iqty}x $${self.formatCurrencyNumber(idenom)}`);
+                                    }
+                                }
+                                if (bParts.length > 0) {
+                                    billsDetailHtml = `<div style="margin-top:4px; font-size:0.75rem; color:#34d399; font-weight:600; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px; display:inline-block;">💵 Billetes: ${bParts.join(', ')}</div>`;
+                                }
                             }
 
                             let typeBadge = '';
@@ -11101,7 +11220,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                         ${m.order_number ? `#${m.order_number}` : typeBadge}
                                     </td>
                                     <td style="padding:8px 10px; font-size:0.78rem; color:var(--caja-text-muted);">${m.sector || ''} ${m.table ? '('+m.table+')' : ''}</td>
-                                    <td style="padding:8px 10px;">${itemsList}</td>
+                                    <td style="padding:8px 10px;">${itemsList} ${billsDetailHtml}</td>
                                     <td style="padding:8px 10px; white-space:nowrap;">${pmBadge}</td>
                                     <td style="padding:8px 10px; text-align:right; font-weight:700; color:#fbbf24;">$${self.formatCurrencyNumber(m.total || m.amount || 0)}</td>
                                     <td style="padding:8px 10px; text-align:right; color:#34d399;">${m.tip > 0 ? '$'+self.formatCurrencyNumber(m.tip) : '-'}</td>
@@ -11180,15 +11299,45 @@ $('#caja-modal-new-product').fadeIn(200);
 
                         let movLines = '';
                         movs.forEach(m => {
+                            let bSub = '';
+                            if (m.cash_breakdown && typeof m.cash_breakdown === 'object') {
+                                const bp = [];
+                                const bdList = Object.keys(m.cash_breakdown).map(Number).sort((a,b) => b - a);
+                                for (const bd of bdList) {
+                                    if (m.cash_breakdown[bd] > 0) bp.push(`${m.cash_breakdown[bd]}x$${self.formatCurrencyNumber(bd)}`);
+                                }
+                                if (bp.length > 0) bSub = `<div style="font-size:9px; color:#555;">${bp.join(', ')}</div>`;
+                            }
                             movLines += `
                                 <tr>
                                     <td>${m.time_exact}</td>
-                                    <td>#${m.order_number}</td>
+                                    <td>#${m.order_number}${bSub}</td>
                                     <td>${m.is_cash ? 'EFECT' : 'DIGIT'}</td>
                                     <td style="text-align:right;">$${self.formatCurrencyNumber(m.total)}</td>
                                 </tr>
                             `;
                         });
+
+                        let billsTicketHtml = '';
+                        if (res.data.cash_bills_summary && res.data.cash_bills_summary.total_count > 0) {
+                            const bs = res.data.cash_bills_summary;
+                            const bLines = [];
+                            const bDenoms = Object.keys(bs.breakdown || {}).map(Number).sort((a,b) => b - a);
+                            for (const bd of bDenoms) {
+                                const bq = bs.breakdown[bd];
+                                if (bq > 0) {
+                                    bLines.push(`<div class="row"><span>$${self.formatCurrencyNumber(bd)} x ${bq}:</span><span>$${self.formatCurrencyNumber(bd * bq)}</span></div>`);
+                                }
+                            }
+                            if (bLines.length > 0) {
+                                billsTicketHtml = `
+                                    <div class="divider"></div>
+                                    <div style="font-size:11px; text-align:center; margin-bottom:4px; font-weight:bold;">BILLETES RECIBIDOS EN COBROS</div>
+                                    ${bLines.join('')}
+                                    <div class="row" style="font-weight:bold; margin-top:2px;"><span>Total billetes (${bs.total_count}):</span><span>$${self.formatCurrencyNumber(bs.total_amount)}</span></div>
+                                `;
+                            }
+                        }
 
                         w.document.write(`
                             <!DOCTYPE html>
@@ -11235,6 +11384,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <span>${s.difference === 0 ? '$0,00 (EXACTA)' : (s.difference < 0 ? '-$'+self.formatCurrencyNumber(Math.abs(s.difference))+' (FALTANTE)' : '+$'+self.formatCurrencyNumber(s.difference)+' (SOBRANTE)')}</span>
                                 </div>
                                 ${s.closing_notes ? `<div class="divider"></div><div><strong>Notas:</strong> ${s.closing_notes}</div>` : ''}
+                                ${billsTicketHtml}
                                 <div class="divider"></div>
                                 <div style="font-size:11px; text-align:center; margin-bottom:4px; font-weight:bold;">DETALLE DE VENTAS (${movs.length})</div>
                                 <table>

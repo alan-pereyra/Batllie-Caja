@@ -339,7 +339,7 @@ class Batllie_Caja_Register {
     /**
      * Registrar una venta completada en la sesión activa
      */
-    public static function record_sale($session_id, $order_id, $payment_method, $order_total, $tip_amount = 0) {
+    public static function record_sale($session_id, $order_id, $payment_method, $order_total, $tip_amount = 0, $cash_breakdown = array()) {
         global $wpdb;
         $table = self::get_table_name();
 
@@ -428,8 +428,9 @@ class Batllie_Caja_Register {
                     'balance_after'  => $updated_session['expected_cash'],
                     'order_id'       => $order_id,
                     'metadata'       => array(
-                        'items_summary' => implode(', ', $items_summary),
-                        'tip'           => $tip_amount,
+                        'items_summary'  => implode(', ', $items_summary),
+                        'tip'            => $tip_amount,
+                        'cash_breakdown' => !empty($cash_breakdown) ? $cash_breakdown : array(),
                     ),
                     'created_at'     => current_time('mysql'),
                 ));
@@ -909,6 +910,21 @@ class Batllie_Caja_Register {
         $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
         $movements = array();
 
+        $cash_bills_summary = array(
+            'breakdown'    => array(
+                20000 => 0,
+                10000 => 0,
+                5000  => 0,
+                2000  => 0,
+                1000  => 0,
+                500   => 0,
+                200   => 0,
+                100   => 0,
+            ),
+            'total_count'  => 0,
+            'total_amount' => 0.00,
+        );
+
         if (!empty($rows)) {
             foreach ($rows as $r) {
                 $dt = !empty($r['created_at']) ? new DateTime($r['created_at']) : null;
@@ -940,6 +956,28 @@ class Batllie_Caja_Register {
                 }
 
                 $meta = !empty($r['metadata']) ? json_decode($r['metadata'], true) : array();
+                $m_cash_breakdown = !empty($meta['cash_breakdown']) && is_array($meta['cash_breakdown']) ? $meta['cash_breakdown'] : array();
+                if (empty($m_cash_breakdown) && $order_id) {
+                    $order_bd = get_post_meta($order_id, '_caja_cash_bills_breakdown', true);
+                    if (!empty($order_bd) && is_array($order_bd)) {
+                        $m_cash_breakdown = $order_bd;
+                    }
+                }
+
+                if (!empty($m_cash_breakdown) && is_array($m_cash_breakdown)) {
+                    foreach ($m_cash_breakdown as $bd => $bq) {
+                        $bd = intval($bd);
+                        $bq = max(0, intval($bq));
+                        if ($bd > 0 && $bq > 0) {
+                            if (!isset($cash_bills_summary['breakdown'][$bd])) {
+                                $cash_bills_summary['breakdown'][$bd] = 0;
+                            }
+                            $cash_bills_summary['breakdown'][$bd] += $bq;
+                            $cash_bills_summary['total_count']     += $bq;
+                            $cash_bills_summary['total_amount']    += ($bd * $bq);
+                        }
+                    }
+                }
 
                 $movements[] = array(
                     'id'             => intval($r['id']),
@@ -960,6 +998,7 @@ class Batllie_Caja_Register {
                     'cash_flow'      => floatval($r['cash_flow']),
                     'tip'            => floatval($meta['tip'] ?? 0),
                     'balance_after'  => floatval($r['balance_after']),
+                    'cash_breakdown' => $m_cash_breakdown,
                     'metadata'       => $meta,
                 );
             }
@@ -1004,6 +1043,22 @@ class Batllie_Caja_Register {
                 }
                 $running_total += $total;
 
+                $m_cash_breakdown = $order->get_meta('_caja_cash_bills_breakdown');
+                if (!empty($m_cash_breakdown) && is_array($m_cash_breakdown)) {
+                    foreach ($m_cash_breakdown as $bd => $bq) {
+                        $bd = intval($bd);
+                        $bq = max(0, intval($bq));
+                        if ($bd > 0 && $bq > 0) {
+                            if (!isset($cash_bills_summary['breakdown'][$bd])) {
+                                $cash_bills_summary['breakdown'][$bd] = 0;
+                            }
+                            $cash_bills_summary['breakdown'][$bd] += $bq;
+                            $cash_bills_summary['total_count']     += $bq;
+                            $cash_bills_summary['total_amount']    += ($bd * $bq);
+                        }
+                    }
+                }
+
                 // Desglose de ítems vendidos
                 $items = array();
                 foreach ($order->get_items() as $item_id => $item) {
@@ -1035,13 +1090,15 @@ class Batllie_Caja_Register {
                     'change'         => $change,
                     'running_cash'   => $running_cash,
                     'running_total'  => $running_total,
+                    'cash_breakdown' => $m_cash_breakdown,
                 );
             }
         }
 
         return array(
-            'session'   => $session,
-            'movements' => $movements,
+            'session'            => $session,
+            'movements'          => $movements,
+            'cash_bills_summary' => $cash_bills_summary,
         );
     }
 
