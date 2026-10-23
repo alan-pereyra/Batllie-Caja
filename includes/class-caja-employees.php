@@ -93,7 +93,7 @@ class Batllie_Caja_Employees {
             );
         }
 
-        $is_admin = user_can($user, 'manage_options') || user_can($user, 'administrator');
+        $is_admin = user_can($user, 'manage_options') || user_can($user, 'administrator') || user_can($user, 'manage_woocommerce');
 
         if ($is_admin) {
             return array(

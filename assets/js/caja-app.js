@@ -166,16 +166,25 @@
             });
 
             // Selector desplegable rápido de pantallas en cabecera
-            $('#caja-screen-select').on('change input', function() {
+            $(document).on('change input blur', '#caja-screen-select', function() {
                 const target = $(this).val();
                 if (target) {
+                    const selectedText = $(this).find(`option[value="${target}"]`).text();
+                    if (selectedText) {
+                        $('#caja-screen-select-label').text(selectedText);
+                    }
                     self.switchTab(target);
                 }
             });
-            $(document).on('change input', '#caja-screen-select', function() {
-                const target = $(this).val();
-                if (target) {
-                    self.switchTab(target);
+
+            // Al tocar o clickear en el contenedor del selector, abrir inmediatamente el selector nativo
+            $(document).on('click touchstart', '#caja-screen-switcher-wrap', function(e) {
+                const sel = document.getElementById('caja-screen-select');
+                if (sel && e.target !== sel) {
+                    sel.focus();
+                    if (typeof sel.showPicker === 'function') {
+                        try { sel.showPicker(); } catch(err) {}
+                    }
                 }
             });
 
@@ -1758,18 +1767,21 @@ $('#caja-modal-new-product').fadeIn(200);
             // Soporte para botón atrás/adelante en el historial del navegador
             $(window).on('hashchange', function() {
                 const h = window.location.hash.toLowerCase();
+                if (!h) return; // NUNCA forzar pedidos si el hash está vacío
                 const perms = self.config.currentUserPermissions || {};
-                if ((h === '#cajas' || h === '#control-cajas' || h === '#tab-registers') && perms.is_admin) {
+                const isAdmin = Boolean(perms.is_admin || perms.role === 'administrator' || perms.role === 'shop_manager');
+
+                if ((h === '#cajas' || h === '#control-cajas' || h === '#tab-registers') && isAdmin) {
                     if (self.activeTab !== 'tab-registers') self.switchTab('tab-registers');
-                } else if ((h === '#empleados' || h === '#tab-employees') && perms.is_admin) {
+                } else if ((h === '#empleados' || h === '#tab-employees') && isAdmin) {
                     if (self.activeTab !== 'tab-employees') self.switchTab('tab-employees');
                 } else if ((h === '#productos' || h === '#tab-products') && perms.can_view_products !== false) {
                     if (self.activeTab !== 'tab-products') self.switchTab('tab-products');
-                } else if ((h === '#configuracion' || h === '#tab-settings') && perms.is_admin) {
+                } else if ((h === '#configuracion' || h === '#tab-settings') && isAdmin) {
                     if (self.activeTab !== 'tab-settings') self.switchTab('tab-settings');
                 } else if (h === '#venta-caja' || h === '#tab-pos-sale' || h === '#pos') {
                     if (self.activeTab !== 'tab-pos-sale') self.switchTab('tab-pos-sale');
-                } else if (h === '#pedidos' || h === '#tab-orders' || !h) {
+                } else if (h === '#pedidos' || h === '#tab-orders') {
                     if (perms.can_view_orders !== false) {
                         if (self.activeTab !== 'tab-orders') self.switchTab('tab-orders');
                     } else {
@@ -2011,31 +2023,42 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         switchTab: function(tabId) {
-            const perms = this.config.currentUserPermissions || {};
+            const app = window.BatllieCajaApp || this || App;
+            if (!tabId) return;
 
-            // Validar permisos de acceso antes de cambiar de pestaña
-            if (tabId === 'tab-products' && perms.can_view_products === false) {
+            const perms = (app.config && app.config.currentUserPermissions) || (window.batllieCajaConfig && window.batllieCajaConfig.currentUserPermissions) || {};
+            const isAdmin = Boolean(
+                perms.is_admin === true || 
+                perms.is_admin === 1 || 
+                perms.is_admin === '1' || 
+                perms.is_admin === 'true' || 
+                perms.role === 'administrator' || 
+                perms.role === 'shop_manager'
+            );
+
+            // Si la opción existe en el desplegable en el DOM, el usuario fue autorizado en el servidor
+            const optionExists = $(`#caja-screen-select option[value="${tabId}"]`).length > 0;
+
+            // Validar permisos de acceso antes de cambiar de pestaña solo si no está en el DOM
+            if (tabId === 'tab-products' && perms.can_view_products === false && !optionExists) {
                 tabId = 'tab-pos-sale';
             }
-            if (tabId === 'tab-orders' && perms.can_view_orders === false) {
+            if (tabId === 'tab-orders' && perms.can_view_orders === false && !optionExists) {
                 tabId = 'tab-pos-sale';
             }
-            if ((tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-registers') && !perms.is_admin) {
+            if ((tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-registers') && !isAdmin && !optionExists) {
                 tabId = 'tab-pos-sale';
             }
 
             $('.caja-tab-btn').removeClass('active');
             $(`.caja-tab-btn[data-tab="${tabId}"]`).addClass('active');
 
-            $('.caja-tab-panel').removeClass('active').css('display', 'none');
-            $(`#${tabId}`).addClass('active').css('display', 'block');
-            this.activeTab = tabId;
-
-            if (tabId === 'tab-registers') {
-                this.loadRegistersHistory();
-            } else if (tabId === 'tab-pos-sale') {
-                this.updateRegisterBarUI(this.activeRegisterSession);
+            $('.caja-tab-panel').removeClass('active').css('display', 'none').hide();
+            const $targetPanel = $(`#${tabId}`);
+            if ($targetPanel.length) {
+                $targetPanel.addClass('active').css('display', 'block').show();
             }
+            app.activeTab = tabId;
 
             if (tabId === 'tab-pos-sale') {
                 $('.caja-main-content').addClass('is-pos-tab');
@@ -2043,16 +2066,22 @@ $('#caja-modal-new-product').fadeIn(200);
                 $('.caja-main-content').removeClass('is-pos-tab');
             }
 
-            // Sincronizar el selector desplegable rápido de pantallas
+            // Sincronizar el selector desplegable rápido de pantallas y su etiqueta visible
             const $screenSelect = $('#caja-screen-select');
-            if ($screenSelect.length && $screenSelect.val() !== tabId) {
-                $screenSelect.val(tabId);
+            if ($screenSelect.length) {
+                if ($screenSelect.val() !== tabId) {
+                    $screenSelect.val(tabId);
+                }
+                const selectedText = $screenSelect.find(`option[value="${tabId}"]`).text();
+                if (selectedText) {
+                    $('#caja-screen-select-label').text(selectedText);
+                }
             }
 
             const $switcherWrap = $('#caja-screen-switcher-wrap');
             const $screenDot = $('#caja-screen-dot');
             if ($switcherWrap.length) {
-                $switcherWrap.removeClass('is-orders is-products is-settings is-pos');
+                $switcherWrap.removeClass('is-orders is-products is-settings is-pos is-employees is-registers');
                 $screenDot.removeClass('dot-blue dot-purple dot-green dot-emerald');
 
                 if (tabId === 'tab-products') {
@@ -2073,7 +2102,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar el botón 'En Vivo' / 'Ir a Caja' si existe
             const $livePill = $('#caja-live-status');
             if ($livePill.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale') {
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale' || tabId === 'tab-registers') {
                     $livePill.addClass('caja-live-pill-products');
                     $livePill.attr('title', 'Toca para ir a la Caja');
                     $livePill.html(`
@@ -2093,8 +2122,8 @@ $('#caja-modal-new-product').fadeIn(200);
             // Actualizar apariencia y texto del botón de cambio de pantallas (si existe)
             const $toggleBtn = $('#caja-btn-screen-toggle');
             if ($toggleBtn.length) {
-                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale') {
-                    const count = this.cachedOrders ? this.cachedOrders.length : 0;
+                if (tabId === 'tab-products' || tabId === 'tab-settings' || tabId === 'tab-employees' || tabId === 'tab-pos-sale' || tabId === 'tab-registers') {
+                    const count = app.cachedOrders ? app.cachedOrders.length : 0;
                     $toggleBtn.addClass('active-in-products');
                     $toggleBtn.html(`
                         <span class="caja-toggle-arrow">⬅</span>
@@ -2112,6 +2141,29 @@ $('#caja-modal-new-product').fadeIn(200);
                 }
             }
 
+            // Inicializaciones de pestaña protegidas con try/catch para evitar bloqueos
+            try {
+                if (tabId === 'tab-registers' && typeof app.loadRegistersHistory === 'function') {
+                    app.loadRegistersHistory();
+                } else if (tabId === 'tab-pos-sale') {
+                    if (typeof app.updateRegisterBarUI === 'function') {
+                        app.updateRegisterBarUI(app.activeRegisterSession);
+                    }
+                    if (typeof app.initPosTab === 'function') {
+                        app.initPosTab();
+                    }
+                } else if (tabId === 'tab-products' && !app.isProductsLoaded) {
+                    if (typeof app.loadProducts === 'function') app.loadProducts();
+                    if (typeof app.loadCategories === 'function') app.loadCategories();
+                } else if (tabId === 'tab-settings' && typeof app.initSettingsTab === 'function') {
+                    app.initSettingsTab();
+                } else if (tabId === 'tab-employees' && typeof app.initEmployeesTab === 'function') {
+                    app.initEmployeesTab();
+                }
+            } catch (err) {
+                console.error('Error inicializando pantalla ' + tabId, err);
+            }
+
             // Actualizar URL hash para navegación y marcadores directos
             if (window.history && window.history.replaceState) {
                 let newHash = '#pedidos';
@@ -2119,18 +2171,10 @@ $('#caja-modal-new-product').fadeIn(200);
                 else if (tabId === 'tab-pos-sale') newHash = '#venta-caja';
                 else if (tabId === 'tab-settings') newHash = '#configuracion';
                 else if (tabId === 'tab-employees') newHash = '#empleados';
-                window.history.replaceState(null, null, newHash);
-            }
-
-            if (tabId === 'tab-products' && !this.isProductsLoaded) {
-                this.loadProducts();
-                this.loadCategories();
-            } else if (tabId === 'tab-pos-sale') {
-                this.initPosTab();
-            } else if (tabId === 'tab-settings') {
-                this.initSettingsTab();
-            } else if (tabId === 'tab-employees') {
-                this.initEmployeesTab();
+                else if (tabId === 'tab-registers') newHash = '#cajas';
+                try {
+                    window.history.replaceState(null, null, newHash);
+                } catch(e) {}
             }
         },
 

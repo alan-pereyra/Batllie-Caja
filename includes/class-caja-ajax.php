@@ -97,7 +97,7 @@ class Batllie_Caja_Ajax {
      */
     private static function check_admin() {
         self::check_auth();
-        if (!current_user_can('manage_options') && !current_user_can('administrator')) {
+        if (!current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
             wp_send_json_error(array(
                 'message' => __('Acceso restringido únicamente a administradores.', 'emp-caja'),
             ), 403);
@@ -1518,7 +1518,7 @@ class Batllie_Caja_Ajax {
     public static function ajax_get_registers_history() {
         self::check_auth();
 
-        if (!current_user_can('manage_options') && !current_user_can('administrator')) {
+        if (!current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
             wp_send_json_error(array('message' => __('Acceso restringido a Administradores.', 'emp-caja')), 403);
             return;
         }
@@ -1558,7 +1558,7 @@ class Batllie_Caja_Ajax {
         }
 
         $user_id = get_current_user_id();
-        if ($session_data['user_id'] !== $user_id && !current_user_can('manage_options') && !current_user_can('administrator')) {
+        if ($session_data['user_id'] !== $user_id && !current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
             wp_send_json_error(array('message' => __('No tienes permisos para auditar esta caja.', 'emp-caja')), 403);
             return;
         }

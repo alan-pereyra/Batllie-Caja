@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
 
 $user_id = get_current_user_id();
 $user_perms = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions($user_id) : array(
-    'is_admin' => current_user_can('manage_options'),
+    'is_admin' => current_user_can('manage_options') || current_user_can('manage_woocommerce'),
     'can_view_products' => true,
     'can_view_orders' => true,
     'can_change_sector' => true
@@ -35,6 +35,20 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
             <!-- Desplegable Rápido de Pantallas: En Vivo / Productos / Configuración General -->
             <div class="caja-screen-switcher-wrap" id="caja-screen-switcher-wrap" title="<?php esc_attr_e('Seleccionar pantalla', 'emp-caja'); ?>">
                 <span class="caja-pulse-dot" id="caja-screen-dot"></span>
+                <span class="caja-screen-select-label" id="caja-screen-select-label">
+                    <?php 
+                    if ($default_active_tab === 'tab-orders') {
+                        echo '🔴 ' . __('Pedidos en Vivo', 'emp-caja');
+                    } else {
+                        echo '🛒 ' . __('Venta Caja', 'emp-caja');
+                    }
+                    ?>
+                </span>
+                <span class="caja-screen-select-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </span>
                 <select id="caja-screen-select" class="caja-screen-select" onchange="if(window.BatllieCajaApp&&window.BatllieCajaApp.switchTab){window.BatllieCajaApp.switchTab(this.value);}" aria-label="<?php esc_attr_e('Cambiar de pantalla', 'emp-caja'); ?>">
                     <?php if ($can_view_orders): ?>
                     <option value="tab-orders" <?php echo ($default_active_tab === 'tab-orders') ? 'selected' : ''; ?>>🔴 <?php _e('Pedidos en Vivo', 'emp-caja'); ?></option>
@@ -49,11 +63,6 @@ $default_active_tab = $can_view_orders ? 'tab-orders' : 'tab-pos-sale';
                     <option value="tab-settings">⚙️ <?php _e('Configuración General', 'emp-caja'); ?></option>
                     <?php endif; ?>
                 </select>
-                <span class="caja-screen-select-arrow">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </span>
             </div>
         </div>
 

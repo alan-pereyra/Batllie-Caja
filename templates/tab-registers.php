@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-if (!current_user_can('manage_options') && !current_user_can('administrator')) {
+if (!current_user_can('manage_options') && !current_user_can('administrator') && !current_user_can('manage_woocommerce')) {
     echo '<div class="caja-alert caja-alert-danger" style="margin:20px; padding:16px; background:#ef444422; border:1px solid #ef4444; border-radius:8px; color:#f87171;">' . __('Acceso restringido únicamente a administradores.', 'emp-caja') . '</div>';
     return;
 }
