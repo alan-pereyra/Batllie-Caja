@@ -317,8 +317,8 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
                         <div class="caja-cash-bill-item" data-bill="<?php echo $b; ?>">
                             <button type="button" class="caja-cash-btn-step caja-cash-btn-minus" data-action="minus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Restar 1 billete', 'emp-caja'); ?>">−</button>
                             <div class="caja-cash-bill-label" data-action="plus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Sumar 1 billete', 'emp-caja'); ?>">
+                                <span class="caja-cash-bill-badge" id="caja-bill-badge-<?php echo $b; ?>">0</span>
                                 <span class="caja-cash-bill-name"><?php echo $b_label; ?></span>
-                                <span class="caja-cash-bill-badge" id="caja-bill-badge-<?php echo $b; ?>" style="display:none;">x0</span>
                             </div>
                             <button type="button" class="caja-cash-btn-step caja-cash-btn-plus" data-action="plus" data-bill="<?php echo $b; ?>" title="<?php esc_attr_e('Sumar 1 billete', 'emp-caja'); ?>">+</button>
                         </div>

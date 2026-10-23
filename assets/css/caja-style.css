@@ -7537,9 +7537,10 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 
 .caja-cash-exact-card {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 3px;
     background: rgba(56, 189, 248, 0.15);
     border: 1px solid rgba(56, 189, 248, 0.4);
     border-radius: 8px;
@@ -7547,10 +7548,11 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
-    height: 38px;
+    height: 48px;
     padding: 0 6px;
     transition: all 0.15s ease-in-out;
     user-select: none;
+    box-sizing: border-box;
 }
 
 .caja-cash-exact-card:hover {
@@ -7560,12 +7562,19 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 }
 
 .caja-cash-exact-card:active {
-    transform: translateY(1px);
+    transform: scale(0.96);
 }
 
 .caja-cash-exact-check {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 900;
+    line-height: 1;
+}
+
+.caja-cash-exact-text {
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
 .caja-cash-bill-item {
@@ -7575,10 +7584,11 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     background: rgba(16, 185, 129, 0.1);
     border: 1px solid rgba(16, 185, 129, 0.35);
     border-radius: 8px;
-    height: 38px;
+    height: 48px;
     overflow: hidden;
     user-select: none;
     transition: all 0.15s ease-in-out;
+    box-sizing: border-box;
 }
 
 .caja-cash-bill-item:hover {
@@ -7588,15 +7598,15 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 .caja-cash-bill-item.has-count {
     background: rgba(16, 185, 129, 0.22);
     border-color: #10b981;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
 }
 
 .caja-cash-btn-step {
-    flex: 0 0 26px;
-    width: 26px;
+    flex: 0 0 28px;
+    width: 28px;
     background: rgba(255, 255, 255, 0.04);
     border: none;
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
@@ -7616,10 +7626,12 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 .caja-cash-bill-item.has-count .caja-cash-btn-minus {
     opacity: 1;
     cursor: pointer;
+    color: #ef4444;
 }
 
 .caja-cash-bill-item.has-count .caja-cash-btn-minus:hover {
     background: rgba(239, 68, 68, 0.25);
+    color: #ffffff;
 }
 
 .caja-cash-btn-plus {
@@ -7629,6 +7641,7 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 
 .caja-cash-btn-plus:hover {
     background: rgba(16, 185, 129, 0.3);
+    color: #ffffff;
 }
 
 .caja-cash-btn-step:active {
@@ -7638,10 +7651,11 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
 .caja-cash-bill-label {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 2px;
+    gap: 3px;
+    padding: 3px 2px;
     cursor: pointer;
     min-width: 0;
     text-align: center;
@@ -7652,22 +7666,42 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     background: rgba(16, 185, 129, 0.15);
 }
 
+.caja-cash-bill-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.66rem;
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 1px 6px;
+    line-height: 1;
+    min-width: 18px;
+    text-align: center;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.caja-cash-bill-item.has-count .caja-cash-bill-badge {
+    background: #10b981;
+    color: #022c22;
+    border-color: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+}
+
 .caja-cash-bill-name {
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-weight: 700;
     color: #34d399;
     white-space: nowrap;
+    line-height: 1;
 }
 
-.caja-cash-bill-badge {
-    font-size: 0.65rem;
+.caja-cash-bill-item.has-count .caja-cash-bill-name {
+    color: #ffffff;
     font-weight: 800;
-    background: #10b981;
-    color: #064e3b;
-    border-radius: 999px;
-    padding: 1px 4px;
-    line-height: 1;
-    white-space: nowrap;
 }
 
 @media (max-width: 380px) {

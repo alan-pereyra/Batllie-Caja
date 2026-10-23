@@ -9128,10 +9128,10 @@ $('#caja-modal-new-product').fadeIn(200);
                     anyCount = true;
                     totalFromBills += (denom * qty);
                     $item.addClass('has-count');
-                    $badge.text('x' + qty).show();
+                    $badge.text('x' + qty);
                 } else {
                     $item.removeClass('has-count');
-                    $badge.text('x0').hide();
+                    $badge.text('0');
                 }
             }
 
@@ -9152,7 +9152,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 this.cashBillsCount[b] = 0;
             }
             $('.caja-cash-bill-item').removeClass('has-count');
-            $('.caja-cash-bill-badge').text('x0').hide();
+            $('.caja-cash-bill-badge').text('0');
         },
 
         printGastroTicket: function(order, type) {
