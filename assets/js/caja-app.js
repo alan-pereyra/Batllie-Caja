@@ -1723,6 +1723,11 @@ $('#caja-modal-new-product').fadeIn(200);
             // ==========================================
             $(document).on('click', '#caja-reg-btn-refresh, #caja-reg-btn-apply-filters', function(e) {
                 e.preventDefault();
+                const $btn = $(this);
+                $btn.addClass('is-spinning');
+                setTimeout(function() {
+                    $btn.removeClass('is-spinning');
+                }, 800);
                 self.loadMoneyBoxes();
                 self.loadRegistersHistory();
             });

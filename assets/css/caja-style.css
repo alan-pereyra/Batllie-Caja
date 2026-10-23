@@ -8455,5 +8455,17 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
 }
 
+#caja-reg-btn-refresh:hover {
+    border-color: var(--caja-primary, #10b981) !important;
+    color: var(--caja-primary, #10b981) !important;
+    transform: translateY(-1px);
+}
+
+.is-spinning svg,
+.caja-btn-tool.is-spinning svg {
+    animation: cajaSpin 0.7s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+
 
 

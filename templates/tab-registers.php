@@ -23,36 +23,15 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
 ?>
 
 <div class="caja-registers-container">
-    <!-- Barra Superior de Control de Cajas -->
-    <div class="caja-settings-topbar">
-        <div class="caja-settings-title-group">
-            <h1 class="caja-settings-title">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
-                    <line x1="6" y1="12" x2="18" y2="12"></line>
-                    <circle cx="12" cy="12" r="2"></circle>
-                    <path d="M6 8h.01M6 16h.01M18 8h.01M18 16h.01"></path>
-                </svg>
-                <span><?php _e('Control de Cajas y Auditoría de Turnos', 'emp-caja'); ?></span>
-            </h1>
-            <p class="caja-settings-subtitle"><?php _e('Supervisa en tiempo real las cajas abiertas en cada barra, consulta el historial de movimientos segundo a segundo y audita los arqueos de dinero.', 'emp-caja'); ?></p>
-        </div>
-
-        <div class="caja-settings-topbar-actions">
-            <button type="button" class="caja-btn caja-btn-secondary" id="caja-reg-btn-refresh" title="<?php esc_attr_e('Refrescar datos', 'emp-caja'); ?>">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M23 4v6h-6"></path>
-                    <path d="M1 20v-6h6"></path>
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-                <span><?php _e('Actualizar', 'emp-caja'); ?></span>
-            </button>
-
-            <button type="button" class="caja-btn caja-btn-secondary caja-btn-screen-switch" data-target="tab-pos-sale" title="<?php esc_attr_e('Ir a Venta Caja', 'emp-caja'); ?>">
-                <span>🛒</span>
-                <span><?php _e('Ir a Venta Caja', 'emp-caja'); ?></span>
-            </button>
-        </div>
+    <!-- Barra Superior: Únicamente botón de recargar arriba a la derecha -->
+    <div class="caja-reg-top-bar" style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:14px;">
+        <button type="button" class="caja-btn-tool" id="caja-reg-btn-refresh" title="<?php esc_attr_e('Recargar datos de cajas', 'emp-caja'); ?>" style="min-width:44px; height:44px; padding:0 12px; border-radius:12px; background:var(--caja-card-bg, #0b0f19); border:1px solid var(--caja-card-border, rgba(255,255,255,0.25)); color:var(--caja-text, #ffffff); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:all 0.2s ease;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6"></path>
+                <path d="M1 20v-6h6"></path>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+        </button>
     </div>
 
     <!-- Tarjetas de Métricas Rápidas -->
