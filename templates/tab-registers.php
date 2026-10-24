@@ -33,13 +33,21 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                     <span class="caja-emp-stat-label"><?php _e('Cajas Abiertas en Vivo', 'emp-caja'); ?></span>
                 </div>
             </div>
-            <button type="button" class="caja-btn-tool" id="caja-reg-btn-refresh" title="<?php esc_attr_e('Recargar datos de cajas', 'emp-caja'); ?>" style="min-width:38px; width:38px; height:38px; padding:0; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--caja-card-border, rgba(255,255,255,0.18)); color:var(--caja-text, #ffffff); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:all 0.2s ease; margin-left:auto; flex-shrink:0;">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M23 4v6h-6"></path>
-                    <path d="M1 20v-6h6"></path>
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-            </button>
+            <div style="display:flex; align-items:center; gap:6px; margin-left:auto; flex-shrink:0;">
+                <button type="button" class="caja-btn-tool" id="caja-btn-open-live-modal" title="<?php esc_attr_e('Ver cajas operando en vivo', 'emp-caja'); ?>" style="min-width:38px; width:38px; height:38px; padding:0; border-radius:10px; background:rgba(16, 185, 129, 0.15); border:1px solid rgba(16, 185, 129, 0.35); color:#10b981; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:all 0.2s ease;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
+                <button type="button" class="caja-btn-tool" id="caja-reg-btn-refresh" title="<?php esc_attr_e('Recargar datos de cajas', 'emp-caja'); ?>" style="min-width:38px; width:38px; height:38px; padding:0; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid var(--caja-card-border, rgba(255,255,255,0.18)); color:var(--caja-text, #ffffff); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.25); transition:all 0.2s ease;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <div class="caja-emp-stat-card">
@@ -140,33 +148,6 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                 <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 28px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
                     <span class="caja-spinner">⏳</span> <?php _e('Cargando cajas de dinero...', 'emp-caja'); ?>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sección: Cajas Activas en Vivo (Monitoreo de Barras) -->
-    <div class="caja-reg-section" style="margin-bottom: 24px;">
-        <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom: 12px;">
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <h2 style="font-size: 1.1rem; color: var(--caja-text, #f8fafc); margin: 0; display:flex; align-items:center; gap: 8px;">
-                    <span class="caja-pulse-dot" style="background:#10b981; width:10px; height:10px; border-radius:50%; box-shadow:0 0 10px #10b981; display:inline-block;"></span>
-                    <span><?php _e('Cajas Operando en Vivo', 'emp-caja'); ?></span>
-                </h2>
-                <span style="font-size:0.85rem; color:var(--caja-text-muted, #94a3b8);"><?php _e('• Monitoreo en tiempo real de barras abiertas', 'emp-caja'); ?></span>
-            </div>
-            <button type="button" class="caja-btn-tool caja-reg-btn-refresh-live" title="<?php esc_attr_e('Recargar cajas en vivo', 'emp-caja'); ?>" style="min-width:34px; width:34px; height:34px; padding:0; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--caja-card-border, rgba(255,255,255,0.18)); color:var(--caja-text, #ffffff); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s ease;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M23 4v6h-6"></path>
-                    <path d="M1 20v-6h6"></path>
-                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                </svg>
-            </button>
-        </div>
-
-        <div id="caja-reg-live-grid" class="caja-reg-live-grid">
-            <!-- Se carga dinámicamente -->
-            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 24px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
-                <span>🔒 <?php _e('No hay cajas abiertas actualmente en ningún sector.', 'emp-caja'); ?></span>
             </div>
         </div>
     </div>
@@ -707,6 +688,42 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                 <button type="button" class="caja-btn caja-btn-danger" id="caja-btn-confirm-reject-request" style="background:#ef4444; color:#fff; border:none; padding:8px 18px; border-radius:6px; font-weight:600; cursor:pointer;">
                     <span>❌</span> <?php _e('Confirmar Rechazo', 'emp-caja'); ?>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Cajas Operando en Vivo (Monitoreo de Barras) -->
+    <div id="caja-modal-live-registers" class="caja-modal" style="display:none; z-index: 100060;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog" style="max-width: 920px; width: 95%;">
+            <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center; padding: 16px 20px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="caja-pulse-dot" style="background:#10b981; width:12px; height:12px; border-radius:50%; box-shadow:0 0 10px #10b981; display:inline-block;"></span>
+                    <div>
+                        <h3 class="caja-modal-title" style="margin: 0; font-size: 1.2rem; color:var(--caja-text, #f8fafc); display:flex; align-items:center; gap:8px;">
+                            <span><?php _e('Cajas Operando en Vivo', 'emp-caja'); ?></span>
+                        </h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);"><?php _e('Monitoreo en tiempo real de barras abiertas y turnos activos', 'emp-caja'); ?></p>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" class="caja-btn-tool caja-reg-btn-refresh-live" title="<?php esc_attr_e('Recargar cajas en vivo', 'emp-caja'); ?>" style="min-width:34px; width:34px; height:34px; padding:0; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid var(--caja-card-border, rgba(255,255,255,0.18)); color:var(--caja-text, #ffffff); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all 0.2s ease;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M1 20v-6h6"></path>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
+                    <button type="button" class="caja-modal-close" id="caja-close-modal-live-registers" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+                </div>
+            </div>
+
+            <div class="caja-modal-body" style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+                <div id="caja-reg-live-grid" class="caja-reg-live-grid">
+                    <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 24px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                        <span>🔒 <?php _e('No hay cajas abiertas actualmente en ningún sector.', 'emp-caja'); ?></span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

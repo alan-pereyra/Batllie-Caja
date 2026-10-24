@@ -9083,6 +9083,13 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     box-shadow: 0 0 10px rgba(245, 158, 11, 0.5) !important;
 }
 
+#caja-btn-open-live-modal:hover {
+    background: rgba(16, 185, 129, 0.3) !important;
+    border-color: #10b981 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
 
 
 

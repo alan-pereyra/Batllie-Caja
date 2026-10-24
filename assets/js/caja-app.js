@@ -1824,6 +1824,17 @@ $('#caja-modal-new-product').fadeIn(200);
                 });
             });
 
+            // Modal: Cajas Operando en Vivo
+            $(document).on('click', '#caja-btn-open-live-modal', function(e) {
+                e.preventDefault();
+                $('#caja-modal-live-registers').fadeIn(150);
+            });
+
+            $(document).on('click', '#caja-close-modal-live-registers, #caja-modal-live-registers .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-live-registers').fadeOut(150);
+            });
+
             $(document).on('click', '#caja-reg-btn-refresh, .caja-reg-btn-refresh-live, #caja-reg-btn-apply-filters', function(e) {
                 e.preventDefault();
                 const $btn = $(this);
