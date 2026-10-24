@@ -9055,6 +9055,35 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     color: #ffffff !important;
 }
 
+/* ==========================================================================
+   SECCIONES COLAPSABLES (CONTROL DE CAJAS)
+   ========================================================================== */
+.caja-collapsible-trigger {
+    transition: all 0.2s ease !important;
+}
+
+.caja-collapsible-trigger:hover {
+    border-color: rgba(255, 255, 255, 0.25) !important;
+    background: rgba(30, 41, 59, 0.95) !important;
+}
+
+.caja-collapsible-section.is-open .caja-collapse-icon {
+    transform: rotate(180deg) !important;
+    color: var(--caja-text, #ffffff) !important;
+}
+
+.caja-collapsible-section.is-open .caja-collapsible-trigger {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+#caja-pending-requests-badge.has-pending {
+    background-color: #f59e0b !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5) !important;
+}
+
+
 
 
 

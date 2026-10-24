@@ -75,55 +75,71 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
         </div>
     </div>
 
-    <!-- Sección: Solicitudes de Apertura y Cierre de Caja Pendientes -->
-    <div class="caja-reg-section" id="caja-pending-requests-section" style="margin-bottom: 28px;">
-        <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 14px;">
-            <div>
-                <h2 style="font-size: 1.15rem; color: var(--caja-text, #f8fafc); margin: 0; display:flex; align-items:center; gap: 8px;">
-                    <span>📬</span>
-                    <span><?php _e('Solicitudes de Apertura y Cierre de Caja', 'emp-caja'); ?></span>
-                    <span id="caja-pending-requests-badge" class="caja-pos-cart-badge-count" style="font-size:0.75rem; padding:1px 8px; background:#f59e0b; color:#fff; font-weight:700; border-radius:10px; display:none;">0</span>
+    <!-- Sección: Solicitudes de Apertura y Cierre de Caja Pendientes (Colapsable) -->
+    <div class="caja-reg-section caja-collapsible-section is-collapsed" id="caja-pending-requests-section" style="margin-bottom: 16px;">
+        <div class="caja-reg-section-header caja-collapsible-trigger" data-target="#caja-pending-requests-body" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; padding:14px 16px; background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); border-radius:10px; transition:all 0.2s ease;">
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <span style="font-size:1.25rem;">📬</span>
+                <h2 style="font-size: 1.05rem; color: var(--caja-text, #f8fafc); margin: 0; font-weight:600;">
+                    <?php _e('Solicitudes de Apertura y Cierre de Caja', 'emp-caja'); ?>
                 </h2>
-                <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);">
-                    <?php _e('Aperturas y cierres enviados por cajeros que requieren aprobación para impactar en el sistema.', 'emp-caja'); ?>
-                </p>
             </div>
-            <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-reload-requests" style="padding: 6px 14px; font-size:0.84rem;">
-                <span>🔄</span>
-                <span><?php _e('Actualizar Solicitudes', 'emp-caja'); ?></span>
-            </button>
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <span id="caja-pending-requests-badge" class="caja-pos-cart-badge-count" style="font-size:0.78rem; padding:3px 9px;">0</span>
+                <span class="caja-collapse-icon" style="font-size:0.8rem; color:var(--caja-text-muted, #94a3b8); transition:transform 0.25s ease; display:inline-block;">▼</span>
+            </div>
         </div>
 
-        <div id="caja-pending-requests-container" class="caja-pending-requests-grid">
-            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 22px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
-                <span>✅ <?php _e('No hay solicitudes de apertura o cierre pendientes de aprobación.', 'emp-caja'); ?></span>
+        <div class="caja-collapsible-body" id="caja-pending-requests-body" style="display:none; padding: 14px 2px 0 2px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8); flex:1; min-width:200px;">
+                    <?php _e('Aperturas y cierres enviados por cajeros que requieren aprobación para impactar en el sistema.', 'emp-caja'); ?>
+                </p>
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-reload-requests" style="padding: 6px 14px; font-size:0.84rem;">
+                    <span>🔄</span>
+                    <span><?php _e('Actualizar Solicitudes', 'emp-caja'); ?></span>
+                </button>
+            </div>
+
+            <div id="caja-pending-requests-container" class="caja-pending-requests-grid">
+                <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 22px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                    <span>✅ <?php _e('No hay solicitudes de apertura o cierre pendientes de aprobación.', 'emp-caja'); ?></span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Sección: Cajas de Dinero y Asignación de Mostradores / Puestos -->
-    <div class="caja-reg-section" style="margin-bottom: 28px;">
-        <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 14px;">
-            <div>
-                <h2 style="font-size: 1.15rem; color: var(--caja-text, #f8fafc); margin: 0; display:flex; align-items:center; gap: 8px;">
-                    <span>💵</span>
-                    <span><?php _e('Cajas de Dinero y Asignación a Mostradores', 'emp-caja'); ?></span>
-                    <span id="caja-money-boxes-count" class="caja-pos-cart-badge-count" style="font-size:0.75rem; padding:1px 6px;">0</span>
+    <!-- Sección: Cajas de Dinero y Asignación de Mostradores / Puestos (Colapsable) -->
+    <div class="caja-reg-section caja-collapsible-section is-collapsed" id="caja-money-boxes-section" style="margin-bottom: 24px;">
+        <div class="caja-reg-section-header caja-collapsible-trigger" data-target="#caja-money-boxes-body" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; padding:14px 16px; background:var(--caja-card-bg, #1e293b); border:1px solid var(--caja-card-border, #334155); border-radius:10px; transition:all 0.2s ease;">
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <span style="font-size:1.25rem;">💵</span>
+                <h2 style="font-size: 1.05rem; color: var(--caja-text, #f8fafc); margin: 0; font-weight:600;">
+                    <?php _e('Cajas de Dinero y Asignación a Mostradores', 'emp-caja'); ?>
                 </h2>
-                <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);">
-                    <?php _e('Cajas físicas de dinero vinculadas a uno o más puestos de venta. Recuerda que ningún mostrador puede estar asignado a más de una caja a la vez.', 'emp-caja'); ?>
-                </p>
             </div>
-            <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-box-modal" style="padding: 8px 16px; font-size:0.86rem;">
-                <span>➕</span>
-                <span><?php _e('Nueva Caja de Dinero', 'emp-caja'); ?></span>
-            </button>
+            <div style="display:flex; align-items:center; gap: 10px;">
+                <span id="caja-money-boxes-count" class="caja-pos-cart-badge-count" style="font-size:0.78rem; padding:3px 9px;">0</span>
+                <span class="caja-collapse-icon" style="font-size:0.8rem; color:var(--caja-text-muted, #94a3b8); transition:transform 0.25s ease; display:inline-block;">▼</span>
+            </div>
         </div>
 
-        <!-- Grilla de Cajas de Dinero -->
-        <div id="caja-money-boxes-grid" class="caja-money-boxes-grid">
-            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 28px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
-                <span class="caja-spinner">⏳</span> <?php _e('Cargando cajas de dinero...', 'emp-caja'); ?>
+        <div class="caja-collapsible-body" id="caja-money-boxes-body" style="display:none; padding: 14px 2px 0 2px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                <p style="margin: 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8); flex:1; min-width:200px;">
+                    <?php _e('Cajas físicas de dinero vinculadas a uno o más puestos de venta. Recuerda que ningún mostrador puede estar asignado a más de una caja a la vez.', 'emp-caja'); ?>
+                </p>
+                <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-open-new-box-modal" style="padding: 8px 16px; font-size:0.86rem;">
+                    <span>➕</span>
+                    <span><?php _e('Nueva Caja de Dinero', 'emp-caja'); ?></span>
+                </button>
+            </div>
+
+            <!-- Grilla de Cajas de Dinero -->
+            <div id="caja-money-boxes-grid" class="caja-money-boxes-grid">
+                <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 28px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                    <span class="caja-spinner">⏳</span> <?php _e('Cargando cajas de dinero...', 'emp-caja'); ?>
+                </div>
             </div>
         </div>
     </div>

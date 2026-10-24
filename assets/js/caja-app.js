@@ -1807,6 +1807,23 @@ $('#caja-modal-new-product').fadeIn(200);
             // ==========================================
             // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
             // ==========================================
+            $(document).on('click', '.caja-collapsible-trigger', function(e) {
+                if ($(e.target).closest('button, a, input, select, textarea').length) return;
+                e.preventDefault();
+                const $trigger = $(this);
+                const $section = $trigger.closest('.caja-collapsible-section');
+                const targetId = $trigger.data('target');
+                const $body = targetId ? $(targetId) : $section.find('.caja-collapsible-body');
+
+                $body.stop(true, true).slideToggle(200, function() {
+                    if ($body.is(':visible')) {
+                        $section.removeClass('is-collapsed').addClass('is-open');
+                    } else {
+                        $section.removeClass('is-open').addClass('is-collapsed');
+                    }
+                });
+            });
+
             $(document).on('click', '#caja-reg-btn-refresh, .caja-reg-btn-refresh-live, #caja-reg-btn-apply-filters', function(e) {
                 e.preventDefault();
                 const $btn = $(this);
@@ -2650,10 +2667,11 @@ $('#caja-modal-new-product').fadeIn(200);
                                 if (res.data.pending_register_requests_count !== undefined) {
                                     const pCount = parseInt(res.data.pending_register_requests_count, 10) || 0;
                                     const $badge = $('#caja-pending-requests-badge');
+                                    $badge.text(pCount);
                                     if (pCount > 0) {
-                                        $badge.text(pCount).show();
+                                        $badge.addClass('has-pending');
                                     } else {
-                                        $badge.hide();
+                                        $badge.removeClass('has-pending');
                                     }
 
                                     if (self.lastKnownPendingRequestsCount !== undefined && pCount > self.lastKnownPendingRequestsCount) {
@@ -10184,8 +10202,15 @@ $('#caja-modal-new-product').fadeIn(200);
             this.userPendingRegisterRequest = (this.config && this.config.userPendingRegisterRequest) || null;
             this.lastKnownPendingRequestsCount = parseInt(this.config && this.config.pendingRegisterRequestsCount, 10) || 0;
 
-            if (this.canManageRegisters && this.lastKnownPendingRequestsCount > 0) {
-                $('#caja-pending-requests-badge').text(this.lastKnownPendingRequestsCount).show();
+            if (this.canManageRegisters) {
+                const pCount = this.lastKnownPendingRequestsCount;
+                const $badge = $('#caja-pending-requests-badge');
+                $badge.text(pCount);
+                if (pCount > 0) {
+                    $badge.addClass('has-pending');
+                } else {
+                    $badge.removeClass('has-pending');
+                }
             }
 
             this.updateRegisterBarUI(this.activeRegisterSession);
@@ -10539,10 +10564,11 @@ $('#caja-modal-new-product').fadeIn(200);
             if (!$container.length) return;
 
             const count = (requests && Array.isArray(requests)) ? requests.length : 0;
+            $badge.text(count);
             if (count > 0) {
-                $badge.text(count).show();
+                $badge.addClass('has-pending');
             } else {
-                $badge.hide();
+                $badge.removeClass('has-pending');
             }
 
             if (!count) {
