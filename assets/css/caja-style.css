@@ -1199,7 +1199,8 @@ body.batllie-caja-active .container {
 
 .caja-badge-venta-mostrador-row {
     width: 100%;
-    margin-bottom: 8px;
+    margin-top: 4px;
+    margin-bottom: 6px;
     display: block;
 }
 
@@ -1208,22 +1209,22 @@ body.batllie-caja-active .container {
     box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     flex-wrap: wrap !important;
     gap: 6px 12px !important;
-    text-align: center !important;
+    text-align: left !important;
     margin: 0 !important;
-    background: #f59e0b !important;
-    color: #0f172a !important;
-    font-weight: 700 !important;
-    font-size: 0.8rem !important;
-    padding: 7px 12px !important;
-    border-radius: 6px !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.4px !important;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    line-height: 1.35 !important;
+    background: transparent !important;
+    color: var(--caja-text, #f8fafc) !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+    box-shadow: none !important;
+    border: none !important;
+    line-height: 1.4 !important;
 }
 
 .caja-badge-venta-mostrador .caja-vm-item {
@@ -1231,15 +1232,18 @@ body.batllie-caja-active .container {
     align-items: center;
     gap: 5px;
     white-space: nowrap;
+    color: var(--caja-text, #f8fafc);
 }
 
 .caja-badge-venta-mostrador .caja-vm-item strong {
-    font-weight: 900;
+    font-weight: 700;
+    color: var(--caja-text, #f8fafc);
 }
 
 .caja-badge-venta-mostrador .caja-vm-sep {
-    opacity: 0.6;
-    font-weight: 900;
+    opacity: 0.4;
+    color: var(--caja-text-muted, #94a3b8);
+    font-weight: 400;
 }
 
 .caja-phone-row {

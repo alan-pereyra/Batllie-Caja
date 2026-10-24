@@ -3536,9 +3536,11 @@ $('#caja-modal-new-product').fadeIn(200);
                     cleanCustomerName = cleanCustomerName.replace(/Venta\s+Mostrador/gi, '').trim();
                 }
                 const lowerCust = cleanCustomerName.toLowerCase().trim();
-                if (!cleanCustomerName || lowerCust === 'cliente mostrador' || lowerCust.includes('cliente mostrador') || lowerCust === 'cliente' || lowerCust === 'mostrador' || lowerCust.includes('anónimo') || lowerCust.includes('anonimo')) {
+                const isConsumidorFinal = (!cleanCustomerName || lowerCust === 'consumidor final' || lowerCust.includes('consumidor final') || lowerCust === 'cliente mostrador' || lowerCust.includes('cliente mostrador') || lowerCust === 'cliente' || lowerCust === 'mostrador' || lowerCust.includes('anónimo') || lowerCust.includes('anonimo'));
+                if (isConsumidorFinal) {
                     cleanCustomerName = 'Consumidor Final';
                 }
+                const isOrderFromCaja = !!(isVentaMostrador || isVentaCaja || order.is_venta_caja || order.is_venta_mostrador || order.pos_mode || order.caja_session_code);
 
                 html += `
                     <div class="caja-order-card" id="caja-order-card-${order.id}">
@@ -3570,7 +3572,21 @@ $('#caja-modal-new-product').fadeIn(200);
                         </div>
 
                         <div class="caja-customer-block">
-                            ${isVentaMostrador ? (function() {
+                            <div class="caja-customer-header-row">
+                                ${isConsumidorFinal ? `
+                                    <div class="caja-customer-name" data-order-id="${order.id}">
+                                        <span>👤 ${cleanCustomerName}</span>
+                                    </div>
+                                ` : `
+                                    <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(cleanCustomerName)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
+                                        <span>👤 ${cleanCustomerName}</span>
+                                        <span class="caja-cust-history-pill" style="font-size:0.74rem; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:2px 7px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; vertical-align:middle;">
+                                            📜 Historial
+                                        </span>
+                                    </div>
+                                `}
+                            </div>
+                            ${isOrderFromCaja ? (function() {
                                 const cajaSector = order.gastro_sector || (order.caja_session_code ? `Caja ${order.caja_session_code}` : 'Barra Principal');
                                 const cajaIcon = order.gastro_icon || (typeof self.getSectorIcon === 'function' ? self.getSectorIcon(cajaSector) : '🍸');
                                 const tablePart = order.gastro_table ? ` · M${self.escapeHtml(order.gastro_table)}` : '';
@@ -3605,14 +3621,6 @@ $('#caja-modal-new-product').fadeIn(200);
                                     </div>
                                 `;
                             })() : ''}
-                            <div class="caja-customer-header-row">
-                                <div class="caja-customer-name caja-customer-history-trigger" data-order-id="${order.id}" data-customer-name="${self.escapeHtml(cleanCustomerName)}" style="cursor:pointer;" title="Hacé clic para ver el historial de pedidos de este cliente">
-                                    <span>👤 ${cleanCustomerName}</span>
-                                    <span class="caja-cust-history-pill" style="font-size:0.74rem; font-weight:700; background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:2px 7px; margin-left:6px; display:inline-flex; align-items:center; gap:3px; vertical-align:middle;">
-                                        📜 Historial
-                                    </span>
-                                </div>
-                            </div>
                             ${phoneHtml}
                             ${order.dni ? `<div class="caja-customer-dni" style="font-size:0.83rem; color:var(--caja-text-muted); margin-bottom:4px;">🪪 DNI/CUIT: <strong style="color:var(--caja-text);">${self.escapeHtml(order.dni)}</strong></div>` : ''}
                             ${recipientHtml}
