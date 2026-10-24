@@ -59,6 +59,11 @@ class Batllie_Caja_Ajax {
         add_action('wp_ajax_emp_caja_close_register', array(__CLASS__, 'ajax_close_register'));
         add_action('wp_ajax_emp_caja_get_registers_history', array(__CLASS__, 'ajax_get_registers_history'));
         add_action('wp_ajax_emp_caja_get_session_movements', array(__CLASS__, 'ajax_get_session_movements'));
+        add_action('wp_ajax_emp_caja_get_register_requests', array(__CLASS__, 'ajax_get_register_requests'));
+        add_action('wp_ajax_emp_caja_approve_register_request', array(__CLASS__, 'ajax_approve_register_request'));
+        add_action('wp_ajax_emp_caja_reject_register_request', array(__CLASS__, 'ajax_reject_register_request'));
+        add_action('wp_ajax_emp_caja_cancel_register_request', array(__CLASS__, 'ajax_cancel_register_request'));
+        add_action('wp_ajax_emp_caja_check_user_register_request', array(__CLASS__, 'ajax_check_user_register_request'));
 
         // Cajas de Dinero y Asignación de Mostradores / Puestos
         add_action('wp_ajax_emp_caja_get_money_boxes', array(__CLASS__, 'ajax_get_money_boxes'));
@@ -161,6 +166,17 @@ class Batllie_Caja_Ajax {
             $status       = isset($_POST['status']) ? sanitize_text_field($_POST['status']) : 'all';
 
             $data = Batllie_Caja_Orders::poll_orders($last_seen_id, $status);
+
+            // Información de solicitudes de caja en tiempo real
+            $current_user_id = get_current_user_id();
+            $can_manage_reg = class_exists('Batllie_Caja_Employees') && Batllie_Caja_Employees::can_manage_registers($current_user_id);
+            if ($can_manage_reg) {
+                $data['pending_register_requests_count'] = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_pending_requests_count() : 0;
+                $data['pending_register_requests']       = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_pending_requests() : array();
+            } else {
+                $data['user_register_request'] = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_user_latest_request($current_user_id) : null;
+                $data['active_session']        = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session($current_user_id) : null;
+            }
 
             wp_send_json_success($data);
         } catch (\Throwable $e) {
@@ -1437,10 +1453,12 @@ class Batllie_Caja_Ajax {
         }
 
         $session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session($target_user) : null;
+        $pending_request = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_user_pending_request($target_user) : null;
 
         wp_send_json_success(array(
-            'session' => $session,
-            'is_open' => !empty($session),
+            'session'         => $session,
+            'is_open'         => !empty($session),
+            'pending_request' => $pending_request,
         ));
     }
 
@@ -1463,6 +1481,32 @@ class Batllie_Caja_Ajax {
             }
         }
 
+        $can_manage = class_exists('Batllie_Caja_Employees') && Batllie_Caja_Employees::can_manage_registers($user_id);
+
+        if (!$can_manage) {
+            // Usuario que no es Administrador ni Encargado: Requiere Aprobación
+            $req = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::create_register_request(array(
+                'request_type' => 'open',
+                'user_id'      => $user_id,
+                'sector'       => $sector,
+                'opening_cash' => $opening_cash,
+                'notes'        => $notes,
+            )) : null;
+
+            if (!$req) {
+                wp_send_json_error(array('message' => __('No se pudo generar la solicitud de apertura.', 'emp-caja')));
+                return;
+            }
+
+            wp_send_json_success(array(
+                'is_pending_approval' => true,
+                'request'             => $req,
+                'message'             => __('Solicitud de apertura de caja enviada. Esperando la aprobación del Administrador o Encargado.', 'emp-caja'),
+            ));
+            return;
+        }
+
+        // Administrador o Encargado: Apertura directa
         $session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::open_session($user_id, $sector, $opening_cash, $notes) : null;
 
         if (!$session) {
@@ -1517,6 +1561,33 @@ class Batllie_Caja_Ajax {
             return;
         }
 
+        $can_manage = class_exists('Batllie_Caja_Employees') && Batllie_Caja_Employees::can_manage_registers($user_id);
+
+        if (!$can_manage) {
+            // Usuario que no es Administrador ni Encargado: Requiere Aprobación de Cierre
+            $req = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::create_register_request(array(
+                'request_type'   => 'close',
+                'user_id'        => $user_id,
+                'session_id'     => $session_id,
+                'counted_cash'   => $counted_cash,
+                'cash_breakdown' => $cash_breakdown,
+                'notes'          => $closing_notes,
+            )) : null;
+
+            if (!$req) {
+                wp_send_json_error(array('message' => __('No se pudo generar la solicitud de cierre.', 'emp-caja')));
+                return;
+            }
+
+            wp_send_json_success(array(
+                'is_pending_approval' => true,
+                'request'             => $req,
+                'message'             => __('Solicitud de cierre y arqueo enviada. Esperando la aprobación del Administrador o Encargado.', 'emp-caja'),
+            ));
+            return;
+        }
+
+        // Administrador o Encargado: Cierre directo
         $closed_session = Batllie_Caja_Register::close_session($session_id, $counted_cash, $cash_breakdown, $closing_notes, $user_id);
 
         if (!$closed_session) {
@@ -1538,6 +1609,125 @@ class Batllie_Caja_Ajax {
             'session'  => $closed_session,
             'message'  => sprintf(__('¡Caja %s cerrada correctamente! %s', 'emp-caja'), $closed_session['session_code'], $diff_msg),
             'diff_msg' => $diff_msg
+        ));
+    }
+
+    /**
+     * AJAX: Obtener solicitudes pendientes de apertura/cierre (Admin y Encargado)
+     */
+    public static function ajax_get_register_requests() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers($user_id)) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $requests = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_pending_requests() : array();
+        $count    = count($requests);
+
+        wp_send_json_success(array(
+            'requests' => $requests,
+            'count'    => $count,
+        ));
+    }
+
+    /**
+     * AJAX: Aprobar solicitud de apertura/cierre de caja
+     */
+    public static function ajax_approve_register_request() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers($user_id)) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $request_id  = isset($_POST['request_id']) ? intval($_POST['request_id']) : 0;
+        $admin_notes = isset($_POST['admin_notes']) ? sanitize_textarea_field(wp_unslash($_POST['admin_notes'])) : '';
+
+        if (!$request_id) {
+            wp_send_json_error(array('message' => __('ID de solicitud no válido.', 'emp-caja')));
+            return;
+        }
+
+        $result = Batllie_Caja_Register::approve_register_request($request_id, $user_id, $admin_notes);
+        if (!$result || empty($result['success'])) {
+            wp_send_json_error(array('message' => $result['message'] ?? __('Error al aprobar solicitud.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: Rechazar solicitud de apertura/cierre de caja
+     */
+    public static function ajax_reject_register_request() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        if (!class_exists('Batllie_Caja_Employees') || !Batllie_Caja_Employees::can_manage_registers($user_id)) {
+            wp_send_json_error(array('message' => __('Acceso restringido a Administradores y Encargados.', 'emp-caja')), 403);
+            return;
+        }
+
+        $request_id  = isset($_POST['request_id']) ? intval($_POST['request_id']) : 0;
+        $admin_notes = isset($_POST['admin_notes']) ? sanitize_textarea_field(wp_unslash($_POST['admin_notes'])) : '';
+
+        if (!$request_id) {
+            wp_send_json_error(array('message' => __('ID de solicitud no válido.', 'emp-caja')));
+            return;
+        }
+
+        $result = Batllie_Caja_Register::reject_register_request($request_id, $user_id, $admin_notes);
+        if (!$result || empty($result['success'])) {
+            wp_send_json_error(array('message' => $result['message'] ?? __('Error al rechazar solicitud.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: Cancelar solicitud propia (Cajero)
+     */
+    public static function ajax_cancel_register_request() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        $request_id = isset($_POST['request_id']) ? intval($_POST['request_id']) : 0;
+
+        if (!$request_id) {
+            wp_send_json_error(array('message' => __('ID de solicitud no válido.', 'emp-caja')));
+            return;
+        }
+
+        $result = Batllie_Caja_Register::cancel_register_request($request_id, $user_id);
+        if (!$result || empty($result['success'])) {
+            wp_send_json_error(array('message' => $result['message'] ?? __('Error al cancelar solicitud.', 'emp-caja')));
+            return;
+        }
+
+        wp_send_json_success($result);
+    }
+
+    /**
+     * AJAX: Consultar estado de solicitud del usuario (polling cajero)
+     */
+    public static function ajax_check_user_register_request() {
+        self::check_auth();
+
+        $user_id = get_current_user_id();
+        $latest = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_user_latest_request($user_id) : null;
+        $active_session = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session($user_id) : null;
+
+        wp_send_json_success(array(
+            'request'        => $latest,
+            'is_pending'     => ($latest && $latest['status'] === 'pending'),
+            'active_session' => $active_session,
         ));
     }
 

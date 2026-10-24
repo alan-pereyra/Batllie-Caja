@@ -88,6 +88,30 @@ $default_icon = emp_caja_get_sector_icon_helper($default_sector);
             </div>
         </div>
 
+        <!-- BANNER DE SOLICITUD PENDIENTE DE APROBACIÓN (PARA CAJEROS) -->
+        <div id="caja-pos-reg-pending-wrap" class="caja-pos-reg-pending-box" style="display:none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 8px; padding: 12px 16px; margin-bottom: 6px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span class="caja-pulse-dot" style="background:#f59e0b; width:12px; height:12px; border-radius:50%; box-shadow:0 0 10px #f59e0b; flex-shrink:0;"></span>
+                <div>
+                    <strong id="caja-pos-pending-reg-title" style="color: #fbbf24; font-size: 0.95rem; display:block;">
+                        ⏳ <?php _e('Solicitud de Apertura enviada', 'emp-caja'); ?>
+                    </strong>
+                    <span id="caja-pos-pending-reg-desc" style="color: var(--caja-text-muted, #94a3b8); font-size: 0.82rem;">
+                        <?php _e('Tu solicitud está en cola de aprobación por un administrador o encargado. La caja se habilitará automáticamente al ser aprobada.', 'emp-caja'); ?>
+                    </span>
+                    <div id="caja-pos-pending-reg-details" style="font-size: 0.78rem; color: #cbd5e1; margin-top: 4px;"></div>
+                </div>
+            </div>
+            <div style="display:flex; gap: 8px; align-items:center;">
+                <button type="button" class="caja-btn caja-btn-secondary caja-btn-sm" id="caja-btn-check-pending-reg" style="padding: 6px 12px; font-size:0.8rem;">
+                    <span>🔄</span> <span><?php _e('Verificar Estado', 'emp-caja'); ?></span>
+                </button>
+                <button type="button" class="caja-btn caja-btn-ghost-sm" id="caja-btn-cancel-pending-reg" style="padding: 6px 10px; font-size:0.8rem; color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3);">
+                    <span>❌</span> <span><?php _e('Cancelar Solicitud', 'emp-caja'); ?></span>
+                </button>
+            </div>
+        </div>
+
         <div id="caja-pos-reg-closed-wrap" class="caja-pos-reg-closed-box" style="display:none; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
             <div class="caja-pos-reg-closed-left" style="display:flex; align-items:center; gap:10px;">
                 <span style="font-size: 1.35rem; flex-shrink:0;">⚠️</span>

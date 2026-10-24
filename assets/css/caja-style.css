@@ -8855,6 +8855,206 @@ body.batllie-caja-active .caja-main-content.is-pos-tab,
     animation: cajaSpin 0.7s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
+/* ==========================================================================
+   SOLICITUDES DE APERTURA Y CIERRE DE CAJA (PANEL CONTROL Y POS)
+   ========================================================================== */
+.caja-pending-requests-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+}
+
+.caja-pending-card {
+    background: var(--caja-card-bg, #1e293b);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 10px;
+    padding: 16px;
+    position: relative;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.caja-pending-card:hover {
+    border-color: #f59e0b;
+    transform: translateY(-2px);
+}
+
+.caja-pending-card.type-open {
+    border-left: 4px solid #10b981;
+}
+
+.caja-pending-card.type-close {
+    border-left: 4px solid #ef4444;
+}
+
+.caja-pending-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.caja-pending-type-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.caja-pending-type-tag.open {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.caja-pending-type-tag.close {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.caja-pending-time {
+    font-size: 0.75rem;
+    color: var(--caja-text-muted, #94a3b8);
+}
+
+.caja-pending-user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.caja-pending-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.caja-pending-user-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--caja-text, #f8fafc);
+}
+
+.caja-pending-user-sector {
+    font-size: 0.78rem;
+    color: var(--caja-text-muted, #94a3b8);
+}
+
+.caja-pending-amounts-box {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--caja-card-border, #334155);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 0.84rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.caja-pending-amount-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.caja-pending-bills-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.caja-pending-bill-chip {
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 5px;
+    color: #e2e8f0;
+}
+
+.caja-pending-notes {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    font-style: italic;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid var(--caja-card-border, #334155);
+    padding: 6px 8px;
+    margin-bottom: 12px;
+    border-radius: 0 4px 4px 0;
+}
+
+.caja-pending-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.caja-btn-approve-request {
+    flex: 1;
+    background: #10b981 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 0.84rem !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    transition: background 0.2s ease !important;
+}
+
+.caja-btn-approve-request:hover {
+    background: #059669 !important;
+}
+
+.caja-btn-reject-request {
+    flex: 1;
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    font-weight: 600 !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    font-size: 0.84rem !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+.caja-btn-reject-request:hover {
+    background: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+
 
 
 

@@ -12,6 +12,7 @@ class Batllie_Caja_Register {
 
     private static $table_name = null;
     private static $movements_table_name = null;
+    private static $requests_table_name = null;
 
     /**
      * Obtener nombre de la tabla de sesiones
@@ -36,6 +37,17 @@ class Batllie_Caja_Register {
     }
 
     /**
+     * Obtener nombre de la tabla de solicitudes de apertura/cierre
+     */
+    public static function get_requests_table_name() {
+        global $wpdb;
+        if (self::$requests_table_name === null) {
+            self::$requests_table_name = $wpdb->prefix . 'caja_register_requests';
+        }
+        return self::$requests_table_name;
+    }
+
+    /**
      * Inicialización y chequeo de tabla
      */
     public static function init() {
@@ -49,8 +61,9 @@ class Batllie_Caja_Register {
         global $wpdb;
         $table = self::get_table_name();
         $movements_table = self::get_movements_table_name();
+        $requests_table  = self::get_requests_table_name();
 
-        $cache_key = 'caja_sessions_table_checked_v4';
+        $cache_key = 'caja_sessions_table_checked_v5';
         if (get_transient($cache_key)) {
             return;
         }
@@ -117,12 +130,43 @@ class Batllie_Caja_Register {
             KEY created_at (created_at)
         ) $charset_collate;";
 
+        $sql_requests = "CREATE TABLE $requests_table (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            request_type varchar(20) NOT NULL DEFAULT 'open',
+            status varchar(20) NOT NULL DEFAULT 'pending',
+            user_id bigint(20) NOT NULL DEFAULT 0,
+            user_name varchar(100) NOT NULL DEFAULT '',
+            sector varchar(100) NOT NULL DEFAULT '',
+            cash_box_id varchar(50) NOT NULL DEFAULT '',
+            cash_box_name varchar(100) NOT NULL DEFAULT '',
+            session_id bigint(20) NOT NULL DEFAULT 0,
+            session_code varchar(50) NOT NULL DEFAULT '',
+            opening_cash decimal(12,2) NOT NULL DEFAULT 0.00,
+            counted_cash decimal(12,2) NOT NULL DEFAULT 0.00,
+            expected_cash decimal(12,2) NOT NULL DEFAULT 0.00,
+            difference decimal(12,2) NOT NULL DEFAULT 0.00,
+            cash_breakdown longtext NULL,
+            notes text NULL,
+            admin_notes text NULL,
+            resolved_by_user_id bigint(20) NOT NULL DEFAULT 0,
+            resolved_by_user_name varchar(100) NOT NULL DEFAULT '',
+            created_at datetime NOT NULL,
+            resolved_at datetime NULL DEFAULT NULL,
+            PRIMARY KEY  (id),
+            KEY request_type (request_type),
+            KEY status (status),
+            KEY user_id (user_id),
+            KEY session_id (session_id),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+
         if (!function_exists('dbDelta')) {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         }
 
         dbDelta($sql_sessions);
         dbDelta($sql_movements);
+        dbDelta($sql_requests);
 
         // Verificación de columnas directas para tablas preexistentes
         $col_box = $wpdb->get_results("SHOW COLUMNS FROM `$table` LIKE 'cash_box_id'");
@@ -512,6 +556,393 @@ class Batllie_Caja_Register {
         }
 
         return $updated_session;
+    }
+
+    // =========================================================================
+    // GESTIÓN DE SOLICITUDES DE APERTURA Y CIERRE DE CAJA (APROBACIÓN DE ADMIN/ENCARGADO)
+    // =========================================================================
+
+    /**
+     * Crear una nueva solicitud de apertura o cierre de caja
+     */
+    public static function create_register_request($data) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $request_type = isset($data['request_type']) && $data['request_type'] === 'close' ? 'close' : 'open';
+        $user_id      = isset($data['user_id']) ? intval($data['user_id']) : get_current_user_id();
+
+        if (!$user_id) {
+            return false;
+        }
+
+        // Si ya tiene una solicitud pendiente del mismo tipo, cancelar la anterior o actualizarla
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE user_id = %d AND status = 'pending' AND request_type = %s ORDER BY id DESC LIMIT 1",
+            $user_id,
+            $request_type
+        ), ARRAY_A);
+
+        $user = get_userdata($user_id);
+        $user_name = $user ? $user->display_name : __('Cajero', 'emp-caja');
+
+        $sector = isset($data['sector']) ? sanitize_text_field($data['sector']) : '';
+        if (empty($sector) && $request_type === 'close' && !empty($data['session_id'])) {
+            $sess = self::get_session_by_id(intval($data['session_id']));
+            if ($sess) {
+                $sector = $sess['sector'];
+            }
+        }
+        if (empty($sector)) {
+            $sector = 'Barra Principal';
+        }
+
+        $money_box = self::get_money_box_by_puesto($sector);
+        $cash_box_id = $money_box ? $money_box['id'] : '';
+        $cash_box_name = $money_box ? $money_box['name'] : '';
+
+        $now = current_time('mysql');
+
+        $session_id   = isset($data['session_id']) ? intval($data['session_id']) : 0;
+        $session_code = '';
+        $expected_cash = 0.00;
+        $counted_cash  = isset($data['counted_cash']) ? max(0, floatval($data['counted_cash'])) : 0.00;
+        $opening_cash  = isset($data['opening_cash']) ? max(0, floatval($data['opening_cash'])) : 0.00;
+        $diff          = 0.00;
+
+        if ($request_type === 'close') {
+            if ($session_id) {
+                $session = self::get_session_by_id($session_id);
+                if ($session) {
+                    $session_code  = $session['session_code'];
+                    $expected_cash = floatval($session['expected_cash']);
+                    $diff          = $counted_cash - $expected_cash;
+                    if (empty($cash_box_id)) {
+                        $cash_box_id   = $session['cash_box_id'];
+                        $cash_box_name = $session['cash_box_name'];
+                    }
+                }
+            }
+        }
+
+        $cash_breakdown = isset($data['cash_breakdown']) ? $data['cash_breakdown'] : array();
+        $breakdown_json = !empty($cash_breakdown) ? (is_string($cash_breakdown) ? $cash_breakdown : wp_json_encode($cash_breakdown)) : null;
+
+        $notes = isset($data['notes']) ? sanitize_textarea_field($data['notes']) : '';
+
+        // Si ya existía una solicitud pendiente del mismo usuario y tipo, cancelarla para dejar la más reciente
+        if ($existing) {
+            $wpdb->update($table, array('status' => 'cancelled', 'resolved_at' => $now), array('id' => $existing['id']));
+        }
+
+        $insert_data = array(
+            'request_type'        => $request_type,
+            'status'              => 'pending',
+            'user_id'             => $user_id,
+            'user_name'           => $user_name,
+            'sector'              => $sector,
+            'cash_box_id'         => $cash_box_id,
+            'cash_box_name'       => $cash_box_name,
+            'session_id'          => $session_id,
+            'session_code'        => $session_code,
+            'opening_cash'        => $opening_cash,
+            'counted_cash'        => $counted_cash,
+            'expected_cash'       => $expected_cash,
+            'difference'          => $diff,
+            'cash_breakdown'      => $breakdown_json,
+            'notes'               => $notes,
+            'admin_notes'         => '',
+            'resolved_by_user_id' => 0,
+            'resolved_by_user_name' => '',
+            'created_at'          => $now,
+            'resolved_at'         => null,
+        );
+
+        $inserted = $wpdb->insert($table, $insert_data);
+        if (!$inserted) {
+            return false;
+        }
+
+        $new_id = $wpdb->insert_id;
+        return self::get_request_by_id($new_id);
+    }
+
+    /**
+     * Obtener una solicitud por ID
+     */
+    public static function get_request_by_id($id) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", intval($id)), ARRAY_A);
+        if (!$row) return null;
+
+        return self::format_request_row($row);
+    }
+
+    /**
+     * Formatear fila de solicitud
+     */
+    private static function format_request_row($row) {
+        $breakdown = array();
+        if (!empty($row['cash_breakdown'])) {
+            $decoded = json_decode($row['cash_breakdown'], true);
+            if (is_array($decoded)) {
+                $breakdown = $decoded;
+            }
+        }
+
+        $created_dt = !empty($row['created_at']) ? new DateTime($row['created_at']) : null;
+        $created_time_str = $created_dt ? $created_dt->format('H:i') : '';
+        $created_full_str = $created_dt ? $created_dt->format('d/m/Y H:i') : '';
+
+        // Calcular tiempo relativo
+        $time_ago = '';
+        if ($created_dt) {
+            $now_dt = new DateTime(current_time('mysql'));
+            $diff_mins = max(0, round(($now_dt->getTimestamp() - $created_dt->getTimestamp()) / 60));
+            if ($diff_mins < 1) {
+                $time_ago = __('Hace un momento', 'emp-caja');
+            } elseif ($diff_mins < 60) {
+                $time_ago = sprintf(__('Hace %d min', 'emp-caja'), $diff_mins);
+            } else {
+                $hours = floor($diff_mins / 60);
+                $mins = $diff_mins % 60;
+                $time_ago = sprintf(__('Hace %dh %dm', 'emp-caja'), $hours, $mins);
+            }
+        }
+
+        $diff = floatval($row['difference']);
+        $diff_type = 'exact';
+        if ($diff > 0) $diff_type = 'surplus';
+        elseif ($diff < 0) $diff_type = 'shortage';
+
+        return array(
+            'id'                   => intval($row['id']),
+            'request_type'         => $row['request_type'],
+            'status'               => $row['status'],
+            'user_id'              => intval($row['user_id']),
+            'user_name'            => $row['user_name'],
+            'sector'               => $row['sector'],
+            'cash_box_id'          => $row['cash_box_id'],
+            'cash_box_name'        => $row['cash_box_name'],
+            'session_id'           => intval($row['session_id']),
+            'session_code'         => $row['session_code'],
+            'opening_cash'         => floatval($row['opening_cash']),
+            'opening_cash_fmt'     => '$' . number_format(floatval($row['opening_cash']), 2, ',', '.'),
+            'counted_cash'         => floatval($row['counted_cash']),
+            'counted_cash_fmt'     => '$' . number_format(floatval($row['counted_cash']), 2, ',', '.'),
+            'expected_cash'        => floatval($row['expected_cash']),
+            'expected_cash_fmt'    => '$' . number_format(floatval($row['expected_cash']), 2, ',', '.'),
+            'difference'           => $diff,
+            'difference_fmt'       => ($diff < 0 ? '-' : ($diff > 0 ? '+' : '')) . '$' . number_format(abs($diff), 2, ',', '.'),
+            'diff_type'            => $diff_type,
+            'cash_breakdown'       => $breakdown,
+            'notes'                => $row['notes'],
+            'admin_notes'          => $row['admin_notes'],
+            'resolved_by_user_id'  => intval($row['resolved_by_user_id']),
+            'resolved_by_user_name'=> $row['resolved_by_user_name'],
+            'created_at'           => $row['created_at'],
+            'created_time_str'     => $created_time_str,
+            'created_full_str'     => $created_full_str,
+            'time_ago'             => $time_ago,
+            'resolved_at'          => $row['resolved_at'],
+        );
+    }
+
+    /**
+     * Obtener listado de solicitudes pendientes
+     */
+    public static function get_pending_requests($type = null) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $where = "status = 'pending'";
+        $params = array();
+
+        if (!empty($type)) {
+            $where .= " AND request_type = %s";
+            $params[] = sanitize_text_field($type);
+        }
+
+        $sql = "SELECT * FROM $table WHERE $where ORDER BY created_at ASC";
+        if (!empty($params)) {
+            $sql = $wpdb->prepare($sql, $params);
+        }
+
+        $rows = $wpdb->get_results($sql, ARRAY_A);
+        $results = array();
+        if ($rows) {
+            foreach ($rows as $r) {
+                $results[] = self::format_request_row($r);
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Contar solicitudes pendientes
+     */
+    public static function get_pending_requests_count() {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        return (int) $wpdb->get_var("SELECT COUNT(id) FROM $table WHERE status = 'pending'");
+    }
+
+    /**
+     * Obtener solicitud pendiente de un usuario específico
+     */
+    public static function get_user_pending_request($user_id) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE user_id = %d AND status = 'pending' ORDER BY id DESC LIMIT 1",
+            intval($user_id)
+        ), ARRAY_A);
+
+        return $row ? self::format_request_row($row) : null;
+    }
+
+    /**
+     * Obtener última solicitud de un usuario
+     */
+    public static function get_user_latest_request($user_id) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $table WHERE user_id = %d ORDER BY id DESC LIMIT 1",
+            intval($user_id)
+        ), ARRAY_A);
+
+        return $row ? self::format_request_row($row) : null;
+    }
+
+    /**
+     * Aprobar solicitud de apertura o cierre
+     */
+    public static function approve_register_request($request_id, $admin_user_id, $admin_notes = '') {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $req = self::get_request_by_id($request_id);
+        if (!$req || $req['status'] !== 'pending') {
+            return array('success' => false, 'message' => __('La solicitud no existe o ya fue procesada.', 'emp-caja'));
+        }
+
+        $admin = get_userdata($admin_user_id);
+        $admin_name = $admin ? $admin->display_name : __('Administrador', 'emp-caja');
+        $now = current_time('mysql');
+
+        if ($req['request_type'] === 'open') {
+            // Ejecutar apertura real de caja
+            $session = self::open_session($req['user_id'], $req['sector'], $req['opening_cash'], $req['notes']);
+            if (!$session) {
+                return array('success' => false, 'message' => __('No se pudo abrir la sesión de caja.', 'emp-caja'));
+            }
+
+            $wpdb->update($table, array(
+                'status'                => 'approved',
+                'session_id'            => $session['id'],
+                'session_code'          => $session['session_code'],
+                'admin_notes'           => sanitize_textarea_field($admin_notes),
+                'resolved_by_user_id'   => $admin_user_id,
+                'resolved_by_user_name' => $admin_name,
+                'resolved_at'           => $now,
+            ), array('id' => $request_id));
+
+            return array(
+                'success' => true,
+                'session' => $session,
+                'message' => sprintf(__('¡Solicitud de apertura de %s aprobada con éxito en %s!', 'emp-caja'), $req['user_name'], $req['sector']),
+            );
+        } else {
+            // Ejecutar cierre real de caja y arqueo asignado al cajero solicitante
+            $session = self::close_session($req['session_id'], $req['counted_cash'], $req['cash_breakdown'], $req['notes'], $req['user_id']);
+            if (!$session) {
+                return array('success' => false, 'message' => __('No se pudo asentar el cierre de caja.', 'emp-caja'));
+            }
+
+            $wpdb->update($table, array(
+                'status'                => 'approved',
+                'admin_notes'           => sanitize_textarea_field($admin_notes),
+                'resolved_by_user_id'   => $admin_user_id,
+                'resolved_by_user_name' => $admin_name,
+                'resolved_at'           => $now,
+            ), array('id' => $request_id));
+
+            return array(
+                'success' => true,
+                'session' => $session,
+                'message' => sprintf(__('¡Solicitud de cierre de %s aprobada con éxito!', 'emp-caja'), $req['user_name']),
+            );
+        }
+    }
+
+    /**
+     * Rechazar solicitud de apertura o cierre
+     */
+    public static function reject_register_request($request_id, $admin_user_id, $admin_notes = '') {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $req = self::get_request_by_id($request_id);
+        if (!$req || $req['status'] !== 'pending') {
+            return array('success' => false, 'message' => __('La solicitud no existe o ya fue procesada.', 'emp-caja'));
+        }
+
+        $admin = get_userdata($admin_user_id);
+        $admin_name = $admin ? $admin->display_name : __('Administrador', 'emp-caja');
+        $now = current_time('mysql');
+
+        $wpdb->update($table, array(
+            'status'                => 'rejected',
+            'admin_notes'           => sanitize_textarea_field($admin_notes),
+            'resolved_by_user_id'   => $admin_user_id,
+            'resolved_by_user_name' => $admin_name,
+            'resolved_at'           => $now,
+        ), array('id' => $request_id));
+
+        return array(
+            'success' => true,
+            'message' => sprintf(__('Solicitud de %s rechazada.', 'emp-caja'), $req['user_name']),
+        );
+    }
+
+    /**
+     * Cancelar solicitud por parte del cajero
+     */
+    public static function cancel_register_request($request_id, $user_id) {
+        global $wpdb;
+        $table = self::get_requests_table_name();
+        self::check_db_table();
+
+        $req = self::get_request_by_id($request_id);
+        if (!$req || $req['status'] !== 'pending') {
+            return array('success' => false, 'message' => __('La solicitud ya no está pendiente.', 'emp-caja'));
+        }
+
+        if ($req['user_id'] !== intval($user_id) && !current_user_can('manage_options')) {
+            return array('success' => false, 'message' => __('No tienes permiso para cancelar esta solicitud.', 'emp-caja'));
+        }
+
+        $now = current_time('mysql');
+        $wpdb->update($table, array(
+            'status'      => 'cancelled',
+            'resolved_at' => $now,
+        ), array('id' => $request_id));
+
+        return array('success' => true, 'message' => __('Solicitud cancelada con éxito.', 'emp-caja'));
     }
 
     /**

@@ -77,6 +77,32 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
         </div>
     </div>
 
+    <!-- Sección: Solicitudes de Apertura y Cierre de Caja Pendientes -->
+    <div class="caja-reg-section" id="caja-pending-requests-section" style="margin-bottom: 28px;">
+        <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 14px;">
+            <div>
+                <h2 style="font-size: 1.15rem; color: var(--caja-text, #f8fafc); margin: 0; display:flex; align-items:center; gap: 8px;">
+                    <span>📬</span>
+                    <span><?php _e('Solicitudes de Apertura y Cierre de Caja', 'emp-caja'); ?></span>
+                    <span id="caja-pending-requests-badge" class="caja-pos-cart-badge-count" style="font-size:0.75rem; padding:1px 8px; background:#f59e0b; color:#fff; font-weight:700; border-radius:10px; display:none;">0</span>
+                </h2>
+                <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: var(--caja-text-muted, #94a3b8);">
+                    <?php _e('Aperturas y cierres enviados por cajeros que requieren aprobación para impactar en el sistema.', 'emp-caja'); ?>
+                </p>
+            </div>
+            <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-reload-requests" style="padding: 6px 14px; font-size:0.84rem;">
+                <span>🔄</span>
+                <span><?php _e('Actualizar Solicitudes', 'emp-caja'); ?></span>
+            </button>
+        </div>
+
+        <div id="caja-pending-requests-container" class="caja-pending-requests-grid">
+            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 22px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                <span>✅ <?php _e('No hay solicitudes de apertura o cierre pendientes de aprobación.', 'emp-caja'); ?></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Sección: Cajas de Dinero y Asignación de Mostradores / Puestos -->
     <div class="caja-reg-section" style="margin-bottom: 28px;">
         <div class="caja-reg-section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom: 14px;">
@@ -627,6 +653,37 @@ $all_employees = class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Rechazar Solicitud de Apertura / Cierre de Caja -->
+    <div id="caja-modal-reject-request" class="caja-modal" style="display:none; z-index: 100080;">
+        <div class="caja-modal-backdrop"></div>
+        <div class="caja-modal-dialog" style="max-width: 460px; width: 95%;">
+            <div class="caja-modal-header" style="border-bottom: 1px solid var(--caja-card-border, #334155); display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:1.35rem;">❌</span>
+                    <h3 class="caja-modal-title" style="margin: 0; font-size: 1.15rem; color:#ef4444;"><?php _e('Rechazar Solicitud', 'emp-caja'); ?></h3>
+                </div>
+                <button type="button" class="caja-modal-close" id="caja-close-modal-reject-request" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
+            </div>
+            <div class="caja-modal-body" style="padding: 18px 20px;">
+                <p id="caja-reject-request-summary" style="margin: 0 0 14px 0; font-size: 0.88rem; color: var(--caja-text, #f8fafc);"></p>
+                <input type="hidden" id="caja-reject-request-id" value="">
+                
+                <label style="display:block; font-size:0.82rem; font-weight:600; color:var(--caja-text-muted, #94a3b8); margin-bottom: 6px; text-transform:uppercase;">
+                    <?php _e('Motivo del Rechazo (Visible para el cajero):', 'emp-caja'); ?>
+                </label>
+                <textarea id="caja-reject-request-reason" class="caja-input" rows="3" placeholder="<?php esc_attr_e('Indica el motivo por el cual se rechaza la apertura o cierre (ej: arqueo incorrecto, recontar billetes)...', 'emp-caja'); ?>" style="width: 100%; box-sizing: border-box; resize: vertical; padding: 10px; font-size: 0.88rem;"></textarea>
+            </div>
+            <div class="caja-modal-footer" style="display:flex; justify-content:flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--caja-card-border, #334155); background: rgba(0,0,0,0.15);">
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-cancel-reject-request">
+                    <?php _e('Cancelar', 'emp-caja'); ?>
+                </button>
+                <button type="button" class="caja-btn caja-btn-danger" id="caja-btn-confirm-reject-request" style="background:#ef4444; color:#fff; border:none; padding:8px 18px; border-radius:6px; font-weight:600; cursor:pointer;">
+                    <span>❌</span> <?php _e('Confirmar Rechazo', 'emp-caja'); ?>
+                </button>
             </div>
         </div>
     </div>

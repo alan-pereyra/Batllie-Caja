@@ -1749,6 +1749,61 @@ $('#caja-modal-new-product').fadeIn(200);
                 self.submitCloseRegister();
             });
 
+            // Solicitudes de Apertura y Cierre de Caja (Cajero y Admin)
+            $(document).on('click', '#caja-btn-check-pending-reg', function(e) {
+                e.preventDefault();
+                self.checkUserRegisterRequest();
+            });
+
+            $(document).on('click', '#caja-btn-cancel-pending-reg', function(e) {
+                e.preventDefault();
+                self.cancelUserRegisterRequest();
+            });
+
+            $(document).on('click', '#caja-btn-reload-requests', function(e) {
+                e.preventDefault();
+                self.loadPendingRegisterRequests();
+            });
+
+            $(document).on('click', '.caja-btn-approve-request', function(e) {
+                e.preventDefault();
+                const requestId = $(this).data('id');
+                const type = $(this).data('type');
+                const user = $(this).data('user') || 'el cajero';
+                if (!window.confirm(`¿Aprobar ${type === 'open' ? 'la apertura' : 'el cierre'} de caja solicitada por ${user}?`)) {
+                    return;
+                }
+                self.approveRegisterRequest(requestId);
+            });
+
+            $(document).on('click', '.caja-btn-reject-request', function(e) {
+                e.preventDefault();
+                const requestId = $(this).data('id');
+                const type = $(this).data('type');
+                const user = $(this).data('user') || 'el cajero';
+                $('#caja-reject-request-id').val(requestId);
+                $('#caja-reject-request-summary').html(`Rechazar <strong>${type === 'open' ? 'Apertura' : 'Cierre'}</strong> solicitado por <strong>${user}</strong>.`);
+                $('#caja-reject-request-reason').val('');
+                $('#caja-modal-reject-request').fadeIn(150);
+            });
+
+            $(document).on('click', '#caja-close-modal-reject-request, #caja-btn-cancel-reject-request, #caja-modal-reject-request .caja-modal-backdrop', function(e) {
+                e.preventDefault();
+                $('#caja-modal-reject-request').fadeOut(150);
+            });
+
+            $(document).on('click', '#caja-btn-confirm-reject-request', function(e) {
+                e.preventDefault();
+                const reqId = $('#caja-reject-request-id').val();
+                const reason = $.trim($('#caja-reject-request-reason').val() || '');
+                if (!reason) {
+                    window.alert('Por favor indica el motivo del rechazo para que el cajero sepa qué corregir.');
+                    $('#caja-reject-request-reason').focus();
+                    return;
+                }
+                self.rejectRegisterRequest(reqId, reason);
+            });
+
             // ==========================================
             // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
             // ==========================================
@@ -1759,6 +1814,7 @@ $('#caja-modal-new-product').fadeIn(200);
                 setTimeout(function() {
                     $btn.removeClass('is-spinning');
                 }, 800);
+                self.loadPendingRegisterRequests();
                 self.loadMoneyBoxes();
                 self.loadRegistersHistory();
             });
@@ -2457,6 +2513,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // Inicializaciones de pestaña protegidas con try/catch para evitar bloqueos
             try {
                 if (tabId === 'tab-registers') {
+                    if (typeof app.loadPendingRegisterRequests === 'function') app.loadPendingRegisterRequests();
                     if (typeof app.loadRegistersHistory === 'function') app.loadRegistersHistory();
                     if (typeof app.loadMoneyBoxes === 'function') app.loadMoneyBoxes();
                 } else if (tabId === 'tab-pos-sale') {
@@ -2585,6 +2642,54 @@ $('#caja-modal-new-product').fadeIn(200);
                                             $(`#caja-order-card-${no.id} .caja-order-time`).text(no.time_diff);
                                         }
                                     });
+                                }
+                            }
+
+                            // Manejo en tiempo real de solicitudes de apertura y cierre de caja
+                            if (self.canManageRegisters) {
+                                if (res.data.pending_register_requests_count !== undefined) {
+                                    const pCount = parseInt(res.data.pending_register_requests_count, 10) || 0;
+                                    const $badge = $('#caja-pending-requests-badge');
+                                    if (pCount > 0) {
+                                        $badge.text(pCount).show();
+                                    } else {
+                                        $badge.hide();
+                                    }
+
+                                    if (self.lastKnownPendingRequestsCount !== undefined && pCount > self.lastKnownPendingRequestsCount) {
+                                        if (self.audio) self.audio.playNewOrderSound();
+                                        self.showToast(`📬 ${pCount === 1 ? 'Nueva solicitud de caja pendiente' : pCount + ' solicitudes de caja pendientes'} de aprobación`, 'warning', 6000);
+                                    }
+                                    self.lastKnownPendingRequestsCount = pCount;
+
+                                    if (self.activeTab === 'tab-registers' && res.data.pending_register_requests) {
+                                        self.renderPendingRegisterRequests(res.data.pending_register_requests);
+                                    }
+                                }
+                            } else {
+                                // Para cajeros: detectar si su solicitud pendiente fue aprobada o rechazada
+                                if (res.data.user_register_request) {
+                                    const latestReq = res.data.user_register_request;
+                                    const prevPending = self.userPendingRegisterRequest;
+
+                                    if (prevPending && prevPending.status === 'pending') {
+                                        if (latestReq.status === 'approved') {
+                                            self.userPendingRegisterRequest = null;
+                                            self.activeRegisterSession = res.data.active_session || null;
+                                            self.updateRegisterBarUI(self.activeRegisterSession);
+                                            if (latestReq.request_type === 'open') {
+                                                self.showToast('🎉 ¡Tu apertura de caja fue aprobada! Ya puedes registrar ventas.', 'success', 8000);
+                                            } else {
+                                                self.showToast('✅ Tu cierre de caja fue aprobado por administración.', 'success', 8000);
+                                            }
+                                        } else if (latestReq.status === 'rejected') {
+                                            self.userPendingRegisterRequest = null;
+                                            self.updateRegisterBarUI(self.activeRegisterSession);
+                                            const reason = latestReq.admin_notes || 'Sin motivo especificado';
+                                            self.showToast(`❌ Tu solicitud de ${latestReq.request_type === 'open' ? 'apertura' : 'cierre'} fue rechazada: ${reason}`, 'error', 10000);
+                                            window.alert(`❌ Tu solicitud de ${latestReq.request_type === 'open' ? 'apertura' : 'cierre'} de caja fue rechazada por la administración.\n\nMotivo:\n${reason}`);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -7905,6 +8010,17 @@ $('#caja-modal-new-product').fadeIn(200);
             const self = this;
             if (!this.cachedProducts) return;
 
+            // Validar que la caja esté abierta si se intenta sumar productos
+            if (delta > 0 && !this.activeRegisterSession) {
+                if (this.userPendingRegisterRequest && this.userPendingRegisterRequest.status === 'pending') {
+                    this.showToast('⏳ Tu solicitud de apertura de caja está pendiente de aprobación por administración.', 'warning', 4000);
+                    return;
+                }
+                this.showToast('Debes abrir la caja antes de agregar productos al ticket.', 'warning');
+                this.openRegisterModal();
+                return;
+            }
+
             const prod = this.cachedProducts.find(p => p.id == prodId);
             if (!prod) {
                 this.showToast('Producto no encontrado.', 'error');
@@ -8001,6 +8117,18 @@ $('#caja-modal-new-product').fadeIn(200);
 
         openPosVariableModal: function(productId) {
             const self = this;
+
+            // Validar que la caja esté abierta antes de configurar variaciones
+            if (!this.activeRegisterSession) {
+                if (this.userPendingRegisterRequest && this.userPendingRegisterRequest.status === 'pending') {
+                    this.showToast('⏳ Tu solicitud de apertura de caja está pendiente de aprobación por administración.', 'warning', 4000);
+                    return;
+                }
+                this.showToast('Debes abrir la caja antes de agregar productos al ticket.', 'warning');
+                this.openRegisterModal();
+                return;
+            }
+
             if (!this.cachedProducts) return;
 
             const prod = this.cachedProducts.find(p => p.id == productId);
@@ -8757,6 +8885,10 @@ $('#caja-modal-new-product').fadeIn(200);
 
             // Validar que la caja esté abierta antes de cobrar
             if (!this.activeRegisterSession) {
+                if (this.userPendingRegisterRequest && this.userPendingRegisterRequest.status === 'pending') {
+                    this.showToast('⏳ Tu solicitud de apertura de caja está pendiente de aprobación por administración.', 'warning', 5000);
+                    return;
+                }
                 this.showToast('La caja se encuentra cerrada. Debes abrir la caja e ingresar el fondo inicial.', 'warning');
                 this.openRegisterModal();
                 return;
@@ -10047,11 +10179,19 @@ $('#caja-modal-new-product').fadeIn(200);
 
         initRegisterSessionUI: function() {
             const self = this;
+            this.canManageRegisters = Boolean(this.config && this.config.canManageRegisters);
             this.activeRegisterSession = this.config.activeSession || null;
+            this.userPendingRegisterRequest = (this.config && this.config.userPendingRegisterRequest) || null;
+            this.lastKnownPendingRequestsCount = parseInt(this.config && this.config.pendingRegisterRequestsCount, 10) || 0;
+
+            if (this.canManageRegisters && this.lastKnownPendingRequestsCount > 0) {
+                $('#caja-pending-requests-badge').text(this.lastKnownPendingRequestsCount).show();
+            }
+
             this.updateRegisterBarUI(this.activeRegisterSession);
 
-            // Si entra a Venta Caja y no tiene caja abierta, abrir modal de apertura automáticamente
-            if (!this.activeRegisterSession && (this.activeTab === 'tab-pos-sale' || window.location.hash === '#venta-caja' || window.location.hash === '#pos')) {
+            // Si entra a Venta Caja y no tiene caja abierta ni solicitud pendiente, abrir modal de apertura automáticamente
+            if (!this.activeRegisterSession && !this.userPendingRegisterRequest && (this.activeTab === 'tab-pos-sale' || window.location.hash === '#venta-caja' || window.location.hash === '#pos')) {
                 setTimeout(function() {
                     self.openRegisterModal();
                 }, 350);
@@ -10061,6 +10201,42 @@ $('#caja-modal-new-product').fadeIn(200);
         updateRegisterBarUI: function(session) {
             const $activeBox = $('#caja-pos-reg-active-wrap');
             const $closedBox = $('#caja-pos-reg-closed-wrap');
+            const $pendingBox = $('#caja-pos-reg-pending-wrap');
+
+            const pending = this.userPendingRegisterRequest;
+
+            if (pending && pending.status === 'pending') {
+                $activeBox.hide();
+                $closedBox.hide();
+                $pendingBox.css('display', 'flex');
+
+                const isOpening = (pending.request_type === 'open');
+                const title = isOpening ? '⏳ Solicitud de Apertura de Caja enviada' : '⏳ Solicitud de Cierre y Arqueo enviada';
+                const desc = isOpening 
+                    ? 'Tu solicitud está en cola de aprobación por un administrador o encargado. La caja se habilitará automáticamente al ser autorizada.'
+                    : 'Tu arqueo de cierre fue enviado a la administración para su revisión y aprobación final.';
+                
+                $('#caja-pos-pending-reg-title').text(title);
+                $('#caja-pos-pending-reg-desc').text(desc);
+
+                let detailsHtml = `<strong>Sector:</strong> ${pending.sector || 'Barra Principal'}`;
+                if (isOpening) {
+                    detailsHtml += ` • <strong>Fondo Solicitado:</strong> $${this.formatCurrencyNumber(pending.opening_cash)}`;
+                } else {
+                    detailsHtml += ` • <strong>Efectivo Contado:</strong> $${this.formatCurrencyNumber(pending.counted_cash)}`;
+                    const diffNum = parseFloat(pending.difference) || 0;
+                    if (diffNum !== 0) {
+                        detailsHtml += ` • <span style="color:${diffNum < 0 ? '#f87171' : '#fbbf24'};"><strong>Diferencia:</strong> ${diffNum < 0 ? '-' : '+'}$${this.formatCurrencyNumber(Math.abs(diffNum))}</span>`;
+                    }
+                }
+                if (pending.created_at) {
+                    detailsHtml += ` • <strong>Enviada:</strong> ${pending.created_at}`;
+                }
+                $('#caja-pos-pending-reg-details').html(detailsHtml);
+                return;
+            }
+
+            $pendingBox.hide();
 
             if (session && session.status === 'open') {
                 $closedBox.hide();
@@ -10084,6 +10260,15 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         openRegisterModal: function() {
+            if (!this.canManageRegisters) {
+                $('#caja-open-reg-submit-btn').html('<span>📨</span> <span>Solicitar Apertura de Caja</span>');
+                $('#caja-modal-open-register .caja-modal-title').text('Solicitud de Apertura de Caja');
+                $('#caja-modal-open-register .caja-modal-header p').text('Envía el monto inicial para que un administrador o encargado autorice tu turno.');
+            } else {
+                $('#caja-open-reg-submit-btn').html('<span>🟢</span> <span>Iniciar Turno y Abrir Caja</span>');
+                $('#caja-modal-open-register .caja-modal-title').text('Apertura de Caja (Iniciar Turno)');
+                $('#caja-modal-open-register .caja-modal-header p').text('Ingresa el fondo de cambio inicial para comenzar a cobrar.');
+            }
             $('#caja-modal-open-register').fadeIn(150);
             $('#caja-open-reg-cash').focus().select();
         },
@@ -10100,7 +10285,7 @@ $('#caja-modal-new-product').fadeIn(200);
 
             const $btn = $('#caja-open-reg-submit-btn');
             const origHtml = $btn.html();
-            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Abriendo turno...');
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Procesando...');
 
             $.ajax({
                 url: self.config.ajaxUrl,
@@ -10115,15 +10300,25 @@ $('#caja-modal-new-product').fadeIn(200);
                 },
                 success: function(res) {
                     $btn.prop('disabled', false).html(origHtml);
-                    if (res && res.success && res.data && res.data.session) {
-                        self.activeRegisterSession = res.data.session;
-                        self.updateRegisterBarUI(res.data.session);
-                        self.closeRegisterModal();
-                        self.showToast(res.data.message || 'Caja abierta con éxito.', 'success');
-                    } else {
-                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al abrir caja.';
-                        self.showToast(msg, 'error');
+                    if (res && res.success && res.data) {
+                        if (res.data.is_pending_approval) {
+                            self.userPendingRegisterRequest = res.data.request;
+                            self.updateRegisterBarUI(null);
+                            self.closeRegisterModal();
+                            self.showToast(res.data.message || 'Solicitud de apertura enviada a administración.', 'info', 6000);
+                            return;
+                        }
+                        if (res.data.session) {
+                            self.userPendingRegisterRequest = null;
+                            self.activeRegisterSession = res.data.session;
+                            self.updateRegisterBarUI(res.data.session);
+                            self.closeRegisterModal();
+                            self.showToast(res.data.message || 'Caja abierta con éxito.', 'success');
+                            return;
+                        }
                     }
+                    const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al abrir caja.';
+                    self.showToast(msg, 'error');
                 },
                 error: function() {
                     $btn.prop('disabled', false).html(origHtml);
@@ -10138,6 +10333,12 @@ $('#caja-modal-new-product').fadeIn(200);
             if (!session) {
                 this.showToast('No hay una caja abierta para cerrar.', 'warning');
                 return;
+            }
+
+            if (!this.canManageRegisters) {
+                $('#caja-close-reg-confirm-btn').html('<span>📨</span> <span>Enviar Solicitud de Cierre</span>');
+            } else {
+                $('#caja-close-reg-confirm-btn').html('<span>🔒</span> <span>Confirmar y Cerrar Caja</span>');
             }
 
             $('#caja-close-reg-sub').text(`Turno: ${session.session_code} • Sector: ${session.sector} • Apertura: ${session.opened_time_str || ''}`);
@@ -10251,27 +10452,356 @@ $('#caja-modal-new-product').fadeIn(200);
                 },
                 success: function(res) {
                     $btn.prop('disabled', false).html(origHtml);
-                    if (res && res.success && res.data && res.data.session) {
-                        const closedSession = res.data.session;
-                        self.activeRegisterSession = null;
-                        self.updateRegisterBarUI(null);
-                        $('#caja-modal-close-register').fadeOut(150);
-                        self.showToast(res.data.message || 'Caja cerrada correctamente.', 'success');
+                    if (res && res.success && res.data) {
+                        if (res.data.is_pending_approval) {
+                            self.userPendingRegisterRequest = res.data.request;
+                            $('#caja-modal-close-register').fadeOut(150);
+                            self.updateRegisterBarUI(self.activeRegisterSession);
+                            self.showToast(res.data.message || 'Solicitud de cierre enviada a administración.', 'info', 6000);
+                            return;
+                        }
+                        if (res.data.session) {
+                            const closedSession = res.data.session;
+                            self.userPendingRegisterRequest = null;
+                            self.activeRegisterSession = null;
+                            self.updateRegisterBarUI(null);
+                            $('#caja-modal-close-register').fadeOut(150);
+                            self.showToast(res.data.message || 'Caja cerrada correctamente.', 'success');
 
-                        // Preguntar si desea imprimir el ticket Z
-                        setTimeout(function() {
-                            if (window.confirm('¿Deseas imprimir el Ticket de Cierre Z y Arqueo de Dinero?')) {
-                                self.printSessionZTicket(closedSession.id);
-                            }
-                        }, 300);
+                            // Preguntar si desea imprimir el ticket Z
+                            setTimeout(function() {
+                                if (window.confirm('¿Deseas imprimir el Ticket de Cierre Z y Arqueo de Dinero?')) {
+                                    self.printSessionZTicket(closedSession.id);
+                                }
+                            }, 300);
+                            return;
+                        }
+                    }
+                    const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al cerrar caja.';
+                    self.showToast(msg, 'error');
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al cerrar la caja.', 'error');
+                }
+            });
+        },
+
+        // ==========================================
+        // SOLICITUDES DE APERTURA Y CIERRE DE CAJA
+        // ==========================================
+        loadPendingRegisterRequests: function() {
+            const self = this;
+            const $container = $('#caja-pending-requests-container');
+            if (!$container.length) return;
+
+            $container.html(`
+                <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 20px; text-align: center; color: var(--caja-text-muted);">
+                    <span class="caja-spinner">⏳</span> Cargando solicitudes pendientes...
+                </div>
+            `);
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_get_register_requests',
+                    security: self.config.nonce,
+                    status: 'pending'
+                },
+                success: function(res) {
+                    if (res && res.success && res.data) {
+                        const requests = res.data.requests || [];
+                        self.renderPendingRegisterRequests(requests);
                     } else {
-                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al cerrar caja.';
+                        $container.html(`
+                            <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 20px; text-align: center; color: #f87171;">
+                                ${res && res.data && res.data.message ? res.data.message : 'Error al cargar solicitudes.'}
+                            </div>
+                        `);
+                    }
+                },
+                error: function() {
+                    $container.html(`
+                        <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 20px; text-align: center; color: #f87171;">
+                            Error de conexión al cargar solicitudes.
+                        </div>
+                    `);
+                }
+            });
+        },
+
+        renderPendingRegisterRequests: function(requests) {
+            const self = this;
+            const $container = $('#caja-pending-requests-container');
+            const $badge = $('#caja-pending-requests-badge');
+            if (!$container.length) return;
+
+            const count = (requests && Array.isArray(requests)) ? requests.length : 0;
+            if (count > 0) {
+                $badge.text(count).show();
+            } else {
+                $badge.hide();
+            }
+
+            if (!count) {
+                $container.html(`
+                    <div class="caja-reg-empty" style="grid-column: 1 / -1; padding: 22px; text-align: center; background: var(--caja-card-bg, #1e293b); border-radius: 8px; border: 1px dashed var(--caja-card-border, #334155); color: var(--caja-text-muted, #94a3b8);">
+                        <span>✅ No hay solicitudes de apertura o cierre pendientes de aprobación.</span>
+                    </div>
+                `);
+                return;
+            }
+
+            let html = '';
+            requests.forEach(req => {
+                const isOpen = (req.request_type === 'open');
+                const typeClass = isOpen ? 'open' : 'close';
+                const typeIcon = isOpen ? '🟢' : '🔒';
+                const typeTitle = isOpen ? 'Solicitud de Apertura' : 'Solicitud de Cierre y Arqueo';
+                
+                let amountHtml = '';
+                if (isOpen) {
+                    amountHtml = `
+                        <div class="caja-pending-amount-row">
+                            <span style="color:var(--caja-text-muted);">Fondo Inicial Solicitado:</span>
+                            <strong style="color:#10b981; font-size:1.05rem;">$${self.formatCurrencyNumber(req.opening_cash)}</strong>
+                        </div>
+                    `;
+                } else {
+                    const counted = parseFloat(req.counted_cash) || 0;
+                    const expected = parseFloat(req.expected_cash) || 0;
+                    const diff = parseFloat(req.difference) || 0;
+
+                    let diffBadge = '';
+                    if (diff === 0) {
+                        diffBadge = '<span style="color:#10b981; font-weight:700;">✅ Cuadrada Exacta</span>';
+                    } else if (diff < 0) {
+                        diffBadge = `<span style="color:#f87171; font-weight:700;">❌ Faltante: -$${self.formatCurrencyNumber(Math.abs(diff))}</span>`;
+                    } else {
+                        diffBadge = `<span style="color:#fbbf24; font-weight:700;">⚠️ Sobrante: +$${self.formatCurrencyNumber(diff)}</span>`;
+                    }
+
+                    let billsHtml = '';
+                    if (req.cash_breakdown && typeof req.cash_breakdown === 'object') {
+                        const chips = [];
+                        Object.keys(req.cash_breakdown).forEach(denom => {
+                            const q = parseInt(req.cash_breakdown[denom], 10) || 0;
+                            if (q > 0) {
+                                chips.push(`<span class="caja-pending-bill-chip">$${self.formatCurrencyNumber(denom)}: <strong>×${q}</strong></span>`);
+                            }
+                        });
+                        if (chips.length > 0) {
+                            billsHtml = `<div class="caja-pending-bills-wrap"><span style="font-size:0.7rem; color:var(--caja-text-muted); width:100%;">Detalle de billetes:</span>${chips.join('')}</div>`;
+                        }
+                    }
+
+                    amountHtml = `
+                        <div class="caja-pending-amount-row">
+                            <span style="color:var(--caja-text-muted);">Efectivo Contado:</span>
+                            <strong style="color:#10b981; font-size:1.05rem;">$${self.formatCurrencyNumber(counted)}</strong>
+                        </div>
+                        <div class="caja-pending-amount-row">
+                            <span style="color:var(--caja-text-muted);">Efectivo Esperado:</span>
+                            <strong style="color:#38bdf8;">$${self.formatCurrencyNumber(expected)}</strong>
+                        </div>
+                        <div class="caja-pending-amount-row">
+                            <span style="color:var(--caja-text-muted);">Estado Arqueo:</span>
+                            ${diffBadge}
+                        </div>
+                        ${billsHtml}
+                    `;
+                }
+
+                const notesHtml = req.notes ? `<div class="caja-pending-notes">"${self.escapeHtml(req.notes)}"</div>` : '';
+
+                html += `
+                    <div class="caja-pending-card type-${typeClass}" id="caja-pending-card-${req.id}">
+                        <div>
+                            <div class="caja-pending-card-header">
+                                <span class="caja-pending-type-tag ${typeClass}">
+                                    <span>${typeIcon}</span> ${typeTitle}
+                                </span>
+                                <span class="caja-pending-time">${req.created_at || ''}</span>
+                            </div>
+
+                            <div class="caja-pending-user-info">
+                                <div class="caja-pending-avatar">${(req.user_name || 'U').charAt(0).toUpperCase()}</div>
+                                <div>
+                                    <div class="caja-pending-user-name">${self.escapeHtml(req.user_name || 'Cajero')}</div>
+                                    <div class="caja-pending-user-sector">📍 ${self.escapeHtml(req.sector || 'Barra Principal')}${req.cash_box_name ? ' • 💵 ' + self.escapeHtml(req.cash_box_name) : ''}</div>
+                                </div>
+                            </div>
+
+                            <div class="caja-pending-amounts-box">
+                                ${amountHtml}
+                            </div>
+
+                            ${notesHtml}
+                        </div>
+
+                        <div class="caja-pending-actions">
+                            <button type="button" class="caja-btn-approve-request" data-id="${req.id}" data-type="${req.request_type}" data-user="${self.escapeHtml(req.user_name || '')}">
+                                <span>✅</span> Aprobar
+                            </button>
+                            <button type="button" class="caja-btn-reject-request" data-id="${req.id}" data-type="${req.request_type}" data-user="${self.escapeHtml(req.user_name || '')}">
+                                <span>❌</span> Rechazar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            $container.html(html);
+        },
+
+        approveRegisterRequest: function(requestId) {
+            const self = this;
+            const $btn = $(`.caja-btn-approve-request[data-id="${requestId}"]`);
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Aprobando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_approve_register_request',
+                    security: self.config.nonce,
+                    request_id: requestId
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success) {
+                        self.showToast(res.data.message || 'Solicitud aprobada correctamente.', 'success');
+                        self.loadPendingRegisterRequests();
+                        if (typeof self.loadMoneyBoxes === 'function') self.loadMoneyBoxes();
+                        if (typeof self.loadRegistersHistory === 'function') self.loadRegistersHistory();
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al aprobar solicitud.';
                         self.showToast(msg, 'error');
                     }
                 },
                 error: function() {
                     $btn.prop('disabled', false).html(origHtml);
-                    self.showToast('Error de conexión al cerrar la caja.', 'error');
+                    self.showToast('Error de conexión al procesar la aprobación.', 'error');
+                }
+            });
+        },
+
+        rejectRegisterRequest: function(requestId, adminNotes) {
+            const self = this;
+            const $btn = $('#caja-btn-confirm-reject-request');
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Rechazando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_reject_register_request',
+                    security: self.config.nonce,
+                    request_id: requestId,
+                    admin_notes: adminNotes
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success) {
+                        $('#caja-modal-reject-request').fadeOut(150);
+                        self.showToast(res.data.message || 'Solicitud rechazada.', 'info');
+                        self.loadPendingRegisterRequests();
+                    } else {
+                        const msg = (res && res.data && res.data.message) ? res.data.message : 'Error al rechazar solicitud.';
+                        self.showToast(msg, 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al rechazar solicitud.', 'error');
+                }
+            });
+        },
+
+        checkUserRegisterRequest: function() {
+            const self = this;
+            const $btn = $('#caja-btn-check-pending-reg');
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span> Consultando...');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_check_user_register_request',
+                    security: self.config.nonce
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success && res.data) {
+                        const req = res.data.request;
+                        if (!req || req.status === 'approved') {
+                            self.userPendingRegisterRequest = null;
+                            self.activeRegisterSession = res.data.active_session || null;
+                            self.updateRegisterBarUI(self.activeRegisterSession);
+                            self.showToast(res.data.message || '¡Tu solicitud ha sido aprobada!', 'success');
+                        } else if (req.status === 'rejected') {
+                            self.userPendingRegisterRequest = null;
+                            self.updateRegisterBarUI(self.activeRegisterSession);
+                            const reason = req.admin_notes || 'Sin motivo especificado';
+                            self.showToast(`Solicitud rechazada: ${reason}`, 'error', 8000);
+                            window.alert(`❌ Tu solicitud fue rechazada por administración.\n\nMotivo:\n${reason}`);
+                        } else {
+                            self.showToast('Tu solicitud aún está pendiente de aprobación por administración.', 'info');
+                        }
+                    } else {
+                        self.showToast((res && res.data && res.data.message) ? res.data.message : 'Estado verificado.', 'info');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al verificar solicitud.', 'error');
+                }
+            });
+        },
+
+        cancelUserRegisterRequest: function() {
+            const self = this;
+            const req = self.userPendingRegisterRequest;
+            if (!req) return;
+
+            if (!window.confirm('¿Seguro que deseas cancelar esta solicitud pendiente de apertura o cierre?')) {
+                return;
+            }
+
+            const $btn = $('#caja-btn-cancel-pending-reg');
+            const origHtml = $btn.html();
+            $btn.prop('disabled', true).html('<span class="caja-spinner">⏳</span>');
+
+            $.ajax({
+                url: self.config.ajaxUrl,
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    action: 'emp_caja_cancel_register_request',
+                    security: self.config.nonce,
+                    request_id: req.id
+                },
+                success: function(res) {
+                    $btn.prop('disabled', false).html(origHtml);
+                    if (res && res.success) {
+                        self.userPendingRegisterRequest = null;
+                        self.updateRegisterBarUI(self.activeRegisterSession);
+                        self.showToast(res.data.message || 'Solicitud cancelada.', 'info');
+                    } else {
+                        self.showToast((res && res.data && res.data.message) ? res.data.message : 'Error al cancelar.', 'error');
+                    }
+                },
+                error: function() {
+                    $btn.prop('disabled', false).html(origHtml);
+                    self.showToast('Error de conexión al cancelar.', 'error');
                 }
             });
         },

@@ -608,8 +608,11 @@ class Batllie_Caja_Plugin {
             'gastroVenueName'        => !empty($options['gastro_venue_name']) ? $options['gastro_venue_name'] : (function_exists('get_bloginfo') ? get_bloginfo('name') : 'Local'),
             'gastroTicketFooter'     => $options['gastro_ticket_footer'] ?? '¡Gracias por tu visita! Conserve su ticket.',
             'currentUserPermissions' => class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_user_permissions(get_current_user_id()) : array('is_admin' => true, 'can_view_products' => true, 'can_view_orders' => true, 'can_change_sector' => true),
+            'canManageRegisters'     => class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::can_manage_registers(get_current_user_id()) : true,
             'availableSectors'       => class_exists('Batllie_Caja_Employees') ? Batllie_Caja_Employees::get_available_sectors() : array(),
             'activeSession'          => class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_active_session(get_current_user_id()) : null,
+            'userPendingRegisterRequest'   => class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_user_pending_request(get_current_user_id()) : null,
+            'pendingRegisterRequestsCount' => class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_pending_requests_count() : 0,
             'i18n'             => array(
                 'newOrderAlert'    => __('¡Nuevo Pedido Entrante!', 'emp-caja'),
                 'soundOn'          => __('Sonido: ACTIVO', 'emp-caja'),
