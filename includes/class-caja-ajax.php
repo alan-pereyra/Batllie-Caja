@@ -198,11 +198,19 @@ class Batllie_Caja_Ajax {
         $new_status        = isset($_POST['new_status']) ? sanitize_key($_POST['new_status']) : '';
         $restore_box_stock = isset($_POST['restore_box_stock']) ? sanitize_key($_POST['restore_box_stock']) : null;
 
+        $refund_args = array(
+            'restore_merchandise_stock' => isset($_POST['restore_merchandise_stock']) ? sanitize_key($_POST['restore_merchandise_stock']) : ($restore_box_stock ?: 'yes'),
+            'money_source'              => isset($_POST['money_source']) ? sanitize_text_field(wp_unslash($_POST['money_source'])) : 'none',
+            'cash_box_id'               => isset($_POST['cash_box_id']) ? sanitize_text_field(wp_unslash($_POST['cash_box_id'])) : '',
+            'refund_amount'             => isset($_POST['refund_amount']) ? floatval($_POST['refund_amount']) : 0.00,
+            'refund_note'               => isset($_POST['refund_note']) ? sanitize_textarea_field(wp_unslash($_POST['refund_note'])) : '',
+        );
+
         if (!$order_id || empty($new_status)) {
             wp_send_json_error(array('message' => __('Datos incompletos para actualizar el pedido.', 'emp-caja')));
         }
 
-        $updated_order = Batllie_Caja_Orders::update_status($order_id, $new_status, $restore_box_stock);
+        $updated_order = Batllie_Caja_Orders::update_status($order_id, $new_status, $restore_box_stock, $refund_args);
 
         if (is_wp_error($updated_order)) {
             wp_send_json_error(array('message' => $updated_order->get_error_message()));
@@ -212,9 +220,12 @@ class Batllie_Caja_Ajax {
             wp_send_json_error(array('message' => __('No se pudo actualizar el pedido.', 'emp-caja')));
         }
 
+        $boxes = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_money_boxes_with_balances() : array();
+
         wp_send_json_success(array(
             'message' => __('Estado de pedido actualizado correctamente.', 'emp-caja'),
-            'order'   => $updated_order
+            'order'   => $updated_order,
+            'boxes'   => $boxes,
         ));
     }
 

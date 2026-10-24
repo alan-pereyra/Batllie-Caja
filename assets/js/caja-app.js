@@ -469,6 +469,12 @@
                 const isVentaMostrador = !!(cachedOrder && (cachedOrder.is_venta_mostrador || (cachedOrder.customer_name && cachedOrder.customer_name.toLowerCase().includes('venta mostrador'))));
                 const isVentaCaja = self.isOrderVentaCaja(cachedOrder);
 
+                if (newStatus === 'refunded') {
+                    // Modal interactivo de Devolución / Reembolso
+                    self.openRefundModal(orderId, cachedOrder, select, currentStatus);
+                    return;
+                }
+
                 if (isVentaCaja) {
                     select.removeClass('status-bg-pending status-bg-processing status-bg-enviando status-bg-completed status-bg-recibido-problema status-bg-cancelled status-bg-refunded status-bg-on-hold status-bg-failed is-verified-primary');
                     select.addClass('status-bg-' + newStatus);
@@ -544,8 +550,8 @@
                     setVisible($shipBox, false);
                     $controlBtnWrap.hide();
                 } else if (newStatus === 'refunded') {
-                    // Si se reembolsa, se debe elegir entre devolver el stock de los paquetes o no
-                    self.openRefundStockModal(orderId, cachedOrder, select, currentStatus);
+                    // Modal interactivo de Devolución / Reembolso
+                    self.openRefundModal(orderId, cachedOrder, select, currentStatus);
                     return;
                 }
 
@@ -3857,7 +3863,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                     <select class="caja-main-status-dropdown status-bg-${order.status} ${isVerified && (order.status === 'enviando' || order.status === 'on-hold') ? 'is-verified-primary' : ''}" data-order-id="${order.id}">
                                         ${isVentaCaja ? `
                                             <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completado</option>
-                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Devolución / Reembolso</option>
                                         ` : `
                                             <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pendiente</option>
                                             <option value="processing" ${order.status === 'processing' ? 'selected' : ''} ${(!isPayApproved && order.status !== 'processing') ? 'disabled' : ''}>En preparación${(!isPayApproved && order.status !== 'processing') ? ' 🔒 (requiere pago)' : ''}</option>
@@ -3865,7 +3871,7 @@ $('#caja-modal-new-product').fadeIn(200);
                                             <option value="completed" ${order.status === 'completed' ? 'selected' : ''} ${!isPayApproved ? 'disabled' : ''}>Completado${!isPayApproved ? ' 🔒 (requiere pago)' : ''}</option>
                                             <option value="recibido-problema" ${order.status === 'recibido-problema' || order.status === 'failed' ? 'selected' : ''}>Recibido (con inconvenientes)</option>
                                             <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
-                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Reembolzado</option>
+                                            <option value="refunded" ${order.status === 'refunded' ? 'selected' : ''}>Devolución / Reembolso</option>
                                         `}
                                     </select>
                                     <span class="caja-dropdown-arrow">▼</span>
@@ -4152,42 +4158,150 @@ $('#caja-modal-new-product').fadeIn(200);
         },
 
         openRefundStockModal: function(orderId, order, $select, currentStatus) {
-            const self = this;
-            const $modal = $('#caja-modal-refund-stock');
-            const $details = $('#caja-refund-modal-details');
+            return this.openRefundModal(orderId, order, $select, currentStatus);
+        },
 
-            let pkgInfo = '';
-            if (order && order.packaging_summary_text) {
-                pkgInfo = `<strong>📦 Empaque del pedido:</strong> ${order.packaging_summary_text}`;
-            } else if (order && (order.boxes_12_qty > 0 || order.boxes_6_qty > 0)) {
-                const parts = [];
-                if (order.boxes_12_qty > 0) parts.push(`${order.boxes_12_qty}x Caja Oficial x 12`);
-                if (order.boxes_6_qty > 0) parts.push(`${order.boxes_6_qty}x Caja Oficial x 6`);
-                pkgInfo = `<strong>📦 Cajas asociadas:</strong> ${parts.join(', ')}`;
-            } else {
-                pkgInfo = '<strong>📦 Cajas físicas:</strong> Cajas de empaque asociadas al pedido.';
+        openRefundModal: function(orderId, order, $select, currentStatus) {
+            const self = this;
+            const $modal = $('#caja-modal-order-refund');
+            if (!$modal.length) {
+                return;
             }
 
-            $details.html(pkgInfo);
+            order = order || self.cachedOrders.find(o => o.id == orderId) || {};
+            const orderNum = order.number || order.order_number || orderId;
+            const rawTotal = parseFloat(order.total_raw) || parseFloat(String(order.total || '').replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+
+            let cleanCust = order.customer_name || '';
+            const lowerCust = cleanCust.toLowerCase().trim();
+            if (!cleanCust || lowerCust === 'cliente mostrador' || lowerCust.includes('cliente mostrador') || lowerCust === 'cliente' || lowerCust === 'mostrador' || lowerCust.includes('anónimo') || lowerCust.includes('anonimo') || lowerCust.includes('consumidor final')) {
+                cleanCust = 'Consumidor Final';
+            }
+
+            $('#caja-refund-modal-title').text('Devolución del Pedido #' + orderNum);
+            $('#caja-refund-modal-subtitle').text('Gestionar retorno de mercadería y deducción de dinero');
+            $('#caja-refund-order-number-display').text('#' + orderNum);
+            $('#caja-refund-customer-display').text('👤 ' + cleanCust);
+            $('#caja-refund-order-total-display').text('$' + self.formatCurrencyNumber(rawTotal));
+            $('#caja-refund-amount-input').val(rawTotal > 0 ? rawTotal.toFixed(2) : '');
+            $('#caja-refund-note-input').val('');
+            $('#caja-refund-alert-error').hide().text('');
+
+            // Previsualizar productos del pedido
+            let itemsPreviewHtml = '';
+            if (Array.isArray(order.items) && order.items.length > 0) {
+                itemsPreviewHtml = order.items.map(function(it) {
+                    const priceStr = it.total_formatted || (it.total ? '$' + self.formatCurrencyNumber(it.total) : '');
+                    return `<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>• <strong>${it.quantity}x</strong> ${self.escapeHtml(it.name)}</span> <span style="font-weight:600; color:#cbd5e1;">${priceStr}</span></div>`;
+                }).join('');
+            } else {
+                itemsPreviewHtml = '<div style="color:#64748b;">(Sin desglose de productos registrado)</div>';
+            }
+            $('#caja-refund-items-preview').html(itemsPreviewHtml);
+
+            // Poblar / actualizar selector de cajas de dinero
+            const $boxSelect = $('#caja-refund-cashbox-select');
+            if (self.cachedMoneyBoxes && self.cachedMoneyBoxes.length > 0) {
+                let boxOptions = '';
+                self.cachedMoneyBoxes.forEach(function(b) {
+                    const codeLabel = b.code ? `[${b.code}] ` : '';
+                    const balDisplay = (b.current_cash !== undefined) ? ` (Saldo: $${self.formatCurrencyNumber(b.current_cash)})` : '';
+                    boxOptions += `<option value="${b.id}">${codeLabel}${self.escapeHtml(b.name)}${balDisplay}</option>`;
+                });
+                $boxSelect.html(boxOptions);
+            }
+
+            // Seleccionar por defecto la caja del pedido si coincide
+            if (order.caja_session_code) {
+                const matched = (self.cachedMoneyBoxes || []).find(b => b.code == order.caja_session_code || b.name == order.caja_session_code);
+                if (matched) {
+                    $boxSelect.val(matched.id);
+                }
+            }
+
+            // Resetear estados visuales
+            // Paso 1: Stock (Sí por defecto)
+            $('#caja-refund-restore-stock-val').val('yes');
+            $('.caja-refund-stock-btn').removeClass('active');
+            $('.caja-refund-stock-btn[data-restore="yes"]').addClass('active');
+
+            // Paso 2: Origen del dinero (Caja de dinero por defecto)
+            $('#caja-refund-money-source-val').val('cash_box');
+            $('.caja-refund-money-card').removeClass('active');
+            $('.caja-refund-money-card[data-source="cash_box"]').addClass('active');
+            $('#caja-refund-radio-cash').prop('checked', true);
+            $('#caja-refund-cashbox-select-wrap').show();
 
             const closeModal = function() {
                 $modal.fadeOut(150);
-                $('#caja-btn-refund-restore-yes, #caja-btn-refund-restore-no, #caja-btn-refund-cancel, #caja-refund-modal-close-btn').off('.refundModal');
+                $('#caja-refund-confirm-btn, #caja-refund-cancel-btn, #caja-refund-close-btn, #caja-modal-order-refund .caja-modal-backdrop, .caja-refund-stock-btn, .caja-refund-money-card').off('.refundOrderModal');
             };
 
-            $('#caja-btn-refund-restore-yes').off('.refundModal').on('click.refundModal', function(e) {
+            // Eventos dentro del modal
+            $('.caja-refund-stock-btn').off('.refundOrderModal').on('click.refundOrderModal', function(e) {
                 e.preventDefault();
-                closeModal();
-                self.applyRefundStatus(orderId, 'refunded', $select, 'yes');
+                const restoreVal = $(this).data('restore') || 'yes';
+                $('#caja-refund-restore-stock-val').val(restoreVal);
+                $('.caja-refund-stock-btn').removeClass('active');
+                $(this).addClass('active');
             });
 
-            $('#caja-btn-refund-restore-no').off('.refundModal').on('click.refundModal', function(e) {
-                e.preventDefault();
-                closeModal();
-                self.applyRefundStatus(orderId, 'refunded', $select, 'no');
+            $('.caja-refund-money-card').off('.refundOrderModal').on('click.refundOrderModal', function(e) {
+                const source = $(this).data('source') || 'cash_box';
+                $('#caja-refund-money-source-val').val(source);
+                $('.caja-refund-money-card').removeClass('active');
+                $(this).addClass('active');
+                $(`input[name="caja_refund_source_radio"][value="${source}"]`).prop('checked', true);
+                if (source === 'cash_box') {
+                    $('#caja-refund-cashbox-select-wrap').slideDown(150);
+                } else {
+                    $('#caja-refund-cashbox-select-wrap').slideUp(150);
+                }
             });
 
-            $('#caja-btn-refund-cancel, #caja-refund-modal-close-btn, #caja-modal-refund-stock .caja-modal-backdrop').off('.refundModal').on('click.refundModal', function(e) {
+            $('input[name="caja_refund_source_radio"]').off('.refundOrderModal').on('change.refundOrderModal', function() {
+                const source = $(this).val();
+                $('#caja-refund-money-source-val').val(source);
+                $('.caja-refund-money-card').removeClass('active');
+                $(`.caja-refund-money-card[data-source="${source}"]`).addClass('active');
+                if (source === 'cash_box') {
+                    $('#caja-refund-cashbox-select-wrap').slideDown(150);
+                } else {
+                    $('#caja-refund-cashbox-select-wrap').slideUp(150);
+                }
+            });
+
+            // Confirmar devolución
+            $('#caja-refund-confirm-btn').off('.refundOrderModal').on('click.refundOrderModal', function(e) {
+                e.preventDefault();
+                const restoreStock = $('#caja-refund-restore-stock-val').val() || 'yes';
+                const moneySource = $('#caja-refund-money-source-val').val() || 'cash_box';
+                const cashBoxId = $('#caja-refund-cashbox-select').val();
+                const refundAmount = parseFloat($('#caja-refund-amount-input').val()) || 0;
+                const refundNote = $('#caja-refund-note-input').val() || '';
+
+                if (refundAmount <= 0) {
+                    $('#caja-refund-alert-error').show().text('El importe a devolver debe ser mayor a $0,00.');
+                    return;
+                }
+
+                if (moneySource === 'cash_box' && !cashBoxId) {
+                    $('#caja-refund-alert-error').show().text('Debes seleccionar una caja de efectivo de donde extraer el dinero.');
+                    return;
+                }
+
+                closeModal();
+                self.applyRefundStatus(orderId, 'refunded', $select, {
+                    restore_merchandise_stock: restoreStock,
+                    money_source: moneySource,
+                    cash_box_id: cashBoxId,
+                    refund_amount: refundAmount,
+                    refund_note: refundNote
+                });
+            });
+
+            // Cancelar devolución
+            $('#caja-refund-cancel-btn, #caja-refund-close-btn, #caja-modal-order-refund .caja-modal-backdrop').off('.refundOrderModal').on('click.refundOrderModal', function(e) {
                 e.preventDefault();
                 closeModal();
                 $select.val(currentStatus);
@@ -4196,7 +4310,7 @@ $('#caja-modal-new-product').fadeIn(200);
             $modal.fadeIn(200);
         },
 
-        applyRefundStatus: function(orderId, newStatus, $select, restoreBoxStock) {
+        applyRefundStatus: function(orderId, newStatus, $select, refundData) {
             const self = this;
             const $card = $(`#caja-order-card-${orderId}`);
             const $grid = $(`#caja-meta-grid-${orderId}`);
@@ -4236,7 +4350,14 @@ $('#caja-modal-new-product').fadeIn(200);
 
             $card.find('.caja-felicitacion-card, .caja-box-felicitacion-card').slideUp(200);
 
-            self.updateOrderStatus(orderId, 'refunded', $select, { restore_box_stock: restoreBoxStock });
+            let extra = {};
+            if (refundData && typeof refundData === 'object') {
+                extra = refundData;
+            } else {
+                extra = { restore_merchandise_stock: refundData || 'yes' };
+            }
+
+            self.updateOrderStatus(orderId, 'refunded', $select, extra);
         },
 
         updateOrderStatus: function(orderId, newStatus, $btn, extraData) {
@@ -4273,6 +4394,12 @@ $('#caja-modal-new-product').fadeIn(200);
                         const idx = self.cachedOrders.findIndex(o => o.id === orderId);
                         if (idx !== -1) {
                             self.cachedOrders[idx] = updated;
+                        }
+                        if (res.data.boxes) {
+                            self.cachedMoneyBoxes = res.data.boxes;
+                            if (typeof self.renderMoneyBoxes === 'function') {
+                                self.renderMoneyBoxes();
+                            }
                         }
                         self.applyFilters();
                         self.showToast(`Pedido #${orderId} actualizado a ${updated.status_name}`);

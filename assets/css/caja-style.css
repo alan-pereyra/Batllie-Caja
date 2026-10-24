@@ -1246,6 +1246,22 @@ body.batllie-caja-active .container {
     font-weight: 400;
 }
 
+/* Modal de Devolución / Reembolso */
+.caja-refund-stock-btn:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+.caja-refund-stock-btn.active {
+    border-color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+}
+.caja-refund-money-card:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+.caja-refund-money-card.active {
+    border-color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.12) !important;
+}
+
 .caja-phone-row {
     margin-bottom: 5px;
 }

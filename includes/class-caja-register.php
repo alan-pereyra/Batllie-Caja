@@ -1107,9 +1107,9 @@ class Batllie_Caja_Register {
     }
 
     /**
-     * Registrar movimiento manual de dinero en una caja (Ingreso, Retiro, Ajuste)
+     * Registrar movimiento manual de dinero en una caja (Ingreso, Retiro, Ajuste, Devolución)
      */
-    public static function add_cash_movement($cash_box_id, $type, $amount, $concept, $notes = '', $user_id = null) {
+    public static function add_cash_movement($cash_box_id, $type, $amount, $concept, $notes = '', $user_id = null, $order_id = null) {
         global $wpdb;
         self::check_db_table();
 
@@ -1217,6 +1217,7 @@ class Batllie_Caja_Register {
             'cash_flow'      => $cash_flow,
             'payment_method' => 'efectivo',
             'balance_after'  => $new_balance,
+            'order_id'       => !empty($order_id) ? intval($order_id) : null,
             'metadata'       => array('notes' => sanitize_textarea_field($notes)),
             'created_at'     => current_time('mysql'),
         ));
@@ -1301,6 +1302,8 @@ class Batllie_Caja_Register {
             $r['amount']     = floatval($r['amount']);
             $r['cash_flow']  = floatval($r['cash_flow']);
             $r['balance_after'] = floatval($r['balance_after']);
+            $oid = !empty($r['order_id']) ? intval($r['order_id']) : 0;
+            $r['order_number'] = $oid ? (function_exists('wc_get_order') && wc_get_order($oid) ? wc_get_order($oid)->get_order_number() : $oid) : '';
             if (!empty($r['metadata'])) {
                 $r['metadata'] = json_decode($r['metadata'], true);
             }

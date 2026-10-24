@@ -131,38 +131,159 @@ sort($configured_slots);
         <p><?php _e('Los nuevos pedidos recibidos en WooCommerce aparecerán aquí de forma automática.', 'emp-caja'); ?></p>
     </div>
 
-    <!-- Modal para Confirmar Reembolso de Stock de Paquetes -->
-    <div id="caja-modal-refund-stock" class="caja-modal" style="display:none;">
+    <!-- Modal: Devolución / Reembolso de Pedido Completo -->
+    <div id="caja-modal-order-refund" class="caja-modal" style="display:none; z-index: 100060;">
         <div class="caja-modal-backdrop"></div>
-        <div class="caja-modal-dialog" style="max-width: 480px;">
-            <div class="caja-modal-header" style="background:#1e293b; color:#fff; border-bottom:1px solid #334155;">
-                <h3 style="margin:0; font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px;">
-                    <span>📦</span> <?php _e('Reembolso de Stock de Paquetes', 'emp-caja'); ?>
-                </h3>
-                <button type="button" class="caja-modal-close" id="caja-refund-modal-close-btn">&times;</button>
-            </div>
-            <div class="caja-modal-body" style="padding: 20px; font-size:14px; color:#334155;">
-                <p style="margin-top:0; font-size:15px; font-weight:600; color:#0f172a;">
-                    <?php _e('¿Deseas devolver al inventario el stock de los paquetes de este pedido?', 'emp-caja'); ?>
-                </p>
-                <p style="color:#64748b; font-size:13px; line-height:1.5; margin-bottom:12px;">
-                    <?php _e('Indica si las cajas físicas de empaque deben retornar al stock disponible o mantenerse descontadas:', 'emp-caja'); ?>
-                </p>
-                <div id="caja-refund-modal-details" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin:14px 0; font-size:13px; color:#1e293b;">
-                    <!-- Se llena dinámicamente con JS -->
+        <div class="caja-modal-dialog" style="max-width: 540px; width: 95%;">
+            <div class="caja-modal-header" style="background:#0f172a; color:#f8fafc; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; padding:14px 18px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.4rem;">🔄</span>
+                    <div>
+                        <h3 class="caja-modal-title" id="caja-refund-modal-title" style="margin:0; font-size:1.15rem; font-weight:700; color:#f8fafc;">
+                            <?php _e('Devolución de Pedido', 'emp-caja'); ?>
+                        </h3>
+                        <p id="caja-refund-modal-subtitle" style="margin:2px 0 0; font-size:0.8rem; color:#94a3b8;"></p>
+                    </div>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:10px; margin-top:16px;">
-                    <button type="button" class="caja-btn caja-btn-primary" id="caja-btn-refund-restore-yes" style="background:#059669; border-color:#059669; justify-content:center; padding:12px; font-weight:600; font-size:14px; color:#fff;">
-                        ↩️ <?php _e('Sí, devolver stock de paquetes', 'emp-caja'); ?>
-                    </button>
-                    <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-refund-restore-no" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; justify-content:center; padding:12px; font-weight:600; font-size:14px;">
-                        📦 <?php _e('No devolver, mantener descontado', 'emp-caja'); ?>
-                    </button>
-                </div>
+                <button type="button" class="caja-modal-close" id="caja-refund-close-btn" style="color:#94a3b8; font-size:1.5rem; background:none; border:none; cursor:pointer;" aria-label="<?php esc_attr_e('Cerrar', 'emp-caja'); ?>">&times;</button>
             </div>
-            <div class="caja-modal-footer" style="padding:12px 20px; justify-content:flex-end; border-top:1px solid #e2e8f0;">
-                <button type="button" class="caja-btn caja-btn-secondary" id="caja-btn-refund-cancel" style="padding:8px 16px;">
-                    <?php _e('Cancelar cambio de estado', 'emp-caja'); ?>
+
+            <div class="caja-modal-body" style="background:#1e293b; color:#f8fafc; padding:18px 20px; max-height:78vh; overflow-y:auto;">
+                <!-- Tarjeta Resumen del Pedido -->
+                <div style="background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px 14px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <span id="caja-refund-order-number-display" style="font-size:1.05rem; font-weight:800; color:#f8fafc;">#---</span>
+                            <span id="caja-refund-customer-display" style="font-size:0.88rem; color:#94a3b8; margin-left:8px;">👤 Consumidor Final</span>
+                        </div>
+                        <div>
+                            <span style="font-size:0.75rem; color:#94a3b8; text-transform:uppercase; font-weight:600; display:block; text-align:right;">Total Pedido:</span>
+                            <strong id="caja-refund-order-total-display" style="font-size:1.2rem; color:#10b981;">$0,00</strong>
+                        </div>
+                    </div>
+                    <div id="caja-refund-items-preview" style="margin-top:8px; padding-top:8px; border-top:1px dashed rgba(255,255,255,0.1); font-size:0.82rem; color:#cbd5e1; max-height:80px; overflow-y:auto;">
+                        <!-- Ítems del pedido -->
+                    </div>
+                </div>
+
+                <!-- Paso 1: Retorno de Mercadería (Stock) -->
+                <div style="margin-bottom:18px;">
+                    <label style="display:block; font-size:0.84rem; font-weight:700; color:#f8fafc; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;">
+                        📦 <?php _e('1. ¿Se devuelve la mercadería?', 'emp-caja'); ?>
+                    </label>
+                    <div class="caja-refund-stock-selector" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <button type="button" class="caja-refund-stock-btn active" data-restore="yes" style="background:#0f172a; border:2px solid #10b981; border-radius:8px; padding:12px; text-align:left; cursor:pointer; color:#f8fafc; transition:all 0.2s;">
+                            <div style="font-size:1.3rem; margin-bottom:4px;">↩️</div>
+                            <strong style="font-size:0.88rem; display:block; color:#10b981;"><?php _e('Sí, se devuelve', 'emp-caja'); ?></strong>
+                            <span style="font-size:0.74rem; color:#94a3b8; line-height:1.3; display:block; margin-top:2px;"><?php _e('Se reincorpora al stock de productos automáticamente.', 'emp-caja'); ?></span>
+                        </button>
+                        <button type="button" class="caja-refund-stock-btn" data-restore="no" style="background:#0f172a; border:2px solid #334155; border-radius:8px; padding:12px; text-align:left; cursor:pointer; color:#f8fafc; transition:all 0.2s;">
+                            <div style="font-size:1.3rem; margin-bottom:4px;">🚫</div>
+                            <strong style="font-size:0.88rem; display:block; color:#f8fafc;"><?php _e('No se devuelve', 'emp-caja'); ?></strong>
+                            <span style="font-size:0.74rem; color:#94a3b8; line-height:1.3; display:block; margin-top:2px;"><?php _e('Mercadería no reincorporada (consumida / merma).', 'emp-caja'); ?></span>
+                        </button>
+                    </div>
+                    <input type="hidden" id="caja-refund-restore-stock-val" value="yes" />
+                </div>
+
+                <!-- Paso 2: Origen del Dinero -->
+                <div style="margin-bottom:18px;">
+                    <label style="display:block; font-size:0.84rem; font-weight:700; color:#f8fafc; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.3px;">
+                        💵 <?php _e('2. ¿De dónde sale el dinero de la devolución?', 'emp-caja'); ?>
+                    </label>
+                    <div class="caja-refund-money-options" style="display:flex; flex-direction:column; gap:10px;">
+                        <!-- Opción 1: Caja en Efectivo -->
+                        <div class="caja-refund-money-card active" data-source="cash_box" style="background:#0f172a; border:2px solid #3b82f6; border-radius:8px; padding:12px; cursor:pointer; transition:all 0.2s;">
+                            <div style="display:flex; align-items:flex-start; gap:10px;">
+                                <input type="radio" name="caja_refund_source_radio" id="caja-refund-radio-cash" value="cash_box" checked style="margin-top:3px; accent-color:#3b82f6; cursor:pointer;" />
+                                <div style="flex:1;">
+                                    <label for="caja-refund-radio-cash" style="font-weight:700; font-size:0.9rem; color:#f8fafc; cursor:pointer; display:block;">
+                                        💵 <?php _e('Caja de Dinero en Efectivo', 'emp-caja'); ?>
+                                    </label>
+                                    <p style="margin:2px 0 0; font-size:0.77rem; color:#94a3b8;">
+                                        <?php _e('Se descuenta de una caja física y genera un egreso en su historial.', 'emp-caja'); ?>
+                                    </p>
+                                    <div id="caja-refund-cashbox-select-wrap" style="margin-top:10px;">
+                                        <label style="font-size:0.76rem; font-weight:600; color:#cbd5e1; display:block; margin-bottom:4px;">
+                                            <?php _e('Seleccionar caja física donde se extrae el dinero:', 'emp-caja'); ?>
+                                        </label>
+                                        <select id="caja-refund-cashbox-select" style="width:100%; background:#1e293b; border:1px solid #475569; color:#f8fafc; padding:8px 10px; border-radius:6px; font-size:0.86rem;">
+                                            <?php
+                                            $boxes = class_exists('Batllie_Caja_Register') ? Batllie_Caja_Register::get_money_boxes_with_balances() : array();
+                                            if (!empty($boxes)) {
+                                                foreach ($boxes as $b) {
+                                                    $code_label = !empty($b['code']) ? '[' . esc_html($b['code']) . '] ' : '';
+                                                    $bal_display = isset($b['current_cash']) ? ' (Saldo: $' . number_format(floatval($b['current_cash']), 2, ',', '.') . ')' : '';
+                                                    echo '<option value="' . esc_attr($b['id']) . '">' . $code_label . esc_html($b['name']) . $bal_display . '</option>';
+                                                }
+                                            } else {
+                                                echo '<option value="box_1">' . __('Caja Principal', 'emp-caja') . '</option>';
+                                            }
+                                            ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Opción 2: Cuenta de Transferencia -->
+                        <div class="caja-refund-money-card" data-source="transfer" style="background:#0f172a; border:2px solid #334155; border-radius:8px; padding:12px; cursor:pointer; transition:all 0.2s;">
+                            <div style="display:flex; align-items:flex-start; gap:10px;">
+                                <input type="radio" name="caja_refund_source_radio" id="caja-refund-radio-transfer" value="transfer" style="margin-top:3px; accent-color:#3b82f6; cursor:pointer;" />
+                                <div style="flex:1;">
+                                    <label for="caja-refund-radio-transfer" style="font-weight:700; font-size:0.9rem; color:#f8fafc; cursor:pointer; display:block;">
+                                        📱 <?php _e('Cuenta de Transferencia / Banco', 'emp-caja'); ?>
+                                    </label>
+                                    <p style="margin:2px 0 0; font-size:0.77rem; color:#94a3b8;">
+                                        <?php _e('Se descuenta de la cuenta de transferencias bancarias / billetera digital.', 'emp-caja'); ?>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Opción 3: Sin Modificar Cuentas -->
+                        <div class="caja-refund-money-card" data-source="none" style="background:#0f172a; border:2px solid #334155; border-radius:8px; padding:12px; cursor:pointer; transition:all 0.2s;">
+                            <div style="display:flex; align-items:flex-start; gap:10px;">
+                                <input type="radio" name="caja_refund_source_radio" id="caja-refund-radio-none" value="none" style="margin-top:3px; accent-color:#3b82f6; cursor:pointer;" />
+                                <div style="flex:1;">
+                                    <label for="caja-refund-radio-none" style="font-weight:700; font-size:0.9rem; color:#f8fafc; cursor:pointer; display:block;">
+                                        ⚖️ <?php _e('Sin modificar el total de ninguna cuenta', 'emp-caja'); ?>
+                                    </label>
+                                    <p style="margin:2px 0 0; font-size:0.77rem; color:#94a3b8;">
+                                        <?php _e('Se registra la devolución sin afectar el saldo de ninguna caja ni cuenta.', 'emp-caja'); ?>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="caja-refund-money-source-val" value="cash_box" />
+                </div>
+
+                <!-- Paso 3: Importe y Motivo -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px;">
+                    <div>
+                        <label style="font-size:0.78rem; font-weight:600; color:#cbd5e1; display:block; margin-bottom:4px;">
+                            <?php _e('Importe a Devolver ($):', 'emp-caja'); ?>
+                        </label>
+                        <input type="number" step="0.01" id="caja-refund-amount-input" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; color:#10b981; font-weight:700; font-size:1.05rem; padding:8px 10px; border-radius:6px;" />
+                    </div>
+                    <div>
+                        <label style="font-size:0.78rem; font-weight:600; color:#cbd5e1; display:block; margin-bottom:4px;">
+                            <?php _e('Motivo / Aclaración (opcional):', 'emp-caja'); ?>
+                        </label>
+                        <input type="text" id="caja-refund-note-input" placeholder="<?php esc_attr_e('Ej: Devolución solicitada', 'emp-caja'); ?>" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; color:#f8fafc; padding:8px 10px; border-radius:6px; font-size:0.86rem;" />
+                    </div>
+                </div>
+
+                <div id="caja-refund-alert-error" style="display:none; margin-top:12px; background:rgba(239,68,68,0.2); border:1px solid #ef4444; border-radius:6px; padding:8px 12px; color:#fca5a5; font-size:0.84rem;"></div>
+            </div>
+
+            <div class="caja-modal-footer" style="background:#0f172a; border-top:1px solid #334155; padding:12px 20px; display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="caja-btn caja-btn-secondary" id="caja-refund-cancel-btn" style="padding:8px 16px; font-size:0.88rem; background:#334155; color:#cbd5e1; border:none; border-radius:6px; cursor:pointer;">
+                    <?php _e('Cancelar', 'emp-caja'); ?>
+                </button>
+                <button type="button" class="caja-btn caja-btn-danger" id="caja-refund-confirm-btn" style="padding:8px 18px; font-size:0.88rem; font-weight:700; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                    <span>✓</span> <?php _e('Confirmar Devolución', 'emp-caja'); ?>
                 </button>
             </div>
         </div>

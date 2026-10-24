@@ -1866,7 +1866,7 @@ class Batllie_Caja_Orders {
     /**
      * Actualizar estado de un pedido
      */
-    public static function update_status($order_id, $new_status, $restore_box_stock = null) {
+    public static function update_status($order_id, $new_status, $restore_box_stock = null, $refund_args = array()) {
         if (!class_exists('WooCommerce')) {
             return false;
         }
@@ -1906,97 +1906,183 @@ class Batllie_Caja_Orders {
             }
         }
 
-        // Manejo explícito de la restitución de stock de productos y cajas físicas en cancelación o reembolso
-        if (in_array($clean_status, array('refunded', 'cancelled'), true)) {
+        // Manejo explícito de cancelación o reembolso
+        if ($clean_status === 'refunded') {
+            $restore_merchandise_stock = isset($refund_args['restore_merchandise_stock']) ? $refund_args['restore_merchandise_stock'] : ($restore_box_stock ?: 'yes');
+            $money_source              = isset($refund_args['money_source']) ? $refund_args['money_source'] : 'none';
+            $cash_box_id               = isset($refund_args['cash_box_id']) ? sanitize_text_field($refund_args['cash_box_id']) : '';
+            $refund_amount             = (isset($refund_args['refund_amount']) && floatval($refund_args['refund_amount']) > 0) ? floatval($refund_args['refund_amount']) : floatval($order->get_total());
+            $refund_note               = isset($refund_args['refund_note']) ? sanitize_textarea_field($refund_args['refund_note']) : '';
+
+            $user_id = get_current_user_id();
+            $user_obj = wp_get_current_user();
+            $user_name = ($user_obj && $user_obj->exists()) ? $user_obj->display_name : __('Cajero POS', 'emp-caja');
+
+            // 1. GESTIÓN DEL STOCK DE MERCADERÍA
+            if ($restore_merchandise_stock === 'no') {
+                $order->update_meta_data('_batllie_skip_box_stock_restoration', 'yes');
+                $order->update_meta_data('_batllie_box_stock_deducted', 'kept_deducted');
+                $order->update_meta_data('_caja_stock_restored_refund', 'no');
+                $order->add_order_note(__('Devolución procesada SIN retorno de mercadería. El inventario de productos se mantiene descontado.', 'emp-caja'));
+                self::add_timeline_event($order, __('Devolución sin retorno de mercadería (stock no reincorporado)', 'emp-caja'), '🚫', 'status');
+                $order->save();
+            } else {
+                $order->delete_meta_data('_batllie_skip_box_stock_restoration');
+                if ($order->get_meta('_batllie_box_stock_deducted') === 'kept_deducted') {
+                    $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
+                }
+                $order->save();
+
+                // Reintegrar stock de productos vendidos al reembolsar
+                if ($order->get_meta('_caja_stock_restored_refund') !== 'yes') {
+                    $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
+                    $now_dt = new DateTime('now', $tz);
+                    $date_formatted = $now_dt->format('d/m/Y H:i');
+
+                    $restored_items_count = 0;
+                    foreach ($order->get_items() as $item) {
+                        $product = $item->get_product();
+                        if (!$product) continue;
+                        $qty = $item->get_quantity();
+                        if ($qty <= 0) continue;
+
+                        $prod_id = $product->get_id();
+                        if ($product->managing_stock()) {
+                            $stock_before = $product->get_stock_quantity();
+                            $new_stock = wc_update_product_stock($product, $qty, 'increase');
+                            $restored_items_count++;
+
+                            $hist = get_post_meta($prod_id, '_caja_stock_history', true);
+                            if (!is_array($hist)) $hist = array();
+                            $entry = array(
+                                'timestamp'      => time(),
+                                'date_formatted' => $date_formatted,
+                                'mode'           => 'add',
+                                'quantity'       => $qty,
+                                'old_stock'      => $stock_before,
+                                'new_stock'      => $new_stock,
+                                'note'           => sprintf(__('Reintegro por Devolución de Pedido #%s', 'emp-caja'), $order->get_order_number()),
+                                'user'           => $user_name
+                            );
+                            array_unshift($hist, $entry);
+                            if (count($hist) > 60) $hist = array_slice($hist, 0, 60);
+                            update_post_meta($prod_id, '_caja_stock_history', $hist);
+                        }
+                    }
+
+                    // Restaurar empaques dinámicos si se usaron
+                    $used_packaging = $order->get_meta('_caja_order_packaging');
+                    if (is_array($used_packaging)) {
+                        foreach ($used_packaging as $pkg_item) {
+                            $pkg_id = isset($pkg_item['id']) ? intval($pkg_item['id']) : 0;
+                            $pkg_qty = isset($pkg_item['qty']) ? intval($pkg_item['qty']) : 0;
+                            if ($pkg_id > 0 && $pkg_qty > 0) {
+                                $pkg_prod = wc_get_product($pkg_id);
+                                if ($pkg_prod && $pkg_prod->managing_stock()) {
+                                    $pkg_stock_before = $pkg_prod->get_stock_quantity();
+                                    $pkg_new_stock = wc_update_product_stock($pkg_prod, $pkg_qty, 'increase');
+                                    $hist = get_post_meta($pkg_id, '_caja_stock_history', true);
+                                    if (!is_array($hist)) $hist = array();
+                                    $entry = array(
+                                        'timestamp'      => time(),
+                                        'date_formatted' => $date_formatted,
+                                        'mode'           => 'add',
+                                        'quantity'       => $pkg_qty,
+                                        'old_stock'      => $pkg_stock_before,
+                                        'new_stock'      => $pkg_new_stock,
+                                        'note'           => sprintf(__('Reintegro de empaque por Devolución #%s', 'emp-caja'), $order->get_order_number()),
+                                        'user'           => $user_name
+                                    );
+                                    array_unshift($hist, $entry);
+                                    if (count($hist) > 60) $hist = array_slice($hist, 0, 60);
+                                    update_post_meta($pkg_id, '_caja_stock_history', $hist);
+                                }
+                            }
+                        }
+                    }
+
+                    $order->update_meta_data('_caja_stock_restored_refund', 'yes');
+                    $order->add_order_note(sprintf(__('Stock de productos (%d items) reincorporado exitosamente por devolución.', 'emp-caja'), $restored_items_count));
+                    self::add_timeline_event($order, sprintf(__('Mercadería reincorporada al inventario (%d items)', 'emp-caja'), $restored_items_count), '📦', 'status');
+                }
+            }
+
+            // 2. GESTIÓN DEL ORIGEN DEL DINERO DE LA DEVOLUCIÓN
+            if ($money_source === 'cash_box' && !empty($cash_box_id) && class_exists('Batllie_Caja_Register')) {
+                $box = Batllie_Caja_Register::get_money_box_by_id($cash_box_id);
+                $box_name = $box ? $box['name'] : $cash_box_id;
+                $concept = sprintf(__('Devolución Pedido #%s (%s)', 'emp-caja'), $order->get_order_number(), ($restore_merchandise_stock === 'yes' ? __('Con retorno de mercadería', 'emp-caja') : __('Sin retorno de mercadería', 'emp-caja')));
+                $notes = !empty($refund_note) ? $refund_note : sprintf(__('Reembolso de dinero en efectivo de Pedido #%s', 'emp-caja'), $order->get_order_number());
+
+                Batllie_Caja_Register::add_cash_movement($cash_box_id, 'cash_out', $refund_amount, $concept, $notes, $user_id, $order->get_id());
+
+                $order->update_meta_data('_caja_refund_money_source', 'cash_box');
+                $order->update_meta_data('_caja_refund_cash_box_id', $cash_box_id);
+                $order->update_meta_data('_caja_refund_cash_box_name', $box_name);
+                $order->update_meta_data('_caja_refund_amount', $refund_amount);
+
+                $order->add_order_note(sprintf(__('Devolución de dinero: Descontado $%s de la caja en efectivo "%s". Generado egreso en historial de movimientos.', 'emp-caja'), number_format($refund_amount, 2, ',', '.'), $box_name));
+                self::add_timeline_event($order, sprintf(__('Dinero devuelto de caja "%s": $%s', 'emp-caja'), $box_name, number_format($refund_amount, 2, ',', '.')), '💵', 'status');
+            } elseif ($money_source === 'transfer' && class_exists('Batllie_Caja_Register')) {
+                $session_id = intval($order->get_meta('_caja_session_id') ?: 0);
+                $session_code = (string) $order->get_meta('_caja_session_code');
+                $concept = sprintf(__('Devolución Pedido #%s (Transferencia)', 'emp-caja'), $order->get_order_number());
+
+                Batllie_Caja_Register::record_movement(array(
+                    'cash_box_id'    => 'transfer',
+                    'cash_box_name'  => __('Cuenta Transferencia', 'emp-caja'),
+                    'session_id'     => $session_id,
+                    'session_code'   => $session_code,
+                    'user_id'        => $user_id,
+                    'user_name'      => $user_name,
+                    'type'           => 'cash_out',
+                    'concept'        => $concept,
+                    'amount'         => $refund_amount,
+                    'cash_flow'      => 0.00,
+                    'payment_method' => 'transferencia',
+                    'balance_after'  => 0.00,
+                    'order_id'       => $order->get_id(),
+                    'metadata'       => array(
+                        'refund_note'   => $refund_note,
+                        'restore_stock' => $restore_merchandise_stock
+                    ),
+                    'created_at'     => current_time('mysql'),
+                ));
+
+                if ($session_id > 0) {
+                    global $wpdb;
+                    $sessions_table = Batllie_Caja_Register::get_table_name();
+                    $wpdb->query($wpdb->prepare(
+                        "UPDATE $sessions_table SET transfer_sales = GREATEST(0, transfer_sales - %f) WHERE id = %d",
+                        $refund_amount, $session_id
+                    ));
+                }
+
+                $order->update_meta_data('_caja_refund_money_source', 'transfer');
+                $order->update_meta_data('_caja_refund_amount', $refund_amount);
+                $order->add_order_note(sprintf(__('Devolución de dinero: Descontado $%s de la Cuenta de Transferencias.', 'emp-caja'), number_format($refund_amount, 2, ',', '.')));
+                self::add_timeline_event($order, sprintf(__('Dinero devuelto de cuenta de transferencia: $%s', 'emp-caja'), number_format($refund_amount, 2, ',', '.')), '📱', 'status');
+            } else {
+                $order->update_meta_data('_caja_refund_money_source', 'none');
+                $order->update_meta_data('_caja_refund_amount', $refund_amount);
+                $order->add_order_note(sprintf(__('Devolución de dinero ($%s) registrada SIN modificar saldo de ninguna caja ni cuenta.', 'emp-caja'), number_format($refund_amount, 2, ',', '.')));
+                self::add_timeline_event($order, sprintf(__('Devolución registrada sin alterar cuentas ($%s)', 'emp-caja'), number_format($refund_amount, 2, ',', '.')), '⚖️', 'status');
+            }
+
+            $order->update_meta_data('_caja_payment_status', 'devolucion');
+            $order->save();
+        } elseif ($clean_status === 'cancelled') {
             if ($restore_box_stock === 'no') {
                 $order->update_meta_data('_batllie_skip_box_stock_restoration', 'yes');
                 $order->update_meta_data('_batllie_box_stock_deducted', 'kept_deducted');
                 $order->save();
-            } elseif ($restore_box_stock === 'yes' || $clean_status === 'refunded') {
+            } else {
                 $order->delete_meta_data('_batllie_skip_box_stock_restoration');
-                // Si estaba en 'kept_deducted', permitir que se restaure cambiando a 'yes' temporalmente
                 if ($order->get_meta('_batllie_box_stock_deducted') === 'kept_deducted') {
                     $order->update_meta_data('_batllie_box_stock_deducted', 'yes');
                 }
                 $order->save();
             }
-
-            // Reintegrar stock de productos vendidos al reembolsar
-            if ($clean_status === 'refunded' && $order->get_meta('_caja_stock_restored_refund') !== 'yes') {
-                $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
-                $now_dt = new DateTime('now', $tz);
-                $date_formatted = $now_dt->format('d/m/Y H:i');
-                $user_obj = wp_get_current_user();
-                $user_name = ($user_obj && $user_obj->exists()) ? $user_obj->display_name : __('Cajero POS', 'emp-caja');
-
-                $restored_items_count = 0;
-                foreach ($order->get_items() as $item) {
-                    $product = $item->get_product();
-                    if (!$product) continue;
-                    $qty = $item->get_quantity();
-                    if ($qty <= 0) continue;
-
-                    $prod_id = $product->get_id();
-                    if ($product->managing_stock()) {
-                        $stock_before = $product->get_stock_quantity();
-                        $new_stock = wc_update_product_stock($product, $qty, 'increase');
-                        $restored_items_count++;
-
-                        $hist = get_post_meta($prod_id, '_caja_stock_history', true);
-                        if (!is_array($hist)) $hist = array();
-                        $entry = array(
-                            'timestamp'      => time(),
-                            'date_formatted' => $date_formatted,
-                            'mode'           => 'add',
-                            'quantity'       => $qty,
-                            'old_stock'      => $stock_before,
-                            'new_stock'      => $new_stock,
-                            'note'           => sprintf(__('Reintegro por Reembolso de Venta #%d', 'emp-caja'), $order->get_id()),
-                            'user'           => $user_name
-                        );
-                        array_unshift($hist, $entry);
-                        if (count($hist) > 60) $hist = array_slice($hist, 0, 60);
-                        update_post_meta($prod_id, '_caja_stock_history', $hist);
-                    }
-                }
-
-                // Restaurar empaques dinámicos si se usaron
-                $used_packaging = $order->get_meta('_caja_order_packaging');
-                if (is_array($used_packaging)) {
-                    foreach ($used_packaging as $pkg_item) {
-                        $pkg_id = isset($pkg_item['id']) ? intval($pkg_item['id']) : 0;
-                        $pkg_qty = isset($pkg_item['qty']) ? intval($pkg_item['qty']) : 0;
-                        if ($pkg_id > 0 && $pkg_qty > 0) {
-                            $pkg_prod = wc_get_product($pkg_id);
-                            if ($pkg_prod && $pkg_prod->managing_stock()) {
-                                $pkg_stock_before = $pkg_prod->get_stock_quantity();
-                                $pkg_new_stock = wc_update_product_stock($pkg_prod, $pkg_qty, 'increase');
-                                $hist = get_post_meta($pkg_id, '_caja_stock_history', true);
-                                if (!is_array($hist)) $hist = array();
-                                $entry = array(
-                                    'timestamp'      => time(),
-                                    'date_formatted' => $date_formatted,
-                                    'mode'           => 'add',
-                                    'quantity'       => $pkg_qty,
-                                    'old_stock'      => $pkg_stock_before,
-                                    'new_stock'      => $pkg_new_stock,
-                                    'note'           => sprintf(__('Reintegro de empaque por Reembolso #%d', 'emp-caja'), $order->get_id()),
-                                    'user'           => $user_name
-                                );
-                                array_unshift($hist, $entry);
-                                if (count($hist) > 60) $hist = array_slice($hist, 0, 60);
-                                update_post_meta($pkg_id, '_caja_stock_history', $hist);
-                            }
-                        }
-                    }
-                }
-
-                $order->update_meta_data('_caja_stock_restored_refund', 'yes');
-                $order->add_order_note(sprintf(__('Stock de productos (%d items) reintegrado exitosamente por Reembolso.', 'emp-caja'), $restored_items_count));
-            }
-
-            $order->update_meta_data('_caja_payment_status', 'devolucion');
-            $order->save();
         } elseif ($clean_status === 'completed' && $order->get_meta('_caja_stock_restored_refund') === 'yes') {
             // Si se vuelve a Completado habiendo sido reembolsado previamente, re-deducir el stock
             $tz = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('America/Argentina/Buenos_Aires');
