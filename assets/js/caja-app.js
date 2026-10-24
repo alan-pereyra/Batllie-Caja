@@ -1807,7 +1807,7 @@ $('#caja-modal-new-product').fadeIn(200);
             // ==========================================
             // EVENTOS: CONTROL DE CAJAS (ADMINISTRADOR Y ENCARGADO)
             // ==========================================
-            $(document).on('click', '#caja-reg-btn-refresh, #caja-reg-btn-apply-filters', function(e) {
+            $(document).on('click', '#caja-reg-btn-refresh, .caja-reg-btn-refresh-live, #caja-reg-btn-apply-filters', function(e) {
                 e.preventDefault();
                 const $btn = $(this);
                 $btn.addClass('is-spinning');
